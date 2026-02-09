@@ -24,7 +24,6 @@
     "lucide-react": "^0.563.0"
   },
   "devDependencies": {
-    "@extension/tsconfig": "workspace:*",
     "@extension/vite-config": "workspace:*"
   }
 }

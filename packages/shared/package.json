@@ -21,7 +21,6 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@extension/tsconfig": "workspace:*",
     "type-fest": "^5.4.3"
   }
 }

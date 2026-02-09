@@ -22,8 +22,5 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.52.0"
-  },
-  "devDependencies": {
-    "@extension/tsconfig": "workspace:*"
   }
 }

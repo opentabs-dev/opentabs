@@ -28,7 +28,6 @@
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
-    "@extension/tsconfig": "workspace:*",
     "tsc-alias": "^1.8.16"
   }
 }

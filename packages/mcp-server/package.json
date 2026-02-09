@@ -48,7 +48,6 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@extension/tsconfig": "workspace:*",
     "@types/express": "^5.0.3",
     "@types/ws": "^8.18.1"
   }

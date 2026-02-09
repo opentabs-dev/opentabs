@@ -5,7 +5,8 @@
   "compilerOptions": {
     "noImplicitAny": false,
     "noEmit": false,
-    "target": "ESNext"
+    "target": "ESNext",
+    "types": ["node"]
   },
   "include": ["eslint.config.ts"]
 }

@@ -22,7 +22,6 @@
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@extension/tsconfig": "workspace:*",
     "@extension/dev-utils": "workspace:*",
     "@extension/env": "workspace:*"
   }
