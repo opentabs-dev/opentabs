@@ -1,0 +1,51 @@
+{
+  "mcpServers": {
+    "opentabs": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:3000/mcp",
+      "alwaysAllow": [
+        "slack_send_message",
+        "slack_read_messages",
+        "slack_read_thread",
+        "slack_reply_to_thread",
+        "slack_react_to_message",
+        "slack_update_message",
+        "slack_delete_message",
+        "slack_open_dm",
+        "slack_create_channel",
+        "slack_archive_channel",
+        "slack_unarchive_channel",
+        "slack_set_channel_topic",
+        "slack_set_channel_purpose",
+        "slack_invite_to_channel",
+        "slack_kick_from_channel",
+        "slack_rename_channel",
+        "slack_join_channel",
+        "slack_leave_channel",
+        "slack_list_channels",
+        "slack_get_channel_info",
+        "slack_list_channel_members",
+        "slack_get_workspace_info",
+        "slack_get_user_info",
+        "slack_list_users",
+        "slack_get_my_profile",
+        "slack_search_messages",
+        "slack_search_files",
+        "slack_search_users",
+        "slack_get_file_info",
+        "slack_list_files",
+        "slack_remove_reaction",
+        "slack_get_reactions",
+        "slack_star_message",
+        "slack_star_file",
+        "slack_unstar_message",
+        "slack_unstar_file",
+        "slack_list_stars",
+        "slack_pin_message",
+        "slack_unpin_message",
+        "slack_list_pins"
+      ],
+      "disabled": false
+    }
+  }
+}

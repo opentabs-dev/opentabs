@@ -1,0 +1,2 @@
+bunx lint-staged --allow-empty
+bun run knip

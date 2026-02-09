@@ -1,0 +1,5 @@
+@import '../../../packages/ui/theme.css';
+
+/* Include source files for Tailwind class detection */
+@source '../../../packages/ui/components/**/*.tsx';
+@source './**/*.tsx';

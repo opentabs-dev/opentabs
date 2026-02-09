@@ -1,0 +1,55 @@
+{
+  "name": "opentabs-mcp",
+  "version": "0.5.0",
+  "description": "Turns tabs into tools",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "opentabs-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "mcp",
+    "slack",
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "llm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nichochar/opentabs"
+  },
+  "license": "MIT",
+  "author": "Anthropic",
+  "scripts": {
+    "clean": "rimraf dist node_modules",
+    "clean:dist": "rimraf dist",
+    "clean:node_modules": "rimraf node_modules",
+    "build": "tsc -p tsconfig.build.json",
+    "rebuild": "bun run clean:dist && bun run build",
+    "dev": "bun --hot src/index.ts",
+    "dev:watch": "tsc --watch",
+    "start": "bun run dist/index.js",
+    "lint": "eslint .",
+    "lint:fix": "bun run lint --fix",
+    "format": "prettier . --write --ignore-path ../../.prettierignore",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@extension/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "express": "^5.1.0",
+    "open": "^11.0.0",
+    "ws": "^8.19.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@extension/tsconfig": "workspace:*",
+    "@types/express": "^5.0.3",
+    "@types/ws": "^8.18.1"
+  }
+}

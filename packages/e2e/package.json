@@ -1,0 +1,23 @@
+{
+  "name": "@extension/e2e",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "e2e": "bun playwright test",
+    "e2e:headed": "bun playwright test --headed",
+    "e2e:debug": "bun playwright test --debug",
+    "e2e:ui": "bun playwright test --ui",
+    "lint": "eslint .",
+    "lint:fix": "bun run lint --fix",
+    "format": "prettier . --write --ignore-path ../../.prettierignore",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@extension/tsconfig": "workspace:*",
+    "@playwright/test": "^1.52.0",
+    "@types/ws": "^8.18.1",
+    "ws": "^8.19.0",
+    "get-port": "^7.1.0"
+  }
+}

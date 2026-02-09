@@ -1,0 +1,26 @@
+{
+  "name": "@extension/vite-config",
+  "version": "0.5.0",
+  "description": "chrome extension - vite base configuration",
+  "type": "module",
+  "private": true,
+  "sideEffects": true,
+  "types": "index.mts",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "scripts": {
+    "clean:node_modules": "rimraf node_modules",
+    "clean:bundle": "rimraf dist",
+    "clean": "bun run clean:bundle && bun run clean:node_modules",
+    "ready": "tsc -b"
+  },
+  "dependencies": {
+    "@extension/env": "workspace:*"
+  },
+  "devDependencies": {
+    "@extension/hmr": "workspace:*",
+    "@extension/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "^4.1.18",
+    "@vitejs/plugin-react-swc": "^4.2.3"
+  }
+}

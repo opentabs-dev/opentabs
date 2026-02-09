@@ -1,0 +1,47 @@
+// Types for service managers
+import type { ServiceId, ServiceConnection, JsonRpcRequest, JsonRpcResponse } from '@extension/shared';
+
+// Re-export ServiceId from shared
+export type { ServiceId } from '@extension/shared';
+
+/**
+ * Common context needed by service controllers.
+ * Passed in to provide dependencies without circular imports.
+ */
+export interface ServiceManagerContext {
+  /** Send data via WebSocket */
+  sendViaWebSocket: (data: unknown) => Promise<void>;
+  /** Update badge/icon status */
+  updateBadge: () => Promise<void>;
+  /** Save connection state to storage */
+  saveConnectionState: () => Promise<void>;
+}
+
+/**
+ * Interface for all service controllers.
+ * Each service-environment combination has its own instance.
+ */
+export interface ServiceManager {
+  /** The service ID this manager handles */
+  readonly serviceId: ServiceId;
+  /** Find and connect to existing tabs for this service */
+  findTabs: () => Promise<void>;
+  /** Handle tab disconnection and find replacement */
+  handleDisconnect: (closedTabId?: number) => Promise<void>;
+  /** Handle tab ready message from content script */
+  handleTabReady: (tabId: number, tabUrl: string) => void;
+  /** Handle tab load completion - try to reconnect when a service tab finishes loading */
+  handleTabLoadComplete: (tabId: number, url: string) => void;
+  /** Focus the connected tab */
+  focusTab: () => Promise<{ success: boolean; error?: string }>;
+  /** Get the current tab ID */
+  getTabId: () => number | null;
+  /** Check if connected */
+  isConnected: () => boolean;
+  /** Run a health check on the service session */
+  checkSession: () => Promise<boolean>;
+  /** Get the connection status object for this service */
+  getConnectionStatus: () => ServiceConnection;
+  /** Handle an incoming JSON-RPC request from MCP */
+  handleRequest: (request: JsonRpcRequest) => Promise<JsonRpcResponse>;
+}

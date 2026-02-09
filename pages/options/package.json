@@ -1,0 +1,30 @@
+{
+  "name": "@extension/options",
+  "version": "0.5.0",
+  "description": "chrome extension - options page",
+  "type": "module",
+  "private": true,
+  "sideEffects": true,
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "clean:node_modules": "rimraf node_modules",
+    "clean": "bun run clean:node_modules",
+    "build": "vite build",
+    "dev": "vite build --mode development",
+    "lint": "eslint .",
+    "lint:fix": "bun run lint --fix",
+    "format": "prettier . --write --ignore-path ../../.prettierignore",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@extension/shared": "workspace:*",
+    "@extension/ui": "workspace:*",
+    "lucide-react": "^0.563.0"
+  },
+  "devDependencies": {
+    "@extension/tsconfig": "workspace:*",
+    "@extension/vite-config": "workspace:*"
+  }
+}

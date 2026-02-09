@@ -1,0 +1,26 @@
+# dependencies
+**/node_modules
+
+# testing
+**/coverage
+**/playwright-report
+**/test-results
+
+# build
+**/dist
+**/build
+**/dist-zip
+**/*.tsbuildinfo
+chrome-extension/manifest.js
+
+# env
+**/.env.*
+**/.env
+
+# etc
+.DS_Store
+.idea
+**/.turbo
+
+# compiled
+**/tailwind-output.css

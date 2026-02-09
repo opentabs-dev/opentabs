@@ -1,0 +1,11 @@
+[install]
+# Save the lockfile
+save = true
+
+[install.scopes]
+# Hoist @testing-library/dom to root for proper resolution
+"@testing-library" = { hoist = true }
+
+[run]
+# Use bun for running scripts
+bun = true

@@ -1,0 +1,29 @@
+{
+  "name": "@extension/env",
+  "version": "0.5.0",
+  "description": "chrome extension - environment variables",
+  "type": "module",
+  "private": true,
+  "sideEffects": false,
+  "files": [
+    "dist/**"
+  ],
+  "types": "index.mts",
+  "main": "dist/index.mjs",
+  "scripts": {
+    "clean:bundle": "rimraf dist",
+    "clean:node_modules": "rimraf node_modules",
+    "clean": "bun run clean:bundle && bun run clean:node_modules",
+    "ready": "tsc -b",
+    "lint": "eslint .",
+    "lint:fix": "bun run lint --fix",
+    "format": "prettier . --write --ignore-path ../../.prettierignore",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dotenvx/dotenvx": "^1.52.0"
+  },
+  "devDependencies": {
+    "@extension/tsconfig": "workspace:*"
+  }
+}

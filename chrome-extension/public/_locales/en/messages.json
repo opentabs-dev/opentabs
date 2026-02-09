@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "OpenTabs",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "Turns tabs into tools",
+    "description": "Extension description"
+  }
+}
