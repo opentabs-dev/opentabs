@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -19,12 +19,10 @@ interface PinnedItem {
 }
 
 export const registerPinTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Pin a message to a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_pin_message',
     {
       description:
@@ -47,9 +45,7 @@ export const registerPinTools = (server: McpServer): Map<string, RegisteredTool>
   );
 
   // Unpin a message from a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_unpin_message',
     {
       description:
@@ -72,9 +68,7 @@ export const registerPinTools = (server: McpServer): Map<string, RegisteredTool>
   );
 
   // List pinned items in a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_list_pins',
     {
       description:

@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogLogsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Search logs
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_logs',
     {
       description: `Search Datadog logs with a query. Returns log events matching the query within the specified time range.

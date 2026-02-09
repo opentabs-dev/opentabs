@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -131,12 +131,10 @@ const getDeploymentsFromSpans = async (
 };
 
 export const registerDatadogDeploymentsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List deployments (DORA metrics)
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_deployments',
     {
       description: `List deployments for a service from Datadog's deployment tracking.
@@ -178,9 +176,7 @@ APM span version tags, showing unique versions seen in the time range.`,
   );
 
   // Get deployment by version
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_deployment',
     {
       description: `Get details about a specific deployment by version or commit.

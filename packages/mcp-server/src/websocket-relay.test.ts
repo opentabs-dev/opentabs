@@ -118,7 +118,7 @@ describe('WebSocketRelay', () => {
   describe('sendServiceRequest', () => {
     it('should throw when not connected', async () => {
       await expect(relay.sendServiceRequest('slack', { method: 'test.method' })).rejects.toThrow(
-        'Chrome extension not connected. Please open https://brex.slack.com in Chrome with the extension installed.',
+        'Chrome extension not connected. Please open Slack (https://brex.slack.com) in Chrome with the extension installed.',
       );
     });
   });

@@ -1,5 +1,12 @@
 import '@src/SidePanel.css';
-import { MessageTypes, PROJECT_URL_OBJECT, SERVICE_IDS, useCopyFeedback } from '@extension/shared';
+import {
+  MessageTypes,
+  PROJECT_URL_OBJECT,
+  SERVICE_IDS,
+  SERVICE_REGISTRY,
+  getServiceUrl,
+  useCopyFeedback,
+} from '@extension/shared';
 import {
   cn,
   RetroBadge,
@@ -13,7 +20,7 @@ import {
 } from '@extension/ui';
 import { MessageCircle, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { ConnectionStatus, ServiceConnection, ServiceId } from '@extension/shared';
+import type { ConnectionStatus, ServiceConnection } from '@extension/shared';
 
 // =============================================================================
 // Constants
@@ -40,26 +47,46 @@ const DEFAULT_CONNECTION: ServiceConnection = { connected: false };
 const DEFAULT_CONNECTION_STATUS: ConnectionStatus = {
   mcpConnected: false,
   services: Object.fromEntries(SERVICE_IDS.map(id => [id, { ...DEFAULT_CONNECTION }])) as Record<
-    ServiceId,
+    string,
     ServiceConnection
   >,
 };
 
-// Service URLs for disconnected state
-const SERVICE_URLS = {
-  slack: 'https://brex.slack.com',
-  datadog_production: 'https://brex-production.datadoghq.com',
-  datadog_staging: 'https://brex-staging.datadoghq.com',
-  sqlpad_production: 'https://sqlpad.production.brexapps.io',
-  sqlpad_staging: 'https://sqlpad.staging.brexapps.io',
-  logrocket: 'https://app.logrocket.com',
-  retool_production: 'https://retool-v3.infra.brexapps.io',
-  retool_staging: 'https://retool-v3.staging.infra.brexapps.io',
-  snowflake: 'https://app.snowflake.com',
-};
-
 // Fixed width for action buttons to ensure consistent alignment
 const ACTION_BUTTON_CLASS = 'w-[120px]';
+
+// =============================================================================
+// Data-driven service items derived from the registry
+// =============================================================================
+
+interface ServiceItem {
+  serviceId: string;
+  displayName: string;
+  iconName: string;
+  url: string;
+  isStaging: boolean;
+}
+
+/** Production service items (single-env + production of multi-env) */
+const PRODUCTION_ITEMS: ServiceItem[] = SERVICE_REGISTRY.map(def => {
+  const serviceId = def.environments.length === 1 ? def.type : `${def.type}_production`;
+  return {
+    serviceId,
+    displayName: def.displayName,
+    iconName: def.iconName,
+    url: getServiceUrl(serviceId),
+    isStaging: false,
+  };
+});
+
+/** Staging service items (only multi-env services) */
+const STAGING_ITEMS: ServiceItem[] = SERVICE_REGISTRY.filter(def => def.environments.includes('staging')).map(def => ({
+  serviceId: `${def.type}_staging`,
+  displayName: def.displayName,
+  iconName: def.iconName,
+  url: getServiceUrl(`${def.type}_staging`),
+  isStaging: true,
+}));
 
 // =============================================================================
 // Types
@@ -116,6 +143,33 @@ const StagingLabel = ({ name }: { name: string }) => (
       STG
     </RetroBadge>
   </span>
+);
+
+/** Render a single service item from the registry data */
+const ServiceConnectionItem = ({
+  item,
+  connection,
+  onFocusTab,
+  onOpenUrl,
+}: {
+  item: ServiceItem;
+  connection: ServiceConnection;
+  onFocusTab: (serviceId: string) => void;
+  onOpenUrl: (url: string) => void;
+}) => (
+  <ConnectionItem
+    icon={<img src={chrome.runtime.getURL(`icons/${item.iconName}.svg`)} alt={item.displayName} className="h-6 w-6" />}
+    disconnectedIcon={
+      <img src={chrome.runtime.getURL(`icons/${item.iconName}-gray.svg`)} alt={item.displayName} className="h-6 w-6" />
+    }
+    label={item.isStaging ? <StagingLabel name={item.displayName} /> : item.displayName}
+    connected={connection.connected}
+    action={
+      connection.connected
+        ? { label: 'Go to Tab', onClick: () => onFocusTab(item.serviceId) }
+        : { label: 'Open', onClick: () => onOpenUrl(item.url) }
+    }
+  />
 );
 
 // =============================================================================
@@ -205,12 +259,14 @@ const SidePanel = () => {
     chrome.runtime.sendMessage({ type: MessageTypes.OPEN_SERVER_FOLDER });
   };
 
-  const handleFocusTab = (serviceId: ServiceId) => {
+  const handleFocusTab = (serviceId: string) => {
     chrome.runtime.sendMessage({ type: MessageTypes.FOCUS_TAB, serviceId });
   };
 
   const relayIcon = <img src={chrome.runtime.getURL('icons/icon.svg')} alt="Connection" className="h-6 w-6" />;
   const relayGrayIcon = <img src={chrome.runtime.getURL('icons/icon-gray.svg')} alt="Connection" className="h-6 w-6" />;
+
+  const getConnection = (serviceId: string): ServiceConnection => status.services[serviceId] ?? DEFAULT_CONNECTION;
 
   return (
     <RetroTooltipProvider>
@@ -260,156 +316,47 @@ const SidePanel = () => {
               </RetroCard>
             </div>
 
-            {/* Production Services */}
+            {/* Production Services (data-driven) */}
             <div>
               <SectionLabel>Services</SectionLabel>
               <RetroCard>
                 <RetroCardContent className="py-0">
                   <div className="divide-border divide-y">
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/slack.svg')} alt="Slack" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/slack-gray.svg')} alt="Slack" className="h-6 w-6" />
-                      }
-                      label="Slack"
-                      connected={status.services.slack.connected}
-                      action={
-                        status.services.slack.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('slack') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.slack) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/datadog.svg')} alt="Datadog" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/datadog-gray.svg')} alt="Datadog" className="h-6 w-6" />
-                      }
-                      label="Datadog"
-                      connected={status.services.datadog_production.connected}
-                      action={
-                        status.services.datadog_production.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('datadog_production') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.datadog_production) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/sqlpad.svg')} alt="SQLPad" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/sqlpad-gray.svg')} alt="SQLPad" className="h-6 w-6" />
-                      }
-                      label="SQLPad"
-                      connected={status.services.sqlpad_production.connected}
-                      action={
-                        status.services.sqlpad_production.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('sqlpad_production') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.sqlpad_production) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={
-                        <img src={chrome.runtime.getURL('icons/logrocket.svg')} alt="LogRocket" className="h-6 w-6" />
-                      }
-                      disconnectedIcon={
-                        <img
-                          src={chrome.runtime.getURL('icons/logrocket-gray.svg')}
-                          alt="LogRocket"
-                          className="h-6 w-6"
-                        />
-                      }
-                      label="LogRocket"
-                      connected={status.services.logrocket.connected}
-                      action={
-                        status.services.logrocket.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('logrocket') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.logrocket) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/retool.svg')} alt="Retool" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/retool-gray.svg')} alt="Retool" className="h-6 w-6" />
-                      }
-                      label="Retool"
-                      connected={status.services.retool_production.connected}
-                      action={
-                        status.services.retool_production.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('retool_production') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.retool_production) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={
-                        <img src={chrome.runtime.getURL('icons/snowflake.svg')} alt="Snowflake" className="h-6 w-6" />
-                      }
-                      disconnectedIcon={
-                        <img
-                          src={chrome.runtime.getURL('icons/snowflake-gray.svg')}
-                          alt="Snowflake"
-                          className="h-6 w-6"
-                        />
-                      }
-                      label="Snowflake"
-                      connected={status.services.snowflake.connected}
-                      action={
-                        status.services.snowflake.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('snowflake') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.snowflake) }
-                      }
-                    />
+                    {PRODUCTION_ITEMS.map(item => (
+                      <ServiceConnectionItem
+                        key={item.serviceId}
+                        item={item}
+                        connection={getConnection(item.serviceId)}
+                        onFocusTab={handleFocusTab}
+                        onOpenUrl={openUrl}
+                      />
+                    ))}
                   </div>
                 </RetroCardContent>
               </RetroCard>
             </div>
 
-            {/* Staging Services */}
-            <div className="pb-2">
-              <SectionLabel>Staging</SectionLabel>
-              <RetroCard>
-                <RetroCardContent className="py-0">
-                  <div className="divide-border divide-y">
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/datadog.svg')} alt="Datadog" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/datadog-gray.svg')} alt="Datadog" className="h-6 w-6" />
-                      }
-                      label={<StagingLabel name="Datadog" />}
-                      connected={status.services.datadog_staging.connected}
-                      action={
-                        status.services.datadog_staging.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('datadog_staging') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.datadog_staging) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/sqlpad.svg')} alt="SQLPad" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/sqlpad-gray.svg')} alt="SQLPad" className="h-6 w-6" />
-                      }
-                      label={<StagingLabel name="SQLPad" />}
-                      connected={status.services.sqlpad_staging.connected}
-                      action={
-                        status.services.sqlpad_staging.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('sqlpad_staging') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.sqlpad_staging) }
-                      }
-                    />
-                    <ConnectionItem
-                      icon={<img src={chrome.runtime.getURL('icons/retool.svg')} alt="Retool" className="h-6 w-6" />}
-                      disconnectedIcon={
-                        <img src={chrome.runtime.getURL('icons/retool-gray.svg')} alt="Retool" className="h-6 w-6" />
-                      }
-                      label={<StagingLabel name="Retool" />}
-                      connected={status.services.retool_staging.connected}
-                      action={
-                        status.services.retool_staging.connected
-                          ? { label: 'Go to Tab', onClick: () => handleFocusTab('retool_staging') }
-                          : { label: 'Open', onClick: () => openUrl(SERVICE_URLS.retool_staging) }
-                      }
-                    />
-                  </div>
-                </RetroCardContent>
-              </RetroCard>
-            </div>
+            {/* Staging Services (data-driven) */}
+            {STAGING_ITEMS.length > 0 && (
+              <div className="pb-2">
+                <SectionLabel>Staging</SectionLabel>
+                <RetroCard>
+                  <RetroCardContent className="py-0">
+                    <div className="divide-border divide-y">
+                      {STAGING_ITEMS.map(item => (
+                        <ServiceConnectionItem
+                          key={item.serviceId}
+                          item={item}
+                          connection={getConnection(item.serviceId)}
+                          onFocusTab={handleFocusTab}
+                          onOpenUrl={openUrl}
+                        />
+                      ))}
+                    </div>
+                  </RetroCardContent>
+                </RetroCard>
+              </div>
+            )}
           </div>
         </div>
 

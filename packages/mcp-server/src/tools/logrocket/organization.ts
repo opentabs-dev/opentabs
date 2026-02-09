@@ -1,14 +1,12 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerLogrocketOrgTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List organizations
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_orgs',
     {
       description: `List all LogRocket organizations the current user has access to.
@@ -27,9 +25,7 @@ Returns organization details including slug, name, and plan information. Use the
   );
 
   // Get organization details
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_org',
     {
       description: `Get detailed information about a LogRocket organization.
@@ -56,9 +52,7 @@ Use this to get the orgSlug and appSlug values needed by all other LogRocket too
   );
 
   // List applications
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_apps',
     {
       description: `List all applications in a LogRocket organization.
@@ -81,9 +75,7 @@ Returns app details including slug, name, and configuration. Use the appSlug fro
   );
 
   // Get application details
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_app',
     {
       description: `Get detailed information about a specific LogRocket application.
@@ -111,9 +103,7 @@ Use this to understand how an application is instrumented and what data LogRocke
   );
 
   // List organization members
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_members',
     {
       description: `List members of a LogRocket organization.
@@ -148,9 +138,7 @@ Supports search by name or email and pagination. Use this to find who has access
   );
 
   // Get session usage histogram
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_session_usage',
     {
       description: `Get session usage histogram for a LogRocket organization. Shows session volume over time by SDK type (web/mobile).

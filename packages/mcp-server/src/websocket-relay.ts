@@ -1,4 +1,5 @@
 import { isJsonRpcResponse, isJsonRpcError } from './types.js';
+import { SERVICE_TIMEOUTS, SERVICE_DISPLAY_NAMES, getServiceUrl } from '@extension/shared';
 import open from 'open';
 import { WebSocketServer, WebSocket } from 'ws';
 import { dirname } from 'node:path';
@@ -8,26 +9,6 @@ import type { ServiceType } from '@extension/shared';
 const DEFAULT_PORT = 8765;
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const HEARTBEAT_TIMEOUT = 10000; // 10 seconds to respond
-
-/** Request timeout per service type (milliseconds) */
-const SERVICE_TIMEOUT: Record<ServiceType, number> = {
-  slack: 30000,
-  datadog: 60000,
-  sqlpad: 60000,
-  logrocket: 60000,
-  retool: 60000,
-  snowflake: 300000,
-};
-
-/** Display names used in "not connected" error messages */
-const SERVICE_DISPLAY_NAMES: Record<ServiceType, string> = {
-  slack: 'https://brex.slack.com',
-  datadog: 'Datadog',
-  sqlpad: 'SQLPad',
-  logrocket: 'https://app.logrocket.com',
-  retool: 'Retool',
-  snowflake: 'https://app.snowflake.com',
-};
 
 /** Default timeout for native services (browser, system) */
 const NATIVE_TIMEOUT_MS = 10000;
@@ -303,8 +284,8 @@ class WebSocketRelay {
       service,
       `${service}.${action}`,
       params,
-      SERVICE_TIMEOUT[service],
-      `Chrome extension not connected. Please open ${SERVICE_DISPLAY_NAMES[service]} in Chrome with the extension installed.`,
+      SERVICE_TIMEOUTS[service],
+      `Chrome extension not connected. Please open ${SERVICE_DISPLAY_NAMES[service]} (${getServiceUrl(service)}) in Chrome with the extension installed.`,
     );
   }
 
@@ -316,8 +297,8 @@ class WebSocketRelay {
       'slack',
       'slack.edgeApi',
       { endpoint, params, toolId },
-      SERVICE_TIMEOUT.slack,
-      `Chrome extension not connected. Please open ${SERVICE_DISPLAY_NAMES.slack} in Chrome with the extension installed.`,
+      SERVICE_TIMEOUTS.slack,
+      `Chrome extension not connected. Please open ${SERVICE_DISPLAY_NAMES.slack} (${getServiceUrl('slack')}) in Chrome with the extension installed.`,
     );
   }
 

@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogSLOTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List SLOs
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_slos',
     {
       description: `List Service Level Objectives (SLOs) in the organization.
@@ -108,9 +106,7 @@ Example tag filters:
   );
 
   // Get SLO by ID
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_slo',
     {
       description: `Get detailed information about a specific SLO by its ID.
@@ -145,9 +141,7 @@ Returns the full SLO definition including thresholds, query, and configuration.`
   );
 
   // Get SLO history
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_slo_history',
     {
       description: `Get the historical SLI data and error budget for an SLO over a time range.
@@ -264,9 +258,7 @@ This is useful for understanding SLO performance over time and tracking error bu
   );
 
   // Search SLOs
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_slos',
     {
       description: `Search for SLOs by name, tags, or other criteria.
@@ -327,9 +319,7 @@ Example searches:
   );
 
   // Get error budget status for SLOs
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_error_budget_status',
     {
       description: `Get error budget status for SLOs to understand reliability health.

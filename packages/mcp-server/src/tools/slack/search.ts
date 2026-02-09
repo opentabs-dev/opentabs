@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, sendSlackEdgeRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, sendSlackEdgeRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { SlackSearchResult, SlackUser } from './types.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerSearchTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Search messages
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_search_messages',
     {
       description: `Search for messages in Slack.
@@ -55,9 +53,7 @@ Supports sorting by relevance score or timestamp. Use this to find channel IDs, 
   );
 
   // Search files
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_search_files',
     {
       description: `Search for files in Slack.
@@ -99,9 +95,7 @@ Use file IDs from results with slack_get_file_info for full details, or slack_st
   );
 
   // Search users
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_search_users',
     {
       description: `Search for users in the Slack workspace by name or email.

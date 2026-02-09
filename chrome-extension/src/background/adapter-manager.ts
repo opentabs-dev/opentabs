@@ -18,7 +18,7 @@
  * 3. Add the built .iife.js to web_accessible_resources in manifest.ts
  */
 
-import { SERVICE_URL_PATTERNS } from '@extension/shared';
+import { SERVICE_REGISTRY } from '@extension/shared';
 import type { JsonRpcRequest, JsonRpcResponse, ServiceType } from '@extension/shared';
 
 /**
@@ -28,33 +28,20 @@ type AdapterName = ServiceType;
 
 /**
  * Map of adapter names to their built script paths and URL match patterns.
+ * Derived from SERVICE_REGISTRY — no manual enumeration needed.
  */
-const ADAPTER_CONFIG: Record<string, { script: string; matches: string[] }> = {
-  slack: {
-    script: 'adapters/slack.iife.js',
-    matches: SERVICE_URL_PATTERNS.slack,
-  },
-  datadog: {
-    script: 'adapters/datadog.iife.js',
-    matches: [...SERVICE_URL_PATTERNS.datadog_production, ...SERVICE_URL_PATTERNS.datadog_staging],
-  },
-  sqlpad: {
-    script: 'adapters/sqlpad.iife.js',
-    matches: [...SERVICE_URL_PATTERNS.sqlpad_production, ...SERVICE_URL_PATTERNS.sqlpad_staging],
-  },
-  logrocket: {
-    script: 'adapters/logrocket.iife.js',
-    matches: SERVICE_URL_PATTERNS.logrocket,
-  },
-  retool: {
-    script: 'adapters/retool.iife.js',
-    matches: [...SERVICE_URL_PATTERNS.retool_production, ...SERVICE_URL_PATTERNS.retool_staging],
-  },
-  snowflake: {
-    script: 'adapters/snowflake.iife.js',
-    matches: SERVICE_URL_PATTERNS.snowflake,
-  },
-};
+const ADAPTER_CONFIG: Record<string, { script: string; matches: string[] }> = Object.fromEntries(
+  SERVICE_REGISTRY.map(def => {
+    const allPatterns = Object.values(def.urlPatterns).flat();
+    return [
+      def.type,
+      {
+        script: `adapters/${def.type}.iife.js`,
+        matches: [...allPatterns],
+      },
+    ];
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // Registration

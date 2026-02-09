@@ -1,3 +1,4 @@
+import { SERVICE_REGISTRY } from '@extension/shared';
 import { readFileSync } from 'node:fs';
 import type { ManifestType } from '@extension/shared';
 
@@ -5,25 +6,42 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
 
 /**
  * OpenTabs - Chrome Extension
- * Connects MCP clients to Slack and Datadog via the authenticated web session
+ * Connects MCP clients to webapp services via the authenticated web session.
+ *
+ * Host permissions, content scripts, and web-accessible resources are
+ * generated from the centralized SERVICE_REGISTRY.
  */
+
+/** Convert wildcard URL patterns to https-only for manifest entries */
+const toHttps = (pattern: string): string => pattern.replace('*://', 'https://');
+
+/** Collect all URL patterns for a service across all environments */
+const allPatternsFor = (def: (typeof SERVICE_REGISTRY)[number]): string[] =>
+  Object.values(def.urlPatterns).flatMap(patterns => patterns.map(toHttps));
+
+/** Host permissions: use service-specific overrides when available, otherwise derive from URL patterns */
+const hostPermissions = SERVICE_REGISTRY.flatMap(def => def.hostPermissions ?? allPatternsFor(def));
+
+/** Content scripts: one entry per service, all using the same stub */
+const contentScripts = SERVICE_REGISTRY.map(def => ({
+  matches: allPatternsFor(def),
+  js: ['content/stub.iife.js'],
+  run_at: 'document_idle' as const,
+}));
+
+/** Web-accessible resources: one entry per adapter IIFE */
+const webAccessibleResources = SERVICE_REGISTRY.map(def => ({
+  resources: [`adapters/${def.type}.iife.js`],
+  matches: allPatternsFor(def),
+}));
+
 const manifest = {
   manifest_version: 3,
   default_locale: 'en',
   name: '__MSG_extensionName__',
   version: packageJson.version,
   description: '__MSG_extensionDescription__',
-  host_permissions: [
-    'https://*.slack.com/*',
-    'https://edgeapi.slack.com/*',
-    'https://*.datadoghq.com/*',
-    'https://sqlpad.production.brexapps.io/*',
-    'https://sqlpad.staging.brexapps.io/*',
-    'https://app.logrocket.com/*',
-    'https://retool-v3.infra.brexapps.io/*',
-    'https://retool-v3.staging.infra.brexapps.io/*',
-    'https://app.snowflake.com/*',
-  ],
+  host_permissions: hostPermissions,
   permissions: ['storage', 'scripting', 'tabs', 'alarms', 'offscreen', 'sidePanel'],
   background: {
     service_worker: 'background.js',
@@ -47,68 +65,8 @@ const manifest = {
     '48': 'icons/icon-48.png',
     '128': 'icons/icon-128.png',
   },
-  content_scripts: [
-    // All services use the minimal stub content script for chrome API access
-    // (PING/PONG health checks, TAB_READY notifications, visibility changes).
-    // Actual API logic runs in MAIN world adapters registered by adapter-manager.
-    {
-      matches: ['https://*.slack.com/*', 'https://app.slack.com/*'],
-      js: ['content/stub.iife.js'],
-      run_at: 'document_idle',
-    },
-    {
-      matches: ['https://*.datadoghq.com/*'],
-      js: ['content/stub.iife.js'],
-      run_at: 'document_idle',
-    },
-    {
-      matches: ['https://sqlpad.production.brexapps.io/*', 'https://sqlpad.staging.brexapps.io/*'],
-      js: ['content/stub.iife.js'],
-      run_at: 'document_idle',
-    },
-    {
-      matches: ['https://app.logrocket.com/*'],
-      js: ['content/stub.iife.js'],
-      run_at: 'document_idle',
-    },
-    {
-      matches: ['https://retool-v3.infra.brexapps.io/*', 'https://retool-v3.staging.infra.brexapps.io/*'],
-      js: ['content/stub.iife.js'],
-      run_at: 'document_idle',
-    },
-    {
-      matches: ['https://app.snowflake.com/*'],
-      js: ['content/stub.iife.js'],
-      run_at: 'document_idle',
-    },
-  ],
-  web_accessible_resources: [
-    // MAIN world adapters (registered via chrome.scripting.registerContentScripts)
-    {
-      resources: ['adapters/slack.iife.js'],
-      matches: ['https://*.slack.com/*', 'https://app.slack.com/*'],
-    },
-    {
-      resources: ['adapters/datadog.iife.js'],
-      matches: ['https://*.datadoghq.com/*'],
-    },
-    {
-      resources: ['adapters/sqlpad.iife.js'],
-      matches: ['https://sqlpad.production.brexapps.io/*', 'https://sqlpad.staging.brexapps.io/*'],
-    },
-    {
-      resources: ['adapters/logrocket.iife.js'],
-      matches: ['https://app.logrocket.com/*'],
-    },
-    {
-      resources: ['adapters/retool.iife.js'],
-      matches: ['https://retool-v3.infra.brexapps.io/*', 'https://retool-v3.staging.infra.brexapps.io/*'],
-    },
-    {
-      resources: ['adapters/snowflake.iife.js'],
-      matches: ['https://app.snowflake.com/*'],
-    },
-  ],
+  content_scripts: contentScripts,
+  web_accessible_resources: webAccessibleResources,
 } satisfies ManifestType;
 
 export default manifest;

@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { SlackMessage } from './types.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -27,12 +27,10 @@ const resolveUserToDmChannel = async (channel: string): Promise<string> => {
 };
 
 export const registerMessageTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Send a message to a channel or DM
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_send_message',
     {
       description:
@@ -56,9 +54,7 @@ export const registerMessageTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // Read messages from a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_read_messages',
     {
       description:
@@ -95,9 +91,7 @@ export const registerMessageTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // Read thread replies
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_read_thread',
     {
       description:
@@ -134,9 +128,7 @@ export const registerMessageTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // Reply to a thread
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_reply_to_thread',
     {
       description:
@@ -161,9 +153,7 @@ export const registerMessageTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // Add reaction to a message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_react_to_message',
     {
       description:
@@ -188,9 +178,7 @@ export const registerMessageTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // Update/edit an existing message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_update_message',
     {
       description:
@@ -221,9 +209,7 @@ export const registerMessageTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // Delete a message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_delete_message',
     {
       description:

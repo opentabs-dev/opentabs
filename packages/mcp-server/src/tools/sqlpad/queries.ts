@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -8,12 +8,10 @@ interface QueryColumn {
 }
 
 export const registerSqlpadQueriesTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Run a SQL query
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_run_query',
     {
       description: `Execute a SQL query on a database connection and return the results.
@@ -87,9 +85,7 @@ Note: Queries have a timeout (usually 5 minutes). For complex queries, consider 
   );
 
   // List saved queries
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_list_saved_queries',
     {
       description: `List saved SQL queries in SQLPad.
@@ -147,9 +143,7 @@ Use this to find and reuse previously saved queries.`,
   );
 
   // Get a saved query
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_get_saved_query',
     {
       description: `Get a saved SQL query by ID, including the full query text.

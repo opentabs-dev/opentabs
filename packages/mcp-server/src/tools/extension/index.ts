@@ -1,1 +1,5 @@
-export { registerExtensionReloadTools } from './reload.js';
+import { registerExtensionReloadTools } from './reload.js';
+
+export const registerTools = registerExtensionReloadTools;
+
+export { registerExtensionReloadTools };

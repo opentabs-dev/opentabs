@@ -1,14 +1,12 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerLogrocketChartTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List charts
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_charts',
     {
       description: `List custom metric charts in a LogRocket application.
@@ -35,9 +33,7 @@ Charts track metrics like:
   );
 
   // Get chart details
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_chart',
     {
       description: `Get the full configuration of a specific LogRocket chart.
@@ -68,9 +64,7 @@ Use chart IDs from logrocket_list_charts or logrocket_get_dashboard results.`,
   );
 
   // List dashboards
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_dashboards',
     {
       description: `List dashboards in a LogRocket application. Each dashboard groups related charts for a feature or workflow.
@@ -97,9 +91,7 @@ Use dashboard IDs with logrocket_get_dashboard for full details, or use chart ID
   );
 
   // Get dashboard details
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_dashboard',
     {
       description: `Get a specific LogRocket dashboard with its full chart listing and grid layout.

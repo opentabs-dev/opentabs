@@ -1,8 +1,30 @@
-// Shared types for service integrations (Slack, Datadog, etc.)
+// Shared types for service integrations
+
+// Re-export all service identity types and constants from the centralized registry
+export type { ServiceDefinition, ServiceType, ServiceId, ServiceEnv } from './registry.js';
+export {
+  SERVICE_REGISTRY,
+  SERVICE_IDS,
+  SERVICE_TYPES,
+  SERVICE_URL_PATTERNS,
+  SERVICE_DOMAINS,
+  SERVICE_TIMEOUTS,
+  SERVICE_DISPLAY_NAMES,
+  SINGLE_ENV_SERVICES,
+  getServiceType,
+  getServiceTypeFromHostname,
+  getServiceDefinition,
+  getServiceEnv,
+  getServiceUrl,
+} from './registry.js';
+
+// ============================================================================
+// JSON-RPC Types
+// ============================================================================
 
 /**
  * JSON-RPC 2.0 request format for all service communications.
- * Used for API calls and script execution across all services (Slack, Datadog, SQLPad).
+ * Used for API calls and script execution across all services.
  */
 export interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -120,113 +142,8 @@ export interface ToolPermissions {
 }
 
 // ============================================================================
-// Environment Types
+// Connection Status
 // ============================================================================
-
-/** Environment types for multi-environment services (Datadog, SQLPad) */
-export type ServiceEnv = 'production' | 'staging';
-
-// ============================================================================
-// Service Identifiers - Flat design where each service-environment is distinct
-// ============================================================================
-
-/**
- * All service identifiers. Each service-environment combination is a separate service.
- */
-export type ServiceId =
-  | 'slack'
-  | 'datadog_production'
-  | 'datadog_staging'
-  | 'sqlpad_production'
-  | 'sqlpad_staging'
-  | 'logrocket'
-  | 'retool_production'
-  | 'retool_staging'
-  | 'snowflake';
-
-/**
- * All service identifiers as an array (useful for iteration).
- */
-export const SERVICE_IDS: ServiceId[] = [
-  'slack',
-  'datadog_production',
-  'datadog_staging',
-  'sqlpad_production',
-  'sqlpad_staging',
-  'logrocket',
-  'retool_production',
-  'retool_staging',
-  'snowflake',
-];
-
-/** Service type (base service without environment suffix) */
-export type ServiceType = 'slack' | 'datadog' | 'sqlpad' | 'logrocket' | 'retool' | 'snowflake';
-
-/**
- * All service types as an array (useful for iteration and validation).
- */
-export const SERVICE_TYPES: ServiceType[] = ['slack', 'datadog', 'sqlpad', 'logrocket', 'retool', 'snowflake'];
-
-/**
- * Map from service ID to its base service type (for routing).
- */
-export const getServiceType = (serviceId: ServiceId): ServiceType => {
-  if (serviceId === 'slack') return 'slack';
-  if (serviceId.startsWith('datadog_')) return 'datadog';
-  if (serviceId.startsWith('sqlpad_')) return 'sqlpad';
-  if (serviceId === 'logrocket') return 'logrocket';
-  if (serviceId.startsWith('retool_')) return 'retool';
-  if (serviceId === 'snowflake') return 'snowflake';
-  return 'slack';
-};
-
-/**
- * Get service type from hostname by reverse lookup in SERVICE_DOMAINS.
- * Returns null if hostname doesn't match any known service.
- */
-export const getServiceTypeFromHostname = (hostname: string): ServiceType | null => {
-  for (const [serviceId, domain] of Object.entries(SERVICE_DOMAINS)) {
-    if (hostname.endsWith(domain) || hostname === domain) {
-      return getServiceType(serviceId as ServiceId);
-    }
-  }
-  return null;
-};
-
-// ============================================================================
-// Service URL Patterns - Single source of truth for tab detection
-// ============================================================================
-
-/**
- * URL patterns for chrome.tabs.query() by service ID.
- * These patterns mirror the manifest.json content_scripts matches.
- */
-export const SERVICE_URL_PATTERNS: Record<ServiceId, string[]> = {
-  slack: ['*://*.slack.com/*'],
-  datadog_production: ['*://brex-production.datadoghq.com/*'],
-  datadog_staging: ['*://brex-staging.datadoghq.com/*'],
-  sqlpad_production: ['*://sqlpad.production.brexapps.io/*'],
-  sqlpad_staging: ['*://sqlpad.staging.brexapps.io/*'],
-  logrocket: ['*://app.logrocket.com/*'],
-  retool_production: ['*://retool-v3.infra.brexapps.io/*'],
-  retool_staging: ['*://retool-v3.staging.infra.brexapps.io/*'],
-  snowflake: ['*://app.snowflake.com/*'],
-};
-
-/**
- * Domain identifiers for each service (used for URL matching).
- */
-export const SERVICE_DOMAINS: Record<ServiceId, string> = {
-  slack: '.slack.com',
-  datadog_production: 'brex-production.datadoghq.com',
-  datadog_staging: 'brex-staging.datadoghq.com',
-  sqlpad_production: 'sqlpad.production.brexapps.io',
-  sqlpad_staging: 'sqlpad.staging.brexapps.io',
-  logrocket: 'app.logrocket.com',
-  retool_production: 'retool-v3.infra.brexapps.io',
-  retool_staging: 'retool-v3.staging.infra.brexapps.io',
-  snowflake: 'app.snowflake.com',
-};
 
 /**
  * Connection status for a single service.
@@ -237,10 +154,6 @@ export interface ServiceConnection {
   tabId?: number;
   tabUrl?: string;
 }
-
-// ============================================================================
-// Connection Status - Flat structure for all services
-// ============================================================================
 
 /**
  * Overall connection status for all services in the extension.
@@ -256,5 +169,5 @@ export interface ConnectionStatus {
   serverPath?: string;
 
   /** Connection status for each service (keyed by ServiceId) */
-  services: Record<ServiceId, ServiceConnection>;
+  services: Record<string, ServiceConnection>;
 }

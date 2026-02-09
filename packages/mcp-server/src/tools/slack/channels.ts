@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, sendSlackEdgeRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, sendSlackEdgeRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { SlackChannel, SlackUser } from './types.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerChannelTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get channel info
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_get_channel_info',
     {
       description:
@@ -45,9 +43,7 @@ export const registerChannelTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // List channel members
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_list_channel_members',
     {
       description:
@@ -131,9 +127,7 @@ export const registerChannelTools = (server: McpServer): Map<string, RegisteredT
   );
 
   // List channels
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_list_channels',
     {
       description: `List channels in the Slack workspace.

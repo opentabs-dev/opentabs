@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogHostsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get host information
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_host_info',
     {
       description: `Get detailed information about a specific host.
@@ -182,9 +180,7 @@ Host names can be found in trace spans (hostname field) or log events.`,
   );
 
   // List hosts with filtering
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_hosts',
     {
       description: `List hosts in the Datadog infrastructure with optional filtering.
@@ -281,9 +277,7 @@ Useful for:
   );
 
   // Get hosts by service - find hosts running a specific service
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_hosts_by_service',
     {
       description: `Find all hosts running a specific service.
@@ -455,9 +449,7 @@ The search looks for hosts tagged with the service name (e.g., "service:<name>")
   );
 
   // Mute/unmute host
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_mute_host',
     {
       description: `Mute or unmute a host to suppress alerts.

@@ -1,18 +1,16 @@
 // Incidents API - Full incident management tools
 // Note: Some endpoints require the Incident Management feature to be enabled
 
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogIncidentsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List incidents
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_incidents',
     {
       description: `List incidents from Datadog Incident Management.
@@ -171,9 +169,7 @@ Note: Requires Incident Management feature. Returns empty if not enabled.`,
   );
 
   // Get specific incident
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_incident',
     {
       description: `Get detailed information about a specific incident.
@@ -350,9 +346,7 @@ Use this to get full context on an incident found in datadog_list_incidents.`,
   );
 
   // Search incidents
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_incidents',
     {
       description: `Search incidents by query string.
@@ -435,9 +429,7 @@ Example queries:
   );
 
   // List incident services
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_incident_services',
     {
       description: `List all services that have been configured for incident management. 

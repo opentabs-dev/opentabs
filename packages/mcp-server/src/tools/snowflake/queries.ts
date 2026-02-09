@@ -10,7 +10,7 @@ import {
   parseExecutionInfo,
 } from './format.js';
 import { createFileSession, appendToFile } from '../../file-store.js';
-import { sendServiceRequest, defineTool } from '../../utils.js';
+import { sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ToolResult } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -128,11 +128,9 @@ const fetchAllChunksToFile = async (raw: unknown): Promise<ToolResult> => {
 // ---------------------------------------------------------------------------
 
 export const registerSnowflakeQueryTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_run_query',
     {
       description: `Execute a SQL query in Snowflake via the web application's session.
@@ -191,9 +189,7 @@ Handles up to ~1M rows. Add LIMIT clauses for very large tables.`,
     },
   );
 
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_get_query',
     {
       description: `Get the status and results of a previously executed Snowflake query by its query ID.
@@ -218,9 +214,7 @@ Returns the same parsed format as snowflake_run_query: columns, rows (as named o
     },
   );
 
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_monitor_queries',
     {
       description: `Monitor currently running queries in Snowflake.

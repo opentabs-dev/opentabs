@@ -1,14 +1,12 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerLogrocketSegmentTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List segments
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_segments',
     {
       description: `List saved user segments in a LogRocket application. Segments are team-defined cohorts of users based on behavior, device, traits, or page visits.
@@ -35,9 +33,7 @@ Examples of segments teams typically create: "Mobile users", "Non-Brex admins", 
   );
 
   // Get segment details
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_segment',
     {
       description: `Get the full definition of a LogRocket segment, including all filter criteria.
@@ -65,9 +61,7 @@ Use this to understand exactly what criteria define a user cohort, which helps w
   );
 
   // List definitions (custom events/metrics)
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_definitions',
     {
       description: `List custom event and metric definitions in a LogRocket application. Definitions are named page or event patterns that LogRocket tracks — including page visits by URL, custom analytics events, and auto-detected error states.

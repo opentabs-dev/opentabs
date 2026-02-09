@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -15,12 +15,10 @@ const inferIssueIdType = (issueId: string): string => {
 };
 
 export const registerLogrocketIssueTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List issue groups
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_issues',
     {
       description: `List LogRocket issue groups for an application. Issues are automatically grouped errors and exceptions detected across sessions.
@@ -59,9 +57,7 @@ Use this to find recurring errors affecting users.`,
   );
 
   // Get issue group details
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_issue',
     {
       description: `Get detailed information about a specific LogRocket issue group.
@@ -89,9 +85,7 @@ Returns:
   );
 
   // Get AI issue analysis
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_issue_analysis',
     {
       description: `Get AI-powered analysis for a LogRocket issue. Uses LogRocket's Galileo AI to provide root cause analysis and suggested fixes.
@@ -128,9 +122,7 @@ Returns:
   );
 
   // Batch retrieve AI analyses for multiple issues (parallel single-issue calls)
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_batch_issue_analysis',
     {
       description: `Batch retrieve AI-powered analyses for multiple LogRocket issues at once. Fetches analyses in parallel for faster triage.
@@ -188,9 +180,7 @@ Provide issue IDs from logrocket_list_issues results.`,
   );
 
   // Get issue analysis by analysis ID (direct fetch)
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_issue_analysis_by_id',
     {
       description: `Get a specific AI issue analysis by its analysis ID. Use this when you already have the analysis ID (e.g., from a Galileo chat's issue_analysis.id field).
@@ -213,9 +203,7 @@ This is a direct fetch — faster than retrieve-by-issue-id when you already kno
   );
 
   // List issue filters
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_issue_filters',
     {
       description: `List saved issue filters in a LogRocket application. Filters are reusable search criteria that team members have saved for common issue views.

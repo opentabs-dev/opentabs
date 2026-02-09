@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolAppTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List pages/apps
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_apps',
     {
       description: `List all Retool applications (pages) with their metadata and folder structure.
@@ -63,9 +61,7 @@ Use the uuid from results with retool_get_app, retool_get_app_docs, retool_list_
   );
 
   // Get app by UUID
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_app',
     {
       description: `Get a Retool application's save data by UUID. Returns the page save record including serialized app state (Transit-encoded in page.data.appState), change history, and metadata. For a human-readable app lookup by path, use retool_lookup_app instead.`,
@@ -86,9 +82,7 @@ Use the uuid from results with retool_get_app, retool_get_app_docs, retool_list_
   );
 
   // Lookup page by path
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_lookup_app',
     {
       description: `Look up a Retool application by its URL path (e.g., "fraud/fraud"). Returns the full app state including components, queries, and configuration. Use this when you know the app's path but not its UUID.`,
@@ -110,9 +104,7 @@ Use the uuid from results with retool_get_app, retool_get_app_docs, retool_list_
   );
 
   // Get app documentation
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_app_docs',
     {
       description: `Get the documentation and usage notes for a Retool application. Returns the editor-written description that explains the app's purpose and usage.`,
@@ -133,9 +125,7 @@ Use the uuid from results with retool_get_app, retool_get_app_docs, retool_list_
   );
 
   // List app releases/versions
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_app_tags',
     {
       description: `List published version tags (releases) for a Retool application. Tags are named snapshots deployed to end users. Returns tag IDs, names, and creation timestamps.`,
@@ -156,9 +146,7 @@ Use the uuid from results with retool_get_app, retool_get_app_docs, retool_list_
   );
 
   // List page editor names
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_page_names',
     {
       description: `Get a lightweight list of all page/app names and UUIDs in the Retool organization. Faster and smaller than retool_list_apps — use this when you only need names and UUIDs, not full metadata.`,
@@ -178,9 +166,7 @@ Use the uuid from results with retool_get_app, retool_get_app_docs, retool_list_
   );
 
   // List page saves (edit history)
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_page_saves',
     {
       description:

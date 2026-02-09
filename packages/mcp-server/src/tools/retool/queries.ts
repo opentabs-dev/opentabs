@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolQueryTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List playground queries
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_queries',
     {
       description: `List saved queries in the Retool Query Playground.
@@ -58,9 +56,7 @@ Use query IDs from results with retool_get_query to see full SQL/code, or retool
   );
 
   // Get query latest save
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_query',
     {
       description: `Get the full SQL/code, configuration, and metadata for a saved Retool Query Playground query. Optionally specify a source control branch to view that version. Returns the complete query template.`,
@@ -83,9 +79,7 @@ Use query IDs from results with retool_get_query to see full SQL/code, or retool
   );
 
   // Get query usages
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_query_usages',
     {
       description: `Find which Retool apps and workflows reference a specific Query Playground query. Returns a list of page/workflow usages. Essential for impact analysis before modifying a shared query.`,

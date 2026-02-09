@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogMonitorsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List monitors
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_monitors',
     {
       description: `List all monitors in the Datadog organization with optional filtering.
@@ -51,9 +49,7 @@ Filter by name (partial match), tags, or monitor type. For structured search que
   );
 
   // Get monitor by ID
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_monitor',
     {
       description: `Get the full definition of a specific Datadog monitor by its ID.
@@ -86,9 +82,7 @@ Use monitor IDs from datadog_list_monitors or datadog_search_monitors.`,
   );
 
   // Search monitors
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_monitors',
     {
       description: `Search monitors using a query string.
@@ -123,9 +117,7 @@ Example queries:
   );
 
   // Delete monitor
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_delete_monitor',
     {
       description: `Delete a monitor by its ID.
@@ -159,9 +151,7 @@ Before deleting, consider:
   );
 
   // Mute monitor
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_mute_monitor',
     {
       description: `Mute a monitor to suppress alerts temporarily.
@@ -210,9 +200,7 @@ The monitor will automatically unmute after the specified end time.`,
   );
 
   // Unmute monitor
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_unmute_monitor',
     {
       description: `Unmute a previously muted monitor to resume alerting.
@@ -256,9 +244,7 @@ Use this when:
   );
 
   // Get monitor status
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_monitor_status',
     {
       description: `Get the current status of monitors with group-level state breakdowns.

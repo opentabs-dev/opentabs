@@ -1,4 +1,4 @@
-import { success, sendBrowserRequest, defineTool } from '../../utils.js';
+import { success, sendBrowserRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -22,12 +22,10 @@ interface ScriptResult {
 }
 
 export const registerBrowserTabsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List tabs
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_list_tabs',
     {
       description:
@@ -58,9 +56,7 @@ export const registerBrowserTabsTools = (server: McpServer): Map<string, Registe
   );
 
   // Get tab details
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_get_tab',
     {
       description:
@@ -78,9 +74,7 @@ export const registerBrowserTabsTools = (server: McpServer): Map<string, Registe
   );
 
   // Open a new tab
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_open_tab',
     {
       description:
@@ -101,9 +95,7 @@ export const registerBrowserTabsTools = (server: McpServer): Map<string, Registe
   );
 
   // Close tab(s)
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_close_tab',
     {
       description:
@@ -122,9 +114,7 @@ export const registerBrowserTabsTools = (server: McpServer): Map<string, Registe
   );
 
   // Navigate an existing tab to a new URL
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_navigate_tab',
     {
       description:
@@ -143,9 +133,7 @@ export const registerBrowserTabsTools = (server: McpServer): Map<string, Registe
   );
 
   // Focus a tab (activate + bring window to front)
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_focus_tab',
     {
       description:
@@ -162,9 +150,7 @@ export const registerBrowserTabsTools = (server: McpServer): Map<string, Registe
   );
 
   // Execute script in a tab's page context (MAIN world)
-  defineTool(
-    tools,
-    server,
+  define(
     'browser_execute_script',
     {
       description:

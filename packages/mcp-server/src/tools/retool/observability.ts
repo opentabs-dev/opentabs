@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolObservabilityTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Check if observability is enabled
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_check_observability',
     {
       description:
@@ -29,9 +27,7 @@ export const registerRetoolObservabilityTools = (server: McpServer): Map<string,
   );
 
   // Get app errors
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_app_errors',
     {
       description:

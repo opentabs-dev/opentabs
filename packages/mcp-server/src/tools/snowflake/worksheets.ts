@@ -1,13 +1,11 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerSnowflakeWorksheetTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List worksheets
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_list_worksheets',
     {
       description: `List saved Snowflake worksheets for the current user.
@@ -31,9 +29,7 @@ Worksheets are the SQL editor tabs in the Snowflake web UI.`,
   );
 
   // List folders
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_list_folders',
     {
       description: `List worksheet folders in Snowflake. Returns folder entities used to organize worksheets.`,
@@ -54,9 +50,7 @@ Worksheets are the SQL editor tabs in the Snowflake web UI.`,
   );
 
   // List files
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_list_files',
     {
       description: `List worksheet drafts with their full SQL content and execution context.

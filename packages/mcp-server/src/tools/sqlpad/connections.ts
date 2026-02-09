@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -15,12 +15,10 @@ interface SqlpadConnection {
 }
 
 export const registerSqlpadConnectionsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List all database connections
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_list_connections',
     {
       description: `List all available database connections in SQLPad.
@@ -81,9 +79,7 @@ Example usage:
   );
 
   // Get details about a specific connection
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_get_connection',
     {
       description: `Get detailed information about a specific database connection.

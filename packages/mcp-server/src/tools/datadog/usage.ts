@@ -1,14 +1,12 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogUsageTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get usage summary
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_usage_summary',
     {
       description: `Get Datadog usage summary statistics.
@@ -112,9 +110,7 @@ Useful for:
   );
 
   // Get hourly usage for logs
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_logs_usage',
     {
       description: `Get detailed hourly usage for log ingestion.
@@ -187,9 +183,7 @@ Useful for:
   );
 
   // Get usage attribution (top consumers)
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_usage_attribution',
     {
       description: `Get usage attribution by tag to understand cost allocation.

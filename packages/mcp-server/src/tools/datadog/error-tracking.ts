@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogErrorTrackingTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List error tracking issues
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_error_tracking_issues',
     {
       description: `List Error Tracking issues from Datadog.
@@ -213,9 +211,7 @@ searching APM error spans and grouping them by error type.`,
   );
 
   // Get specific error tracking issue details
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_error_tracking_issue',
     {
       description: `Get detailed information about errors matching a specific pattern.

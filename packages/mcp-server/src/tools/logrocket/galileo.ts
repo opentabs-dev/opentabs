@@ -1,14 +1,12 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerLogrocketGalileoTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List Galileo AI chats
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_galileo_chats',
     {
       description: `List Galileo AI analysis chats for a LogRocket application. Galileo is LogRocket's AI assistant that provides automated root cause analysis for issues and errors.
@@ -46,9 +44,7 @@ Use chat IDs with logrocket_get_galileo_chat to retrieve the full analysis.`,
   );
 
   // Get Galileo AI chat detail
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_galileo_chat',
     {
       description: `Get the full details of a Galileo AI analysis chat, including the AI-generated root cause analysis and recommendations.
@@ -77,9 +73,7 @@ Use logrocket_list_galileo_chats to find chat IDs.`,
   );
 
   // Create Galileo AI stream (ask a question)
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_create_galileo_stream',
     {
       description: `Ask LogRocket's Galileo AI a question about your application. Creates an AI analysis stream that processes the question asynchronously.
@@ -125,9 +119,7 @@ Returns the created stream ID and metadata.`,
   );
 
   // Get Galileo AI stream results
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_galileo_stream',
     {
       description: `Get the results of a Galileo AI analysis stream. Streams are processed asynchronously after creation with logrocket_create_galileo_stream.

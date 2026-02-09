@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -20,12 +20,10 @@ interface MessageWithReactions {
 }
 
 export const registerReactionTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Remove a reaction from a message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_remove_reaction',
     {
       description:
@@ -50,9 +48,7 @@ export const registerReactionTools = (server: McpServer): Map<string, Registered
   );
 
   // Get reactions for a message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_get_reactions',
     {
       description:

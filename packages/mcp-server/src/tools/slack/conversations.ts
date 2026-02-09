@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { SlackChannel } from './types.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -25,12 +25,10 @@ const getWorkspaceTeamId = async (): Promise<string | null> => {
 };
 
 export const registerConversationTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Open a DM with a user
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_open_dm',
     {
       description:
@@ -55,9 +53,7 @@ export const registerConversationTools = (server: McpServer): Map<string, Regist
   );
 
   // Create a new channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_create_channel',
     {
       description: `Create a new Slack channel.
@@ -93,9 +89,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Archive a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_archive_channel',
     {
       description:
@@ -116,9 +110,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Unarchive a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_unarchive_channel',
     {
       description:
@@ -139,9 +131,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Set channel topic
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_set_channel_topic',
     {
       description:
@@ -168,9 +158,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Set channel purpose
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_set_channel_purpose',
     {
       description:
@@ -197,9 +185,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Invite user(s) to a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_invite_to_channel',
     {
       description:
@@ -226,9 +212,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Remove a user from a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_kick_from_channel',
     {
       description:
@@ -251,9 +235,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Rename a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_rename_channel',
     {
       description:
@@ -282,9 +264,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Join a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_join_channel',
     {
       description:
@@ -310,9 +290,7 @@ Returns the new channel's ID and name. Channel names must be lowercase, max 80 c
   );
 
   // Leave a channel
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_leave_channel',
     {
       description:

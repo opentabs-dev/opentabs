@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolResourceTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List resources (data sources)
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_resources',
     {
       description: `List all data source resources (databases, APIs, GraphQL endpoints) configured in Retool.
@@ -54,9 +52,7 @@ Types include postgresql, restapi, graphql, retooldb, etc. Use retool_get_resour
   );
 
   // Get resource usage counts
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_resource_usage',
     {
       description: `Get usage counts showing which apps and workflows reference each data source resource.

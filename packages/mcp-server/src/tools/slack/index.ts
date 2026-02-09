@@ -11,7 +11,7 @@ import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server
 
 type ToolRegistrationFn = (server: McpServer) => Map<string, RegisteredTool>;
 
-export const registerSlackTools = (server: McpServer): Map<string, RegisteredTool> => {
+export const registerTools = (server: McpServer): Map<string, RegisteredTool> => {
   const tools = new Map<string, RegisteredTool>();
 
   const registrations: ToolRegistrationFn[] = [

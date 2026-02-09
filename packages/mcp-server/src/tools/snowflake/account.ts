@@ -1,13 +1,11 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerSnowflakeAccountTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get session/bootstrap info
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_get_session',
     {
       description: `Get the current Snowflake session context.
@@ -94,9 +92,7 @@ Use this to check which identity and role are active before running queries.`,
   );
 
   // Diagnose Snowflake page internals
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_diagnose',
     {
       description: `Diagnose the Snowflake browser adapter connection.

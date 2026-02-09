@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogDashboardsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List dashboards
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_dashboards',
     {
       description: `List all dashboards in the Datadog organization.
@@ -45,9 +43,7 @@ Use datadog_search_dashboards to filter by name, or datadog_get_dashboard with a
   );
 
   // Get dashboard by ID
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_dashboard',
     {
       description: `Get the full definition of a specific Datadog dashboard by its ID.
@@ -78,9 +74,7 @@ Use this to understand what metrics and queries a dashboard monitors. Dashboard 
   );
 
   // Search dashboards
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_dashboards',
     {
       description: `Search dashboards by title or description. Performs client-side filtering against all dashboards.

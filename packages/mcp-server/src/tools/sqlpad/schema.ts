@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -11,12 +11,10 @@ interface ColumnInfo {
 type SchemaInfo = Record<string, Record<string, ColumnInfo[]>>;
 
 export const registerSqlpadSchemaTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get database schema
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_get_schema',
     {
       description: `Get schema information for a database connection, including tables and columns.
@@ -120,9 +118,7 @@ This is useful for:
   );
 
   // List tables only (lighter weight than full schema)
-  defineTool(
-    tools,
-    server,
+  define(
     'sqlpad_list_tables',
     {
       description: `List all tables in a database connection without column details.

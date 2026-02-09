@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolFolderTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List branches
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_branches',
     {
       description: `List all source control branches in Retool.
@@ -50,9 +48,7 @@ Use branch names from results with retool_list_commits to see what changed on a 
   );
 
   // List user tasks (HITL)
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_user_tasks',
     {
       description: `List Human-in-the-Loop (HITL) tasks pending approval or input. Tasks are created by workflows that pause execution until a human responds. Returns task IDs, status, and associated workflow info.`,
@@ -71,9 +67,7 @@ Use branch names from results with retool_list_commits to see what changed on a 
   );
 
   // Get workflow usage stats
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflow_usage',
     {
       description: `Get workflow billing and usage statistics. Returns current billing period, total billable runs, and usage breakdown by organization.`,
@@ -92,9 +86,7 @@ Use branch names from results with retool_list_commits to see what changed on a 
   );
 
   // List HITL task definitions
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_task_definitions',
     {
       description:
@@ -114,9 +106,7 @@ Use branch names from results with retool_list_commits to see what changed on a 
   );
 
   // List vectors (RAG knowledge bases)
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_vectors',
     {
       description:
@@ -136,9 +126,7 @@ Use branch names from results with retool_list_commits to see what changed on a 
   );
 
   // List Retool Database grids
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_grids',
     {
       description:

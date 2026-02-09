@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogSyntheticsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List synthetics tests
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_synthetics_tests',
     {
       description: `List Synthetic monitoring tests.
@@ -120,9 +118,7 @@ Useful for:
   );
 
   // Get synthetics test details
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_synthetics_test',
     {
       description: `Get detailed information about a specific Synthetic test.
@@ -154,9 +150,7 @@ Use datadog_list_synthetics_tests to find test IDs.`,
   );
 
   // Get synthetics test results
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_synthetics_test_results',
     {
       description: `Get recent results for a Synthetic test.

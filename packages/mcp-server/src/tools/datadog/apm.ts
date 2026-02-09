@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -326,12 +326,10 @@ const summarizeTrace = (
 };
 
 export const registerDatadogApmTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Search traces
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_traces',
     {
       description: `Search APM traces/spans with a query. Returns spans matching the query within the specified time range.
@@ -396,9 +394,7 @@ not the hex format. The decimal trace ID can be found in log events or span sear
   );
 
   // Get trace by ID - Enhanced with internal API for complete span data
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_trace',
     {
       description: `Get comprehensive trace information including ALL spans, orphaned spans, and rich metadata.
@@ -547,9 +543,7 @@ IMPORTANT: Use the DECIMAL trace ID format (e.g., "8029474397976343229"), not he
   );
 
   // Get logs correlated with a trace
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_trace_logs',
     {
       description: `Get all logs correlated with a specific trace ID.
@@ -669,9 +663,7 @@ The decimal trace ID can be found in the "traceId" field of log search results o
   );
 
   // Get service summary - uses service dependencies endpoint
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_service_summary',
     {
       description: `Get service dependency map for a Datadog APM service.
@@ -713,9 +705,7 @@ Use this to understand the service topology — what depends on a service and wh
   );
 
   // List APM services
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_apm_services',
     {
       description: `List APM services from Datadog with their tracing status.
@@ -782,9 +772,7 @@ use datadog_list_services instead.`,
   );
 
   // Get specific span details
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_span',
     {
       description: `Get detailed information about a specific span within a trace.
@@ -853,9 +841,7 @@ Use this to drill into specific spans found in datadog_get_trace results.`,
   );
 
   // Get trace flame graph / timeline visualization
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_trace_flame_graph',
     {
       description: `Get a trace timeline visualization showing span timing and hierarchy.
@@ -993,9 +979,7 @@ This is useful for:
   );
 
   // Analyze trace errors - provides root cause analysis
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_analyze_trace_errors',
     {
       description: `Analyze errors in a trace and provide root cause analysis.
@@ -1238,9 +1222,7 @@ IMPORTANT: Use the DECIMAL trace ID format (e.g., "8029474397976343229"), not he
   );
 
   // Get slowest spans in a trace
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_slow_spans',
     {
       description: `Get the slowest spans in a trace for performance debugging.
@@ -1405,9 +1387,7 @@ IMPORTANT: Use the DECIMAL trace ID format (e.g., "8029474397976343229"), not he
   );
 
   // Get trace critical path
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_trace_critical_path',
     {
       description: `Get the critical path of a trace - the longest sequential chain of spans.
@@ -1595,9 +1575,7 @@ IMPORTANT: Use the DECIMAL trace ID format (e.g., "8029474397976343229"), not he
   );
 
   // Search for similar traces (same error type, same endpoint, same service)
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_similar_traces',
     {
       description: `Search for traces with similar characteristics to help identify patterns.
@@ -1771,9 +1749,7 @@ IMPORTANT: Use DECIMAL trace ID format if providing a reference trace.`,
   );
 
   // Get traces for a specific customer
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_customer_traces',
     {
       description: `Find all traces for a specific customer account or user.
@@ -1958,9 +1934,7 @@ IMPORTANT: Customer IDs are typically prefixed (e.g., "cuacc_xxx" for customer a
   );
 
   // Analyze database queries in a trace
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_database_query_analysis',
     {
       description: `Analyze database queries in a trace to identify performance issues.
@@ -2203,9 +2177,7 @@ IMPORTANT: Use the DECIMAL trace ID format (e.g., "8029474397976343229"), not he
   );
 
   // Compare two traces side by side
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_compare_traces',
     {
       description: `Compare two traces side-by-side to understand performance differences.
@@ -2451,9 +2423,7 @@ IMPORTANT: Use DECIMAL trace ID format for both traces.`,
   );
 
   // Batch compare multiple traces
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_batch_compare_traces',
     {
       description: `Analyze and compare multiple traces at once to identify patterns.
@@ -2759,9 +2729,7 @@ IMPORTANT: Use DECIMAL trace ID format for all traces.`,
   );
 
   // Get gRPC method statistics
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_grpc_method_stats',
     {
       description: `Get performance statistics (p50, p95, p99, error rate) for gRPC methods.

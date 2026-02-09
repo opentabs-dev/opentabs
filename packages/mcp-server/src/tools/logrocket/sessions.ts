@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -38,12 +38,10 @@ const buildSessionFilters = (params: {
 };
 
 export const registerLogrocketSessionTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Search sessions via GraphQL
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_search_sessions',
     {
       description: `Search LogRocket sessions using filters. Returns session replay data including user info, pages visited, errors, and session URLs.
@@ -171,9 +169,7 @@ Returns session IDs that can be used with logrocket_get_session_url to construct
   );
 
   // Get session replay URL
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_get_session_url',
     {
       description: `Get the LogRocket session replay URL for a specific session.

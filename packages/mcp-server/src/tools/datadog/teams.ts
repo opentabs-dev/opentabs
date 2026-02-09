@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogTeamsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List teams
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_teams',
     {
       description: `List teams in the Datadog organization.
@@ -101,9 +99,7 @@ This is useful for:
   );
 
   // Get team by ID or handle
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_team',
     {
       description: `Get detailed information about a specific Datadog team by ID.

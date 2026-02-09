@@ -8,6 +8,7 @@ import {
   JsonRpcErrorCode,
   SERVICE_DOMAINS,
   SERVICE_TYPES,
+  SINGLE_ENV_SERVICES,
 } from '@extension/shared';
 import type { BrowserController } from './browser-controller';
 import type { ServiceManager, ServiceId } from './service-managers';
@@ -29,9 +30,6 @@ type ManagerResult = { manager: ServiceManager } | { error: string };
  * When `env` is specified, only that environment is tried — no fallback.
  * When `env` is omitted, tries production first, then staging.
  */
-/** Services that have a single environment (no production/staging split). */
-const SINGLE_ENV_SERVICES: ServiceType[] = ['slack', 'logrocket', 'snowflake'];
-
 const getConnectedManager = (
   serviceType: ServiceType,
   managers: Record<ServiceId, ServiceManager>,

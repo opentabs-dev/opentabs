@@ -1,5 +1,5 @@
 import { parseQueryResult } from './format.js';
-import { error, sendServiceRequest, defineTool } from '../../utils.js';
+import { error, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -14,12 +14,10 @@ const runQuery = async (sqlText: string): Promise<unknown> =>
   });
 
 export const registerSnowflakeDataTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Browse data catalog
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_browse_data',
     {
       description: `List all databases accessible to the current Snowflake user/role.
@@ -49,9 +47,7 @@ Use snowflake_run_query with "SHOW SCHEMAS IN DATABASE <name>" or "SHOW TABLES I
   );
 
   // Search data catalog
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_search_data',
     {
       description: `Search for Snowflake databases by name pattern (case-insensitive LIKE match).
@@ -89,9 +85,7 @@ For searching tables or schemas within a database, use snowflake_run_query with
   );
 
   // Get data dictionary object details
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_get_object_details',
     {
       description: `Get column-level schema details for a Snowflake table or view using DESCRIBE TABLE.
@@ -140,9 +134,7 @@ The objectName must be fully qualified: DATABASE.SCHEMA.TABLE (e.g. "BILLING_LIF
   );
 
   // List shared objects
-  defineTool(
-    tools,
-    server,
+  define(
     'snowflake_list_shared_objects',
     {
       description: `List data shares in the Snowflake account using SHOW SHARES.

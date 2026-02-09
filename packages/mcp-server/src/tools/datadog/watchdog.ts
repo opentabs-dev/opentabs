@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogWatchdogTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get Watchdog stories (alerts/anomalies detected by ML)
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_watchdog_stories',
     {
       description: `Get Watchdog stories - ML-detected anomalies and alerts.
@@ -112,9 +110,7 @@ Returns story metadata including category, severity, and affected services.`,
   );
 
   // Get Watchdog insights/anomalies - using span analytics to find anomalies
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_watchdog_insights',
     {
       description: `Analyze service health and detect anomalies using APM data.

@@ -1,15 +1,13 @@
-import { success, error, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, error, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogDowntimesTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List downtimes
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_downtimes',
     {
       description: `List scheduled downtimes in Datadog.
@@ -125,9 +123,7 @@ This is useful for:
   );
 
   // Get downtime by ID
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_downtime',
     {
       description: `Get detailed information about a specific downtime by ID.
@@ -206,9 +202,7 @@ Use datadog_list_downtimes first to find downtime IDs.`,
   );
 
   // Create downtime
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_create_downtime',
     {
       description: `Create a new downtime to mute monitors during maintenance or known issues.
@@ -342,9 +336,7 @@ Example: Create a 1-hour downtime for all monitors tagged with "service:my-servi
   );
 
   // Cancel downtime
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_cancel_downtime',
     {
       description: `Cancel/delete an existing downtime.

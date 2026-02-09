@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolOrgTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get current user
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_current_user',
     {
       description: `Get the current authenticated Retool user's profile, org info, group memberships, and feature flags.
@@ -79,9 +77,7 @@ Use this to identify the current user and check which Retool features are enable
   );
 
   // List permission groups
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_groups',
     {
       description: `List all permission groups in Retool with their access levels.
@@ -125,9 +121,7 @@ Groups control who can view/edit apps, workflows, resources, and org settings.`,
   );
 
   // List environments
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_environments',
     {
       description: `List deployment environments configured in Retool (e.g., production, staging).
@@ -149,9 +143,7 @@ Returns: environments[] with id, name, description, displayColor, isDefault, cre
   );
 
   // List experiments / feature flags
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_experiments',
     {
       description: `List feature flags and experiments for the Retool organization.
@@ -173,9 +165,7 @@ Returns: experimentValues map. Note: this endpoint may return an empty map — t
   );
 
   // Search/suggest users
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_search_users',
     {
       description:

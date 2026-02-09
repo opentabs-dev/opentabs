@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerRetoolWorkflowTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List workflows
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_workflows',
     {
       description: `List all Retool Workflows with their metadata and folder structure.
@@ -44,9 +42,7 @@ Use workflow IDs from results with retool_get_workflow, retool_list_workflow_run
   );
 
   // Get workflow details
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflow',
     {
       description: `Get the full definition of a Retool Workflow including its blocks (steps), configuration, and trigger settings. Optionally specify a source control branch to view that version.`,
@@ -69,9 +65,7 @@ Use workflow IDs from results with retool_get_workflow, retool_list_workflow_run
   );
 
   // Get workflow runs
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_workflow_runs',
     {
       description: `List recent execution runs for a Retool Workflow with pagination.
@@ -100,9 +94,7 @@ Use run IDs from results with retool_get_workflow_run and retool_get_workflow_ru
   );
 
   // Get workflow run details
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflow_run',
     {
       description: `Get the detailed results for a specific workflow run, including status, timing, input/output sizes, and trigger type. Use retool_get_workflow_run_log for block-by-block execution details.`,
@@ -123,9 +115,7 @@ Use run IDs from results with retool_get_workflow_run and retool_get_workflow_ru
   );
 
   // Get workflow run logs
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflow_run_log',
     {
       description: `Get execution logs for a workflow run. Returns logs[] (message, timestamp, tags, dropdownData with workflowContext) and top-level status. Each log entry captures a step in the workflow execution.`,
@@ -146,9 +136,7 @@ Use run IDs from results with retool_get_workflow_run and retool_get_workflow_ru
   );
 
   // List workflow triggers
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_list_workflow_triggers',
     {
       description: `List all triggers configured for a Retool Workflow.
@@ -171,9 +159,7 @@ Returns: deployedTriggers[] (currently active) and latestSavedTriggers[] (pendin
   );
 
   // Get workflow run count
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflow_run_count',
     {
       description:
@@ -193,9 +179,7 @@ Returns: deployedTriggers[] (currently active) and latestSavedTriggers[] (pendin
   );
 
   // Get workflow releases
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflow_releases',
     {
       description:
@@ -216,9 +200,7 @@ Returns: deployedTriggers[] (currently active) and latestSavedTriggers[] (pendin
   );
 
   // Get workflows configuration
-  defineTool(
-    tools,
-    server,
+  define(
     'retool_get_workflows_config',
     {
       description:

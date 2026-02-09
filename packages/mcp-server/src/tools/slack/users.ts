@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, sendSlackEdgeRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, sendSlackEdgeRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { SlackUser } from './types.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerUserTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get user info
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_get_user_info',
     {
       description:
@@ -42,9 +40,7 @@ export const registerUserTools = (server: McpServer): Map<string, RegisteredTool
   );
 
   // List users
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_list_users',
     {
       description:
@@ -120,9 +116,7 @@ export const registerUserTools = (server: McpServer): Map<string, RegisteredTool
   );
 
   // Get current user's profile
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_get_my_profile',
     {
       description: `Get the current authenticated user's profile.

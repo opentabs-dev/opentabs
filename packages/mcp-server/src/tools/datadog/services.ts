@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogServicesTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List services from service catalog
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_services',
     {
       description: `List services from the Datadog Service Catalog.
@@ -114,9 +112,7 @@ Use this to discover services and their owners for debugging or incident respons
   );
 
   // Get detailed service definition
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_service_definition',
     {
       description: `Get detailed information about a specific service from the Datadog Service Catalog.

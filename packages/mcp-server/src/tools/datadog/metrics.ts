@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogMetricsTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Query metrics
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_query_metrics',
     {
       description: `Query time series metrics data from Datadog.
@@ -50,9 +48,7 @@ Time range is specified in hours from now (default: 1 hour).`,
   );
 
   // List metrics
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_metrics',
     {
       description: `List available metric names, optionally filtered by a search string.
@@ -115,9 +111,7 @@ Examples:
   );
 
   // Get metric metadata
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_metric_metadata',
     {
       description: `Get metadata for a specific Datadog metric.

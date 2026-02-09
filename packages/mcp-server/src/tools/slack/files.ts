@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { SlackFile } from './types.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerFileTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Get file info
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_get_file_info',
     {
       description:
@@ -44,9 +42,7 @@ export const registerFileTools = (server: McpServer): Map<string, RegisteredTool
   );
 
   // List files
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_list_files',
     {
       description:

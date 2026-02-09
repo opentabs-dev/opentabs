@@ -1,4 +1,4 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
@@ -33,12 +33,10 @@ interface SavedItem {
 }
 
 export const registerStarTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Star a message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_star_message',
     {
       description:
@@ -61,9 +59,7 @@ export const registerStarTools = (server: McpServer): Map<string, RegisteredTool
   );
 
   // Star a file
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_star_file',
     {
       description:
@@ -84,9 +80,7 @@ export const registerStarTools = (server: McpServer): Map<string, RegisteredTool
   );
 
   // Remove star from a message
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_unstar_message',
     {
       description:
@@ -109,9 +103,7 @@ export const registerStarTools = (server: McpServer): Map<string, RegisteredTool
   );
 
   // Remove star from a file
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_unstar_file',
     {
       description: 'Remove a star from a file. Find file IDs via slack_search_files or slack_list_files.',
@@ -132,9 +124,7 @@ export const registerStarTools = (server: McpServer): Map<string, RegisteredTool
 
   // List starred/saved items
   // Note: stars.list is enterprise-restricted, so we use saved.list (the modern replacement)
-  defineTool(
-    tools,
-    server,
+  define(
     'slack_list_stars',
     {
       description: `List all starred/saved items for the authenticated user.

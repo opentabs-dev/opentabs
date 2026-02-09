@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogRumTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Search RUM sessions
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_rum_sessions',
     {
       description: `Search Real User Monitoring (RUM) sessions to understand frontend user experiences.
@@ -168,9 +166,7 @@ Example queries:
   );
 
   // Get session replay URL
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_session_replay',
     {
       description: `Get the Session Replay URL for a RUM session.
@@ -275,9 +271,7 @@ Use datadog_search_rum_sessions first to find sessions with hasReplay=true.`,
   );
 
   // Search RUM errors
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_rum_errors',
     {
       description: `Search for frontend errors captured by Real User Monitoring.

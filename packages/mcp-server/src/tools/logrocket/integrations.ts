@@ -1,14 +1,12 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerLogrocketIntegrationTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List integrations
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_integrations',
     {
       description: `List all configured integrations for a LogRocket application.
@@ -35,9 +33,7 @@ Use this to check which external services LogRocket sends data to, and whether a
   );
 
   // List feedback surveys
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_surveys',
     {
       description: `List feedback surveys configured in a LogRocket application. Surveys are in-app prompts that collect user sentiment and feedback during sessions.
@@ -59,9 +55,7 @@ Returns survey configurations including names, questions, targeting rules, and a
   );
 
   // List release recaps
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_release_recaps',
     {
       description: `List release recaps for a LogRocket application. Release recaps are automated summaries generated after each deployment.
@@ -89,9 +83,7 @@ Use this to correlate recent deployments with error spikes or performance regres
   );
 
   // List issue alert configs
-  defineTool(
-    tools,
-    server,
+  define(
     'logrocket_list_alerts',
     {
       description: `List alerting configurations for LogRocket issues. Alerts fire when error occurrence or session count exceeds a threshold within a time window.

@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogNotebooksTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // List notebooks
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_notebooks',
     {
       description: `List Datadog notebooks for documentation and investigation sharing.
@@ -109,9 +107,7 @@ Useful for:
   );
 
   // Get specific notebook
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_get_notebook',
     {
       description: `Get detailed content of a specific notebook.

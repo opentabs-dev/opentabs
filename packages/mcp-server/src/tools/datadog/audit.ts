@@ -1,15 +1,13 @@
-import { success, sendServiceRequest, defineTool } from '../../utils.js';
+import { success, sendServiceRequest, createToolRegistrar } from '../../utils.js';
 import { z } from 'zod';
 import type { ServiceEnv } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerDatadogAuditTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
   // Search audit logs
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_search_audit_logs',
     {
       description: `Search Datadog audit logs to track who did what in the organization.
@@ -137,9 +135,7 @@ Example queries:
   );
 
   // Get audit log event types
-  defineTool(
-    tools,
-    server,
+  define(
     'datadog_list_audit_event_types',
     {
       description: `List available audit log event types for reference.

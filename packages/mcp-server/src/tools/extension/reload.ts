@@ -1,12 +1,10 @@
-import { success, reloadExtension, defineTool } from '../../utils.js';
+import { success, reloadExtension, createToolRegistrar } from '../../utils.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 export const registerExtensionReloadTools = (server: McpServer): Map<string, RegisteredTool> => {
-  const tools = new Map<string, RegisteredTool>();
+  const { tools, define } = createToolRegistrar(server);
 
-  defineTool(
-    tools,
-    server,
+  define(
     'reload_extension',
     {
       description:
