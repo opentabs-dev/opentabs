@@ -5,9 +5,8 @@
     { "path": "platform/plugin-sdk/tsconfig.build.json" },
     { "path": "platform/plugin-loader/tsconfig.build.json" },
     { "path": "platform/plugin-test-utils/tsconfig.build.json" },
-    { "path": "platform/mcp-server/tsconfig.build.json" },
-    { "path": "platform/browser-extension/tsconfig.build.json" },
     { "path": "platform/create-plugin/tsconfig.build.json" },
-    { "path": "plugins/slack/tsconfig.build.json" }
+    { "path": "platform/mcp-server/tsconfig.build.json" },
+    { "path": "platform/browser-extension/tsconfig.build.json" }
   ]
 }

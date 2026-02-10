@@ -1,16 +1,14 @@
 {
-  "name": "opentabs-migrating",
+  "name": "opentabs-next",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "workspaces": [
-    "platform/*",
-    "plugins/*"
+    "platform/*"
   ],
   "scripts": {
     "build": "tsc --build",
-    "build:extension": "bun run platform/browser-extension/build.ts",
-    "clean": "rimraf platform/*/dist plugins/*/dist",
+    "clean": "rimraf platform/*/dist",
     "type-check": "tsc --noEmit"
   },
   "devDependencies": {

@@ -1,30 +1,17 @@
 {
   "name": "@opentabs/browser-extension",
-  "version": "1.0.0",
-  "private": true,
+  "version": "0.0.1",
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/background/index.d.ts",
-      "default": "./dist/background/index.js"
-    },
-    "./offscreen": {
-      "types": "./dist/offscreen/offscreen.d.ts",
-      "default": "./dist/offscreen/offscreen.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "build:extension": "bun run build.ts",
-    "type-check": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@opentabs/core": "workspace:*",
-    "@opentabs/plugin-loader": "workspace:*",
-    "@opentabs/plugin-slack": "workspace:*"
-  },
-  "devDependencies": {
-    "@types/chrome": "^0.0.318",
-    "typescript": "^5.9.3"
+    "build": "tsc --build tsconfig.build.json",
+    "clean": "rimraf dist"
   }
 }

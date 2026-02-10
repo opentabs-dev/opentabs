@@ -1,7 +1,6 @@
 {
   "name": "@opentabs/plugin-test-utils",
-  "version": "1.0.0",
-  "description": "Testing utilities for OpenTabs plugin authors — mock providers, test harnesses, and assertion helpers",
+  "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,48 +10,8 @@
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@opentabs/core": "workspace:*",
-    "@opentabs/plugin-sdk": "workspace:*"
-  },
-  "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "zod": "^4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@modelcontextprotocol/sdk": {
-      "optional": false
-    },
-    "zod": {
-      "optional": false
-    }
-  },
-  "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "rimraf": "^6.1.2",
-    "typescript": "^5.9.3",
-    "zod": "^4.3.6"
-  },
-  "keywords": [
-    "opentabs",
-    "plugin",
-    "testing",
-    "mcp",
-    "model-context-protocol"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nichochar/opentabs",
-    "directory": "platform/plugin-test-utils"
-  },
-  "author": "OpenTabs",
-  "license": "MIT"
+    "build": "tsc --build tsconfig.build.json",
+    "clean": "rimraf dist"
+  }
 }

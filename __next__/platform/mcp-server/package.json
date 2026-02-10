@@ -1,68 +1,17 @@
 {
   "name": "@opentabs/mcp-server",
-  "version": "1.0.0",
-  "description": "OpenTabs MCP server — plugin-aware Model Context Protocol server that bridges AI agents to the Chrome extension",
+  "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "opentabs-mcp": "./dist/index.js"
-  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "rebuild": "rimraf dist && bun run build",
-    "clean": "rimraf dist",
-    "clean:dist": "rimraf dist",
-    "clean:node_modules": "rimraf node_modules",
-    "dev": "bun --hot src/index.ts",
-    "dev:watch": "tsc --watch",
-    "start": "bun run dist/index.js",
-    "lint": "eslint .",
-    "lint:fix": "bun run lint --fix",
-    "format": "prettier . --write",
-    "type-check": "tsc --noEmit",
-    "prepublishOnly": "bun run build"
-  },
-  "dependencies": {
-    "@opentabs/core": "workspace:*",
-    "@opentabs/plugin-sdk": "workspace:*",
-    "@opentabs/plugin-loader": "workspace:*",
-    "@opentabs/plugin-slack": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "express": "^5.1.0",
-    "open": "^11.0.0",
-    "ws": "^8.19.0",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "@types/express": "^5.0.3",
-    "@types/ws": "^8.18.1",
-    "rimraf": "^6.1.2",
-    "typescript": "^5.9.3"
-  },
-  "keywords": [
-    "opentabs",
-    "mcp",
-    "model-context-protocol",
-    "chrome-extension",
-    "ai",
-    "llm",
-    "claude"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nichochar/opentabs",
-    "directory": "platform/mcp-server"
-  },
-  "author": "OpenTabs",
-  "license": "MIT"
+    "build": "tsc --build tsconfig.build.json",
+    "clean": "rimraf dist"
+  }
 }

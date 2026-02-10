@@ -1,0 +1,809 @@
+{
+  "project": "OpenTabs Next Platform",
+  "branchName": "ralph/opentabs-next-platform",
+  "description": "Ground-up redesign of OpenTabs as an open plugin ecosystem. AI agents interact with web applications through authenticated browser sessions. Every web service is a plugin — official and community plugins are distributed via npm, dynamically loaded at runtime, and hot-reloaded without restarting the MCP server. Existing code in __next__/ is reference material only — all code should be written fresh.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Set up __next__/ monorepo workspace structure",
+      "description": "As a platform maintainer, I want the __next__/ directory set up as a clean bun monorepo with workspaces for all platform packages, shared TypeScript configs, and correct project references so all packages can build and type-check together. The first step is to clean out all existing source code in __next__/ (platform/, plugins/, root configs) while preserving node_modules for faster installs. Then scaffold fresh. The plugins/ directory is NOT a workspace member.",
+      "acceptanceCriteria": [
+        "Remove existing __next__/platform/ and __next__/plugins/ source directories (rm -rf platform/ plugins/), preserving __next__/node_modules/",
+        "Remove existing root config files (__next__/tsconfig.json, __next__/tsconfig.base.json, __next__/package.json) to start clean",
+        "Remove __next__/bun.lock so dependencies are resolved fresh against the new package.json",
+        "__next__/package.json has bun workspaces pointing to platform/*",
+        "__next__/tsconfig.base.json has shared compiler options: strict, ES2022 target, ESNext modules, composite",
+        "__next__/tsconfig.json has project references to all platform packages",
+        "__next__/.gitignore excludes node_modules, dist, *.tsbuildinfo",
+        "platform/ has subdirectories: core, plugin-sdk, plugin-loader, plugin-test-utils, create-plugin, mcp-server, browser-extension",
+        "Each platform package has package.json with name (@opentabs/<name>), type: module",
+        "Each platform package has tsconfig.json extending ../tsconfig.base.json",
+        "plugins/ directory exists with slack/ subdirectory (NOT a workspace member)",
+        "bun install succeeds from __next__/ root",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Implement @opentabs/core — JSON-RPC, messaging, and service types with dynamic registry",
+      "description": "As a platform developer, I need the shared types package (@opentabs/core) with JSON-RPC message types, Chrome runtime messaging types, and service definitions including a runtime-mutable service registry with change listeners and derived lookup tables. This package has no external runtime dependencies.",
+      "acceptanceCriteria": [
+        "platform/core/src/json-rpc.ts exports JsonRpcRequest, JsonRpcResponse, JsonRpcError types",
+        "platform/core/src/messaging.ts exports MessageTypes enum with all Chrome runtime message types (GET_STATUS, STATUS_UPDATE, SIDE_PANEL_OPENED, SIDE_PANEL_CLOSED, CLOSE_SIDE_PANEL, etc.)",
+        "platform/core/src/services.ts exports ServiceDefinition interface with type, displayName, environments, domains, urlPatterns, iconName, timeout, defaultUrl, hostPermissions, source, packageName fields",
+        "platform/core/src/services.ts exports setServiceRegistry() for initial population, addServiceDefinitions() and removeServiceDefinitions() for runtime mutations",
+        "Registry supports change listeners notified on add/remove mutations",
+        "Registry derives lookup tables (by type, by URL pattern) recomputed on mutation",
+        "platform/core/src/services.ts exports ConnectionStatus and ServiceConnectionStatus types",
+        "platform/core/src/index.ts re-exports all types and runtime functions",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement @opentabs/core — Plugin manifest, lifecycle hooks, and install payload types",
+      "description": "As a platform developer, I need plugin-related type definitions in @opentabs/core: the PluginManifest interface, lifecycle hook types, PluginInstallPayload for extension sync, and JSON-serializable stored variants for chrome.storage. These types are used by the SDK, loader, server, and extension.",
+      "acceptanceCriteria": [
+        "platform/core/src/plugin-manifest.ts exports PluginManifest interface with sections: name, displayName, version, description, author, icon, adapter (domains, urlPatterns, hostPermissions, defaultUrl), service (timeout, environments, authErrorPatterns, healthCheck, notConnectedMessage, tabNotFoundMessage), tools (categories), permissions (network, storage, nativeApis)",
+        "Exports StoredPluginManifest — JSON-serializable subset without function references",
+        "Exports PluginInstallPayload with name, adapterCode, manifest, serviceDefinitions, serviceConfigs, version, trustTier",
+        "Exports StoredServiceDefinition and StoredServiceConfig types",
+        "platform/core/src/plugin-lifecycle.ts exports lifecycle hook types: PluginLifecycleContext (base), PluginInstallContext (reason + previousVersion), PluginUninstallContext, PluginEnableContext, PluginDisableContext, PluginSettingsChangeContext (previousSettings + changedKeys)",
+        "Exports LifecycleHookName type union and ResolvedPlugin interface",
+        "Exports ToolRegistrationFn, McpServerLike, RegisteredToolLike abstract types for SDK/loader use without hard SDK dependency",
+        "Exports NativeApiPermission type and TrustTier type ('official' | 'community' | 'local')",
+        "All new types re-exported from platform/core/src/index.ts",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Implement @opentabs/plugin-sdk — Main entry point with definePlugin and type re-exports",
+      "description": "As a plugin author, I want the main entry point of @opentabs/plugin-sdk to provide definePlugin() for type-safe manifest definition and re-export all core types I need. The SDK has three entry points: . (main), ./server, and ./adapter. This story covers the main entry.",
+      "acceptanceCriteria": [
+        "platform/plugin-sdk/src/index.ts exports definePlugin() function that accepts a PluginManifest and returns it (identity with type checking)",
+        "Re-exports relevant types from @opentabs/core that plugin authors need (PluginManifest, ServiceDefinition, etc.)",
+        "package.json exports map has three entry points: '.' -> src/index.ts, './server' -> src/server.ts, './adapter' -> src/adapter.ts",
+        "package.json lists @opentabs/core as a dependency",
+        "@opentabs/core is also listed as a peerDependency",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement @opentabs/plugin-sdk — Server entry with tool registrar and request provider",
+      "description": "As a plugin author, I want the ./server entry of the SDK to provide createToolRegistrar() for registering MCP tools, sendServiceRequest() for routing through the WebSocket relay, sendBrowserRequest() for chrome.* APIs, and runtime permission enforcement. Uses AsyncLocalStorage to track the current tool ID.",
+      "acceptanceCriteria": [
+        "platform/plugin-sdk/src/server.ts exports createToolRegistrar(server) that returns { tools: Map, define: function } for registering tools",
+        "Exports sendServiceRequest(service, params, action?) that delegates to a pluggable RequestProvider",
+        "Exports sendBrowserRequest(action, params?) that is gated by nativeApis permission — rejected at runtime if plugin doesn't declare 'browser' in nativeApis",
+        "Exports __setRequestProvider() and __registerPluginPermissions() internal APIs for the MCP server to wire",
+        "AsyncLocalStorage tracks current tool ID per request",
+        "Exports success(data) and error(err) helpers that format MCP tool results per protocol",
+        "Exports extensible error pattern registry for common API errors",
+        "RequestProvider interface defined with sendServiceRequest, sendBrowserRequest, reloadExtension methods",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement @opentabs/plugin-sdk — Adapter entry with registerAdapter and helpers",
+      "description": "As a plugin author, I want the ./adapter entry of the SDK to provide registerAdapter() for MAIN world scripts, JSON-RPC response helpers, and createScopedFetch() for domain-restricted fetching. Adapters run in the web page's JavaScript context.",
+      "acceptanceCriteria": [
+        "platform/plugin-sdk/src/adapter.ts exports registerAdapter(name, handleRequest) that registers on window.__openTabs.adapters",
+        "Exports ok(id, data) and fail(id, code, message) for JSON-RPC response construction",
+        "Exports parseAction(method) that extracts the action portion from method strings",
+        "Exports createScopedFetch(allowedDomains, pluginName) for opt-in domain restriction",
+        "Exports error code constants (METHOD_NOT_FOUND, INTERNAL_ERROR, etc.)",
+        "Adapter code is designed to be built into self-contained IIFEs",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Implement @opentabs/plugin-loader — Manifest Zod schema and validation",
+      "description": "As a plugin author, I want a well-documented JSON manifest format (opentabs-plugin.json) validated by a Zod schema so I get clear errors when my manifest is invalid. The schema validates structural constraints, cross-field consistency, and security constraints.",
+      "acceptanceCriteria": [
+        "platform/plugin-loader/src/manifest-schema.ts exports a Zod schema for opentabs-plugin.json",
+        "Schema validates: name format (lowercase alphanumeric + hyphens), semver version, Chrome match patterns, environment-to-domain consistency, health check method prefix, network permission coverage",
+        "Reserved names (browser, system, extension, plugin, opentabs) are rejected",
+        "Overly broad URL patterns (e.g. <all_urls>) and overly broad network permissions are rejected",
+        "Exports validatePluginManifest() that returns typed validation result with field paths and actionable error messages",
+        "Exports name conflict and URL pattern overlap detection across multiple plugins",
+        "$schema field support for IDE autocompletion",
+        "platform/plugin-loader/scripts/generate-schema.ts generates JSON Schema from Zod and writes to platform/schemas/plugin-v1.json",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Implement @opentabs/plugin-loader — Plugin discovery from node_modules, config, and local paths",
+      "description": "As a user, I want plugins discovered automatically from npm installs (naming convention + keyword), explicitly from config files, and from local filesystem paths. Explicit entries take precedence over auto-discovered duplicates.",
+      "acceptanceCriteria": [
+        "platform/plugin-loader/src/discover.ts exports discoverPlugins() function",
+        "Automatic scan of node_modules for packages matching @opentabs/plugin-* or opentabs-plugin-*",
+        "Fallback to opentabs-plugin keyword in package.json for non-standard names",
+        "Scoped packages discovered correctly",
+        "Plugin lists read from both config files and project-level opentabs.config",
+        "Local plugin paths (starting with ./ or ../ or absolute) resolved correctly",
+        "Local plugins get trust tier 'local'",
+        "Explicit config entries take precedence over auto-discovered duplicates",
+        "Returns discovered plugin metadata (package path, source, trust tier)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement @opentabs/plugin-loader — Plugin loading pipeline with dynamic import",
+      "description": "As the platform, I need to dynamically import each plugin's tool registration module and adapter IIFE at runtime so plugins work without a platform rebuild. The loader validates manifests, imports tool modules, extracts lifecycle hooks, determines trust tiers, and merges into the service registry.",
+      "acceptanceCriteria": [
+        "platform/plugin-loader/src/merge.ts (or similar) exports loadPlugins() that orchestrates the full pipeline: discover -> validate -> load -> merge",
+        "Tool modules loaded via dynamic import() with cache-busting query params for hot reload",
+        "registerTools export is required from each plugin's tool module; isHealthy and lifecycle hooks are optional",
+        "Lifecycle hooks extracted from named exports (onInstall, onUninstall, onEnable, onDisable, onSettingsChange)",
+        "Adapter IIFE read from disk and bundled into install payloads for the extension",
+        "Trust tiers: @opentabs/plugin-* = official, npm packages with keyword = community, local filesystem = local",
+        "Local plugins loaded identically to npm plugins",
+        "Failed plugins produce clear error messages and don't crash the platform",
+        "Exports LoadPluginsResult type with plugins, failures, registry, toolRegistrations",
+        "Exports manifestToServiceDefinition() and manifestToServiceConfigs() converters",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Implement @opentabs/plugin-test-utils — Test harness and mock provider",
+      "description": "As a plugin author, I want to unit-test my tool handlers without a running MCP server or browser. The test utils provide a harness that simulates tool registration and invocation, and a mock provider that intercepts service requests.",
+      "acceptanceCriteria": [
+        "platform/plugin-test-utils/src/test-harness.ts exports createTestHarness() providing: registerTools(), callTool(name, params), toolNames, getTool(), assertToolRegistered()",
+        "callTool() returns ParsedToolResult with .isError, .text, .data, .json<T>() accessors",
+        "withToolId context preserved during tool execution",
+        "platform/plugin-test-utils/src/mock-provider.ts exports createMockProvider() providing: install(), uninstall(), onServiceRequest() with .resolveWith() / .rejectWith()",
+        "Mock provider intercepts sendServiceRequest calls during tests",
+        "Both exports available from platform/plugin-test-utils/src/index.ts",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Implement create-opentabs-plugin scaffolding CLI",
+      "description": "As a plugin developer, I want to run a CLI command to scaffold a new plugin project with all required files, correct structure, and variable substitution so I can start building immediately.",
+      "acceptanceCriteria": [
+        "platform/create-plugin/src/index.ts exports both CLI entry and programmatic scaffoldPlugin(options) API",
+        "CLI accepts: plugin name (required), --domain, --display, --description, --author, --output flags",
+        "Template includes: opentabs-plugin.json, package.json, tsconfig.json, src/adapter.ts, src/tools/index.ts, src/tools/general.ts",
+        "Template variables ({{name}}, {{displayName}}, {{domain}}, etc.) replaced in all generated files",
+        "Plugin name validation: lowercase alphanumeric + hyphens, not reserved names",
+        "Generated package.json has correct peerDependencies (@opentabs/plugin-sdk, @modelcontextprotocol/sdk, zod)",
+        "Generated package.json has opentabs-plugin keyword and includes opentabs-plugin.json in files array",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Implement MCP server — Config module and entry point with HTTP/stdio transport",
+      "description": "As a user running the MCP server, I want it to start in either HTTP mode (multiple MCP clients via Streamable HTTP + SSE) or stdio mode (single client). The server is the main @opentabs/mcp-server package with config parsing and transport setup.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/config.ts exports ServerConfig type and config parsing from env vars / CLI args (httpPort, wsPort, httpHost, mode)",
+        "platform/mcp-server/src/index.ts is the entry point — reads config and calls startServer()",
+        "platform/mcp-server/src/http-server.ts implements HTTP server with Streamable HTTP transport at /mcp and SSE at /sse",
+        "Stdio transport available via StdioServerTransport from @modelcontextprotocol/sdk",
+        "Each HTTP client session gets its own McpServer instance",
+        "Server reads version from package.json",
+        "Graceful shutdown on SIGINT/SIGTERM",
+        "Server logs connection info on startup",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Implement MCP server — WebSocket relay for Chrome extension communication",
+      "description": "As the MCP server, I need a WebSocket server that the Chrome extension connects to for bidirectional communication. The relay routes JSON-RPC requests from MCP tool handlers to the extension and returns responses. It must survive hot reloads via globalThis persistence.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/websocket-relay.ts exports a WebSocketRelay class and a module-level relay singleton",
+        "relay.start(port) starts a WebSocket server on the given port",
+        "relay.sendServiceRequest(service, params, action?) sends JSON-RPC to the extension and returns a Promise of the response",
+        "relay.sendBrowserRequest(action, params?) routes to chrome.tabs/windows APIs via the extension",
+        "relay.reloadExtension() sends a reload command to the extension",
+        "Relay tracks extension connection status (connected/disconnected)",
+        "Relay singleton persisted across hot reloads via globalThis",
+        "Hot reload updates relay prototype via Object.setPrototypeOf so new/changed methods take effect immediately",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Implement MCP server — Tool registration pipeline",
+      "description": "As the MCP server, I need a central tool registration module that merges platform-native tools (browser, extension) with plugin-provided tools. The pipeline supports dynamic injection of plugin registrations and produces a unified tool map for hot-reload diffing.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/tools/index.ts exports registerAllTools(server) that returns Map<string, RegisteredTool>",
+        "PLATFORM_REGISTRATIONS array holds statically imported platform-native tool registration functions",
+        "setPluginRegistrations() accepts plugin tool registrations discovered at startup",
+        "registerAllTools merges platform + plugin tools with globally unique name enforcement",
+        "Tool name collision throws with actionable error message",
+        "getToolCountSummary() returns platform, plugin, and total registration counts",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Implement MCP server — Plugin initialization pipeline",
+      "description": "As the MCP server, I need to discover, validate, load, and wire all plugins at startup. The plugin-init module bridges @opentabs/plugin-loader with the MCP server's tool pipeline, wires the RequestProvider, registers permissions, builds extension install payloads, and caches resolved plugins for lifecycle hooks.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/plugin-init.ts exports initializePlugins() that runs the full discovery/load pipeline",
+        "Wires the RequestProvider so plugin tools can call sendServiceRequest()/sendBrowserRequest()",
+        "Registers nativeApi permissions for each plugin via __registerPluginPermissions()",
+        "Injects plugin tool registrations into tools/index.ts via setPluginRegistrations()",
+        "Builds PluginInstallPayload objects (reads adapter IIFE from disk, converts manifest to stored format)",
+        "Caches install payloads for re-sending on extension reconnect via getLastPluginPayloads()",
+        "Caches resolved plugins for lifecycle hook invocation (invokeOnInstall, invokeOnUninstall, invokeOnEnable, invokeOnDisable, invokeOnSettingsChange)",
+        "Returns PluginInitSummary with pluginsLoaded, pluginsFailed, pluginNames, failures",
+        "Exports refreshPluginTools() for hot reload (re-discovers without re-freezing registry)",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Implement MCP server — Hot reload system",
+      "description": "As a developer, I want the MCP server to hot-reload when compiled files change via bun --hot. The hot reload system diffs old vs new tool definitions, patches existing MCP client sessions in-place, and sends tools/list_changed notifications without disconnecting clients.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/hot-reload.ts exports getHotState() with state persisted across reloads via globalThis",
+        "Hot state tracks: initialized flag, reloadCount, lastReload result, active sessions, createServerFn, relay",
+        "Exports isHotReload() that returns true when the module is re-evaluated (initialized already true)",
+        "Exports registerSession() and closeAllSessions() for session lifecycle",
+        "Exports hotPatchAllSessions() that re-registers tools on existing sessions and sends notifications/tools/list_changed",
+        "Hot patching diffs old vs new tool maps: adds new tools, removes deleted tools, updates changed tools via RegisteredTool.update()",
+        "server.ts handleHotReload() calls wireRequestProvider, refreshPluginTools, and hotPatchAllSessions in sequence",
+        "Failed hot reloads are caught and logged — existing sessions keep previous working tools",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Implement MCP server — Platform-native tools (browser tabs, extension reload, capture)",
+      "description": "As an AI agent, I need platform-native MCP tools for browser tab management, extension reloading, and page capture. These tools call chrome.* APIs through the WebSocket relay and are always available when the extension is connected.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/tools/browser/tabs.ts exports registerBrowserTabsTools() that registers tab management tools (list tabs, navigate, create tab, close tab, execute script)",
+        "platform/mcp-server/src/tools/extension/reload.ts exports registerExtensionReloadTools() that registers reload_extension tool",
+        "reload_extension triggers chrome.runtime.reload() via the relay",
+        "platform/mcp-server/src/tools/capture/index.ts exports registerCaptureTools() for page capture functionality",
+        "All tool registration functions return Map<string, RegisteredTool>",
+        "Tools have accurate descriptions for AI agent consumption",
+        "Parameter descriptions include examples where helpful",
+        "All three registrations added to PLATFORM_REGISTRATIONS in tools/index.ts",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Implement MCP server — Health endpoint",
+      "description": "As a developer verifying the autonomous development loop, I need a GET /health endpoint that returns JSON with server state, extension connection status, plugin status, and hot reload information.",
+      "acceptanceCriteria": [
+        "GET /health returns JSON with: streamSessions count, sseSessions count",
+        "Response includes extension connection status ('connected' or 'disconnected')",
+        "Response includes hotReload.reloadCount and hotReload.lastReload (success, timestamp, patchedSessions, toolCount, error)",
+        "Response includes plugin information: names, count, failures",
+        "Response includes tool count summary (platform, plugin, total)",
+        "Endpoint is always available regardless of MCP client connections",
+        "Health check added to http-server.ts route handler",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Implement ~/.opentabs/ config directory with readConfig and writePluginState",
+      "description": "As a user, I want ~/.opentabs/ created automatically on first MCP server run with default config.json and plugins.json. The config module provides typed read/write functions for both files with graceful error handling.",
+      "acceptanceCriteria": [
+        "platform/mcp-server/src/opentabs-config.ts exports readConfig() that returns typed OpenTabsUserConfig",
+        "~/.opentabs/ directory created on first run if it doesn't exist",
+        "~/.opentabs/config.json created with default structure: { plugins: [], server: {} }",
+        "~/.opentabs/plugins.json created with default structure: {} (empty — all tools disabled by default)",
+        "Both files are valid JSON, human-readable, and hand-editable",
+        "Exports writePluginState() that writes tool enable/disable changes back to plugins.json",
+        "File read errors (permissions, corrupt JSON) are caught and logged — server starts with defaults, not crashes",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Integrate config system into MCP server startup and hot reload",
+      "description": "As a user, I want the MCP server to read ~/.opentabs/config.json at startup and on every hot reload so config changes take effect without a restart. Plugin paths from global config are merged with project-level opentabs.config (project takes precedence).",
+      "acceptanceCriteria": [
+        "initializePlugins() calls readConfig() and uses global plugin paths from ~/.opentabs/config.json as additional discovery sources",
+        "refreshPluginTools() re-reads ~/.opentabs/config.json on every hot reload cycle",
+        "Plugin paths from global config merged with project-level opentabs.config (project config takes precedence for plugin paths)",
+        "Adding a new local plugin path to ~/.opentabs/config.json and triggering a hot reload picks it up",
+        "discoverPlugins() already supports opentabs.config files — this story verifies the merge behavior",
+        "/health endpoint reports the config file path and last-read timestamp",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Implement tool enable/disable gating with plugins.json state",
+      "description": "As a user, I want all tools of a newly installed plugin to start disabled by default and only appear in the MCP tool list after I explicitly enable them. The plugins.json file supports both individual tool toggles and a plugin-level allToolsEnabled shorthand.",
+      "acceptanceCriteria": [
+        "When initializePlugins() discovers a plugin, it checks ~/.opentabs/plugins.json for per-tool enabled state",
+        "If a plugin is not in plugins.json (first discovery), all its tools are treated as disabled",
+        "Disabled tools are NOT registered on the MCP server — they don't appear in the tool list",
+        "Enabled tools (explicitly set to true in plugins.json) are registered normally",
+        "registerAllTools() filters plugin tools based on enabled state before calling server.registerTool()",
+        "plugins.json format: { \"slack\": { \"tools\": { \"slack_send_message\": true } } }",
+        "Shorthand: { \"slack\": { \"allToolsEnabled\": true } } enables all tools for the plugin (individual overrides still apply)",
+        "readPluginState() resolves effective enabled state per tool considering both allToolsEnabled and individual overrides",
+        "notifications/tools/list_changed sent when tools are enabled/disabled",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Implement system tool — opentabs_reload_plugins",
+      "description": "As an AI agent, I need an opentabs_reload_plugins MCP tool that re-discovers plugins and re-reads ~/.opentabs/ config without restarting the server. This is a platform-native system tool, always available.",
+      "acceptanceCriteria": [
+        "New tool opentabs_reload_plugins in platform/mcp-server/src/tools/system/reload-plugins.ts",
+        "Calls refreshPluginTools() and re-reads ~/.opentabs/ config",
+        "Returns summary: plugins discovered, tools added/removed, config changes detected",
+        "Sends notifications/tools/list_changed to all connected MCP clients",
+        "Tool is platform-native (added to PLATFORM_REGISTRATIONS), not a plugin tool",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Implement system tools — opentabs_list_plugins and opentabs_get_health",
+      "description": "As an AI agent, I need opentabs_list_plugins and opentabs_get_health MCP tools to inspect platform state without opening a browser. Both are platform-native and always available.",
+      "acceptanceCriteria": [
+        "opentabs_list_plugins returns all discovered plugins with: name, version, trust tier, tab state, per-tool enabled/disabled status from plugins.json",
+        "opentabs_get_health returns same data as GET /health: server state, extension status, plugin status, hot reload count",
+        "Both tools defined in platform/mcp-server/src/tools/system/",
+        "Both tools are platform-native (added to PLATFORM_REGISTRATIONS)",
+        "Tool descriptions are clear and accurate for AI agent consumption",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Implement system tools — opentabs_get_config and opentabs_set_config",
+      "description": "As an AI agent, I need opentabs_get_config and opentabs_set_config MCP tools to read and modify non-security server settings. These tools do NOT allow enabling/disabling tools — that security boundary is reserved for the side panel.",
+      "acceptanceCriteria": [
+        "opentabs_get_config returns current non-security config from ~/.opentabs/config.json (plugin paths, server settings — NOT tool enable/disable state)",
+        "opentabs_set_config updates non-security settings (add/remove plugin paths, toggle verbose logging)",
+        "opentabs_set_config does NOT allow enabling/disabling tools — returns error if attempted",
+        "Config changes written atomically (write to temp file, rename)",
+        "Both tools defined in platform/mcp-server/src/tools/system/",
+        "Both tools are platform-native",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Implement Chrome extension — Project setup, manifest, and build config",
+      "description": "As a platform maintainer, I need the browser extension package set up with a Manifest V3 manifest.ts, build configuration, and project structure. The extension manages plugin lifecycle, adapter injection, and MCP request routing.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/build.ts implements the extension build process",
+        "Manifest V3 manifest.ts with required permissions (storage, unlimitedStorage, tabs, scripting, activeTab, sidePanel, offscreen)",
+        "Extension entry points defined: background service worker, offscreen document, side panel, content stub",
+        "Build generates IIFE bundles for background, offscreen, content stub scripts",
+        "Build generates adapter IIFE bundles from plugin adapter code",
+        "package.json has correct build scripts",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Implement Chrome extension — Offscreen document with persistent WebSocket",
+      "description": "As the extension, I need an offscreen document that maintains a persistent WebSocket connection to the MCP server. MV3 service workers can suspend, so the offscreen document keeps the connection alive and relays messages to/from the background script.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/src/offscreen/offscreen.ts establishes WebSocket connection to the MCP server",
+        "Reconnects automatically when connection drops (exponential backoff)",
+        "Relays messages between WebSocket and background script via chrome.runtime messaging",
+        "Offscreen document HTML page exists with required DOM_SCRAPING or similar justification",
+        "platform/browser-extension/src/background/offscreen-manager.ts manages offscreen document lifecycle (create/ensure exists)",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Implement Chrome extension — Background script entry and MCP router",
+      "description": "As the extension, I need the background service worker entry point that initializes all managers and an MCP router that routes incoming JSON-RPC requests from the MCP server to the appropriate service handler or system command.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/src/background/index.ts is the service worker entry — initializes all managers (offscreen, adapter, plugin, icon, side panel, alarm)",
+        "platform/browser-extension/src/background/mcp-router.ts exports a router function that dispatches JSON-RPC requests by method prefix",
+        "Router dispatches to service controllers for webapp service requests",
+        "Router dispatches to browser controller for browser.* requests",
+        "Router dispatches to system commands for extension management requests",
+        "Router returns JSON-RPC responses (success or error)",
+        "Handles malformed requests gracefully with JSON-RPC error responses",
+        "Typecheck passes"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Implement Chrome extension — Plugin manager and plugin store",
+      "description": "As the extension, I need to dynamically install and uninstall plugins at runtime. The plugin manager receives install payloads from the MCP server and stores manifests, adapter code, and service configs in chrome.storage.local.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/src/background/plugin-manager.ts receives PluginInstallPayload objects from MCP server over WebSocket",
+        "Stores plugin data in chrome.storage.local via plugin-store.ts",
+        "platform/browser-extension/src/background/plugin-store.ts provides typed get/set/delete operations for plugin data",
+        "On install: creates service controllers, registers adapter content scripts",
+        "On uninstall: destroys service controllers, unregisters content scripts, cleans storage",
+        "Extension reconnects to MCP server and re-receives plugin payloads on reconnect",
+        "Plugin manager syncs with MCP server — handles added/removed plugins since last connection",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Implement Chrome extension — Adapter manager with dynamic content script registration",
+      "description": "As the extension, I need to dynamically register and unregister MAIN world content scripts for each installed plugin's adapter. Scripts are injected into tabs matching the plugin's URL patterns.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/src/background/adapter-manager.ts dynamically registers content scripts via chrome.scripting.registerContentScripts",
+        "Scripts run in MAIN world to access page JavaScript context",
+        "URL patterns from plugin manifests determine which tabs get adapter injection",
+        "Unregisters scripts when plugins are uninstalled",
+        "Re-injects adapters into matching tabs on extension reload",
+        "Handles registration errors gracefully (e.g., invalid URL patterns)",
+        "Adapter IIFEs are stored as data URLs or blob URLs for injection",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Implement Chrome extension — Webapp service controller",
+      "description": "As the extension, I need a data-driven webapp service controller that handles tool requests for any plugin service. One generic controller is created per plugin — it manages tab detection, health checks, and request routing to the adapter in the target tab.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/src/background/service-controllers/webapp-service-controller.ts is a generic, data-driven controller created from StoredServiceConfig",
+        "Discovers tabs matching the plugin's URL patterns",
+        "Runs health checks using the plugin's configured method and params",
+        "Routes tool requests to the adapter in the matched tab via chrome.tabs.sendMessage or executeScript",
+        "Reports tab state: closed (no matching tab), not-authed (tab exists but health check failed), authed (healthy)",
+        "Returns actionable error messages based on tab state (e.g., 'Open app.slack.com in your browser')",
+        "Supports custom health check evaluators from the plugin manifest",
+        "Service controllers created/destroyed dynamically when plugins are installed/uninstalled",
+        "Typecheck passes"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Implement Chrome extension — Browser controller and supporting modules",
+      "description": "As the extension, I need the browser controller (native chrome.* API service — no adapters, no tabs, always available) and supporting modules: icon manager, alarm handlers, stale tab manager, content stub, and side panel manager.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/src/background/browser-controller.ts handles browser.* requests by calling chrome.tabs/windows APIs directly",
+        "Browser controller has no tab lifecycle or adapters — always available when extension is connected",
+        "platform/browser-extension/src/background/icon-manager.ts manages extension icon state based on connection status",
+        "platform/browser-extension/src/background/alarm-handlers.ts handles periodic tasks (health check polling, stale tab cleanup)",
+        "platform/browser-extension/src/background/stale-tab-manager.ts detects and cleans up stale tab references",
+        "platform/browser-extension/src/background/side-panel-manager.ts tracks side panel open/close state per window",
+        "platform/browser-extension/src/content-stub/index.ts provides a content script stub for chrome API access from web pages",
+        "Typecheck passes"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Add WebSocket message types for plugin state management",
+      "description": "As the platform, I need the MCP server to expose WebSocket message types that the side panel can use to read plugin/tool state and toggle tool enabled/disabled status. The MCP server is the single source of truth for all settings.",
+      "acceptanceCriteria": [
+        "MCP server handles get_plugin_state WebSocket message — returns all plugins with per-tool enabled/disabled state from ~/.opentabs/plugins.json",
+        "MCP server handles set_tool_enabled WebSocket message — toggles a specific tool in plugins.json and triggers notifications/tools/list_changed",
+        "Message types defined in @opentabs/core messaging types",
+        "Background script relays these messages between side panel (chrome.runtime) and MCP server (WebSocket)",
+        "set_tool_enabled writes atomically to plugins.json",
+        "Typecheck passes"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Implement side panel — React app with plugin list",
+      "description": "As a user, I want the side panel to show all installed plugins with their tools so I can see what's available. The side panel is a React app that reads state from the MCP server (not chrome.storage.local).",
+      "acceptanceCriteria": [
+        "Side panel is a React 19 app in platform/browser-extension/src/side-panel/",
+        "On open, sends get_plugin_state to MCP server via background script",
+        "Renders plugin list grouped by name with: display name, version, trust tier badge (official/community/local)",
+        "Under each plugin, renders tool names and descriptions",
+        "If MCP server is disconnected, shows a 'Not connected' state",
+        "Uses Tailwind CSS for styling",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Implement side panel — Tool enable/disable toggles",
+      "description": "As a user, I want to toggle individual tools on/off from the side panel with changes taking effect immediately. Each plugin group has a top-level enable all/disable all toggle.",
+      "acceptanceCriteria": [
+        "Each tool has a toggle switch (enabled/disabled)",
+        "Each plugin group has a top-level 'enable all / disable all' toggle",
+        "Toggling sends set_tool_enabled to MCP server which writes to plugins.json and triggers notifications/tools/list_changed",
+        "Toggle state updates in UI immediately (optimistic update)",
+        "Newly installed plugin tools are shown as disabled by default",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "Implement side panel — Tab state indicators",
+      "description": "As a user, I want the side panel to show tab state per plugin (closed, not-authed, authed) so I know if I need to open or log in to a web application.",
+      "acceptanceCriteria": [
+        "Each plugin displays a status indicator: green (authed), yellow (not-authed), red (closed)",
+        "closed state shows hint: 'Open <url> in your browser'",
+        "not-authed state shows hint: 'Log in to <service>'",
+        "authed state shows no hint (clean, good state)",
+        "Tab state updates received from background script and reflected in real time",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "Implement tool activity event broadcasting from MCP server",
+      "description": "As the platform, I need the MCP server to broadcast tool_invocation_start and tool_invocation_end events to the extension so the side panel can show real-time activity. Events are fire-and-forget and emitted at the tool registration wrapper level.",
+      "acceptanceCriteria": [
+        "When a tool handler begins execution, MCP server emits { type: 'tool_invocation_start', plugin, tool, ts } over WebSocket",
+        "When a tool handler completes, emits { type: 'tool_invocation_end', plugin, tool, duration_ms, success }",
+        "Events are fire-and-forget — server does not wait for acknowledgement",
+        "Events emitted for both platform-native tools and plugin tools",
+        "Event emission injected at the tool registration wrapper level (not by plugin code)",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Implement side panel — Tool activity animation",
+      "description": "As a user, I want the side panel to animate the corresponding plugin/tool entry when a tool is being invoked, showing a visual indicator that clears when the invocation completes.",
+      "acceptanceCriteria": [
+        "Side panel receives tool_invocation_start and tool_invocation_end events from background script",
+        "Active tools show a visual indicator (spinner or pulse animation)",
+        "Indicator clears when tool_invocation_end is received",
+        "Activity is transient — no persistent log",
+        "Typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Implement console.warn logging on tool invocation in target tab",
+      "description": "As a developer, I want every plugin tool invocation to log a console.warn in the target web page's DevTools console with the plugin name, tool name, and a clickable link to the source package.",
+      "acceptanceCriteria": [
+        "When the adapter receives a JSON-RPC request, it logs console.warn in the target tab: '[OpenTabs] <plugin>.<tool> invoked — <link>'",
+        "Link is the npm page URL for published plugins, or the local filesystem path for local plugins",
+        "The log uses console.warn (not console.log) so it stands out",
+        "Logging injected at the adapter dispatch level in adapter-manager.ts — plugin authors do NOT need to add it",
+        "Warning is minimal: one line + link, does not log request params or response data",
+        "Typecheck passes"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "Implement outdated plugin check on MCP server startup",
+      "description": "As a user, I want the MCP server to check installed npm plugins for newer versions on startup and tell me what bun update command to run. The check is non-blocking and cached in memory.",
+      "acceptanceCriteria": [
+        "On startup, MCP server queries npm registry for each installed npm plugin's latest version (skips local plugins)",
+        "Check is non-blocking — server startup does not wait for it",
+        "Results logged to CLI stdout with exact bun update command",
+        "Results cached in memory and exposed via /health endpoint",
+        "Results available to side panel via a WebSocket message type",
+        "Typecheck passes"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "Implement side panel — Outdated plugin notifications",
+      "description": "As a user, I want the side panel to show when a plugin has an available update on npm with a badge showing the available version and the bun update command.",
+      "acceptanceCriteria": [
+        "Side panel receives outdated plugin data from MCP server (populated on startup check)",
+        "Outdated plugins show a badge with available version and bun update command",
+        "Notifications are non-intrusive (small indicator, not a blocking dialog)",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "Implement Slack plugin — Manifest, adapter, and health check evaluator",
+      "description": "As a plugin author (and acceptance tester), I want the Slack plugin to demonstrate the full plugin SDK. The Slack plugin uses @opentabs/plugin-sdk as a peer dependency with zero platform-internal imports. This story covers the manifest, adapter, and health check.",
+      "acceptanceCriteria": [
+        "plugins/slack/opentabs-plugin.json manifest covers: adapter config (domains, urlPatterns for app.slack.com), service config with health check (auth.test method), tool categories, permissions",
+        "plugins/slack/src/adapter.ts uses registerAdapter from @opentabs/plugin-sdk/adapter to handle 'api' action",
+        "Adapter forwards Slack Web API calls using the page's authenticated fetch context",
+        "plugins/slack/src/health-check.ts exports a custom isHealthy evaluator for Slack auth.test response",
+        "plugins/slack/src/tools/types.ts defines shared types for Slack tool responses",
+        "plugins/slack/package.json peer-depends on @opentabs/plugin-sdk, @modelcontextprotocol/sdk, zod",
+        "No platform-internal imports — only imports from @opentabs/plugin-sdk",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-042",
+      "title": "Implement Slack plugin — Messages, search, channels, and conversations tools",
+      "description": "As a plugin author, I want the Slack plugin's core tool domains implemented: messages (send, list, update, delete), search (messages, files), channels (list, info, create, archive), and conversations (history, replies, mark).",
+      "acceptanceCriteria": [
+        "plugins/slack/src/tools/messages.ts registers message tools using createToolRegistrar from SDK",
+        "plugins/slack/src/tools/search.ts registers search tools",
+        "plugins/slack/src/tools/channels.ts registers channel management tools",
+        "plugins/slack/src/tools/conversations.ts registers conversation tools",
+        "All tools use sendServiceRequest() from the SDK to route through the adapter",
+        "Error patterns registered for common Slack API errors",
+        "plugins/slack/src/tools/index.ts exports registerTools that combines all domain registrations",
+        "Tool descriptions are accurate and informative for AI agent use",
+        "Typecheck passes"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043",
+      "title": "Implement Slack plugin — Users, files, pins, stars, and reactions tools",
+      "description": "As a plugin author, I want the Slack plugin's remaining tool domains implemented: users (list, info, status), files (list, upload, info), pins (add, remove, list), stars (add, remove, list), and reactions (add, remove, get).",
+      "acceptanceCriteria": [
+        "plugins/slack/src/tools/users.ts registers user tools",
+        "plugins/slack/src/tools/files.ts registers file tools",
+        "plugins/slack/src/tools/pins.ts registers pin tools",
+        "plugins/slack/src/tools/stars.ts registers star tools",
+        "plugins/slack/src/tools/reactions.ts registers reaction tools",
+        "All tools use sendServiceRequest() and follow the same pattern as the core tools",
+        "registerTools in index.ts updated to include all domain registrations",
+        "Typecheck passes"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044",
+      "title": "Verify npm distribution readiness for plugins",
+      "description": "As a plugin author, I want to verify that the package.json structure for both official and community plugins is correct for npm publishing, with proper files, keywords, and peerDependencies.",
+      "acceptanceCriteria": [
+        "Slack plugin package.json includes opentabs-plugin.json in files array",
+        "Slack plugin package.json keywords includes opentabs-plugin",
+        "Slack plugin peer-depends on @opentabs/plugin-sdk, @modelcontextprotocol/sdk, zod",
+        "Scaffolded plugins from create-opentabs-plugin also have correct files, keywords, and peerDependencies",
+        "Typecheck passes"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-045",
+      "title": "End-to-end plugin flow verification",
+      "description": "As a platform developer, I want to verify the full plugin lifecycle: scaffold a test plugin, build it, install locally via config path, discover at startup (tools disabled by default), enable a tool, invoke it, hot reload changes, disable tool, uninstall.",
+      "acceptanceCriteria": [
+        "Scaffold a test plugin with create-opentabs-plugin",
+        "Build the plugin: bun run build",
+        "Install locally via config path in ~/.opentabs/config.json",
+        "MCP server discovers the plugin at startup — all tools are disabled by default",
+        "Enable a tool from side panel — tool appears in MCP client tool list",
+        "Tool invocation works end-to-end (MCP client -> server -> extension -> adapter -> web API)",
+        "Tool invocation logs console.warn in the target tab",
+        "Side panel animates during tool invocation",
+        "Disable tool from side panel — tool removed from MCP client tool list",
+        "Code change in plugin -> rebuild -> hot reload picks up changes",
+        "bun run build and typecheck pass",
+        "Typecheck passes"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

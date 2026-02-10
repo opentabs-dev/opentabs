@@ -4,6 +4,5 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"],
-  "references": [{ "path": "../core" }, { "path": "../plugin-sdk" }, { "path": "../plugin-loader" }]
+  "include": ["src"]
 }

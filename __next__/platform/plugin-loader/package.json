@@ -1,7 +1,6 @@
 {
   "name": "@opentabs/plugin-loader",
-  "version": "1.0.0",
-  "description": "Plugin discovery, validation, and registry merging for the OpenTabs platform",
+  "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,35 +8,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./discover": {
-      "types": "./dist/discover.d.ts",
-      "import": "./dist/discover.js"
-    },
-    "./manifest-schema": {
-      "types": "./dist/manifest-schema.d.ts",
-      "import": "./dist/manifest-schema.js"
-    },
-    "./merge": {
-      "types": "./dist/merge.d.ts",
-      "import": "./dist/merge.js"
     }
   },
-  "files": [
-    "dist"
-  ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@opentabs/core": "workspace:*",
-    "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.0",
-    "typescript": "^5.9.3"
-  },
-  "license": "MIT"
+    "build": "tsc --build tsconfig.build.json",
+    "clean": "rimraf dist"
+  }
 }
