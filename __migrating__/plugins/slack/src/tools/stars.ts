@@ -3,9 +3,6 @@
 //
 // Tools for starring and unstarring messages and files, and listing starred
 // (saved) items.
-//
-// Ported from packages/mcp-server/src/tools/slack/stars.ts — adapted to use
-// @opentabs/plugin-sdk/server instead of the monolith's internal utils module.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

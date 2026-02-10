@@ -12,8 +12,6 @@
 // 4. For each existing session, tools are diffed and updated via RegisteredTool.update()
 // 5. The MCP SDK automatically sends `notifications/tools/list_changed` to connected clients
 //
-// Ported from packages/mcp-server/src/hot-reload.ts — adapted to use local
-// type imports instead of @extension/shared. No behavioral changes.
 
 import type { ServerConfig } from './config.js';
 import type { WebSocketRelay } from './websocket-relay.js';

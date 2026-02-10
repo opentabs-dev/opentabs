@@ -12,12 +12,8 @@
  * 2. Dispatch — forwards JSON-RPC requests to the adapter and returns the
  *    JSON-RPC response, bridging the MAIN ↔ background gap.
  *
- * Ported from the original chrome-extension/src/background/adapter-manager.ts.
- * Key changes:
- * - Uses dynamic service registry from @opentabs/core instead of static
- *   SERVICE_REGISTRY from @extension/shared.
- * - Adapter configs are derived from getServiceRegistry() at registration time,
- *   so newly installed plugins are picked up on extension reload.
+ * Adapter configs are derived from getServiceRegistry() at registration time,
+ * so newly installed plugins are picked up on extension reload.
  */
 
 import { getServiceRegistry } from '@opentabs/core';

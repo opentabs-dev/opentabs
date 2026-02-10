@@ -3,9 +3,6 @@
  *
  * Tracks side panel open/close state per window and toggles the side panel
  * when the extension icon is clicked.
- *
- * Ported from chrome-extension/src/background/side-panel-manager.ts.
- * Key change: imports from @opentabs/core instead of @extension/shared.
  */
 
 import { MessageTypes } from '@opentabs/core';

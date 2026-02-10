@@ -3,12 +3,6 @@
  *
  * Detects content scripts that became stale after an extension reload and
  * refreshes the affected tabs so they re-inject fresh scripts.
- *
- * Ported from chrome-extension/src/background/stale-tab-manager.ts.
- * Key changes:
- * - Imports from @opentabs/core instead of @extension/shared
- * - Uses dynamic getServiceIds() and getServiceUrlPatterns() instead of
- *   static SERVICE_IDS and SERVICE_URL_PATTERNS
  */
 
 import { MessageTypes, getServiceIds, getServiceUrlPatterns } from '@opentabs/core';

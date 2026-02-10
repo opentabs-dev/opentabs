@@ -95,7 +95,7 @@ export {
   computeServiceIds,
 } from './services.js';
 
-export type { ServiceEnv, ServiceDefinition, ServiceId } from './services.js';
+export type { ServiceEnv, ServiceDefinition, ServiceId, HealthCheckConfig, WebappServiceConfig } from './services.js';
 
 // -----------------------------------------------------------------------------
 // Plugin Manifest — Plugin contract types

@@ -25,7 +25,8 @@ import type {
   PluginTrustTier,
   ToolRegistrationFn,
   HealthCheckEvaluator,
-  JsonRpcResponse,
+  WebappServiceConfig,
+  HealthCheckConfig,
 } from '@opentabs/core';
 
 // =============================================================================
@@ -58,49 +59,11 @@ const manifestToServiceDefinition = (manifest: PluginManifest, packageName?: str
 // =============================================================================
 // Webapp Service Config — For the Browser Extension's Service Controller
 //
-// The browser extension's WebappServiceController is data-driven: it reads a
-// WebappServiceConfig to know how to manage a service's tab lifecycle, health
-// checks, and request dispatch. This function converts a plugin manifest into
-// that config shape.
+// WebappServiceConfig is defined in @opentabs/core as the shared contract
+// between the build-time plugin-loader (which produces configs from manifests)
+// and the runtime browser-extension (which consumes them in service controllers).
+// This function converts a plugin manifest into that config shape.
 // =============================================================================
-
-/**
- * Health check configuration for the service controller.
- * Mirrors the shape expected by WebappServiceController.
- */
-interface ServiceControllerHealthCheck {
-  /** JSON-RPC method to send (e.g. 'slack.api') */
-  readonly method: string;
-  /** JSON-RPC params for the health check */
-  readonly params: Record<string, unknown>;
-}
-
-/**
- * The config shape consumed by the browser extension's WebappServiceController.
- * Produced from a plugin manifest for each service-environment combination.
- */
-interface WebappServiceConfig {
-  /** Unique service identifier (e.g. 'slack', 'datadog_production') */
-  readonly serviceId: string;
-  /** Display name for logging and error messages */
-  readonly displayName: string;
-  /** Base service type / adapter name */
-  readonly adapterName: string;
-  /** URL patterns for chrome.tabs.query */
-  readonly urlPatterns: string[];
-  /** Domain substring for URL matching */
-  readonly domain: string;
-  /** Strings that indicate authentication failure */
-  readonly authErrorPatterns: string[];
-  /** Health check configuration */
-  readonly healthCheck: ServiceControllerHealthCheck;
-  /** Custom health check evaluator (optional) */
-  readonly isHealthy?: (response: JsonRpcResponse, authErrorPatterns: string[]) => boolean;
-  /** Override for the "not connected" error message */
-  readonly notConnectedMessage?: string;
-  /** Override for the "tab not found" error message */
-  readonly tabNotFoundMessage?: string;
-}
 
 /**
  * Convert a plugin manifest into WebappServiceConfig(s) for the extension's
@@ -117,7 +80,7 @@ const manifestToServiceConfigs = (
 ): Record<string, WebappServiceConfig> => {
   const configs: Record<string, WebappServiceConfig> = {};
 
-  const healthCheck: ServiceControllerHealthCheck = {
+  const healthCheck: HealthCheckConfig = {
     method: manifest.service.healthCheck.method,
     params: { ...manifest.service.healthCheck.params },
   };
@@ -582,13 +545,7 @@ const loadPlugins = async (
   };
 };
 
-export type {
-  ServiceControllerHealthCheck,
-  WebappServiceConfig,
-  LoadPluginsResult,
-  LoadPluginsOptions,
-  PluginLoadFailure,
-};
+export type { LoadPluginsResult, LoadPluginsOptions, PluginLoadFailure };
 
 export {
   manifestToServiceDefinition,

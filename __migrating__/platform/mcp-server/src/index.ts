@@ -2,8 +2,7 @@
 
 // MCP Server entry point
 //
-// Ported from packages/mcp-server/src/index.ts — adapted to use the
-// plugin-based architecture. The startup flow is:
+// The startup flow is:
 //
 // 1. Parse CLI config (or reuse from hot state)
 // 2. Call startServer(config) which:

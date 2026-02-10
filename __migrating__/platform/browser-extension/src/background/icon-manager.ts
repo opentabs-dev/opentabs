@@ -3,9 +3,6 @@
  *
  * Renders a colored status dot (green/red) on the extension badge icon
  * based on the MCP server connection state.
- *
- * Ported from chrome-extension/src/background/icon-manager.ts.
- * Key change: imports from @opentabs/core instead of @extension/shared.
  */
 
 import { MessageTypes } from '@opentabs/core';

@@ -53,10 +53,8 @@ export {
   loadPlugins,
 } from './merge.js';
 
-export type {
-  ServiceControllerHealthCheck,
-  WebappServiceConfig,
-  LoadPluginsResult,
-  LoadPluginsOptions,
-  PluginLoadFailure,
-} from './merge.js';
+export type { LoadPluginsResult, LoadPluginsOptions, PluginLoadFailure } from './merge.js';
+
+// Re-export WebappServiceConfig and HealthCheckConfig from @opentabs/core
+// (the canonical home for the build-time ↔ runtime contract types)
+export type { WebappServiceConfig, HealthCheckConfig } from '@opentabs/core';

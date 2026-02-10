@@ -2,12 +2,9 @@
  * MCP message router — handles routing of MCP messages to appropriate service
  * handlers.
  *
- * Ported from chrome-extension/src/background/mcp-router.ts.
- * Key changes:
- * - Imports from @opentabs/core instead of @extension/shared
- * - Uses dynamic registry getters (getServiceTypes, getServiceDomains,
- *   getSingleEnvServices) instead of static constants
- * - ServiceId / ServiceType are plain strings (no branded types)
+ * Uses dynamic registry getters (getServiceTypes, getServiceDomains,
+ * getSingleEnvServices) to resolve incoming JSON-RPC methods to the
+ * correct service manager.
  */
 
 import {

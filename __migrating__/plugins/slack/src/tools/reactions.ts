@@ -3,9 +3,6 @@
 //
 // Tools for managing emoji reactions on Slack messages: removing reactions
 // and listing all reactions on a message.
-//
-// Ported from packages/mcp-server/src/tools/slack/reactions.ts — adapted to use
-// @opentabs/plugin-sdk/server instead of the monolith's internal utils module.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

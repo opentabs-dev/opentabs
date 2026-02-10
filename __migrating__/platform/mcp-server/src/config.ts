@@ -1,7 +1,4 @@
 // Configuration for the MCP server
-//
-// Ported from packages/mcp-server/src/config.ts — faithful port with no
-// dependency changes (this module has no @extension/shared imports).
 
 type TransportMode = 'stdio' | 'http';
 

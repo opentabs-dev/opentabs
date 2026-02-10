@@ -3,9 +3,6 @@
 //
 // Tools for managing Slack conversations: opening DMs, creating/archiving
 // channels, setting topics/purposes, inviting/kicking users, joining/leaving.
-//
-// Ported from packages/mcp-server/src/tools/slack/conversations.ts — adapted
-// to use @opentabs/plugin-sdk/server instead of the monolith's internal utils.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

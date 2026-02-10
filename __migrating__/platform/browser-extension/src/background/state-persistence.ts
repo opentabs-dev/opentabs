@@ -3,11 +3,6 @@
  *
  * Saves and restores per-service connection state to chrome.storage.session,
  * so connection status survives service worker restarts.
- *
- * Ported from chrome-extension/src/background/state-persistence.ts.
- * Key changes:
- * - Imports from @opentabs/core instead of @extension/shared
- * - Uses dynamic getServiceIds() instead of static SERVICE_IDS
  */
 
 import { getServiceIds } from '@opentabs/core';

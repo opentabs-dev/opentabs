@@ -5,12 +5,6 @@
  * Each service is defined by a WebappServiceConfig (produced from plugin
  * manifests by @opentabs/plugin-loader at build time). This single concrete
  * class handles all webapp services without per-service subclasses.
- *
- * Ported from the original chrome-extension/src/background/service-controllers/
- * webapp-service-controller.ts. Key changes:
- * - Imports from @opentabs/core instead of @extension/shared
- * - WebappServiceConfig defined locally (mirrors plugin-loader's shape)
- * - ServiceId / ServiceType are plain strings (no branded types)
  */
 
 import { dispatchToAdapter } from '../adapter-manager.js';
@@ -22,57 +16,8 @@ import type {
   JsonRpcRequest,
   JsonRpcResponse,
   ToolPermissions,
+  WebappServiceConfig,
 } from '@opentabs/core';
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
-/**
- * Health check definition — the JSON-RPC method + params to send.
- */
-interface HealthCheckConfig {
-  /** JSON-RPC method (e.g. 'slack.api', 'datadog.api', 'snowflake.healthCheck') */
-  readonly method: string;
-  /** JSON-RPC params for the health check request */
-  readonly params: Record<string, unknown>;
-}
-
-/**
- * Declarative configuration for a webapp service controller.
- *
- * Produced from plugin manifests by @opentabs/plugin-loader's
- * manifestToServiceConfigs() at build time. Most services differ only in
- * data (URLs, auth patterns, health check endpoint). Services with unique
- * health-check logic supply an `isHealthy` override.
- */
-interface WebappServiceConfig {
-  /** Unique service identifier (e.g. 'slack', 'datadog_production') */
-  readonly serviceId: string;
-  /** Display name for logging and error messages */
-  readonly displayName: string;
-  /** Base service type / adapter name (e.g. 'datadog' for both production and staging) */
-  readonly adapterName: string;
-  /** URL patterns for chrome.tabs.query */
-  readonly urlPatterns: string[];
-  /** Domain substring for URL matching (e.g. '.slack.com') */
-  readonly domain: string;
-  /** Strings that indicate authentication failure in error messages */
-  readonly authErrorPatterns: string[];
-  /** Health check configuration */
-  readonly healthCheck: HealthCheckConfig;
-  /**
-   * Custom health check evaluator. Receives the JSON-RPC response and the
-   * authErrorPatterns. Return true if the session is healthy.
-   *
-   * When omitted, the default is used: `!('error' in response)`.
-   */
-  readonly isHealthy?: (response: JsonRpcResponse, authErrorPatterns: string[]) => boolean;
-  /** Override for the "not connected" error message */
-  readonly notConnectedMessage?: string;
-  /** Override for the "tab not found" error message */
-  readonly tabNotFoundMessage?: string;
-}
 
 // ============================================================================
 // Chrome storage helpers
@@ -448,4 +393,3 @@ class WebappServiceController implements ServiceManager {
 }
 
 export { WebappServiceController };
-export type { WebappServiceConfig };

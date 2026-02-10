@@ -1,2 +1,2 @@
-// Service controllers — generic controller + config type
-export { WebappServiceController, type WebappServiceConfig } from './webapp-service-controller.js';
+// Service controllers — generic controller
+export { WebappServiceController } from './webapp-service-controller.js';

@@ -2,9 +2,6 @@
  * Offscreen document manager — handles offscreen document lifecycle and
  * communication. Used to maintain persistent WebSocket connection (MV3
  * service workers can suspend).
- *
- * Ported from chrome-extension/src/background/offscreen-manager.ts.
- * Key change: imports from @opentabs/core instead of @extension/shared.
  */
 
 import { Defaults, MessageTypes } from '@opentabs/core';

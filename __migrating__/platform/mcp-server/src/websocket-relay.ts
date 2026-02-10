@@ -1,9 +1,7 @@
 // WebSocket relay between MCP server and Chrome extension
 //
-// Ported from packages/mcp-server/src/websocket-relay.ts — adapted to use
-// dynamic service registry from @opentabs/core instead of static constants
-// from @extension/shared. Service timeouts, display names, and URLs are now
-// looked up at call time from the dynamic registry populated by plugins.
+// Service timeouts, display names, and URLs are looked up at call time from
+// the dynamic registry populated by plugins at startup.
 
 import { isJsonRpcResponse, isJsonRpcError } from './types.js';
 import { getServiceTimeouts, getServiceDisplayNames, getServiceUrl } from '@opentabs/core';
@@ -299,25 +297,6 @@ class WebSocketRelay {
       service,
       `${service}.${action}`,
       params,
-      timeoutMs,
-      `Chrome extension not connected. Please open ${displayName} (${serviceUrl}) in Chrome with the extension installed.`,
-    );
-  }
-
-  /**
-   * Send a request to Slack's Enterprise Edge API (separate routing from standard API).
-   */
-  async sendSlackEdgeRequest(endpoint: string, params: Record<string, unknown>, toolId?: string): Promise<unknown> {
-    const timeouts = getServiceTimeouts();
-    const displayNames = getServiceDisplayNames();
-    const timeoutMs = timeouts['slack'] ?? DEFAULT_SERVICE_TIMEOUT_MS;
-    const displayName = displayNames['slack'] ?? 'Slack';
-    const serviceUrl = getServiceUrl('slack');
-
-    return this.sendRequest<unknown>(
-      'slack',
-      'slack.edgeApi',
-      { endpoint, params, toolId },
       timeoutMs,
       `Chrome extension not connected. Please open ${displayName} (${serviceUrl}) in Chrome with the extension installed.`,
     );

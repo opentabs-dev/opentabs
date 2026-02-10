@@ -2,9 +2,6 @@
 // Slack Plugin — File Tools
 //
 // Tools for listing and inspecting files shared in Slack.
-//
-// Ported from packages/mcp-server/src/tools/slack/files.ts — adapted to use
-// @opentabs/plugin-sdk/server instead of the monolith's internal utils module.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

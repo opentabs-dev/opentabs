@@ -2,12 +2,6 @@
 // Slack Plugin — Search Tools
 //
 // Tools for searching messages and files in Slack workspaces.
-//
-// Extracted from the original monolith at:
-//   packages/mcp-server/src/tools/slack/search.ts
-//
-// Now uses @opentabs/plugin-sdk/server for all platform interactions instead
-// of importing directly from the MCP server's internal modules.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

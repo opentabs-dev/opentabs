@@ -4,11 +4,6 @@
  * Manages Chrome alarm-based periodic tasks:
  * - Keepalive: ensures offscreen document and WebSocket stay alive
  * - Session health checks: verifies connected service sessions are still valid
- *
- * Ported from chrome-extension/src/background/alarm-handlers.ts.
- * Key changes:
- * - Imports from @opentabs/core instead of @extension/shared
- * - Uses Defaults from @opentabs/core for timing constants
  */
 
 import { hasOffscreenDocument, sendToOffscreen, initializeWebSocket } from './offscreen-manager.js';

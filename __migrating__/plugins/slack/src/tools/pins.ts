@@ -3,9 +3,6 @@
 //
 // Tools for pinning and unpinning messages in Slack channels, and listing
 // pinned items.
-//
-// Ported from packages/mcp-server/src/tools/slack/pins.ts — adapted to use
-// @opentabs/plugin-sdk/server instead of the monolith's internal utils module.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

@@ -4,16 +4,8 @@
  * Wires together the extracted modules. Each concern lives in its own file;
  * this file handles initialization and the message router that dispatches to them.
  *
- * Ported from chrome-extension/src/background/index.ts.
- * Key changes:
- * - Uses @opentabs/core instead of @extension/shared
- * - Service managers are built from plugin-provided WebappServiceConfigs
- *   (produced by @opentabs/plugin-loader at build time) instead of a static
- *   buildServiceConfigs() function
- * - The service registry is populated dynamically via setServiceRegistry()
- *   during initialization, using build-time generated plugin data
- * - No static SERVICE_IDS constant — uses getServiceIds() from the dynamic
- *   registry after initialization
+ * The service registry is populated dynamically via setServiceRegistry()
+ * during initialization, using build-time generated plugin data.
  */
 
 import { registerAdapters } from './adapter-manager.js';
@@ -27,9 +19,14 @@ import { setupSidePanel, markOpened, markClosed } from './side-panel-manager.js'
 import { checkAndRefreshStaleTabs } from './stale-tab-manager.js';
 import { saveConnectionState, restoreConnectionState } from './state-persistence.js';
 import { Defaults, MessageTypes, setServiceRegistry, getServiceIds } from '@opentabs/core';
-import type { WebappServiceConfig } from './service-controllers/webapp-service-controller.js';
 import type { ServiceManager, ServiceManagerContext } from './service-managers/types.js';
-import type { ConnectionStatus, ServiceConnectionStatus, BackgroundMessage, ServiceDefinition } from '@opentabs/core';
+import type {
+  ConnectionStatus,
+  ServiceConnectionStatus,
+  BackgroundMessage,
+  ServiceDefinition,
+  WebappServiceConfig,
+} from '@opentabs/core';
 
 console.log('[OpenTabs] Background script loaded');
 
@@ -250,4 +247,3 @@ const initialize = async (
 // ============================================================================
 
 export { initialize };
-export type { WebappServiceConfig };

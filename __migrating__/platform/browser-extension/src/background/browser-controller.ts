@@ -5,9 +5,6 @@
  * Unlike webapp service controllers, this does not use WebappServiceController
  * or implement ServiceManager. It has no tab lifecycle, no adapters, no health
  * checks — it's always available when the extension is connected.
- *
- * Ported from chrome-extension/src/background/browser-controller.ts.
- * Key change: imports from @opentabs/core instead of @extension/shared.
  */
 
 import { createJsonRpcSuccess, createJsonRpcError, JsonRpcErrorCode } from '@opentabs/core';

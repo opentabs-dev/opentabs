@@ -368,7 +368,7 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 
 ## Implementation Status
 
-- [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest)
+- [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest, WebappServiceConfig/HealthCheckConfig shared contract types)
 - [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns, runtime permission enforcement)
 - [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload, URL pattern overlap detection, JSON Schema generation)
 - [x] `@opentabs/mcp-server` — Complete (plugin-init, tools/index, browser tools, extension tools, capture tools, server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts, types.ts, file-store.ts, index.ts)
@@ -387,6 +387,15 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 11 (2026-02-09)
+
+- **Removed**: Dead `sendSlackEdgeRequest()` method from `WebSocketRelay` — Slack-specific method baked into the platform relay, but the Slack plugin uses the generic `sendServiceRequest('slack', {...}, 'edgeApi')` path. Contradicted the plugin architecture's goal of keeping the platform service-agnostic.
+- **Moved**: `WebappServiceConfig` and `HealthCheckConfig` types to `@opentabs/core` — These types were duplicated identically in `plugin-loader/src/merge.ts` (as `WebappServiceConfig` + `ServiceControllerHealthCheck`) and `browser-extension/src/background/service-controllers/webapp-service-controller.ts` (as `WebappServiceConfig` + `HealthCheckConfig`). They define the contract between the build-time plugin-loader and the runtime browser-extension, so `@opentabs/core` is their natural home. Both consumers now import from core instead of maintaining local copies. `ServiceControllerHealthCheck` is removed (replaced by `HealthCheckConfig`). `@opentabs/plugin-loader` re-exports both types from core for backwards compatibility.
+- **Fixed**: `as unknown as ToolRegistrationFn` double-casts in `tools/index.ts` — The abstract `ToolRegistrationFn` from core (using `McpServerLike`) forced ugly double-casts for platform-native tools. Introduced a local concrete `ToolRegistrationFn` type using the actual MCP SDK types (`McpServer`, `RegisteredTool`) for the platform tools array. Plugin registrations use the abstract type with a single narrow cast at the call site. Eliminated all `as unknown as` casts.
+- **Cleaned**: Stale porting comments across 20+ files — Removed all "Ported from...", "Key changes: imports from @opentabs/core instead of @extension/shared", and "Extracted from the original monolith" comments. Per the project's code quality rules, comments now describe current behavior, not historical migration context.
+- **Verified**: Full TypeScript compilation passes (`tsc --build --force`). Extension build passes (`bun run build:extension`). All changes are compilation-verified.
+- **Status**: Phase 6 (Design Review Through Usage) produced four concrete fixes. The codebase is cleaner: no dead code, no duplicated types, no type-unsafe casts, and no stale historical comments. The system remains fully operational end-to-end.
 
 ### Session 10 (2025-02-09)
 

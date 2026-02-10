@@ -6,8 +6,7 @@
  * page's JS context with access to session cookies and localStorage.
  *
  * Supported JSON-RPC methods (second segment of method string):
- * - api       — Slack Web API  (/api/{method})
- * - edgeApi   — Enterprise Edge API (edgeapi.slack.com)
+ * - api — Slack Web API (/api/{method})
  *
  * All business logic lives in the MCP tool layer (src/tools/), not here.
  * The adapter is a thin transport layer that authenticates and dispatches
@@ -69,7 +68,7 @@ const getAuth = (): SlackAuth | null => {
 };
 
 // ---------------------------------------------------------------------------
-// API Transports
+// API Transport
 // ---------------------------------------------------------------------------
 
 /**
@@ -106,26 +105,6 @@ const callApi = async (method: string, params: Record<string, unknown>): Promise
   return response.json();
 };
 
-/**
- * Call the Slack Enterprise Edge API (edgeapi.slack.com).
- * Used for enterprise-specific endpoints like users/search, channels/list.
- */
-const callEdgeApi = async (endpoint: string, params: Record<string, unknown>): Promise<unknown> => {
-  const auth = getAuth();
-  if (!auth) return { ok: false, error: 'Not authenticated' };
-
-  const body = { token: auth.token, enterprise_token: auth.token, ...params };
-
-  const response = await fetch(`https://edgeapi.slack.com/cache/${auth.teamId}/${endpoint}?_x_app_name=client`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify(body),
-    credentials: 'include',
-  });
-
-  return response.json();
-};
-
 // ---------------------------------------------------------------------------
 // Request Handler
 // ---------------------------------------------------------------------------
@@ -144,17 +123,6 @@ const handleRequest = async (request: JsonRpcRequest): Promise<JsonRpcResponse> 
 
         const apiParams = (params?.params as Record<string, unknown>) || {};
         const data = await callApi(apiMethod, apiParams);
-        return ok(id, data);
-      }
-
-      case 'edgeApi': {
-        const endpoint = params?.endpoint as string | undefined;
-        if (!endpoint) {
-          return fail(id, INVALID_PARAMS, 'Missing required parameter: endpoint');
-        }
-
-        const edgeParams = (params?.params as Record<string, unknown>) || {};
-        const data = await callEdgeApi(endpoint, edgeParams);
         return ok(id, data);
       }
 

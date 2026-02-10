@@ -1,8 +1,5 @@
 // HTTP server for MCP using SSE and Streamable HTTP transports
 // This allows multiple Claude Code instances to connect to the same server
-//
-// Ported from packages/mcp-server/src/http-server.ts — adapted to use local
-// imports instead of @extension/shared. No behavioral changes.
 
 import { createFileSession, appendToFile, getFileSession } from './file-store.js';
 import { getHotState, removeSession, getSession, closeAllSessions } from './hot-reload.js';

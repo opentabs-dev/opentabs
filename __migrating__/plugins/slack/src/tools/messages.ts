@@ -3,12 +3,6 @@
 //
 // Tools for sending, reading, updating, and deleting Slack messages, as well
 // as reading and replying to threads and adding reactions.
-//
-// Extracted from the original monolith at:
-//   packages/mcp-server/src/tools/slack/messages.ts
-//
-// Now uses @opentabs/plugin-sdk/server for all platform interactions instead
-// of importing directly from the MCP server's internal modules.
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';

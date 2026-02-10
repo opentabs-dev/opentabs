@@ -2,9 +2,6 @@
  * Offscreen document for persistent WebSocket connection.
  * This document doesn't sleep like service workers do, allowing
  * us to maintain a stable WebSocket connection to the MCP server.
- *
- * Ported from chrome-extension/src/offscreen/offscreen.ts.
- * Key change: imports from @opentabs/core instead of @extension/shared.
  */
 
 import { Defaults, MessageTypes } from '@opentabs/core';

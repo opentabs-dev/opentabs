@@ -1,7 +1,4 @@
 // Message types for WebSocket communication between MCP server and Chrome extension
-//
-// Ported from packages/mcp-server/src/types.ts — adapted to use @opentabs/core
-// for JSON-RPC types instead of @extension/shared.
 
 import type { JsonRpcRequest, JsonRpcResponse } from '@opentabs/core';
 

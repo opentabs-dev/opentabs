@@ -31,7 +31,16 @@ import { registerBrowserTabsTools } from './browser/tabs.js';
 import { registerCaptureTools } from './capture/index.js';
 import { registerExtensionReloadTools } from './extension/reload.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { ToolRegistrationFn } from '@opentabs/core';
+import type { ToolRegistrationFn as CoreToolRegistrationFn, McpServerLike } from '@opentabs/core';
+
+/**
+ * Concrete tool registration function type using the actual MCP SDK types.
+ * The abstract ToolRegistrationFn from @opentabs/core uses McpServerLike /
+ * RegisteredToolLike to avoid a hard SDK dependency in the core package.
+ * Within @opentabs/mcp-server we already depend on the SDK, so we use the
+ * concrete types to avoid double-casts.
+ */
+type ToolRegistrationFn = (server: McpServer) => Map<string, RegisteredTool>;
 
 // =============================================================================
 // Platform-Native Tool Registrations
@@ -45,9 +54,9 @@ import type { ToolRegistrationFn } from '@opentabs/core';
 // =============================================================================
 
 const PLATFORM_REGISTRATIONS: ToolRegistrationFn[] = [
-  registerBrowserTabsTools as unknown as ToolRegistrationFn,
-  registerExtensionReloadTools as unknown as ToolRegistrationFn,
-  registerCaptureTools as unknown as ToolRegistrationFn,
+  registerBrowserTabsTools,
+  registerExtensionReloadTools,
+  registerCaptureTools,
 ];
 
 // =============================================================================
@@ -65,7 +74,7 @@ const PLATFORM_REGISTRATIONS: ToolRegistrationFn[] = [
 // - The tools/index.ts module doesn't need to be async itself
 // =============================================================================
 
-let pluginRegistrations: ToolRegistrationFn[] = [];
+let pluginRegistrations: CoreToolRegistrationFn[] = [];
 
 /**
  * Set the plugin tool registrations discovered by the plugin-loader.
@@ -76,7 +85,7 @@ let pluginRegistrations: ToolRegistrationFn[] = [];
  *
  * @param registrations - Array of registerTools functions from loaded plugins
  */
-const setPluginRegistrations = (registrations: ToolRegistrationFn[]): void => {
+const setPluginRegistrations = (registrations: CoreToolRegistrationFn[]): void => {
   pluginRegistrations = registrations;
 };
 
@@ -84,7 +93,7 @@ const setPluginRegistrations = (registrations: ToolRegistrationFn[]): void => {
  * Get the current plugin registrations. Used by hot-reload to re-collect
  * fresh tool definitions.
  */
-const getPluginRegistrations = (): readonly ToolRegistrationFn[] => pluginRegistrations;
+const getPluginRegistrations = (): readonly CoreToolRegistrationFn[] => pluginRegistrations;
 
 /**
  * Get the platform-native registrations. Useful for testing and introspection.
@@ -123,14 +132,31 @@ const getPlatformRegistrations = (): readonly ToolRegistrationFn[] => PLATFORM_R
 const registerAllTools = (server: McpServer): Map<string, RegisteredTool> => {
   const allTools = new Map<string, RegisteredTool>();
 
-  // Combine platform and plugin registrations
-  const allRegistrations: ToolRegistrationFn[] = [...PLATFORM_REGISTRATIONS, ...pluginRegistrations];
+  // Platform registrations use concrete McpServer; plugin registrations use the
+  // abstract McpServerLike from core. McpServer satisfies McpServerLike, so the
+  // cast at the call site is safe and narrow (no double-cast needed).
+  for (const register of PLATFORM_REGISTRATIONS) {
+    for (const [name, tool] of register(server)) {
+      if (allTools.has(name)) {
+        throw new Error(
+          `Tool name collision: "${name}" is already registered. ` +
+            'Each tool must have a globally unique name. ' +
+            'Plugin tool names should be prefixed with the plugin name ' +
+            '(e.g., "slack_send_message", "jira_search_issues").',
+        );
+      }
+      allTools.set(name, tool);
+    }
+  }
 
-  for (const register of allRegistrations) {
-    // Each registration function returns a Map<string, RegisteredTool>
-    const tools = register(server as unknown as Parameters<typeof register>[0]);
+  for (const register of pluginRegistrations) {
+    // McpServer satisfies McpServerLike but TypeScript's contravariance on
+    // registerTool's parameter types prevents direct assignment. The cast is
+    // safe: McpServerLike.registerTool is (...args: unknown[]) => unknown,
+    // which is a subset of what McpServer.registerTool accepts.
+    const tools = register(server as McpServerLike) as Map<string, RegisteredTool>;
 
-    for (const [name, tool] of tools as Map<string, RegisteredTool>) {
+    for (const [name, tool] of tools) {
       if (allTools.has(name)) {
         // Tool name collision — this is a fatal error. Two plugins or a plugin
         // and a platform tool have the same tool name. The platform enforces

@@ -7,7 +7,13 @@
 // IMPORTANT: This module defines TYPES and UTILITIES only — no hardcoded
 // service data. The actual registry is built dynamically at startup by merging
 // built-in platform services with installed plugin definitions.
+//
+// Also defines WebappServiceConfig — the shared contract between the build-time
+// plugin-loader (which produces configs from plugin manifests) and the runtime
+// browser-extension (which consumes them in service controllers).
 // =============================================================================
+
+import type { JsonRpcResponse } from './json-rpc.js';
 
 // -----------------------------------------------------------------------------
 // Service Identity Types
@@ -276,10 +282,68 @@ const computeServiceIds = (definitions: readonly ServiceDefinition[]): string[] 
   );
 
 // -----------------------------------------------------------------------------
+// Webapp Service Config — Build-Time ↔ Runtime Contract
+//
+// The plugin-loader produces these configs from plugin manifests at build time.
+// The browser extension's service controllers consume them at runtime. Both
+// packages depend on @opentabs/core, so this is the natural home for the type.
+// -----------------------------------------------------------------------------
+
+/**
+ * Health check definition — the JSON-RPC method + params to send to the
+ * adapter to verify the user's session is still valid.
+ */
+interface HealthCheckConfig {
+  /** JSON-RPC method (e.g. 'slack.api', 'datadog.api') */
+  readonly method: string;
+  /** JSON-RPC params for the health check request */
+  readonly params: Record<string, unknown>;
+}
+
+/**
+ * Declarative configuration for a webapp service controller.
+ *
+ * Produced from plugin manifests by the plugin-loader's
+ * manifestToServiceConfigs() at build time. Consumed by the browser
+ * extension's WebappServiceController at runtime.
+ *
+ * Most services differ only in data (URLs, auth patterns, health check
+ * endpoint). Services with unique health-check logic supply an `isHealthy`
+ * override.
+ */
+interface WebappServiceConfig {
+  /** Unique service identifier (e.g. 'slack', 'datadog_production') */
+  readonly serviceId: string;
+  /** Display name for logging and error messages */
+  readonly displayName: string;
+  /** Base service type / adapter name (e.g. 'datadog' for both production and staging) */
+  readonly adapterName: string;
+  /** URL patterns for chrome.tabs.query */
+  readonly urlPatterns: string[];
+  /** Domain substring for URL matching (e.g. '.slack.com') */
+  readonly domain: string;
+  /** Strings that indicate authentication failure in error messages */
+  readonly authErrorPatterns: string[];
+  /** Health check configuration */
+  readonly healthCheck: HealthCheckConfig;
+  /**
+   * Custom health check evaluator. Receives the JSON-RPC response and the
+   * authErrorPatterns. Return true if the session is healthy.
+   *
+   * When omitted, the default evaluator is used: `!('error' in response)`.
+   */
+  readonly isHealthy?: (response: JsonRpcResponse, authErrorPatterns: string[]) => boolean;
+  /** Override for the "not connected" error message */
+  readonly notConnectedMessage?: string;
+  /** Override for the "tab not found" error message */
+  readonly tabNotFoundMessage?: string;
+}
+
+// -----------------------------------------------------------------------------
 // Exports
 // -----------------------------------------------------------------------------
 
-export type { ServiceEnv, ServiceDefinition, ServiceId };
+export type { ServiceEnv, ServiceDefinition, ServiceId, HealthCheckConfig, WebappServiceConfig };
 
 export {
   getServiceRegistry,

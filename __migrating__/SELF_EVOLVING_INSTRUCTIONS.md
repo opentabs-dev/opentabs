@@ -41,17 +41,24 @@ All 12 background modules + offscreen document ported from `chrome-extension/src
 
 Full stack verified. TypeScript builds clean (root `tsconfig.json` with project references was missing — created). Extension builds via `bun run build:extension`. MCP server starts, discovers Slack plugin, registers 58 tools. Extension loads in Chrome, connects via WebSocket. Slack tools (`slack_list_channels`, `slack_get_my_profile`) return real data. Browser tools (`browser_list_tabs`) return live tab data. Fixed: offscreen document path mismatch (`dist/offscreen.html` vs expected `dist/offscreen/offscreen.html`) that prevented WebSocket connection.
 
-### Phase 6: Design Review Through Usage (CURRENT PRIORITY)
+### Phase 6: Design Review Through Usage — ✅ DONE (Session 11)
 
-The system is running end-to-end. Review the design with fresh eyes:
+Reviewed the running system with fresh eyes. Four concrete issues found and fixed:
 
-- Did `sendServiceRequest()` work smoothly, or was the API awkward?
-- Did the plugin manifest have all the fields the runtime actually needed?
-- Did hot reload work with plugins?
-- Was there friction in the port that suggests the SDK is missing something?
-- Were there things the original code did that the new abstractions made harder?
+1. **Dead `sendSlackEdgeRequest()` on WebSocketRelay** — Slack-specific method still on the platform relay despite the Slack plugin using the generic `sendServiceRequest('slack', {...}, 'edgeApi')` path. Removed.
+2. **`WebappServiceConfig` type duplication** — Defined identically in `plugin-loader/merge.ts` and `browser-extension/webapp-service-controller.ts` (with a third copy of the health check sub-type under different names). Moved to `@opentabs/core` as the shared contract type.
+3. **`as unknown as ToolRegistrationFn` double-casts** — The abstract `ToolRegistrationFn` from core forced ugly casts in `tools/index.ts`. Introduced a local concrete type using actual MCP SDK types for platform tools; plugin registrations use a single narrow cast.
+4. **Stale porting comments** — 20+ files had "Ported from..." historical comments. Cleaned to describe current behavior only.
 
-Fix what you found. **Every design change must be motivated by a concrete problem you encountered during implementation.**
+Overall assessment: `sendServiceRequest()` worked smoothly. The plugin manifest had all needed fields. Hot reload works correctly. The SDK's request provider pattern is clean. No missing abstractions identified.
+
+### Phase 7: Next Steps
+
+Remaining work (human-directed — do not start without explicit instruction):
+- Options page auto-generation from plugin manifests
+- CLI tooling (`opentabs plugins add/remove/list`)
+- Wire capture handler into BrowserController action dispatch
+- Plugin registry website
 
 ## Settled Decisions — Do Not Revisit
 
@@ -64,6 +71,10 @@ These architectural questions have been thoroughly researched and decided. Do no
 - **Plugins export `isHealthy` from a separate `./health-check` entry point.** The plugin's main tools entry (`tools/index.ts`) imports `@modelcontextprotocol/sdk`, `zod`, and other server-side dependencies via side effects (e.g. `registerErrorPatterns()`). Importing `isHealthy` from the main entry pulls all of those into the extension background bundle. The solution: each plugin that has a custom health check evaluator exports `isHealthy` from a lightweight `health-check.ts` module that depends only on `@opentabs/core`. The plugin's `package.json` declares a `./health-check` export path. The build script detects this and generates an import from `@opentabs/plugin-<name>/health-check`. The main `tools/index.ts` re-exports `isHealthy` from `health-check.ts` so the MCP server path is unchanged.
 
 - **Extension build uses `Bun.build()`, not Vite.** The original codebase uses Vite with a complex multi-package Turborepo setup. The migrating workspace is a standalone Bun workspace without Vite, HMR plugins, or the `@extension/*` package aliases. Rather than porting the entire Vite toolchain, a single `build.ts` script uses `Bun.build()` directly — it handles ESM bundling (background), IIFE bundling (adapters, content stub), and file generation (manifest.json, entry points) in ~400 lines with zero extra dependencies. This is sufficient for the plugin architecture proof-of-concept. Vite can be reintroduced later if the build needs dev-mode HMR or more sophisticated transforms.
+
+- **Shared contract types live in `@opentabs/core`, not duplicated across packages.** `WebappServiceConfig` and `HealthCheckConfig` define the contract between the build-time plugin-loader (which produces configs from manifests) and the runtime browser-extension (which consumes them in service controllers). Both packages depend on `@opentabs/core`, making it the natural home. Session 11 discovered these types were duplicated identically in `plugin-loader/merge.ts` and `browser-extension/webapp-service-controller.ts` — a maintenance burden where changes had to be synced manually. The fix: define once in `@opentabs/core/services.ts`, import everywhere.
+
+- **Platform tool registrations use concrete MCP SDK types internally.** The abstract `ToolRegistrationFn` from `@opentabs/core` (using `McpServerLike`/`RegisteredToolLike`) exists to avoid a hard MCP SDK dependency in the core package. But within `@opentabs/mcp-server` — which already depends on the SDK — platform-native tool registrations should use the concrete `McpServer` and `RegisteredTool` types directly. This eliminates ugly `as unknown as` double-casts. Plugin registrations (which use the abstract type from core) need only a single narrow cast at the call site in `registerAllTools()`.
 
 - **Content stub IIFE needs its own pre-populated service registry.** The content stub is bundled as a separate IIFE with its own copy of `@opentabs/core`. The dynamic registry in that copy starts empty — `setServiceRegistry()` is only called in the background script's copy. The build script generates a content stub wrapper that calls `setServiceRegistry(serviceDefinitions)` with the build-time data before importing the stub logic, so `getServiceTypeFromHostname()` works correctly in the content stub's isolated IIFE copy of `@opentabs/core`.
 

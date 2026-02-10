@@ -9,9 +9,6 @@
  * - Respond to PING health checks from background
  * - Send TAB_READY notification when the page loads
  * - Handle visibility changes to re-announce ready state
- *
- * Ported from pages/content/src/stub/index.ts.
- * Key change: imports from @opentabs/core instead of @extension/shared.
  */
 
 import { MessageTypes, getServiceTypeFromHostname } from '@opentabs/core';

@@ -3,11 +3,6 @@
 //
 // Tools for looking up Slack users, listing workspace members, and getting
 // the current user's profile.
-//
-// Ported from packages/mcp-server/src/tools/slack/users.ts — adapted to use
-// @opentabs/plugin-sdk/server instead of the monolith's internal utils module.
-// sendSlackEdgeRequest(endpoint, params) is replaced with
-// sendServiceRequest('slack', { endpoint, params }, 'edgeApi').
 // =============================================================================
 
 import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';
@@ -63,53 +58,6 @@ export const registerUserTools = (server: McpServer): Map<string, RegisteredTool
       },
     },
     async ({ limit, include_bots }) => {
-      // Try Edge API users/list (works on enterprise workspaces)
-      const edgeResult = (await sendServiceRequest(
-        'slack',
-        {
-          endpoint: 'users/list',
-          params: {
-            filter: 'everyone',
-            count: limit || 100,
-            present_first: false,
-          },
-        },
-        'edgeApi',
-      )) as {
-        ok?: boolean;
-        results?: Array<{
-          id: string;
-          name: string;
-          real_name?: string;
-          deleted?: boolean;
-          is_bot?: boolean;
-          is_admin?: boolean;
-          is_owner?: boolean;
-          profile?: { display_name?: string; real_name?: string; email?: string };
-        }>;
-      };
-
-      if (edgeResult.ok !== false && edgeResult.results) {
-        let users = edgeResult.results;
-
-        if (!include_bots) {
-          users = users.filter(u => !u.is_bot);
-        }
-
-        const formatted = users.slice(0, limit).map(user => ({
-          id: user.id,
-          name: user.name,
-          real_name: user.real_name || user.profile?.real_name,
-          display_name: user.profile?.display_name,
-          email: user.profile?.email,
-          is_bot: user.is_bot,
-          is_admin: user.is_admin,
-        }));
-
-        return success(formatted);
-      }
-
-      // Fallback: standard API for non-enterprise workspaces
       const result = (await sendServiceRequest('slack', { method: 'users.list', params: {} })) as {
         members: SlackUser[];
       };

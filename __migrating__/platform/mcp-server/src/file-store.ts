@@ -10,8 +10,7 @@
  * This module is service-agnostic — any adapter can use it for any data format
  * (JSONL, CSV, raw text, etc.).
  *
- * Ported from packages/mcp-server/src/file-store.ts — no dependency changes
- * needed (this module uses only Node.js built-ins).
+ * This module is transport-agnostic and uses only Node.js built-ins.
  */
 
 import { randomUUID } from 'node:crypto';

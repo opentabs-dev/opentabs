@@ -16,22 +16,14 @@
     "urlPatterns": {
       "production": ["*://*.slack.com/*"]
     },
-    "hostPermissions": [
-      "https://*.slack.com/*",
-      "https://edgeapi.slack.com/*"
-    ],
+    "hostPermissions": ["https://*.slack.com/*"],
     "defaultUrl": "https://app.slack.com"
   },
 
   "service": {
     "timeout": 30000,
     "environments": ["production"],
-    "authErrorPatterns": [
-      "invalid_auth",
-      "not_authed",
-      "token_revoked",
-      "Not authenticated"
-    ],
+    "authErrorPatterns": ["invalid_auth", "not_authed", "token_revoked", "Not authenticated"],
     "healthCheck": {
       "method": "slack.api",
       "params": {
@@ -61,10 +53,7 @@
       {
         "id": "search",
         "label": "Search",
-        "tools": [
-          "slack_search_messages",
-          "slack_search_files"
-        ]
+        "tools": ["slack_search_messages", "slack_search_files"]
       },
       {
         "id": "channels",
@@ -82,10 +71,7 @@
       {
         "id": "conversations",
         "label": "Conversations",
-        "tools": [
-          "slack_open_dm",
-          "slack_list_members"
-        ]
+        "tools": ["slack_open_dm", "slack_list_members"]
       },
       {
         "id": "users",
@@ -101,55 +87,31 @@
       {
         "id": "files",
         "label": "Files",
-        "tools": [
-          "slack_list_files",
-          "slack_get_file_info"
-        ]
+        "tools": ["slack_list_files", "slack_get_file_info"]
       },
       {
         "id": "pins",
         "label": "Pins",
-        "tools": [
-          "slack_pin_message",
-          "slack_unpin_message",
-          "slack_list_pins"
-        ]
+        "tools": ["slack_pin_message", "slack_unpin_message", "slack_list_pins"]
       },
       {
         "id": "stars",
         "label": "Stars",
-        "tools": [
-          "slack_add_star",
-          "slack_remove_star",
-          "slack_list_stars"
-        ]
+        "tools": ["slack_add_star", "slack_remove_star", "slack_list_stars"]
       },
       {
         "id": "reactions",
         "label": "Reactions",
-        "tools": [
-          "slack_add_reaction",
-          "slack_remove_reaction",
-          "slack_get_reactions"
-        ]
+        "tools": ["slack_add_reaction", "slack_remove_reaction", "slack_get_reactions"]
       }
     ]
   },
 
   "permissions": {
-    "network": [
-      "*.slack.com",
-      "edgeapi.slack.com"
-    ],
+    "network": ["*.slack.com"],
     "storage": true,
     "nativeApis": []
   },
 
-  "keywords": [
-    "slack",
-    "messaging",
-    "chat",
-    "workspace",
-    "communication"
-  ]
+  "keywords": ["slack", "messaging", "chat", "workspace", "communication"]
 }

@@ -4,10 +4,9 @@
 // all modules re-evaluate, and tools are hot-patched on existing MCP sessions.
 // Connected clients receive `notifications/tools/list_changed` automatically.
 //
-// Ported from packages/mcp-server/src/server.ts — adapted to:
-// 1. Initialize the plugin system at startup via initializePlugins()
-// 2. Wire the RequestProvider so plugin tools can reach the WebSocket relay
-// 3. Refresh plugin tools on hot reload via refreshPluginTools()
+// On startup: initializes the plugin system, wires the RequestProvider so
+// plugin tools can reach the WebSocket relay, and starts the HTTP/stdio transport.
+// On hot reload: refreshes plugin tools and patches existing sessions.
 
 import { getHotState, isHotReload, hotPatchAllSessions, registerSession, closeAllSessions } from './hot-reload.js';
 import { startHttpServer } from './http-server.js';
