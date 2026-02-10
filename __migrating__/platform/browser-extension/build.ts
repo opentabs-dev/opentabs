@@ -394,7 +394,7 @@ const manifest = {
   version: extensionPkg.version,
   description: '__MSG_extensionDescription__',
   host_permissions: hostPermissions,
-  permissions: ['storage', 'scripting', 'tabs', 'alarms', 'offscreen', 'sidePanel'],
+  permissions: ['storage', 'scripting', 'tabs', 'alarms', 'offscreen'],
   background: {
     service_worker: 'background.js',
     type: 'module',

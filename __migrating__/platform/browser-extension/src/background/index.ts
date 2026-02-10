@@ -223,7 +223,12 @@ const initialize = async (
     console.error('[OpenTabs] Failed to register adapters:', err);
   }
 
-  await setupSidePanel();
+  // Only set up side panel if the API is available (requires sidePanel permission
+  // and a side_panel.default_path in the manifest). The migrated extension may
+  // not have a side panel UI page yet.
+  if (typeof chrome.sidePanel !== 'undefined') {
+    await setupSidePanel();
+  }
   await setupAlarms(connectionStatus, managers);
   await checkAndRefreshStaleTabs();
 
