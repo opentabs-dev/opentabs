@@ -191,9 +191,7 @@ export interface CloseSidePanelMessage {
 }
 
 /** All messages the background script broadcasts via chrome.runtime.sendMessage */
-export type BackgroundBroadcastMessage =
-  | StatusUpdateMessage
-  | CloseSidePanelMessage;
+export type BackgroundBroadcastMessage = StatusUpdateMessage | CloseSidePanelMessage;
 
 // -----------------------------------------------------------------------------
 // Messages: Background → Offscreen
@@ -300,9 +298,7 @@ export interface ToolPermissions {
 // -----------------------------------------------------------------------------
 
 /** Check whether an unknown message came from the offscreen document. */
-export const isOffscreenMessage = (
-  message: unknown,
-): message is OffscreenToBackgroundMessage =>
+export const isOffscreenMessage = (message: unknown): message is OffscreenToBackgroundMessage =>
   typeof message === 'object' &&
   message !== null &&
   'source' in message &&

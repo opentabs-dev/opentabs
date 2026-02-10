@@ -11,15 +11,12 @@
 // MCP server and browser extension build scripts call.
 // =============================================================================
 
-import { readFile } from 'node:fs/promises';
-import { join, resolve, isAbsolute } from 'node:path';
+import { discoverPlugins, determineTrustTier } from './discover.js';
+import { validateOrThrow, checkNameConflicts } from './validate.js';
+import { setServiceRegistry, computeServiceIds, isJsonRpcError } from '@opentabs/core';
+import { resolve, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
-
-import {
-  setServiceRegistry,
-  computeServiceIds,
-} from '@opentabs/core';
-
+import type { DiscoveredPlugin, DiscoveryOptions } from './discover.js';
 import type {
   ServiceDefinition,
   ServiceEnv,
@@ -31,13 +28,6 @@ import type {
   PluginHealthCheckConfig,
   JsonRpcResponse,
 } from '@opentabs/core';
-
-import { isJsonRpcError } from '@opentabs/core';
-
-import { discoverPlugins, determineTrustTier } from './discover.js';
-import { validateOrThrow, checkNameConflicts } from './validate.js';
-
-import type { DiscoveredPlugin, DiscoveryOptions, OpenTabsConfig } from './discover.js';
 
 // =============================================================================
 // Manifest → ServiceDefinition
@@ -52,10 +42,7 @@ import type { DiscoveredPlugin, DiscoveryOptions, OpenTabsConfig } from './disco
  * @param packageName - The npm package name (for source tracking)
  * @returns A ServiceDefinition suitable for the service registry
  */
-export const manifestToServiceDefinition = (
-  manifest: PluginManifest,
-  packageName?: string,
-): ServiceDefinition => ({
+const manifestToServiceDefinition = (manifest: PluginManifest, packageName?: string): ServiceDefinition => ({
   type: manifest.name,
   displayName: manifest.displayName,
   environments: manifest.service.environments as readonly ServiceEnv[],
@@ -82,7 +69,7 @@ export const manifestToServiceDefinition = (
  * Health check configuration for the service controller.
  * Mirrors the shape expected by WebappServiceController.
  */
-export interface ServiceControllerHealthCheck {
+interface ServiceControllerHealthCheck {
   /** JSON-RPC method to send (e.g. 'slack.api') */
   readonly method: string;
   /** JSON-RPC params for the health check */
@@ -93,7 +80,7 @@ export interface ServiceControllerHealthCheck {
  * The config shape consumed by the browser extension's WebappServiceController.
  * Produced from a plugin manifest for each service-environment combination.
  */
-export interface WebappServiceConfig {
+interface WebappServiceConfig {
   /** Unique service identifier (e.g. 'slack', 'datadog_production') */
   readonly serviceId: string;
   /** Display name for logging and error messages */
@@ -125,7 +112,7 @@ export interface WebappServiceConfig {
  * @param isHealthy - Optional custom health evaluator loaded from the plugin module
  * @returns A record of serviceId → WebappServiceConfig
  */
-export const manifestToServiceConfigs = (
+const manifestToServiceConfigs = (
   manifest: PluginManifest,
   isHealthy?: HealthCheckEvaluator,
 ): Record<string, WebappServiceConfig> => {
@@ -139,13 +126,11 @@ export const manifestToServiceConfigs = (
   // Adapt the evaluator function signature: the service controller passes
   // mutable string[], but the plugin manifest declares readonly string[].
   const adaptedIsHealthy = isHealthy
-    ? (response: JsonRpcResponse, patterns: string[]): boolean =>
-        isHealthy(response, patterns)
+    ? (response: JsonRpcResponse, patterns: string[]): boolean => isHealthy(response, patterns)
     : undefined;
 
   // Resolve built-in evaluators by name
-  const resolvedIsHealthy =
-    adaptedIsHealthy ?? resolveBuiltinEvaluator(manifest.service.healthCheck);
+  const resolvedIsHealthy = adaptedIsHealthy ?? resolveBuiltinEvaluator(manifest.service.healthCheck);
 
   if (manifest.service.environments.length === 1) {
     const env = manifest.service.environments[0]!;
@@ -234,16 +219,14 @@ const resolveBuiltinEvaluator = (
 
     case 'snowflake-user-field':
       // Snowflake's health check returns a user object when healthy.
-      return (response) => {
+      return response => {
         if ('error' in response) return false;
         const result = (response as { result?: { user?: boolean } }).result;
         return !!result?.user;
       };
 
     default:
-      console.error(
-        `[OpenTabs] Unknown health check evaluator: "${evaluator}". Using default.`,
-      );
+      console.error(`[OpenTabs] Unknown health check evaluator: "${evaluator}". Using default.`);
       return undefined;
   }
 };
@@ -270,9 +253,7 @@ const loadPluginModule = async (
   const toolsEntry = manifest.tools.entry;
 
   // Resolve the tools entry relative to the package root
-  const absoluteEntry = isAbsolute(toolsEntry)
-    ? toolsEntry
-    : resolve(packagePath, toolsEntry);
+  const absoluteEntry = isAbsolute(toolsEntry) ? toolsEntry : resolve(packagePath, toolsEntry);
 
   const entryUrl = pathToFileURL(absoluteEntry).href;
 
@@ -291,10 +272,7 @@ const loadPluginModule = async (
 
   return {
     registerTools: mod.registerTools,
-    isHealthy:
-      mod.isHealthy && typeof mod.isHealthy === 'function'
-        ? mod.isHealthy
-        : undefined,
+    isHealthy: mod.isHealthy && typeof mod.isHealthy === 'function' ? mod.isHealthy : undefined,
   };
 };
 
@@ -314,9 +292,7 @@ const loadPluginModule = async (
  * @param discovered - A plugin found by the discovery phase
  * @returns A fully resolved plugin, or undefined if loading fails
  */
-export const resolvePlugin = async (
-  discovered: DiscoveredPlugin,
-): Promise<ResolvedPlugin | undefined> => {
+const resolvePlugin = async (discovered: DiscoveredPlugin): Promise<ResolvedPlugin | undefined> => {
   // 1. Validate manifest
   let manifest: PluginManifest;
   try {
@@ -340,17 +316,13 @@ export const resolvePlugin = async (
     isHealthy = loaded.isHealthy;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[OpenTabs] Failed to load tools module for plugin "${manifest.name}": ${message}`,
-    );
+    console.error(`[OpenTabs] Failed to load tools module for plugin "${manifest.name}": ${message}`);
     return undefined;
   }
 
   // 4. Resolve adapter path
   const adapterEntry = manifest.adapter.entry;
-  const adapterPath = isAbsolute(adapterEntry)
-    ? adapterEntry
-    : resolve(discovered.packagePath, adapterEntry);
+  const adapterPath = isAbsolute(adapterEntry) ? adapterEntry : resolve(discovered.packagePath, adapterEntry);
 
   return {
     manifest,
@@ -377,13 +349,11 @@ export const resolvePlugin = async (
  * @param plugins - Resolved plugins to merge
  * @returns The merged ServiceDefinition array
  */
-export const mergeIntoRegistry = (
+const mergeIntoRegistry = (
   builtinDefinitions: readonly ServiceDefinition[],
   plugins: readonly ResolvedPlugin[],
 ): readonly ServiceDefinition[] => {
-  const pluginDefinitions = plugins.map(p =>
-    manifestToServiceDefinition(p.manifest, p.manifest.name),
-  );
+  const pluginDefinitions = plugins.map(p => manifestToServiceDefinition(p.manifest, p.manifest.name));
 
   const merged = [...builtinDefinitions, ...pluginDefinitions];
 
@@ -414,13 +384,10 @@ export const mergeIntoRegistry = (
  * @param plugins - Resolved plugins with their registerTools functions
  * @returns The combined array of registration functions
  */
-export const mergeToolRegistrations = (
+const mergeToolRegistrations = (
   builtinRegistrations: readonly ToolRegistrationFn[],
   plugins: readonly ResolvedPlugin[],
-): ToolRegistrationFn[] => [
-  ...builtinRegistrations,
-  ...plugins.map(p => p.registerTools),
-];
+): ToolRegistrationFn[] => [...builtinRegistrations, ...plugins.map(p => p.registerTools)];
 
 /**
  * Build the merged map of service controller configs from plugin manifests.
@@ -428,16 +395,11 @@ export const mergeToolRegistrations = (
  * @param plugins - Resolved plugins
  * @returns A record of serviceId → WebappServiceConfig covering all plugins
  */
-export const mergeServiceConfigs = (
-  plugins: readonly ResolvedPlugin[],
-): Record<string, WebappServiceConfig> => {
+const mergeServiceConfigs = (plugins: readonly ResolvedPlugin[]): Record<string, WebappServiceConfig> => {
   const configs: Record<string, WebappServiceConfig> = {};
 
   for (const plugin of plugins) {
-    const pluginConfigs = manifestToServiceConfigs(
-      plugin.manifest,
-      plugin.isHealthy,
-    );
+    const pluginConfigs = manifestToServiceConfigs(plugin.manifest, plugin.isHealthy);
     Object.assign(configs, pluginConfigs);
   }
 
@@ -456,7 +418,7 @@ export const mergeServiceConfigs = (
  * Result of loading all plugins. Contains everything the platform needs
  * to wire plugins into the MCP server and browser extension.
  */
-export interface LoadPluginsResult {
+interface LoadPluginsResult {
   /** All successfully resolved plugins. */
   readonly plugins: readonly ResolvedPlugin[];
 
@@ -477,7 +439,7 @@ export interface LoadPluginsResult {
 }
 
 /** A plugin that was discovered but failed to load. */
-export interface PluginLoadFailure {
+interface PluginLoadFailure {
   /** The npm package name. */
   readonly packageName: string;
   /** Human-readable error description. */
@@ -507,7 +469,7 @@ export interface PluginLoadFailure {
  * // Use result.registry for service lookups
  * ```
  */
-export const loadPlugins = async (
+const loadPlugins = async (
   builtinDefinitions: readonly ServiceDefinition[],
   builtinToolRegistrations: readonly ToolRegistrationFn[],
   options?: DiscoveryOptions,
@@ -579,9 +541,7 @@ export const loadPlugins = async (
 
   // Log summary
   if (resolved.length > 0) {
-    console.error(
-      `[OpenTabs] Loaded ${resolved.length} plugin(s): ${resolved.map(p => p.manifest.name).join(', ')}`,
-    );
+    console.error(`[OpenTabs] Loaded ${resolved.length} plugin(s): ${resolved.map(p => p.manifest.name).join(', ')}`);
   }
   if (failures.length > 0) {
     console.error(
@@ -597,4 +557,16 @@ export const loadPlugins = async (
     serviceConfigs,
     failures,
   };
+};
+
+export type { ServiceControllerHealthCheck, WebappServiceConfig, LoadPluginsResult, PluginLoadFailure };
+
+export {
+  manifestToServiceDefinition,
+  manifestToServiceConfigs,
+  resolvePlugin,
+  mergeIntoRegistry,
+  mergeToolRegistrations,
+  mergeServiceConfigs,
+  loadPlugins,
 };

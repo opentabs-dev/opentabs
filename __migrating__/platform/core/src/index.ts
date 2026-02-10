@@ -38,11 +38,7 @@ export type {
 // Messaging — Extension internal communication
 // -----------------------------------------------------------------------------
 
-export {
-  MessageTypes,
-  Defaults,
-  isOffscreenMessage,
-} from './messaging.js';
+export { MessageTypes, Defaults, isOffscreenMessage } from './messaging.js';
 
 export type {
   MessageType,
@@ -99,20 +95,13 @@ export {
   computeServiceIds,
 } from './services.js';
 
-export type {
-  ServiceEnv,
-  ServiceDefinition,
-  ServiceId,
-} from './services.js';
+export type { ServiceEnv, ServiceDefinition, ServiceId } from './services.js';
 
 // -----------------------------------------------------------------------------
 // Plugin Manifest — Plugin contract types
 // -----------------------------------------------------------------------------
 
-export {
-  RESERVED_PLUGIN_NAMES,
-  checkReservedName,
-} from './plugin-manifest.js';
+export { RESERVED_PLUGIN_NAMES, checkReservedName } from './plugin-manifest.js';
 
 export type {
   PluginManifest,

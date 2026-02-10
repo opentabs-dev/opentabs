@@ -25,19 +25,8 @@
 //
 // =============================================================================
 
-import {
-  JsonRpcErrorCode,
-  createJsonRpcSuccess,
-  createJsonRpcError,
-} from '@opentabs/core';
-
-import type {
-  JsonRpcRequest,
-  JsonRpcResponse,
-} from '@opentabs/core';
-
-// Re-export types for plugin authors
-export type { JsonRpcRequest, JsonRpcResponse };
+import { JsonRpcErrorCode, createJsonRpcSuccess, createJsonRpcError } from '@opentabs/core';
+import type { JsonRpcRequest, JsonRpcResponse } from '@opentabs/core';
 
 // -----------------------------------------------------------------------------
 // JSON-RPC Response Helpers
@@ -47,7 +36,7 @@ export type { JsonRpcRequest, JsonRpcResponse };
 // -----------------------------------------------------------------------------
 
 /** Create a JSON-RPC success response. Alias for createJsonRpcSuccess. */
-export const ok = createJsonRpcSuccess;
+const ok = createJsonRpcSuccess;
 
 /**
  * Create a JSON-RPC error response.
@@ -56,8 +45,7 @@ export const ok = createJsonRpcSuccess;
  * @param code - A JsonRpcErrorCode value (use the exported constants)
  * @param message - Human-readable error description
  */
-export const fail = (id: string, code: number, message: string): JsonRpcResponse =>
-  createJsonRpcError(id, code, message);
+const fail = (id: string, code: number, message: string): JsonRpcResponse => createJsonRpcError(id, code, message);
 
 // -----------------------------------------------------------------------------
 // Error Code Constants
@@ -67,16 +55,16 @@ export const fail = (id: string, code: number, message: string): JsonRpcResponse
 // -----------------------------------------------------------------------------
 
 /** -32602: Missing or invalid parameters in the JSON-RPC request. */
-export const INVALID_PARAMS = JsonRpcErrorCode.INVALID_PARAMS;
+const INVALID_PARAMS = JsonRpcErrorCode.INVALID_PARAMS;
 
 /** -32601: The requested method (action) does not exist on this adapter. */
-export const METHOD_NOT_FOUND = JsonRpcErrorCode.METHOD_NOT_FOUND;
+const METHOD_NOT_FOUND = JsonRpcErrorCode.METHOD_NOT_FOUND;
 
 /** -32603: An unexpected internal error occurred during request handling. */
-export const INTERNAL_ERROR = JsonRpcErrorCode.INTERNAL_ERROR;
+const INTERNAL_ERROR = JsonRpcErrorCode.INTERNAL_ERROR;
 
 /** -32001: The user's session is expired or not authenticated. */
-export const NOT_AUTHENTICATED = JsonRpcErrorCode.NOT_AUTHENTICATED;
+const NOT_AUTHENTICATED = JsonRpcErrorCode.NOT_AUTHENTICATED;
 
 // -----------------------------------------------------------------------------
 // Window Type Extension
@@ -87,17 +75,12 @@ export const NOT_AUTHENTICATED = JsonRpcErrorCode.NOT_AUTHENTICATED;
 // -----------------------------------------------------------------------------
 
 /** Handler function signature that every adapter must implement. */
-export type AdapterRequestHandler = (
-  request: JsonRpcRequest,
-) => Promise<JsonRpcResponse>;
+type AdapterRequestHandler = (request: JsonRpcRequest) => Promise<JsonRpcResponse>;
 
 declare global {
   interface Window {
     __openTabs?: {
-      adapters: Record<
-        string,
-        { handleRequest: AdapterRequestHandler } | undefined
-      >;
+      adapters: Record<string, { handleRequest: AdapterRequestHandler } | undefined>;
     };
   }
 }
@@ -131,10 +114,7 @@ declare global {
  * });
  * ```
  */
-export const registerAdapter = (
-  name: string,
-  handleRequest: AdapterRequestHandler,
-): void => {
+const registerAdapter = (name: string, handleRequest: AdapterRequestHandler): void => {
   // Ensure the global adapter registry exists
   window.__openTabs = window.__openTabs ?? { adapters: {} };
 
@@ -161,7 +141,7 @@ export const registerAdapter = (
  * @param method - The full JSON-RPC method string (e.g. 'slack.api')
  * @returns The action string (e.g. 'api'), or undefined if malformed
  */
-export const parseAction = (method: string): string | undefined => {
+const parseAction = (method: string): string | undefined => {
   const dotIndex = method.indexOf('.');
   if (dotIndex === -1 || dotIndex === method.length - 1) return undefined;
   return method.slice(dotIndex + 1);
@@ -180,19 +160,12 @@ export const parseAction = (method: string): string | undefined => {
  * @param pluginName - The plugin name, used in error messages.
  * @returns A fetch-compatible function that rejects disallowed domains.
  */
-export const createScopedFetch = (
-  allowedDomains: readonly string[],
-  pluginName: string,
-): typeof fetch => {
+const createScopedFetch = (allowedDomains: readonly string[], pluginName: string): typeof fetch => {
   const originalFetch = globalThis.fetch;
 
   return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.href
-          : input.url,
+      typeof input === 'string' ? input : input instanceof URL ? input.href : input.url,
       globalThis.location?.origin,
     );
 
@@ -210,8 +183,7 @@ export const createScopedFetch = (
     });
 
     // Always allow same-origin requests (the page the adapter is running on)
-    const isSameOrigin =
-      globalThis.location && url.origin === globalThis.location.origin;
+    const isSameOrigin = globalThis.location && url.origin === globalThis.location.origin;
 
     if (!isAllowed && !isSameOrigin) {
       return Promise.reject(
@@ -224,4 +196,18 @@ export const createScopedFetch = (
 
     return originalFetch(input, init);
   };
+};
+
+export type { JsonRpcRequest, JsonRpcResponse, AdapterRequestHandler };
+
+export {
+  ok,
+  fail,
+  INVALID_PARAMS,
+  METHOD_NOT_FOUND,
+  INTERNAL_ERROR,
+  NOT_AUTHENTICATED,
+  registerAdapter,
+  parseAction,
+  createScopedFetch,
 };

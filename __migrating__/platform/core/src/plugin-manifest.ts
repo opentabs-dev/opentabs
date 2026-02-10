@@ -367,10 +367,7 @@ export interface PluginSettingOption {
  * Signature for a custom health check evaluator function.
  * Exported from the plugin's tools entry module as `isHealthy`.
  */
-export type HealthCheckEvaluator = (
-  response: JsonRpcResponse,
-  authErrorPatterns: readonly string[],
-) => boolean;
+export type HealthCheckEvaluator = (response: JsonRpcResponse, authErrorPatterns: readonly string[]) => boolean;
 
 // -----------------------------------------------------------------------------
 // Resolved Plugin — Internal Platform Type
@@ -421,9 +418,7 @@ export type PluginTrustTier = 'official' | 'verified' | 'community' | 'local';
  * Defined here (not in plugin-sdk) because the platform needs it without
  * depending on the SDK.
  */
-export type ToolRegistrationFn = (
-  server: McpServerLike,
-) => Map<string, RegisteredToolLike>;
+export type ToolRegistrationFn = (server: McpServerLike) => Map<string, RegisteredToolLike>;
 
 /**
  * Minimal McpServer interface for tool registration. Avoids a hard dependency
@@ -451,13 +446,7 @@ export interface RegisteredToolLike {
 // -----------------------------------------------------------------------------
 
 /** Method prefixes reserved by the platform and unavailable for plugins. */
-export const RESERVED_PLUGIN_NAMES: readonly string[] = [
-  'browser',
-  'system',
-  'extension',
-  'plugin',
-  'opentabs',
-];
+export const RESERVED_PLUGIN_NAMES: readonly string[] = ['browser', 'system', 'extension', 'plugin', 'opentabs'];
 
 /**
  * Validate that a plugin name doesn't collide with reserved names.

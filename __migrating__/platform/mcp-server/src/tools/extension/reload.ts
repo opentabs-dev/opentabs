@@ -14,21 +14,14 @@
 // stays running (it's a separate process).
 // =============================================================================
 
-import {
-  createToolRegistrar,
-  reloadExtension,
-  success,
-} from '@opentabs/plugin-sdk/server';
-
+import { createToolRegistrar, reloadExtension, success } from '@opentabs/plugin-sdk/server';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 // -----------------------------------------------------------------------------
 // Tool Registration
 // -----------------------------------------------------------------------------
 
-export const registerExtensionReloadTools = (
-  server: McpServer,
-): Map<string, RegisteredTool> => {
+export const registerExtensionReloadTools = (server: McpServer): Map<string, RegisteredTool> => {
   const { tools, define } = createToolRegistrar(server);
 
   // -------------------------------------------------------------------------

@@ -22,9 +22,7 @@ import {
   INVALID_PARAMS,
   METHOD_NOT_FOUND,
   INTERNAL_ERROR,
-  NOT_AUTHENTICATED,
 } from '@opentabs/plugin-sdk/adapter';
-
 import type { JsonRpcRequest, JsonRpcResponse } from '@opentabs/plugin-sdk/adapter';
 
 // ---------------------------------------------------------------------------
@@ -78,10 +76,7 @@ const getAuth = (): SlackAuth | null => {
  * Call the Slack Web API (/api/{method}) using the user's session token.
  * Uses form-encoded POST requests matching Slack's internal client behavior.
  */
-const callApi = async (
-  method: string,
-  params: Record<string, unknown>,
-): Promise<unknown> => {
+const callApi = async (method: string, params: Record<string, unknown>): Promise<unknown> => {
   const auth = getAuth();
   if (!auth) return { ok: false, error: 'Not authenticated' };
 
@@ -90,10 +85,7 @@ const callApi = async (
 
   for (const [key, value] of Object.entries(params || {})) {
     if (value !== undefined && value !== null) {
-      form.append(
-        key,
-        typeof value === 'object' ? JSON.stringify(value) : String(value),
-      );
+      form.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
     }
   }
 
@@ -118,24 +110,18 @@ const callApi = async (
  * Call the Slack Enterprise Edge API (edgeapi.slack.com).
  * Used for enterprise-specific endpoints like users/search, channels/list.
  */
-const callEdgeApi = async (
-  endpoint: string,
-  params: Record<string, unknown>,
-): Promise<unknown> => {
+const callEdgeApi = async (endpoint: string, params: Record<string, unknown>): Promise<unknown> => {
   const auth = getAuth();
   if (!auth) return { ok: false, error: 'Not authenticated' };
 
   const body = { token: auth.token, enterprise_token: auth.token, ...params };
 
-  const response = await fetch(
-    `https://edgeapi.slack.com/cache/${auth.teamId}/${endpoint}?_x_app_name=client`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(body),
-      credentials: 'include',
-    },
-  );
+  const response = await fetch(`https://edgeapi.slack.com/cache/${auth.teamId}/${endpoint}?_x_app_name=client`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify(body),
+    credentials: 'include',
+  });
 
   return response.json();
 };
@@ -144,9 +130,7 @@ const callEdgeApi = async (
 // Request Handler
 // ---------------------------------------------------------------------------
 
-const handleRequest = async (
-  request: JsonRpcRequest,
-): Promise<JsonRpcResponse> => {
+const handleRequest = async (request: JsonRpcRequest): Promise<JsonRpcResponse> => {
   const { id, method, params } = request;
   const action = parseAction(method);
 
@@ -166,11 +150,7 @@ const handleRequest = async (
       case 'edgeApi': {
         const endpoint = params?.endpoint as string | undefined;
         if (!endpoint) {
-          return fail(
-            id,
-            INVALID_PARAMS,
-            'Missing required parameter: endpoint',
-          );
+          return fail(id, INVALID_PARAMS, 'Missing required parameter: endpoint');
         }
 
         const edgeParams = (params?.params as Record<string, unknown>) || {};
@@ -179,18 +159,10 @@ const handleRequest = async (
       }
 
       default:
-        return fail(
-          id,
-          METHOD_NOT_FOUND,
-          `Unknown action: ${action ?? '(empty)'}`,
-        );
+        return fail(id, METHOD_NOT_FOUND, `Unknown action: ${action ?? '(empty)'}`);
     }
   } catch (err) {
-    return fail(
-      id,
-      INTERNAL_ERROR,
-      err instanceof Error ? err.message : String(err),
-    );
+    return fail(id, INTERNAL_ERROR, err instanceof Error ? err.message : String(err));
   }
 };
 

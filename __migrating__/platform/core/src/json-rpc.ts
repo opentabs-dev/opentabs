@@ -69,18 +69,14 @@ export const JsonRpcErrorCode = {
   PERMISSION_DENIED: -32003,
 } as const;
 
-export type JsonRpcErrorCodeValue =
-  (typeof JsonRpcErrorCode)[keyof typeof JsonRpcErrorCode];
+export type JsonRpcErrorCodeValue = (typeof JsonRpcErrorCode)[keyof typeof JsonRpcErrorCode];
 
 // -----------------------------------------------------------------------------
 // Factory Functions
 // -----------------------------------------------------------------------------
 
 /** Create a JSON-RPC 2.0 success response. */
-export const createJsonRpcSuccess = (
-  id: string,
-  result: unknown,
-): JsonRpcSuccessResponse => ({
+export const createJsonRpcSuccess = (id: string, result: unknown): JsonRpcSuccessResponse => ({
   jsonrpc: '2.0',
   id,
   result,
@@ -103,9 +99,7 @@ export const createJsonRpcError = (
 // -----------------------------------------------------------------------------
 
 /** Check whether a response is an error response. */
-export const isJsonRpcError = (
-  response: JsonRpcResponse,
-): response is JsonRpcErrorResponse => 'error' in response;
+export const isJsonRpcError = (response: JsonRpcResponse): response is JsonRpcErrorResponse => 'error' in response;
 
 /** Check whether an unknown value is a valid JSON-RPC 2.0 request. */
 export const isJsonRpcRequest = (msg: unknown): msg is JsonRpcRequest =>

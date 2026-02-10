@@ -27,13 +27,12 @@
 // handler when patching existing sessions.
 // =============================================================================
 
+import { setPluginRegistrations } from './tools/index.js';
 import { loadPlugins } from '@opentabs/plugin-loader';
 import { __setRequestProvider } from '@opentabs/plugin-sdk/server';
-import { setPluginRegistrations } from './tools/index.js';
-
+import type { ServiceDefinition, ToolRegistrationFn } from '@opentabs/core';
 import type { LoadPluginsResult } from '@opentabs/plugin-loader';
 import type { RequestProvider } from '@opentabs/plugin-sdk/server';
-import type { ServiceDefinition, ToolRegistrationFn } from '@opentabs/core';
 
 // =============================================================================
 // Types
@@ -165,9 +164,7 @@ export const initializePlugins = async (
   );
 
   // 2. Extract plugin tool registrations and inject into tools/index.ts
-  const pluginToolRegistrations = loadResult.plugins.map(
-    p => p.registerTools as ToolRegistrationFn,
-  );
+  const pluginToolRegistrations = loadResult.plugins.map(p => p.registerTools as ToolRegistrationFn);
   setPluginRegistrations(pluginToolRegistrations);
 
   // 3. Build summary
@@ -191,15 +188,11 @@ export const initializePlugins = async (
           `(${summary.pluginNames.join(', ')})`,
       );
     } else {
-      console.error(
-        '[MCP] Plugin system initialized: no plugins found',
-      );
+      console.error('[MCP] Plugin system initialized: no plugins found');
     }
 
     if (summary.pluginsFailed > 0) {
-      console.error(
-        `[MCP] ${summary.pluginsFailed} plugin(s) failed to load:`,
-      );
+      console.error(`[MCP] ${summary.pluginsFailed} plugin(s) failed to load:`);
       for (const failure of summary.failures) {
         console.error(`[MCP]   - ${failure.packageName}: ${failure.error}`);
       }
@@ -239,12 +232,10 @@ export const initializePlugins = async (
  * @param options - Optional overrides for the discovery process
  * @returns Summary of what was refreshed
  */
-export const refreshPluginTools = async (
-  options?: {
-    readonly rootDir?: string;
-    readonly verbose?: boolean;
-  },
-): Promise<PluginInitSummary> => {
+export const refreshPluginTools = async (options?: {
+  readonly rootDir?: string;
+  readonly verbose?: boolean;
+}): Promise<PluginInitSummary> => {
   const verbose = options?.verbose ?? false;
 
   if (verbose) {
@@ -270,10 +261,7 @@ export const refreshPluginTools = async (
       // On hot reload, the registry is already set. We just need to
       // re-load tool modules. Use a simplified discovery path.
       if (verbose) {
-        console.error(
-          '[MCP] Registry already frozen (expected during hot reload). ' +
-            'Refreshing tool modules only.',
-        );
+        console.error('[MCP] Registry already frozen (expected during hot reload). ' + 'Refreshing tool modules only.');
       }
 
       // Return a minimal summary indicating no changes
@@ -291,9 +279,7 @@ export const refreshPluginTools = async (
   }
 
   // Update tool registrations
-  const pluginToolRegistrations = loadResult.plugins.map(
-    p => p.registerTools as ToolRegistrationFn,
-  );
+  const pluginToolRegistrations = loadResult.plugins.map(p => p.registerTools as ToolRegistrationFn);
   setPluginRegistrations(pluginToolRegistrations);
 
   const summary: PluginInitSummary = {
@@ -309,9 +295,7 @@ export const refreshPluginTools = async (
   };
 
   if (verbose) {
-    console.error(
-      `[MCP] Plugin tools refreshed: ${summary.pluginsLoaded} plugin(s)`,
-    );
+    console.error(`[MCP] Plugin tools refreshed: ${summary.pluginsLoaded} plugin(s)`);
   }
 
   return summary;

@@ -14,12 +14,9 @@
 
 import { registerMessageTools } from './messages.js';
 import { registerSearchTools } from './search.js';
-
 import { isJsonRpcError } from '@opentabs/core';
-
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JsonRpcResponse } from '@opentabs/core';
-import type { HealthCheckEvaluator } from '@opentabs/core';
+import type { JsonRpcResponse, HealthCheckEvaluator } from '@opentabs/core';
 
 // ---------------------------------------------------------------------------
 // Tool Registration Function Type

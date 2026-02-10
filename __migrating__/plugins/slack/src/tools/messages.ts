@@ -11,16 +11,10 @@
 // of importing directly from the MCP server's internal modules.
 // =============================================================================
 
-import {
-  createToolRegistrar,
-  sendServiceRequest,
-  success,
-} from '@opentabs/plugin-sdk/server';
-
+import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';
 import { z } from 'zod';
-
-import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { SlackMessage, SlackOpenDmResponse, SlackMessagesResponse, SlackChatResponse } from './types.js';
+import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -75,9 +69,7 @@ const formatMessage = (
 // Tool Registration
 // ---------------------------------------------------------------------------
 
-export const registerMessageTools = (
-  server: McpServer,
-): Map<string, RegisteredTool> => {
+export const registerMessageTools = (server: McpServer): Map<string, RegisteredTool> => {
   const { tools, define } = createToolRegistrar(server);
 
   // -------------------------------------------------------------------------
@@ -97,7 +89,7 @@ export const registerMessageTools = (
           .string()
           .describe(
             'Channel ID (e.g., "C1234567890") or user ID (e.g., "U1234567890") — ' +
-            'find via slack_search_messages permalinks or slack_open_dm',
+              'find via slack_search_messages permalinks or slack_open_dm',
           ),
         text: z.string().describe('Message text to send'),
       },
@@ -123,24 +115,10 @@ export const registerMessageTools = (
         'Read recent messages from a Slack channel. Use slack_search_messages to find ' +
         'channel IDs from message permalinks.',
       inputSchema: {
-        channel: z
-          .string()
-          .describe(
-            'Channel ID (e.g., "C1234567890") — find via slack_search_messages permalinks',
-          ),
-        limit: z
-          .number()
-          .optional()
-          .default(10)
-          .describe('Number of messages to retrieve (default: 10, max: 100)'),
-        oldest: z
-          .string()
-          .optional()
-          .describe('Only messages after this Unix timestamp'),
-        latest: z
-          .string()
-          .optional()
-          .describe('Only messages before this Unix timestamp'),
+        channel: z.string().describe('Channel ID (e.g., "C1234567890") — find via slack_search_messages permalinks'),
+        limit: z.number().optional().default(10).describe('Number of messages to retrieve (default: 10, max: 100)'),
+        oldest: z.string().optional().describe('Only messages after this Unix timestamp'),
+        latest: z.string().optional().describe('Only messages before this Unix timestamp'),
       },
     },
     async ({ channel, limit, oldest, latest }) => {
@@ -172,21 +150,11 @@ export const registerMessageTools = (
         'Read all replies in a Slack thread. Get channel ID and thread_ts from ' +
         'slack_search_messages results or slack_read_messages.',
       inputSchema: {
-        channel: z
-          .string()
-          .describe(
-            'Channel ID where the thread exists — find via slack_search_messages',
-          ),
+        channel: z.string().describe('Channel ID where the thread exists — find via slack_search_messages'),
         thread_ts: z
           .string()
-          .describe(
-            'Timestamp of the parent message — get from message "ts" field or "thread_ts" in permalinks',
-          ),
-        limit: z
-          .number()
-          .optional()
-          .default(50)
-          .describe('Number of replies to retrieve (default: 50, max: 200)'),
+          .describe('Timestamp of the parent message — get from message "ts" field or "thread_ts" in permalinks'),
+        limit: z.number().optional().default(50).describe('Number of replies to retrieve (default: 50, max: 200)'),
       },
     },
     async ({ channel, thread_ts, limit }) => {
@@ -217,16 +185,8 @@ export const registerMessageTools = (
         'Reply to a message thread in Slack. Get channel ID and thread_ts from ' +
         'slack_read_messages or slack_search_messages.',
       inputSchema: {
-        channel: z
-          .string()
-          .describe(
-            'Channel ID where the thread exists — find via slack_search_messages',
-          ),
-        thread_ts: z
-          .string()
-          .describe(
-            'Timestamp of the parent message — get from message "ts" field',
-          ),
+        channel: z.string().describe('Channel ID where the thread exists — find via slack_search_messages'),
+        thread_ts: z.string().describe('Timestamp of the parent message — get from message "ts" field'),
         text: z.string().describe('Reply text'),
       },
     },
@@ -250,21 +210,9 @@ export const registerMessageTools = (
         'Add an emoji reaction to a message. Get channel ID and timestamp from ' +
         'slack_read_messages or slack_search_messages.',
       inputSchema: {
-        channel: z
-          .string()
-          .describe(
-            'Channel ID where the message exists — find via slack_search_messages',
-          ),
-        timestamp: z
-          .string()
-          .describe(
-            'Timestamp of the message to react to — get from message "ts" field',
-          ),
-        emoji: z
-          .string()
-          .describe(
-            'Emoji name without colons (e.g., "thumbsup" not ":thumbsup:")',
-          ),
+        channel: z.string().describe('Channel ID where the message exists — find via slack_search_messages'),
+        timestamp: z.string().describe('Timestamp of the message to react to — get from message "ts" field'),
+        emoji: z.string().describe('Emoji name without colons (e.g., "thumbsup" not ":thumbsup:")'),
       },
     },
     async ({ channel, timestamp, emoji }) => {
@@ -287,16 +235,8 @@ export const registerMessageTools = (
         'Update/edit an existing message in a Slack channel. Get channel ID and ' +
         'timestamp from slack_read_messages or slack_search_messages.',
       inputSchema: {
-        channel: z
-          .string()
-          .describe(
-            'Channel ID where the message exists — find via slack_search_messages',
-          ),
-        timestamp: z
-          .string()
-          .describe(
-            'Timestamp of the message to update — get from message "ts" field',
-          ),
+        channel: z.string().describe('Channel ID where the message exists — find via slack_search_messages'),
+        timestamp: z.string().describe('Timestamp of the message to update — get from message "ts" field'),
         text: z.string().describe('New text for the message'),
       },
     },
@@ -326,16 +266,8 @@ export const registerMessageTools = (
         'Delete a message from a Slack channel. Get channel ID and timestamp from ' +
         'slack_read_messages or slack_search_messages.',
       inputSchema: {
-        channel: z
-          .string()
-          .describe(
-            'Channel ID where the message exists — find via slack_search_messages',
-          ),
-        timestamp: z
-          .string()
-          .describe(
-            'Timestamp of the message to delete — get from message "ts" field',
-          ),
+        channel: z.string().describe('Channel ID where the message exists — find via slack_search_messages'),
+        timestamp: z.string().describe('Timestamp of the message to delete — get from message "ts" field'),
       },
     },
     async ({ channel, timestamp }) => {

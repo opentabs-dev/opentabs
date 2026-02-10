@@ -15,6 +15,33 @@
 // Plugin Manifest Types — Re-exported from @opentabs/core
 // -----------------------------------------------------------------------------
 
+// -----------------------------------------------------------------------------
+// definePlugin() — Type-Safe Plugin Manifest Helper
+//
+// Plugin authors who prefer TypeScript configuration files (instead of raw
+// JSON) can use this function for type checking and autocompletion.
+//
+// Usage in a plugin's configuration:
+//
+//   import { definePlugin } from '@opentabs/plugin-sdk';
+//
+//   export default definePlugin({
+//     name: 'jira',
+//     displayName: 'Jira',
+//     version: '1.0.0',
+//     description: 'Jira integration for OpenTabs',
+//     adapter: { ... },
+//     service: { ... },
+//     tools: { ... },
+//     permissions: { ... },
+//   });
+//
+// The function is an identity function — it returns the manifest unchanged.
+// Its sole purpose is to provide TypeScript type checking and IDE support.
+// -----------------------------------------------------------------------------
+
+import type { PluginManifest } from '@opentabs/core';
+
 export type {
   PluginManifest,
   PluginAdapterConfig,
@@ -57,38 +84,7 @@ export {
 // Service Types — Re-exported for convenience
 // -----------------------------------------------------------------------------
 
-export type {
-  ServiceEnv,
-  ServiceDefinition,
-  ServiceId,
-} from '@opentabs/core';
-
-// -----------------------------------------------------------------------------
-// definePlugin() — Type-Safe Plugin Manifest Helper
-//
-// Plugin authors who prefer TypeScript configuration files (instead of raw
-// JSON) can use this function for type checking and autocompletion.
-//
-// Usage in a plugin's configuration:
-//
-//   import { definePlugin } from '@opentabs/plugin-sdk';
-//
-//   export default definePlugin({
-//     name: 'jira',
-//     displayName: 'Jira',
-//     version: '1.0.0',
-//     description: 'Jira integration for OpenTabs',
-//     adapter: { ... },
-//     service: { ... },
-//     tools: { ... },
-//     permissions: { ... },
-//   });
-//
-// The function is an identity function — it returns the manifest unchanged.
-// Its sole purpose is to provide TypeScript type checking and IDE support.
-// -----------------------------------------------------------------------------
-
-import type { PluginManifest } from '@opentabs/core';
+export type { ServiceEnv, ServiceDefinition, ServiceId } from '@opentabs/core';
 
 /**
  * Define a plugin manifest with full TypeScript type checking.
@@ -135,8 +131,7 @@ import type { PluginManifest } from '@opentabs/core';
  * });
  * ```
  */
-export const definePlugin = <T extends PluginManifest>(manifest: T): T =>
-  manifest;
+export const definePlugin = <T extends PluginManifest>(manifest: T): T => manifest;
 
 // -----------------------------------------------------------------------------
 // Version Constant

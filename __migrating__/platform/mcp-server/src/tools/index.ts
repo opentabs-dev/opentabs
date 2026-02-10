@@ -29,10 +29,7 @@
 
 import { registerBrowserTabsTools } from './browser/tabs.js';
 import { registerExtensionReloadTools } from './extension/reload.js';
-
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
-
-// Re-export the ToolRegistrationFn type used throughout the platform
 import type { ToolRegistrationFn } from '@opentabs/core';
 
 // =============================================================================
@@ -77,9 +74,7 @@ let pluginRegistrations: ToolRegistrationFn[] = [];
  *
  * @param registrations - Array of registerTools functions from loaded plugins
  */
-export const setPluginRegistrations = (
-  registrations: ToolRegistrationFn[],
-): void => {
+const setPluginRegistrations = (registrations: ToolRegistrationFn[]): void => {
   pluginRegistrations = registrations;
 };
 
@@ -87,14 +82,12 @@ export const setPluginRegistrations = (
  * Get the current plugin registrations. Used by hot-reload to re-collect
  * fresh tool definitions.
  */
-export const getPluginRegistrations = (): readonly ToolRegistrationFn[] =>
-  pluginRegistrations;
+const getPluginRegistrations = (): readonly ToolRegistrationFn[] => pluginRegistrations;
 
 /**
  * Get the platform-native registrations. Useful for testing and introspection.
  */
-export const getPlatformRegistrations = (): readonly ToolRegistrationFn[] =>
-  PLATFORM_REGISTRATIONS;
+const getPlatformRegistrations = (): readonly ToolRegistrationFn[] => PLATFORM_REGISTRATIONS;
 
 // =============================================================================
 // registerAllTools — The Main Entry Point
@@ -125,16 +118,11 @@ export const getPlatformRegistrations = (): readonly ToolRegistrationFn[] =>
  * registerSession(sessionId, { server, transport, type, tools });
  * ```
  */
-export const registerAllTools = (
-  server: McpServer,
-): Map<string, RegisteredTool> => {
+const registerAllTools = (server: McpServer): Map<string, RegisteredTool> => {
   const allTools = new Map<string, RegisteredTool>();
 
   // Combine platform and plugin registrations
-  const allRegistrations: ToolRegistrationFn[] = [
-    ...PLATFORM_REGISTRATIONS,
-    ...pluginRegistrations,
-  ];
+  const allRegistrations: ToolRegistrationFn[] = [...PLATFORM_REGISTRATIONS, ...pluginRegistrations];
 
   for (const register of allRegistrations) {
     // Each registration function returns a Map<string, RegisteredTool>
@@ -172,15 +160,14 @@ export const registerAllTools = (
  *
  * @returns Object with platformCount, pluginCount, and totalCount
  */
-export const getToolCountSummary = (): {
+const getToolCountSummary = (): {
   platformRegistrationCount: number;
   pluginRegistrationCount: number;
   totalRegistrationCount: number;
 } => ({
   platformRegistrationCount: PLATFORM_REGISTRATIONS.length,
   pluginRegistrationCount: pluginRegistrations.length,
-  totalRegistrationCount:
-    PLATFORM_REGISTRATIONS.length + pluginRegistrations.length,
+  totalRegistrationCount: PLATFORM_REGISTRATIONS.length + pluginRegistrations.length,
 });
 
 // =============================================================================
@@ -192,3 +179,11 @@ export const getToolCountSummary = (): {
 
 export { registerBrowserTabsTools } from './browser/tabs.js';
 export { registerExtensionReloadTools } from './extension/reload.js';
+
+export {
+  setPluginRegistrations,
+  getPluginRegistrations,
+  getPlatformRegistrations,
+  registerAllTools,
+  getToolCountSummary,
+};

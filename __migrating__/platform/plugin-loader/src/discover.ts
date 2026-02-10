@@ -19,7 +19,7 @@
 // =============================================================================
 
 import { readFile, readdir, access, stat } from 'node:fs/promises';
-import { join, resolve, dirname, isAbsolute } from 'node:path';
+import { join, resolve, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 // -----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ import { pathToFileURL } from 'node:url';
  * A plugin discovered on the filesystem but not yet validated or resolved.
  * Contains the raw manifest JSON and filesystem paths.
  */
-export interface DiscoveredPlugin {
+interface DiscoveredPlugin {
   /** The npm package name (e.g. 'opentabs-plugin-jira', '@opentabs/plugin-slack'). */
   readonly packageName: string;
 
@@ -56,7 +56,7 @@ export interface DiscoveredPlugin {
  * Configuration for explicit plugin loading. Corresponds to the content
  * of opentabs.config.ts or opentabs.config.json.
  */
-export interface OpenTabsConfig {
+interface OpenTabsConfig {
   /**
    * List of plugins to load. Each entry can be:
    * - An npm package name: 'opentabs-plugin-jira'
@@ -81,7 +81,7 @@ export interface OpenTabsConfig {
 /**
  * Options for the discovery process.
  */
-export interface DiscoveryOptions {
+interface DiscoveryOptions {
   /**
    * The root directory to start searching from. Typically the project root
    * (where package.json and node_modules live).
@@ -121,11 +121,7 @@ const PLUGIN_NAME_PATTERNS = {
 };
 
 /** Config file names to search for, in priority order. */
-const CONFIG_FILENAMES = [
-  'opentabs.config.ts',
-  'opentabs.config.js',
-  'opentabs.config.json',
-];
+const CONFIG_FILENAMES = ['opentabs.config.ts', 'opentabs.config.js', 'opentabs.config.json'];
 
 // -----------------------------------------------------------------------------
 // Filesystem Helpers
@@ -162,9 +158,7 @@ const isDirectory = async (path: string): Promise<boolean> => {
  * Search for and load an opentabs.config file from the project root.
  * Returns undefined if no config file is found.
  */
-const findConfigFile = async (
-  rootDir: string,
-): Promise<OpenTabsConfig | undefined> => {
+const findConfigFile = async (rootDir: string): Promise<OpenTabsConfig | undefined> => {
   for (const filename of CONFIG_FILENAMES) {
     const configPath = join(rootDir, filename);
     if (!(await fileExists(configPath))) continue;
@@ -184,9 +178,7 @@ const findConfigFile = async (
       return mod.default;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(
-        `[OpenTabs] Failed to load config file ${configPath}: ${message}`,
-      );
+      console.error(`[OpenTabs] Failed to load config file ${configPath}: ${message}`);
     }
   }
 
@@ -210,8 +202,7 @@ const hasPluginKeyword = (packageJson: Record<string, unknown>): boolean => {
  * Check if a package name matches the plugin naming convention.
  */
 const matchesPluginNamePattern = (name: string): boolean =>
-  PLUGIN_NAME_PATTERNS.official.test(name) ||
-  PLUGIN_NAME_PATTERNS.community.test(name);
+  PLUGIN_NAME_PATTERNS.official.test(name) || PLUGIN_NAME_PATTERNS.community.test(name);
 
 /**
  * Try to discover a plugin from a package directory.
@@ -240,9 +231,7 @@ const tryDiscoverPackage = async (
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[OpenTabs] Failed to read manifest from ${manifestPath}: ${message}`,
-    );
+    console.error(`[OpenTabs] Failed to read manifest from ${manifestPath}: ${message}`);
     return undefined;
   }
 };
@@ -251,10 +240,7 @@ const tryDiscoverPackage = async (
  * Scan a node_modules directory for plugin packages.
  * Handles both regular packages and scoped packages (@scope/package).
  */
-const scanNodeModules = async (
-  nodeModulesDir: string,
-  verbose: boolean,
-): Promise<DiscoveredPlugin[]> => {
+const scanNodeModules = async (nodeModulesDir: string, verbose: boolean): Promise<DiscoveredPlugin[]> => {
   const discovered: DiscoveredPlugin[] = [];
 
   if (!(await isDirectory(nodeModulesDir))) {
@@ -295,10 +281,7 @@ const scanNodeModules = async (
           const pkgJsonPath = join(scopedPath, 'package.json');
           if (await fileExists(pkgJsonPath)) {
             try {
-              const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<
-                string,
-                unknown
-              >;
+              const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<string, unknown>;
               if (!hasPluginKeyword(pkgJson)) continue;
             } catch {
               continue;
@@ -308,11 +291,7 @@ const scanNodeModules = async (
           }
         }
 
-        const plugin = await tryDiscoverPackage(
-          scopedPath,
-          scopedName,
-          'automatic',
-        );
+        const plugin = await tryDiscoverPackage(scopedPath, scopedName, 'automatic');
         if (plugin) {
           if (verbose) {
             console.error(`[OpenTabs] Discovered plugin: ${scopedName}`);
@@ -330,10 +309,7 @@ const scanNodeModules = async (
       const pkgJsonPath = join(entryPath, 'package.json');
       if (await fileExists(pkgJsonPath)) {
         try {
-          const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<
-            string,
-            unknown
-          >;
+          const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<string, unknown>;
           if (!hasPluginKeyword(pkgJson)) continue;
         } catch {
           continue;
@@ -384,12 +360,8 @@ const resolveExplicitPlugin = async (
     const pkgJsonPath = join(packageDir, 'package.json');
     if (await fileExists(pkgJsonPath)) {
       try {
-        const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<
-          string,
-          unknown
-        >;
-        packageName =
-          typeof pkgJson.name === 'string' ? pkgJson.name : specifier;
+        const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<string, unknown>;
+        packageName = typeof pkgJson.name === 'string' ? pkgJson.name : specifier;
       } catch {
         packageName = specifier;
       }
@@ -404,12 +376,8 @@ const resolveExplicitPlugin = async (
     const pkgJsonPath = join(packageDir, 'package.json');
     if (await fileExists(pkgJsonPath)) {
       try {
-        const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<
-          string,
-          unknown
-        >;
-        packageName =
-          typeof pkgJson.name === 'string' ? pkgJson.name : specifier;
+        const pkgJson = (await readJsonFile(pkgJsonPath)) as Record<string, unknown>;
+        packageName = typeof pkgJson.name === 'string' ? pkgJson.name : specifier;
       } catch {
         packageName = specifier;
       }
@@ -424,23 +392,17 @@ const resolveExplicitPlugin = async (
   }
 
   if (!(await isDirectory(packageDir))) {
-    console.error(
-      `[OpenTabs] Plugin "${specifier}" not found at ${packageDir}`,
-    );
+    console.error(`[OpenTabs] Plugin "${specifier}" not found at ${packageDir}`);
     return undefined;
   }
 
   const plugin = await tryDiscoverPackage(packageDir, packageName, source);
   if (plugin) {
     if (verbose) {
-      console.error(
-        `[OpenTabs] Resolved ${source} plugin: ${packageName} (${packageDir})`,
-      );
+      console.error(`[OpenTabs] Resolved ${source} plugin: ${packageName} (${packageDir})`);
     }
   } else {
-    console.error(
-      `[OpenTabs] Plugin "${specifier}" found at ${packageDir} but missing ${MANIFEST_FILENAME}`,
-    );
+    console.error(`[OpenTabs] Plugin "${specifier}" found at ${packageDir} but missing ${MANIFEST_FILENAME}`);
   }
 
   return plugin;
@@ -477,9 +439,7 @@ const resolveExplicitPlugin = async (
  * });
  * ```
  */
-export const discoverPlugins = async (
-  options: DiscoveryOptions = {},
-): Promise<DiscoveredPlugin[]> => {
+const discoverPlugins = async (options: DiscoveryOptions = {}): Promise<DiscoveredPlugin[]> => {
   const rootDir = options.rootDir ?? process.cwd();
   const verbose = options.verbose ?? false;
 
@@ -488,8 +448,7 @@ export const discoverPlugins = async (
   }
 
   // Load config (explicit or from file)
-  const config =
-    options.config ?? (await findConfigFile(rootDir)) ?? { plugins: [] };
+  const config = options.config ?? (await findConfigFile(rootDir)) ?? { plugins: [] };
 
   const autoDiscover = config.autoDiscover !== false;
   const explicitPlugins = config.plugins ?? [];
@@ -540,9 +499,7 @@ export const discoverPlugins = async (
  * @param plugin - The discovered plugin
  * @returns The trust tier for the plugin
  */
-export const determineTrustTier = (
-  plugin: DiscoveredPlugin,
-): 'official' | 'verified' | 'community' | 'local' => {
+const determineTrustTier = (plugin: DiscoveredPlugin): 'official' | 'verified' | 'community' | 'local' => {
   if (plugin.discoverySource === 'local') return 'local';
 
   if (PLUGIN_NAME_PATTERNS.official.test(plugin.packageName)) {
@@ -555,3 +512,7 @@ export const determineTrustTier = (
   // be layered on top.
   return 'community';
 };
+
+export type { DiscoveredPlugin, OpenTabsConfig, DiscoveryOptions };
+
+export { discoverPlugins, determineTrustTier };

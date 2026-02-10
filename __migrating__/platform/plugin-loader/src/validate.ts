@@ -9,11 +9,7 @@
 // registration pipeline.
 // =============================================================================
 
-import {
-  RESERVED_PLUGIN_NAMES,
-  checkReservedName,
-} from '@opentabs/core';
-
+import { RESERVED_PLUGIN_NAMES, checkReservedName } from '@opentabs/core';
 import type {
   PluginManifest,
   PluginAdapterConfig,
@@ -22,7 +18,6 @@ import type {
   PluginPermissions,
   PluginHealthCheckConfig,
   PluginSettingDefinition,
-  PluginToolCategory,
 } from '@opentabs/core';
 
 // -----------------------------------------------------------------------------
@@ -30,7 +25,7 @@ import type {
 // -----------------------------------------------------------------------------
 
 /** A single validation error with a JSONPath-like location and message. */
-export interface ValidationError {
+interface ValidationError {
   /** Dot-delimited path to the invalid field (e.g. 'adapter.urlPatterns.production'). */
   readonly path: string;
   /** Human-readable description of what's wrong. */
@@ -38,7 +33,7 @@ export interface ValidationError {
 }
 
 /** The result of validating a plugin manifest. */
-export interface ValidationResult {
+interface ValidationResult {
   /** Whether the manifest passed all checks. */
   readonly valid: boolean;
   /** List of validation errors (empty when valid). */
@@ -74,22 +69,14 @@ const URL_PATTERN_REGEX = /^(\*|https?):\/\/.+\/.*/;
 
 type ErrorCollector = ValidationError[];
 
-const addError = (
-  errors: ErrorCollector,
-  path: string,
-  message: string,
-): void => {
+const addError = (errors: ErrorCollector, path: string, message: string): void => {
   errors.push({ path, message });
 };
 
-const isNonEmptyString = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0;
+const isNonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every(item => typeof item === 'string');
 
 const isReadonlyStringArray = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every(item => typeof item === 'string');
@@ -98,10 +85,7 @@ const isReadonlyStringArray = (value: unknown): value is readonly string[] =>
 // Section Validators
 // -----------------------------------------------------------------------------
 
-const validateName = (
-  errors: ErrorCollector,
-  name: unknown,
-): name is string => {
+const validateName = (errors: ErrorCollector, name: unknown): name is string => {
   if (!isNonEmptyString(name)) {
     addError(errors, 'name', 'Must be a non-empty string');
     return false;
@@ -129,21 +113,14 @@ const validateName = (
   return true;
 };
 
-const validateVersion = (
-  errors: ErrorCollector,
-  version: unknown,
-): version is string => {
+const validateVersion = (errors: ErrorCollector, version: unknown): version is string => {
   if (!isNonEmptyString(version)) {
     addError(errors, 'version', 'Must be a non-empty string');
     return false;
   }
 
   if (!SEMVER_PATTERN.test(version)) {
-    addError(
-      errors,
-      'version',
-      `Must be a valid semver string (e.g. "1.0.0"). Got: "${version}"`,
-    );
+    addError(errors, 'version', `Must be a valid semver string (e.g. "1.0.0"). Got: "${version}"`);
     return false;
   }
 
@@ -280,10 +257,7 @@ const validateAdapterConfig = (
   return valid;
 };
 
-const validateHealthCheck = (
-  errors: ErrorCollector,
-  healthCheck: unknown,
-): healthCheck is PluginHealthCheckConfig => {
+const validateHealthCheck = (errors: ErrorCollector, healthCheck: unknown): healthCheck is PluginHealthCheckConfig => {
   if (!isPlainObject(healthCheck)) {
     addError(errors, 'service.healthCheck', 'Must be an object');
     return false;
@@ -314,10 +288,7 @@ const validateHealthCheck = (
 
 const VALID_ENVIRONMENTS = new Set(['production', 'staging']);
 
-const validateServiceConfig = (
-  errors: ErrorCollector,
-  service: unknown,
-): service is PluginServiceConfig => {
+const validateServiceConfig = (errors: ErrorCollector, service: unknown): service is PluginServiceConfig => {
   if (!isPlainObject(service)) {
     addError(errors, 'service', 'Must be an object');
     return false;
@@ -336,7 +307,11 @@ const validateServiceConfig = (
 
   // environments
   if (!isReadonlyStringArray(service.environments) || service.environments.length === 0) {
-    addError(errors, 'service.environments', 'Must be a non-empty array of environment strings ("production", "staging")');
+    addError(
+      errors,
+      'service.environments',
+      'Must be a non-empty array of environment strings ("production", "staging")',
+    );
     valid = false;
   } else {
     for (let i = 0; i < service.environments.length; i++) {
@@ -382,10 +357,7 @@ const validateServiceConfig = (
   return valid;
 };
 
-const validateToolsConfig = (
-  errors: ErrorCollector,
-  tools: unknown,
-): tools is PluginToolsConfig => {
+const validateToolsConfig = (errors: ErrorCollector, tools: unknown): tools is PluginToolsConfig => {
   if (!isPlainObject(tools)) {
     addError(errors, 'tools', 'Must be an object');
     return false;
@@ -438,10 +410,7 @@ const validateToolsConfig = (
 
 const VALID_NATIVE_APIS = new Set(['browser', 'files']);
 
-const validatePermissions = (
-  errors: ErrorCollector,
-  permissions: unknown,
-): permissions is PluginPermissions => {
+const validatePermissions = (errors: ErrorCollector, permissions: unknown): permissions is PluginPermissions => {
   if (!isPlainObject(permissions)) {
     addError(errors, 'permissions', 'Must be an object');
     return false;
@@ -526,11 +495,7 @@ const validateSettings = (
     }
 
     if (!isNonEmptyString(value.type) || !VALID_SETTING_TYPES.has(value.type)) {
-      addError(
-        errors,
-        `${path}.type`,
-        `Must be one of: ${[...VALID_SETTING_TYPES].join(', ')}`,
-      );
+      addError(errors, `${path}.type`, `Must be one of: ${[...VALID_SETTING_TYPES].join(', ')}`);
       valid = false;
     }
 
@@ -565,11 +530,7 @@ const validateSettings = (
         addError(errors, `${path}.max`, 'Must be a number when provided');
         valid = false;
       }
-      if (
-        typeof value.min === 'number' &&
-        typeof value.max === 'number' &&
-        value.min > value.max
-      ) {
+      if (typeof value.min === 'number' && typeof value.max === 'number' && value.min > value.max) {
         addError(errors, `${path}.min`, 'min must not exceed max');
         valid = false;
       }
@@ -586,10 +547,7 @@ const validateSettings = (
 // For example, health check method should use the plugin's own service name.
 // -----------------------------------------------------------------------------
 
-const validateCrossFieldConsistency = (
-  errors: ErrorCollector,
-  manifest: PluginManifest,
-): void => {
+const validateCrossFieldConsistency = (errors: ErrorCollector, manifest: PluginManifest): void => {
   // Health check method should be prefixed with the plugin name
   const { name } = manifest;
   const { method } = manifest.service.healthCheck;
@@ -635,11 +593,7 @@ const validateCrossFieldConsistency = (
 
   for (const env of serviceEnvs) {
     if (!adapterDomainEnvs.has(env)) {
-      addError(
-        errors,
-        'adapter.domains',
-        `Missing domain for environment "${env}" declared in service.environments`,
-      );
+      addError(errors, 'adapter.domains', `Missing domain for environment "${env}" declared in service.environments`);
     }
     if (!adapterPatternEnvs.has(env)) {
       addError(
@@ -663,7 +617,7 @@ const validateCrossFieldConsistency = (
  * @param raw - The parsed manifest object (from JSON.parse or a module import)
  * @returns A ValidationResult indicating whether the manifest is valid
  */
-export const validatePluginManifest = (raw: unknown): ValidationResult => {
+const validatePluginManifest = (raw: unknown): ValidationResult => {
   const errors: ErrorCollector = [];
 
   if (!isPlainObject(raw)) {
@@ -759,18 +713,11 @@ export const validatePluginManifest = (raw: unknown): ValidationResult => {
  * @returns The validated PluginManifest
  * @throws Error with all validation errors concatenated
  */
-export const validateOrThrow = (
-  raw: unknown,
-  packageName: string,
-): PluginManifest => {
+const validateOrThrow = (raw: unknown, packageName: string): PluginManifest => {
   const result = validatePluginManifest(raw);
   if (!result.valid) {
-    const errorList = result.errors
-      .map(e => `  - ${e.path ? `${e.path}: ` : ''}${e.message}`)
-      .join('\n');
-    throw new Error(
-      `Invalid plugin manifest in "${packageName}":\n${errorList}`,
-    );
+    const errorList = result.errors.map(e => `  - ${e.path ? `${e.path}: ` : ''}${e.message}`).join('\n');
+    throw new Error(`Invalid plugin manifest in "${packageName}":\n${errorList}`);
   }
   return result.manifest!;
 };
@@ -782,9 +729,7 @@ export const validateOrThrow = (
  * @param manifests - Array of validated manifests to check
  * @returns Array of conflict errors (empty if no conflicts)
  */
-export const checkNameConflicts = (
-  manifests: readonly PluginManifest[],
-): readonly ValidationError[] => {
+const checkNameConflicts = (manifests: readonly PluginManifest[]): readonly ValidationError[] => {
   const errors: ValidationError[] = [];
   const seen = new Map<string, string>(); // name → first package that claimed it
 
@@ -802,3 +747,7 @@ export const checkNameConflicts = (
 
   return errors;
 };
+
+export type { ValidationError, ValidationResult };
+
+export { validatePluginManifest, validateOrThrow, checkNameConflicts };

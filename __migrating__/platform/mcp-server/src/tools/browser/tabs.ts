@@ -15,14 +15,8 @@
 // sendBrowserRequest().
 // =============================================================================
 
-import {
-  createToolRegistrar,
-  sendBrowserRequest,
-  success,
-} from '@opentabs/plugin-sdk/server';
-
+import { createToolRegistrar, sendBrowserRequest, success } from '@opentabs/plugin-sdk/server';
 import { z } from 'zod';
-
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 // -----------------------------------------------------------------------------
@@ -46,9 +40,7 @@ interface TabInfo {
 // Tool Registration
 // -----------------------------------------------------------------------------
 
-export const registerBrowserTabsTools = (
-  server: McpServer,
-): Map<string, RegisteredTool> => {
+export const registerBrowserTabsTools = (server: McpServer): Map<string, RegisteredTool> => {
   const { tools, define } = createToolRegistrar(server);
 
   // -------------------------------------------------------------------------
@@ -62,26 +54,14 @@ export const registerBrowserTabsTools = (
         'List open browser tabs. Optionally filter by window, active state, pinned state, ' +
         'or URL pattern. Returns tab IDs, URLs, titles, and status for each matching tab.',
       inputSchema: {
-        windowId: z
-          .number()
-          .optional()
-          .describe('Filter to a specific window ID'),
-        active: z
-          .boolean()
-          .optional()
-          .describe('Filter to active tabs only'),
-        pinned: z
-          .boolean()
-          .optional()
-          .describe('Filter to pinned tabs only'),
+        windowId: z.number().optional().describe('Filter to a specific window ID'),
+        active: z.boolean().optional().describe('Filter to active tabs only'),
+        pinned: z.boolean().optional().describe('Filter to pinned tabs only'),
         url: z
           .string()
           .optional()
           .describe('URL pattern to match (supports Chrome match patterns like "*://*.example.com/*")'),
-        currentWindow: z
-          .boolean()
-          .optional()
-          .describe('Filter to tabs in the current (focused) window'),
+        currentWindow: z.boolean().optional().describe('Filter to tabs in the current (focused) window'),
       },
     },
     async ({ windowId, active, pinned, url, currentWindow }) => {
@@ -92,10 +72,7 @@ export const registerBrowserTabsTools = (
       if (url !== undefined) params.url = url;
       if (currentWindow !== undefined) params.currentWindow = currentWindow;
 
-      const result = await sendBrowserRequest<{ tabs: TabInfo[] }>(
-        'listTabs',
-        params,
-      );
+      const result = await sendBrowserRequest<{ tabs: TabInfo[] }>('listTabs', params);
       return success(result);
     },
   );
@@ -109,11 +86,9 @@ export const registerBrowserTabsTools = (
     {
       description:
         'Get detailed information about a specific browser tab by its ID. ' +
-        'Returns the tab\'s URL, title, active state, and other metadata.',
+        "Returns the tab's URL, title, active state, and other metadata.",
       inputSchema: {
-        tabId: z
-          .number()
-          .describe('The ID of the tab to get information about'),
+        tabId: z.number().describe('The ID of the tab to get information about'),
       },
     },
     async ({ tabId }) => {
@@ -133,23 +108,14 @@ export const registerBrowserTabsTools = (
         'Open a new browser tab. Optionally specify a URL, whether it should be active, ' +
         'pinned, or in a specific window.',
       inputSchema: {
-        url: z
-          .string()
-          .optional()
-          .describe('URL to open in the new tab (opens blank tab if omitted)'),
+        url: z.string().optional().describe('URL to open in the new tab (opens blank tab if omitted)'),
         active: z
           .boolean()
           .optional()
           .default(true)
           .describe('Whether the new tab should be active (focused). Default: true'),
-        pinned: z
-          .boolean()
-          .optional()
-          .describe('Whether the new tab should be pinned'),
-        windowId: z
-          .number()
-          .optional()
-          .describe('Window ID to open the tab in (current window if omitted)'),
+        pinned: z.boolean().optional().describe('Whether the new tab should be pinned'),
+        windowId: z.number().optional().describe('Window ID to open the tab in (current window if omitted)'),
       },
     },
     async ({ url, active, pinned, windowId }) => {
@@ -171,13 +137,9 @@ export const registerBrowserTabsTools = (
   define(
     'browser_close_tab',
     {
-      description:
-        'Close one or more browser tabs by their IDs. Use browser_list_tabs to find tab IDs first.',
+      description: 'Close one or more browser tabs by their IDs. Use browser_list_tabs to find tab IDs first.',
       inputSchema: {
-        tabId: z
-          .number()
-          .optional()
-          .describe('ID of a single tab to close'),
+        tabId: z.number().optional().describe('ID of a single tab to close'),
         tabIds: z
           .array(z.number())
           .optional()
@@ -185,10 +147,7 @@ export const registerBrowserTabsTools = (
       },
     },
     async ({ tabId, tabIds }) => {
-      const result = await sendBrowserRequest<{ closed: number[] }>(
-        'closeTab',
-        { tabId, tabIds },
-      );
+      const result = await sendBrowserRequest<{ closed: number[] }>('closeTab', { tabId, tabIds });
       return success(result);
     },
   );
@@ -245,22 +204,20 @@ export const registerBrowserTabsTools = (
     'browser_execute_script',
     {
       description:
-        'Execute JavaScript code in a browser tab\'s page context (MAIN world). ' +
-        'The script runs with full access to the page\'s DOM, JavaScript objects, and APIs. ' +
+        "Execute JavaScript code in a browser tab's page context (MAIN world). " +
+        "The script runs with full access to the page's DOM, JavaScript objects, and APIs. " +
         'Console output (log, warn, error, info) is captured and returned alongside the result. ' +
         'Use this for debugging, inspecting page state, or performing actions not covered by other tools. ' +
         'Use browser_list_tabs to find the tabId first.',
       inputSchema: {
-        tabId: z
-          .number()
-          .describe('ID of the tab to execute the script in — find via browser_list_tabs'),
+        tabId: z.number().describe('ID of the tab to execute the script in — find via browser_list_tabs'),
         script: z
           .string()
           .describe(
             'JavaScript code to execute. Can use await for async operations. ' +
-            'The last expression\'s value is returned as the result. ' +
-            'Console methods (log, warn, error, info) are captured. ' +
-            'Example: "return document.title" or "const resp = await fetch(\'/api/data\'); return await resp.json()"',
+              "The last expression's value is returned as the result. " +
+              'Console methods (log, warn, error, info) are captured. ' +
+              'Example: "return document.title" or "const resp = await fetch(\'/api/data\'); return await resp.json()"',
           ),
       },
       annotations: {

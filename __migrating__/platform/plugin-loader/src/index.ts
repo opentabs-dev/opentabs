@@ -17,31 +17,17 @@
 // Discover — Find plugins in node_modules and config files
 // -----------------------------------------------------------------------------
 
-export {
-  discoverPlugins,
-  determineTrustTier,
-} from './discover.js';
+export { discoverPlugins, determineTrustTier } from './discover.js';
 
-export type {
-  DiscoveredPlugin,
-  OpenTabsConfig,
-  DiscoveryOptions,
-} from './discover.js';
+export type { DiscoveredPlugin, OpenTabsConfig, DiscoveryOptions } from './discover.js';
 
 // -----------------------------------------------------------------------------
 // Validate — Check plugin manifests against the platform schema
 // -----------------------------------------------------------------------------
 
-export {
-  validatePluginManifest,
-  validateOrThrow,
-  checkNameConflicts,
-} from './validate.js';
+export { validatePluginManifest, validateOrThrow, checkNameConflicts } from './validate.js';
 
-export type {
-  ValidationError,
-  ValidationResult,
-} from './validate.js';
+export type { ValidationError, ValidationResult } from './validate.js';
 
 // -----------------------------------------------------------------------------
 // Merge — Convert manifests to platform types and wire into the registry

@@ -14,7 +14,7 @@
 // -----------------------------------------------------------------------------
 
 /** Environment types for services that support multiple deployments. */
-export type ServiceEnv = 'production' | 'staging';
+type ServiceEnv = 'production' | 'staging';
 
 /**
  * A single service definition — the canonical identity of a webapp service.
@@ -24,7 +24,7 @@ export type ServiceEnv = 'production' | 'staging';
  * matching, adapter injection, health checks, routing, manifest generation,
  * and UI rendering all derive from ServiceDefinition arrays.
  */
-export interface ServiceDefinition {
+interface ServiceDefinition {
   /**
    * Base service type (e.g. 'slack', 'jira'). Used as the adapter name,
    * JSON-RPC method prefix, and routing key. Must be unique across all
@@ -93,7 +93,7 @@ export interface ServiceDefinition {
  * combination. The platform uses this as the key in connection status maps,
  * service manager records, and storage keys.
  */
-export type ServiceId = string;
+type ServiceId = string;
 
 // -----------------------------------------------------------------------------
 // Service Registry — Dynamic, Built at Startup
@@ -115,7 +115,7 @@ let registryFrozen = false;
  * Get the current service registry. Returns an empty array before
  * initialization. After initialization, returns the frozen registry.
  */
-export const getServiceRegistry = (): readonly ServiceDefinition[] => registry;
+const getServiceRegistry = (): readonly ServiceDefinition[] => registry;
 
 /**
  * Replace the service registry contents. Called once during platform
@@ -123,11 +123,9 @@ export const getServiceRegistry = (): readonly ServiceDefinition[] => registry;
  *
  * Throws if the registry has already been frozen (double-initialization).
  */
-export const setServiceRegistry = (definitions: readonly ServiceDefinition[]): void => {
+const setServiceRegistry = (definitions: readonly ServiceDefinition[]): void => {
   if (registryFrozen) {
-    throw new Error(
-      'Service registry is frozen. setServiceRegistry() can only be called once during initialization.',
-    );
+    throw new Error('Service registry is frozen. setServiceRegistry() can only be called once during initialization.');
   }
   registry = Object.freeze([...definitions]);
   registryFrozen = true;
@@ -139,7 +137,7 @@ export const setServiceRegistry = (definitions: readonly ServiceDefinition[]): v
 /**
  * Reset the registry to empty. Used only in tests.
  */
-export const resetServiceRegistry = (): void => {
+const resetServiceRegistry = (): void => {
   registry = [];
   registryFrozen = false;
   recomputeDerivedConstants();
@@ -162,9 +160,7 @@ let _singleEnvServices: string[] = [];
 
 const recomputeDerivedConstants = (): void => {
   _serviceIds = registry.flatMap(def =>
-    def.environments.length === 1
-      ? [def.type]
-      : def.environments.map(env => `${def.type}_${env}`),
+    def.environments.length === 1 ? [def.type] : def.environments.map(env => `${def.type}_${env}`),
   );
 
   _serviceTypes = registry.map(def => def.type);
@@ -187,38 +183,36 @@ const recomputeDerivedConstants = (): void => {
 
   _timeouts = Object.fromEntries(registry.map(def => [def.type, def.timeout]));
   _displayNames = Object.fromEntries(registry.map(def => [def.type, def.displayName]));
-  _singleEnvServices = registry
-    .filter(def => def.environments.length === 1)
-    .map(def => def.type);
+  _singleEnvServices = registry.filter(def => def.environments.length === 1).map(def => def.type);
 };
 
 /** All service IDs (e.g. ['slack', 'datadog_production', 'datadog_staging']). */
-export const getServiceIds = (): readonly string[] => _serviceIds;
+const getServiceIds = (): readonly string[] => _serviceIds;
 
 /** All service types (e.g. ['slack', 'datadog']). */
-export const getServiceTypes = (): readonly string[] => _serviceTypes;
+const getServiceTypes = (): readonly string[] => _serviceTypes;
 
 /** URL patterns keyed by service ID. */
-export const getServiceUrlPatterns = (): Readonly<Record<string, string[]>> => _urlPatterns;
+const getServiceUrlPatterns = (): Readonly<Record<string, string[]>> => _urlPatterns;
 
 /** Domain strings keyed by service ID. */
-export const getServiceDomains = (): Readonly<Record<string, string>> => _domains;
+const getServiceDomains = (): Readonly<Record<string, string>> => _domains;
 
 /** Request timeout per service type (milliseconds). */
-export const getServiceTimeouts = (): Readonly<Record<string, number>> => _timeouts;
+const getServiceTimeouts = (): Readonly<Record<string, number>> => _timeouts;
 
 /** Human-readable display names keyed by service type. */
-export const getServiceDisplayNames = (): Readonly<Record<string, string>> => _displayNames;
+const getServiceDisplayNames = (): Readonly<Record<string, string>> => _displayNames;
 
 /** Service types that have a single environment (no production/staging split). */
-export const getSingleEnvServices = (): readonly string[] => _singleEnvServices;
+const getSingleEnvServices = (): readonly string[] => _singleEnvServices;
 
 // -----------------------------------------------------------------------------
 // Lookup Helpers
 // -----------------------------------------------------------------------------
 
 /** Resolve a service ID to its base service type. */
-export const getServiceType = (serviceId: string): string | undefined => {
+const getServiceType = (serviceId: string): string | undefined => {
   // Direct match (single-env services)
   const direct = registry.find(def => def.type === serviceId);
   if (direct) return direct.type;
@@ -236,7 +230,7 @@ export const getServiceType = (serviceId: string): string | undefined => {
 };
 
 /** Reverse lookup: hostname → service type (undefined if no match). */
-export const getServiceTypeFromHostname = (hostname: string): string | undefined => {
+const getServiceTypeFromHostname = (hostname: string): string | undefined => {
   for (const [serviceId, domain] of Object.entries(_domains)) {
     if (hostname.endsWith(domain) || hostname === domain) {
       return getServiceType(serviceId);
@@ -246,13 +240,11 @@ export const getServiceTypeFromHostname = (hostname: string): string | undefined
 };
 
 /** Get the ServiceDefinition for a service type. */
-export const getServiceDefinition = (
-  serviceType: string,
-): ServiceDefinition | undefined =>
+const getServiceDefinition = (serviceType: string): ServiceDefinition | undefined =>
   registry.find(def => def.type === serviceType);
 
 /** Derive the ServiceEnv from a service ID (undefined for single-env services). */
-export const getServiceEnv = (serviceId: string): ServiceEnv | undefined => {
+const getServiceEnv = (serviceId: string): ServiceEnv | undefined => {
   if (serviceId.endsWith('_production')) return 'production';
   if (serviceId.endsWith('_staging')) return 'staging';
   return undefined;
@@ -263,7 +255,7 @@ export const getServiceEnv = (serviceId: string): ServiceEnv | undefined => {
  * error messages). For most services this is `https://${domain}`. For
  * services with wildcard domains (leading dot), uses `defaultUrl`.
  */
-export const getServiceUrl = (serviceId: string): string => {
+const getServiceUrl = (serviceId: string): string => {
   const domain = _domains[serviceId];
   if (!domain) return '#';
   if (domain.startsWith('.')) {
@@ -278,11 +270,32 @@ export const getServiceUrl = (serviceId: string): string => {
  * Compute all service IDs from a set of definitions.
  * Utility for plugin-loader and build scripts that operate on partial registries.
  */
-export const computeServiceIds = (
-  definitions: readonly ServiceDefinition[],
-): string[] =>
+const computeServiceIds = (definitions: readonly ServiceDefinition[]): string[] =>
   definitions.flatMap(def =>
-    def.environments.length === 1
-      ? [def.type]
-      : def.environments.map(env => `${def.type}_${env}`),
+    def.environments.length === 1 ? [def.type] : def.environments.map(env => `${def.type}_${env}`),
   );
+
+// -----------------------------------------------------------------------------
+// Exports
+// -----------------------------------------------------------------------------
+
+export type { ServiceEnv, ServiceDefinition, ServiceId };
+
+export {
+  getServiceRegistry,
+  setServiceRegistry,
+  resetServiceRegistry,
+  getServiceIds,
+  getServiceTypes,
+  getServiceUrlPatterns,
+  getServiceDomains,
+  getServiceTimeouts,
+  getServiceDisplayNames,
+  getSingleEnvServices,
+  getServiceType,
+  getServiceTypeFromHostname,
+  getServiceDefinition,
+  getServiceEnv,
+  getServiceUrl,
+  computeServiceIds,
+};

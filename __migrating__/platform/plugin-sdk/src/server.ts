@@ -39,7 +39,6 @@
 // =============================================================================
 
 import { AsyncLocalStorage } from 'node:async_hooks';
-
 import type { McpServer, RegisteredTool, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
@@ -49,7 +48,7 @@ import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 // =============================================================================
 
 /** The standard shape returned by every MCP tool handler. */
-export interface ToolResult {
+interface ToolResult {
   [key: string]: unknown;
   content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
@@ -72,27 +71,20 @@ export interface ToolResult {
  * The transport interface that the MCP server implements.
  * Plugins interact with the Chrome extension exclusively through this.
  */
-export interface RequestProvider {
+interface RequestProvider {
   /**
    * Send a request to a webapp service adapter running in a browser tab.
    * @param service - The service/plugin name (e.g. 'slack', 'jira')
    * @param params - JSON-RPC params to send to the adapter
    * @param action - The adapter action (default: 'api')
    */
-  sendServiceRequest: (
-    service: string,
-    params: Record<string, unknown>,
-    action?: string,
-  ) => Promise<unknown>;
+  sendServiceRequest: (service: string, params: Record<string, unknown>, action?: string) => Promise<unknown>;
 
   /**
    * Send a request to the browser controller (chrome.tabs/windows APIs).
    * Only available to plugins that declare 'browser' in permissions.nativeApis.
    */
-  sendBrowserRequest: <T>(
-    action: string,
-    params?: Record<string, unknown>,
-  ) => Promise<T>;
+  sendBrowserRequest: <T>(action: string, params?: Record<string, unknown>) => Promise<T>;
 
   /**
    * Reload the Chrome extension. Platform-internal — not exposed to plugins.
@@ -103,11 +95,7 @@ export interface RequestProvider {
    * Send a request to Slack's Enterprise Edge API. Slack-specific — provided
    * for backward compatibility with the existing Slack plugin.
    */
-  sendSlackEdgeRequest?: (
-    endpoint: string,
-    params: Record<string, unknown>,
-    toolId?: string,
-  ) => Promise<unknown>;
+  sendSlackEdgeRequest?: (endpoint: string, params: Record<string, unknown>, toolId?: string) => Promise<unknown>;
 }
 
 /** The registered request provider, set by the MCP server at startup. */
@@ -121,7 +109,7 @@ let provider: RequestProvider | null = null;
  *
  * @param requestProvider - The transport implementation (typically wraps the WebSocket relay)
  */
-export const __setRequestProvider = (requestProvider: RequestProvider): void => {
+const __setRequestProvider = (requestProvider: RequestProvider): void => {
   provider = requestProvider;
 };
 
@@ -143,7 +131,7 @@ const getProvider = (): RequestProvider => {
 /**
  * Reset the request provider to null. Used only in tests.
  */
-export const __resetRequestProvider = (): void => {
+const __resetRequestProvider = (): void => {
   provider = null;
 };
 
@@ -159,12 +147,10 @@ export const __resetRequestProvider = (): void => {
 const toolIdStorage = new AsyncLocalStorage<string>();
 
 /** Get the current tool ID from async context. Returns undefined outside a tool handler. */
-export const getCurrentToolId = (): string | undefined =>
-  toolIdStorage.getStore();
+const getCurrentToolId = (): string | undefined => toolIdStorage.getStore();
 
 /** Run a function within a tool ID context. Used by the tool registration wrapper. */
-export const withToolId = <T>(toolId: string, fn: () => T): T =>
-  toolIdStorage.run(toolId, fn);
+const withToolId = <T>(toolId: string, fn: () => T): T => toolIdStorage.run(toolId, fn);
 
 // =============================================================================
 // Service Request Functions
@@ -202,17 +188,9 @@ export const withToolId = <T>(toolId: string, fn: () => T): T =>
  * }, 'api');
  * ```
  */
-export const sendServiceRequest = (
-  service: string,
-  params: Record<string, unknown>,
-  action?: string,
-): Promise<unknown> => {
+const sendServiceRequest = (service: string, params: Record<string, unknown>, action?: string): Promise<unknown> => {
   const toolId = getCurrentToolId();
-  return getProvider().sendServiceRequest(
-    service,
-    { ...params, toolId },
-    action,
-  );
+  return getProvider().sendServiceRequest(service, { ...params, toolId }, action);
 };
 
 /**
@@ -225,10 +203,7 @@ export const sendServiceRequest = (
  * @param endpoint - The Edge API endpoint (e.g. 'users/search')
  * @param params - Request parameters
  */
-export const sendSlackEdgeRequest = (
-  endpoint: string,
-  params: Record<string, unknown>,
-): Promise<unknown> => {
+const sendSlackEdgeRequest = (endpoint: string, params: Record<string, unknown>): Promise<unknown> => {
   const p = getProvider();
   if (!p.sendSlackEdgeRequest) {
     throw new Error(
@@ -249,10 +224,7 @@ export const sendSlackEdgeRequest = (
  * @param action - The browser controller action (e.g. 'listTabs', 'openTab')
  * @param params - Action-specific parameters
  */
-export const sendBrowserRequest = <T>(
-  action: string,
-  params?: Record<string, unknown>,
-): Promise<T> => {
+const sendBrowserRequest = <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
   const toolId = getCurrentToolId();
   return getProvider().sendBrowserRequest<T>(action, {
     ...params,
@@ -264,8 +236,7 @@ export const sendBrowserRequest = <T>(
  * Reload the Chrome extension. Platform-internal — typically used only by
  * the extension reload tool, not by plugin tools.
  */
-export const reloadExtension = (): Promise<{ reloading: boolean }> =>
-  getProvider().reloadExtension();
+const reloadExtension = (): Promise<{ reloading: boolean }> => getProvider().reloadExtension();
 
 // =============================================================================
 // Tool Result Formatting
@@ -279,7 +250,7 @@ export const reloadExtension = (): Promise<{ reloading: boolean }> =>
  *
  * @param data - Any JSON-serializable value
  */
-export const success = (data: unknown): ToolResult => ({
+const success = (data: unknown): ToolResult => ({
   content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
 });
 
@@ -291,7 +262,7 @@ export const success = (data: unknown): ToolResult => ({
  *
  * @param err - The error to format (Error instance or any value)
  */
-export const error = (err: unknown): ToolResult => {
+const error = (err: unknown): ToolResult => {
   const message = formatError(err);
   return {
     content: [{ type: 'text', text: `Error: ${message}` }],
@@ -323,8 +294,7 @@ const ERROR_PATTERNS: Array<{
   },
   {
     match: msg => msg.includes('timed out'),
-    format: () =>
-      'Request timed out. The API may be slow or the extension disconnected. Try refreshing the tab.',
+    format: () => 'Request timed out. The API may be slow or the extension disconnected. Try refreshing the tab.',
   },
   {
     match: msg => msg.includes('channel_not_found') || msg.includes('Channel not found'),
@@ -333,8 +303,7 @@ const ERROR_PATTERNS: Array<{
   },
   {
     match: msg => msg.includes('not_in_channel'),
-    format: () =>
-      'You are not a member of this channel. Join the channel first.',
+    format: () => 'You are not a member of this channel. Join the channel first.',
   },
   {
     match: msg => msg.includes('invalid_auth') || msg.includes('not_authed'),
@@ -343,33 +312,27 @@ const ERROR_PATTERNS: Array<{
   },
   {
     match: msg => msg.includes('ratelimited'),
-    format: () =>
-      'Rate limited by the API. Please wait a moment and try again.',
+    format: () => 'Rate limited by the API. Please wait a moment and try again.',
   },
   {
     match: msg => msg.includes('missing_scope'),
-    format: () =>
-      'Missing permissions. Your session may not have access to this feature.',
+    format: () => 'Missing permissions. Your session may not have access to this feature.',
   },
   {
     match: msg => msg.includes('user_not_found'),
-    format: () =>
-      'User not found. Please check the user ID is correct.',
+    format: () => 'User not found. Please check the user ID is correct.',
   },
   {
     match: msg => msg.includes('Connection closed'),
-    format: () =>
-      'Connection to extension was lost. Please check that the tab is still open and refresh it if needed.',
+    format: () => 'Connection to extension was lost. Please check that the tab is still open and refresh it if needed.',
   },
   {
     match: msg => msg.includes('401') || msg.includes('Unauthorized'),
-    format: () =>
-      'Unauthorized: This API requires elevated permissions not available via browser session.',
+    format: () => 'Unauthorized: This API requires elevated permissions not available via browser session.',
   },
   {
     match: msg => msg.includes('403') || msg.includes('Forbidden'),
-    format: () =>
-      'Forbidden: Your user account does not have permission to access this resource.',
+    format: () => 'Forbidden: Your user account does not have permission to access this resource.',
   },
 ];
 
@@ -382,7 +345,7 @@ const ERROR_PATTERNS: Array<{
  * @param err - The error to format
  * @returns A user-friendly error description
  */
-export const formatError = (err: unknown): string => {
+const formatError = (err: unknown): string => {
   if (err instanceof Error) {
     const message = err.message;
 
@@ -408,7 +371,7 @@ export const formatError = (err: unknown): string => {
 /**
  * Tool definition configuration.
  */
-export interface ToolConfig<InputArgs extends ZodRawShapeCompat> {
+interface ToolConfig<InputArgs extends ZodRawShapeCompat> {
   /** Human-readable title (optional, shown in some MCP clients). */
   title?: string;
   /** Tool description — critical for AI agents to understand when to use it. */
@@ -433,25 +396,21 @@ export interface ToolConfig<InputArgs extends ZodRawShapeCompat> {
  * @param config - Tool metadata and input schema
  * @param handler - The async function that implements the tool
  */
-export const defineTool = <InputArgs extends ZodRawShapeCompat>(
+const defineTool = <InputArgs extends ZodRawShapeCompat>(
   tools: Map<string, RegisteredTool>,
   server: McpServer,
   name: string,
   config: ToolConfig<InputArgs>,
   handler: ToolCallback<InputArgs>,
 ): void => {
-  const wrappedHandler: ToolCallback<InputArgs> = (
-    (...args: unknown[]) =>
-      withToolId(name, async () => {
-        try {
-          return await (handler as (...a: unknown[]) => Promise<unknown>)(
-            ...args,
-          );
-        } catch (err) {
-          return error(err);
-        }
-      })
-  ) as ToolCallback<InputArgs>;
+  const wrappedHandler: ToolCallback<InputArgs> = ((...args: unknown[]) =>
+    withToolId(name, async () => {
+      try {
+        return await (handler as (...a: unknown[]) => Promise<unknown>)(...args);
+      } catch (err) {
+        return error(err);
+      }
+    })) as ToolCallback<InputArgs>;
 
   tools.set(name, server.registerTool(name, config, wrappedHandler));
 };
@@ -487,7 +446,7 @@ export const defineTool = <InputArgs extends ZodRawShapeCompat>(
  * @param server - The MCP server to register tools on
  * @returns An object with the `tools` map and a curried `define` function
  */
-export const createToolRegistrar = (
+const createToolRegistrar = (
   server: McpServer,
 ): {
   tools: Map<string, RegisteredTool>;
@@ -508,4 +467,22 @@ export const createToolRegistrar = (
   };
 
   return { tools, define };
+};
+
+export type { ToolResult, RequestProvider, ToolConfig };
+
+export {
+  __setRequestProvider,
+  __resetRequestProvider,
+  getCurrentToolId,
+  withToolId,
+  sendServiceRequest,
+  sendSlackEdgeRequest,
+  sendBrowserRequest,
+  reloadExtension,
+  success,
+  error,
+  formatError,
+  defineTool,
+  createToolRegistrar,
 };

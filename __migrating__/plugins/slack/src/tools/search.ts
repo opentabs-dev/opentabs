@@ -10,24 +10,16 @@
 // of importing directly from the MCP server's internal modules.
 // =============================================================================
 
-import {
-  createToolRegistrar,
-  sendServiceRequest,
-  success,
-} from '@opentabs/plugin-sdk/server';
-
+import { createToolRegistrar, sendServiceRequest, success } from '@opentabs/plugin-sdk/server';
 import { z } from 'zod';
-
-import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { SlackSearchResponse } from './types.js';
+import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 // ---------------------------------------------------------------------------
 // Tool Registration
 // ---------------------------------------------------------------------------
 
-export const registerSearchTools = (
-  server: McpServer,
-): Map<string, RegisteredTool> => {
+export const registerSearchTools = (server: McpServer): Map<string, RegisteredTool> => {
   const { tools, define } = createToolRegistrar(server);
 
   // -------------------------------------------------------------------------
@@ -48,14 +40,10 @@ export const registerSearchTools = (
           .string()
           .describe(
             'Slack search query. Supports text and modifiers: ' +
-            '"from:@user", "in:#channel", "has:link", "has:reaction", ' +
-            '"before:YYYY-MM-DD", "after:YYYY-MM-DD", "during:month"',
+              '"from:@user", "in:#channel", "has:link", "has:reaction", ' +
+              '"before:YYYY-MM-DD", "after:YYYY-MM-DD", "during:month"',
           ),
-        count: z
-          .number()
-          .optional()
-          .default(20)
-          .describe('Number of results to return (default: 20, max: 100)'),
+        count: z.number().optional().default(20).describe('Number of results to return (default: 20, max: 100)'),
         sort: z
           .enum(['score', 'timestamp'])
           .optional()
@@ -66,11 +54,7 @@ export const registerSearchTools = (
           .optional()
           .default('desc')
           .describe('Sort direction: "asc" or "desc" (default: "desc")'),
-        page: z
-          .number()
-          .optional()
-          .default(1)
-          .describe('Page number for pagination (default: 1)'),
+        page: z.number().optional().default(1).describe('Page number for pagination (default: 1)'),
       },
     },
     async ({ query, count, sort, sort_dir, page }) => {
@@ -127,14 +111,10 @@ export const registerSearchTools = (
           .string()
           .describe(
             'Slack search query for files. Supports text and modifiers: ' +
-            '"from:@user", "in:#channel", "type:filetype", ' +
-            '"before:YYYY-MM-DD", "after:YYYY-MM-DD"',
+              '"from:@user", "in:#channel", "type:filetype", ' +
+              '"before:YYYY-MM-DD", "after:YYYY-MM-DD"',
           ),
-        count: z
-          .number()
-          .optional()
-          .default(20)
-          .describe('Number of results to return (default: 20, max: 100)'),
+        count: z.number().optional().default(20).describe('Number of results to return (default: 20, max: 100)'),
         sort: z
           .enum(['score', 'timestamp'])
           .optional()
@@ -145,11 +125,7 @@ export const registerSearchTools = (
           .optional()
           .default('desc')
           .describe('Sort direction: "asc" or "desc" (default: "desc")'),
-        page: z
-          .number()
-          .optional()
-          .default(1)
-          .describe('Page number for pagination (default: 1)'),
+        page: z.number().optional().default(1).describe('Page number for pagination (default: 1)'),
       },
     },
     async ({ query, count, sort, sort_dir, page }) => {
