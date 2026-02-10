@@ -1,0 +1,28 @@
+{
+  "name": "@opentabs/browser-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/background/index.d.ts",
+      "default": "./dist/background/index.js"
+    },
+    "./offscreen": {
+      "types": "./dist/offscreen/offscreen.d.ts",
+      "default": "./dist/offscreen/offscreen.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentabs/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@opentabs/plugin-loader": "workspace:*",
+    "@types/chrome": "^0.0.318",
+    "typescript": "^5.9.3"
+  }
+}

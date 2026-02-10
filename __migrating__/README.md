@@ -371,14 +371,12 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest)
 - [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns, runtime permission enforcement)
 - [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload, URL pattern overlap detection, JSON Schema generation)
-- [x] `@opentabs/mcp-server` — Partial (plugin-init with permission wiring, tools/index, browser tools, extension tools, capture tools)
-- [ ] `@opentabs/mcp-server` — Remaining (server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts)
-- [x] `@opentabs/browser-extension` — Partial (capture handler with interceptor injection, dynamic content script relay registration, background message listener integration guide)
-- [ ] `@opentabs/browser-extension` — Remaining (background script entry, adapter manager, mcp-router, service controllers, offscreen manager, manifest generation)
+- [x] `@opentabs/mcp-server` — Complete (plugin-init, tools/index, browser tools, extension tools, capture tools, server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts, types.ts, file-store.ts, index.ts)
+- [x] `@opentabs/browser-extension` — Complete (background script entry, adapter manager, mcp-router, browser controller, service controllers, service managers, offscreen manager + document, icon manager, state persistence, alarm handlers, side panel manager, stale tab manager, capture handler)
+- [ ] `@opentabs/browser-extension` — Remaining (manifest generation from dynamic registry, Vite build integration)
 - [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, tsconfig.build.json, comprehensive README with test-utils examples)
 - [x] `@opentabs/plugin-test-utils` — Complete (mock request provider with stub builders and call history, test harness with mock MCP server and parsed results, assertion helpers)
-- [x] `@opentabs/plugin-slack` — Partial (adapter, messages, search, types, isHealthy, error patterns)
-- [ ] `@opentabs/plugin-slack` — Remaining (channels, conversations, users, files, pins, stars, reactions)
+- [x] `@opentabs/plugin-slack` — Complete (adapter, messages, search, channels, conversations, users, files, pins, stars, reactions, types, isHealthy, error patterns)
 - [ ] Build system integration (Vite adapter builds, manifest generation)
 - [ ] Options page auto-generation from plugin manifests
 - [ ] CLI tooling (`opentabs plugins add/remove/list`)
@@ -389,6 +387,25 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 8 (2026-02-10)
+
+- **Ported**: Chrome extension background scripts — all 12 modules from `chrome-extension/src/background/` to `platform/browser-extension/src/background/`. Ported files: `index.ts` (composition root), `adapter-manager.ts`, `browser-controller.ts`, `mcp-router.ts`, `offscreen-manager.ts`, `icon-manager.ts`, `state-persistence.ts`, `alarm-handlers.ts`, `side-panel-manager.ts`, `stale-tab-manager.ts`, `service-controllers/webapp-service-controller.ts`, `service-controllers/index.ts`, `service-managers/types.ts`, `service-managers/index.ts`. Key adaptations: replaced all `@extension/shared` imports with `@opentabs/core`; replaced static `SERVICE_REGISTRY`, `SERVICE_IDS`, `SERVICE_TYPES`, `SERVICE_URL_PATTERNS`, `SERVICE_DOMAINS`, `SINGLE_ENV_SERVICES` constants with dynamic registry getters (`getServiceRegistry()`, `getServiceIds()`, `getServiceTypes()`, `getServiceUrlPatterns()`, `getServiceDomains()`, `getSingleEnvServices()`); `WebappServiceConfig` defined locally in the controller (mirrors `@opentabs/plugin-loader`'s shape) with `string` types instead of branded `ServiceId`/`ServiceType`; `buildServiceConfigs()` eliminated — service configs are now provided at initialization from build-time plugin discovery; background `index.ts` exports an `initialize(serviceDefinitions, serviceConfigs)` function that populates the dynamic registry via `setServiceRegistry()` then creates service managers, enabling a build-generated entry point pattern; `ServiceConnection` renamed to `ServiceConnectionStatus` per `@opentabs/core`'s type.
+- **Ported**: Offscreen document — `offscreen.ts` + `offscreen.html` from `chrome-extension/src/offscreen/` to `platform/browser-extension/src/offscreen/`. Adapted to import from `@opentabs/core`.
+- **Added**: `package.json` and `tsconfig.build.json` for `@opentabs/browser-extension` — workspace package with `@opentabs/core` dependency and `@types/chrome` + `@opentabs/plugin-loader` as dev dependencies.
+- **Fixed**: Pre-existing `capture-handler.ts` type errors — `XMLHttpRequest.open()` call missing required `async` parameter (added `true`); `NodeListOf<Element>` iterator errors fixed by adding `DOM.Iterable` to tsconfig lib.
+- **Removed**: `webextension-polyfill` import from background entry — unnecessary in MV3 where Chrome APIs natively support promises, and the polyfill was not installed in the workspace.
+- **Verified**: All 13 ported files + 1 existing file compile with zero type errors. Build output produces `.js`, `.d.ts`, and `.d.ts.map` for all modules under `dist/background/` and `dist/offscreen/`.
+- **Status**: Phase 3 (Chrome extension background port) is **substantially complete**. All background script modules, service controllers, offscreen document, and supporting managers are ported and compiling. Remaining for full Phase 3: Vite build integration and manifest generation from the dynamic plugin registry. Phase 4 (end-to-end verification) can proceed once a build entry point is generated that calls `initialize()` with plugin data.
+
+### Session 7 (2025-07-17)
+
+- **Ported**: MCP server runtime — `config.ts`, `types.ts`, `websocket-relay.ts`, `file-store.ts`, `hot-reload.ts`, `http-server.ts`, `server.ts`, `index.ts` from the original `packages/mcp-server/src/` to `platform/mcp-server/src/`. All core server infrastructure is now in place. Key adaptations: replaced `@extension/shared` imports with `@opentabs/core` (dynamic service registry instead of static constants); added `RequestProvider` wiring in `server.ts` so plugin tools reach the WebSocket relay via the SDK's `sendServiceRequest()`; integrated `initializePlugins()` and `refreshPluginTools()` into server startup and hot reload paths; service timeouts and display names are now looked up at call time from the dynamic registry populated by plugins. Plugin discovery uses the MCP server package directory as `rootDir` (not `process.cwd()`) so workspace-local `node_modules` are scanned correctly.
+- **Ported**: Complete Slack plugin tools — `channels.ts`, `conversations.ts`, `users.ts`, `files.ts`, `pins.ts`, `stars.ts`, `reactions.ts` from `packages/mcp-server/src/tools/slack/` to `plugins/slack/src/tools/`. All 7 missing tool modules now use `@opentabs/plugin-sdk/server` instead of the monolith's internal `utils.ts`. Replaced `sendSlackEdgeRequest(endpoint, params)` calls with `sendServiceRequest('slack', { endpoint, params }, 'edgeApi')` — the SDK's action parameter achieves the same routing without a Slack-specific helper in the transport layer. Updated `plugins/slack/src/tools/index.ts` to register all tool modules.
+- **Fixed**: Zod v4 compatibility in `@opentabs/plugin-loader/manifest-schema.ts` — `z.record()` calls with a single value argument caused `undefined is not an object (evaluating 'def.valueType._zod')` at runtime. Zod v4 requires explicit key and value types: changed `z.record(z.unknown())` to `z.record(z.string(), z.unknown())` and similar for all `z.record()` calls (healthCheck params, adapter domains, adapter urlPatterns, settings).
+- **Added**: `@opentabs/plugin-slack` as workspace dependency of `@opentabs/mcp-server` — Required for the plugin-loader to discover the Slack plugin in `node_modules` during automatic scanning.
+- **Verified**: Server starts successfully with `bun platform/mcp-server/dist/index.js`. Plugin system discovers and loads the Slack plugin (`[OpenTabs] Loaded 1 plugin(s): slack`). MCP `tools/list` returns **58 tools** (7 browser + 10 capture + 1 extension reload + 40 Slack) via the Streamable HTTP transport. Health endpoint responds correctly. All ported files compile with zero type errors.
+- **Status**: The MCP server **can start**, accepts MCP client connections, discovers installed plugins, and registers their tools. The Slack plugin is **fully ported** with all tool modules. Phase 1 (MCP server runtime) and Phase 2 (complete Slack plugin) from SELF_EVOLVING_INSTRUCTIONS.md are **done**. Phase 3 (Chrome extension port) and Phase 4 (end-to-end verification) remain.
 
 ### Session 6 (2025-07-14)
 

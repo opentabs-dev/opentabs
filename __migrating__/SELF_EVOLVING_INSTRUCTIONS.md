@@ -19,69 +19,46 @@ Sessions 1-6 built the SDK layer (core, plugin-sdk, plugin-loader, manifest vali
 
 Your primary objective is to **get the migrated system running end-to-end**. A working system with rough edges teaches us more than a polished SDK that can't start.
 
-### Phase 1: Make the MCP Server Run (HIGHEST PRIORITY)
+### Phase 1: Make the MCP Server Run — ✅ DONE (Session 7)
 
-Port the MCP server runtime from the original codebase to the new plugin-based architecture. The original files are:
+Server starts, accepts MCP clients, discovers plugins, registers tools. See Session 7 changelog.
 
-- `packages/mcp-server/src/server.ts` — MCP server creation, session management
-- `packages/mcp-server/src/http-server.ts` — HTTP/SSE transport layer
-- `packages/mcp-server/src/websocket-relay.ts` — WebSocket relay to Chrome extension
-- `packages/mcp-server/src/hot-reload.ts` — Hot reload (update tools without disconnecting clients)
-- `packages/mcp-server/src/config.ts` — Server configuration
-- `packages/mcp-server/src/index.ts` — Entry point
+### Phase 2: Complete the Slack Plugin — ✅ DONE (Session 7)
 
-These need to land in `__migrating__/platform/mcp-server/src/`. The new versions should:
-1. Use the plugin-init system that already exists (`plugin-init.ts`) to discover and load plugin tools
-2. Use `registerAllTools()` from `tools/index.ts` (already exists) instead of the hardcoded service array
-3. Wire the request provider so `sendServiceRequest()` from plugin tools reaches the WebSocket relay
-4. Otherwise be **faithful ports** — don't redesign the server architecture, just adapt it to use the plugin system
+All Slack tools ported. 40 tools registered via the SDK's request provider pattern. See Session 7 changelog.
 
-**Import mapping**: The original code imports from `@extension/shared` — in the new architecture, these map to `@opentabs/core` (types, JSON-RPC, messaging, services) and `@opentabs/plugin-sdk/server` (tool registration, request provider). Read both packages' `index.ts` to find the equivalent exports.
+### Phase 3: Port the Chrome Extension Background — ✅ DONE (Session 8)
 
-**Success criteria**: You can run `bun --hot dist/index.js` and the server starts, accepts MCP client connections, discovers installed plugins, and registers their tools.
+All 12 background modules + offscreen document ported from `chrome-extension/src/background/` to `platform/browser-extension/src/background/`. Uses `@opentabs/core` dynamic registry instead of static constants. Background exports `initialize(serviceDefinitions, serviceConfigs)` — a build-generated entry point calls this with plugin data. Zero type errors.
 
-### Phase 2: Complete the Slack Plugin
+**Remaining for full build**: Vite build integration and MV3 manifest generation from the dynamic plugin registry. These are build-system tasks, not runtime porting.
 
-The original codebase has complete, working, tested Slack tools in `packages/mcp-server/src/tools/slack/`. The migration only ported messages and search. Port the rest:
+### Phase 4: Make the Extension Buildable and Loadable (CURRENT PRIORITY)
 
-- `channels.ts` — Channel listing, info, creation, archival
-- `conversations.ts` — Thread replies, conversation history
-- `users.ts` — User lookup, presence, profile
-- `files.ts` — File listing, sharing
-- `pins.ts` — Pin/unpin messages
-- `stars.ts` — Star/unstar items
-- `reactions.ts` — Add/remove/list reactions
+The background modules are ported, but the extension can't be built or loaded yet. This phase bridges the gap:
 
-Each tool file should use the plugin SDK (`createToolRegistrar`, `sendServiceRequest`, `success`, `error`) instead of the original monolith imports. The original files are your reference implementation — port them, don't reinvent them.
+1. **Build script that generates plugin data** — A script that runs `loadPlugins()` from `@opentabs/plugin-loader` at build time and produces a generated entry point that calls `initialize(serviceDefinitions, serviceConfigs)`. See the settled decision on "Extension background uses build-time plugin data."
+2. **Vite config for the extension** — Adapt the existing `chrome-extension/vite.config.mts` to the new package structure. Must compile background, offscreen, and content scripts. Must build plugin adapter IIFEs (see `chrome-extension/build-adapters.mts` for the original approach).
+3. **MV3 manifest generation** — The original `chrome-extension/manifest.ts` generates `manifest.json` from the static service registry. The new version must generate it from the dynamic plugin registry (populated at build time). Key sections: `content_scripts` (adapter injection), `web_accessible_resources` (adapter IIFE files), `host_permissions` (from plugin manifests), `permissions`.
+4. **Extension loads in Chrome** — `bun run build` produces a `dist/` folder that can be loaded as an unpacked extension in `chrome://extensions/`.
 
-**Success criteria**: All Slack tools from the original codebase exist in the plugin and work through the SDK's request provider pattern.
+**Success criteria**: Run `bun run build`, load the `dist/` folder in Chrome, extension connects to the MCP server via WebSocket.
 
-### Phase 3: Port the Chrome Extension Background
+Reference the original build system: `chrome-extension/vite.config.mts`, `chrome-extension/manifest.ts`, `chrome-extension/build-adapters.mts`.
 
-Port the extension background script to work with the plugin system:
+### Phase 5: End-to-End Verification
 
-- `chrome-extension/src/background/index.ts` — Background script entry
-- `chrome-extension/src/background/mcp-router.ts` — Routes JSON-RPC to service handlers
-- `chrome-extension/src/background/adapter-manager.ts` — Registers MAIN world adapters (now from plugins)
-- `chrome-extension/src/background/service-controllers/` — Per-service controllers (now built from plugin manifests)
-- `chrome-extension/src/offscreen/` — Persistent WebSocket (MV3 workaround)
-- Manifest generation from dynamic registry
-
-**Success criteria**: The extension builds, loads in Chrome, connects to the MCP server via WebSocket, and routes tool requests to the correct service adapter.
-
-### Phase 4: End-to-End Verification
-
-Once Phases 1-3 are done, verify the system works end-to-end. What you can verify from CLI:
-1. `bun --hot dist/index.js` starts without errors
+Once Phase 4 is done, verify the full stack works. What you can verify from CLI:
+1. `bun --hot dist/index.js` starts without errors (MCP server)
 2. `curl http://127.0.0.1:3000/health` returns healthy status with plugin tools listed
-3. Extension builds without errors (`turbo build --filter=chrome-extension...`)
+3. Extension builds without errors
 
 What requires manual verification (note this for the human):
 4. Load the extension in Chrome, open Slack, call `slack_send_message` through an MCP client
 
-If anything fails in steps 1-3, fix it. Those failures are the most valuable design feedback — they reveal real issues in the SDK/loader/manifest that theorizing never would.
+If anything fails in steps 1-3, fix it. Those failures reveal real issues that theorizing never would.
 
-### Phase 5: Design Review Through Usage
+### Phase 6: Design Review Through Usage
 
 Only after the system is running end-to-end, review the design with fresh eyes:
 
@@ -98,6 +75,8 @@ Fix what you found. **Every design change must be motivated by a concrete proble
 These architectural questions have been thoroughly researched and decided. Do not spend time re-evaluating them.
 
 - **Each plugin ships its own MAIN world adapter script.** We evaluated three alternatives (fully declarative adapters, a single universal bundled script, background-mediated fetch) and all are unviable. The core reasons: (1) httpOnly cookies require same-origin `fetch()` from within the page — moving fetch to the background breaks `SameSite` cookie enforcement, (2) services like Snowflake call page-internal JS functions (`window.numeracy.nufetch()`) that can't be expressed declaratively, (3) bundling all plugin adapters into one universal script loses per-plugin URL scoping, per-plugin hot reload, and per-plugin isolation. The real security boundary is Chrome's content script URL matching (a Slack plugin can't run on a Jira page) plus trust tiers for plugin review. This is the same trust model as npm packages, VS Code extensions, and Chrome extensions themselves.
+
+- **Extension background uses build-time plugin data, not runtime discovery.** The MCP server discovers plugins at runtime (node_modules scan). The Chrome extension cannot — it runs in a service worker without filesystem access. The solution: a build script runs `loadPlugins()` from `@opentabs/plugin-loader` at build time, producing `ServiceDefinition[]` and `Record<string, WebappServiceConfig>`. A generated entry point imports this data and calls `initialize(serviceDefinitions, serviceConfigs)` from `@opentabs/browser-extension`. This means the dynamic registry (`setServiceRegistry()`) is populated once at startup from static build-time data, and all dynamic getter functions (`getServiceIds()`, `getServiceUrlPatterns()`, etc.) work correctly from that point forward.
 
 ## Rules
 
@@ -119,7 +98,7 @@ These architectural questions have been thoroughly researched and decided. Do no
 
 ## AI-Assisted Plugin Creation
 
-This is a secondary objective. The capture tools and scaffolder already exist in draft form. **Do not advance this feature until Phases 1-3 are complete.** The capture system is worthless if the plugin it generates can't be loaded by a running server and tested against a real browser. Get the runtime working first, then the self-evolving loop becomes testable.
+This is a secondary objective. The capture tools and scaffolder already exist in draft form. **Do not advance this feature until Phase 5 (E2E verification) passes.** The self-evolving loop requires: (1) a running MCP server that loads plugins, (2) a loadable Chrome extension that injects adapters and connects to the server, (3) a real web app open in a tab. Without all three, the capture system can't observe traffic and generated plugins can't be tested. Get the full stack working first.
 
 ## Updating These Instructions
 

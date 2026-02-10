@@ -12,8 +12,15 @@
 // response.result.ok field is false).
 // =============================================================================
 
+import { registerChannelTools } from './channels.js';
+import { registerConversationTools } from './conversations.js';
+import { registerFileTools } from './files.js';
 import { registerMessageTools } from './messages.js';
+import { registerPinTools } from './pins.js';
+import { registerReactionTools } from './reactions.js';
 import { registerSearchTools } from './search.js';
+import { registerStarTools } from './stars.js';
+import { registerUserTools } from './users.js';
 import { isJsonRpcError, registerErrorPatterns } from '@opentabs/plugin-sdk/server';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { JsonRpcResponse, HealthCheckEvaluator } from '@opentabs/plugin-sdk';
@@ -101,14 +108,13 @@ registerErrorPatterns(SLACK_ERROR_PATTERNS);
 const TOOL_REGISTRATIONS: ToolRegistrationFn[] = [
   registerMessageTools,
   registerSearchTools,
-  // Future tool modules:
-  // registerChannelTools,
-  // registerConversationTools,
-  // registerUserTools,
-  // registerFileTools,
-  // registerPinTools,
-  // registerStarTools,
-  // registerReactionTools,
+  registerChannelTools,
+  registerConversationTools,
+  registerUserTools,
+  registerFileTools,
+  registerPinTools,
+  registerStarTools,
+  registerReactionTools,
 ];
 
 // ---------------------------------------------------------------------------

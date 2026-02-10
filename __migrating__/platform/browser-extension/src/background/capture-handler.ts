@@ -259,7 +259,7 @@ const interceptorScript = (includeResponseBodies: boolean, maxRequests: number):
       requestHeaders: {} as Record<string, string>,
       startTime: 0,
     };
-    return originalOpen.call(this, method, url);
+    return originalOpen.call(this, method, url, true);
   };
 
   OriginalXHR.prototype.setRequestHeader = function (

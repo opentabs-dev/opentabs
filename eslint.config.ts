@@ -133,10 +133,18 @@ export default tseslint.config(
   // MCP server http-server.ts uses SSE transport which is deprecated but required
   // for Claude Code compatibility (Claude Code expects type: "sse" in config)
   {
-    files: ['**/packages/mcp-server/src/http-server.ts'],
+    files: ['**/packages/mcp-server/src/http-server.ts', '**/platform/mcp-server/src/http-server.ts'],
     rules: {
       'import-x/no-deprecated': 'off',
       'import-x/no-named-as-default-member': 'off',
+    },
+  },
+  // Plugin-loader manifest-schema.ts uses Zod issue codes that are marked deprecated
+  // in Zod v4 but are the correct API for superRefine cross-field validation
+  {
+    files: ['**/platform/plugin-loader/src/manifest-schema.ts'],
+    rules: {
+      'import-x/no-deprecated': 'off',
     },
   },
   // shadcn/ui components use function declarations and have accessibility patterns

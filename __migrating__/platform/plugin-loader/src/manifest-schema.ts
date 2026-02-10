@@ -104,14 +104,17 @@ const settingDefinitionSchema = z
 
 const healthCheckSchema = z.object({
   method: z.string().min(1, 'Health check method must be non-empty (e.g. "slack.api")'),
-  params: z.record(z.unknown()),
+  params: z.record(z.string(), z.unknown()),
   evaluator: z.string().min(1).optional(),
 });
 
 const adapterConfigSchema = z.object({
   entry: z.string().min(1, 'Adapter entry must be a relative path to the compiled adapter (e.g. "./dist/adapter.js")'),
-  domains: z.record(z.string().min(1, 'Domain must be a non-empty string')),
-  urlPatterns: z.record(z.array(urlMatchPatternSchema).min(1, 'Each environment must have at least one URL pattern')),
+  domains: z.record(z.string(), z.string().min(1, 'Domain must be a non-empty string')),
+  urlPatterns: z.record(
+    z.string(),
+    z.array(urlMatchPatternSchema).min(1, 'Each environment must have at least one URL pattern'),
+  ),
   hostPermissions: z.array(z.string()).optional(),
   defaultUrl: z.string().min(1).optional(),
 });
@@ -176,7 +179,7 @@ const rawManifestSchema = z.object({
   service: serviceConfigSchema,
   tools: toolsConfigSchema,
   permissions: permissionsSchema,
-  settings: z.record(settingDefinitionSchema).optional(),
+  settings: z.record(z.string(), settingDefinitionSchema).optional(),
   icon: z.string().min(1).optional(),
   keywords: z.array(z.string()).optional(),
 });
