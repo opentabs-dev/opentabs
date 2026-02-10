@@ -1,0 +1,48 @@
+{
+  "name": "create-opentabs-plugin",
+  "version": "1.0.0",
+  "description": "Scaffold a new OpenTabs plugin from the official template",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "create-opentabs-plugin": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "template"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3"
+  },
+  "keywords": [
+    "opentabs",
+    "plugin",
+    "scaffold",
+    "template",
+    "create",
+    "mcp",
+    "model-context-protocol",
+    "chrome-extension"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nichochar/opentabs",
+    "directory": "platform/create-plugin"
+  },
+  "author": "OpenTabs",
+  "license": "MIT"
+}

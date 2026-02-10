@@ -32,7 +32,7 @@
   },
   "peerDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
-    "zod": ">=3.0.0"
+    "zod": "^4.0.0"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {

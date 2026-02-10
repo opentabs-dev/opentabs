@@ -31,22 +31,37 @@ __migrating__/
 │   │   └── src/
 │   │       ├── index.ts               # Types + definePlugin() helper
 │   │       ├── adapter.ts             # MAIN world adapter utilities
-│   │       └── server.ts              # MCP tool registration utilities
+│   │       └── server.ts              # MCP tool registration + permission enforcement
 │   │
 │   ├── plugin-loader/                 # @opentabs/plugin-loader
 │   │   └── src/
 │   │       ├── index.ts               # Barrel export
 │   │       ├── discover.ts            # Scan node_modules for plugins
-│   │       ├── validate.ts            # Validate opentabs-plugin.json
-│   │       └── merge.ts               # Merge plugins into platform registry
+│   │       ├── manifest-schema.ts     # Zod-based manifest validation
+│   │       └── merge.ts              # Merge plugins into platform registry
 │   │
 │   ├── mcp-server/                    # @opentabs/mcp-server
 │   │   └── src/
-│   │       ├── plugin-init.ts         # Plugin system initialization
+│   │       ├── plugin-init.ts         # Plugin system initialization + permission wiring
 │   │       └── tools/
 │   │           ├── index.ts           # Plugin-aware tool registration
 │   │           ├── browser/tabs.ts    # Platform-native: browser tab tools
-│   │           └── extension/reload.ts # Platform-native: extension reload
+│   │           ├── extension/reload.ts # Platform-native: extension reload
+│   │           └── capture/index.ts   # Platform-native: AI-assisted plugin creation
+│   │
+│   ├── create-plugin/                 # create-opentabs-plugin (CLI scaffolder)
+│   │   ├── src/
+│   │   │   └── index.ts              # Scaffolding logic + CLI entry point
+│   │   └── template/                  # Plugin template files
+│   │       ├── opentabs-plugin.json   # Template manifest
+│   │       ├── package.json           # Template package.json
+│   │       ├── tsconfig.json          # Template tsconfig
+│   │       ├── README.md              # Template README with full guide
+│   │       └── src/
+│   │           ├── adapter.ts         # Template adapter with auth patterns
+│   │           └── tools/
+│   │               ├── index.ts       # Template tool entry point
+│   │               └── general.ts     # Template tool definitions
 │   │
 │   └── browser-extension/             # @opentabs/browser-extension
 │       └── src/
@@ -71,10 +86,11 @@ __migrating__/
     ↑
 @opentabs/plugin-sdk              ← Depends on core. Public SDK for plugin authors.
     ↑
-@opentabs/plugin-loader           ← Depends on core + plugin-sdk. Discovery & validation.
+@opentabs/plugin-loader           ← Depends on core. Discovery & Zod-based validation.
     ↑
 @opentabs/mcp-server              ← Depends on core + plugin-sdk + plugin-loader.
 @opentabs/browser-extension       ← Depends on core + plugin-loader.
+create-opentabs-plugin            ← Zero OpenTabs deps. Standalone CLI scaffolder.
 
 @opentabs/plugin-slack            ← Peer depends on plugin-sdk. Standalone plugin.
 ```
@@ -129,27 +145,29 @@ The bridge between npm packages and the platform runtime. Consumed by the MCP se
 - Supports local plugins via relative paths (`./my-plugin`)
 - Determines trust tier: official, verified, community, or local
 
-**Validation** (`validate.ts`):
-- Validates `opentabs-plugin.json` against the platform schema
+**Validation** (`manifest-schema.ts`):
+- Zod-based declarative schema for `opentabs-plugin.json`
 - Checks name patterns, version format, URL patterns, domain consistency
 - Cross-field validation (health check method prefix, domain/permission alignment)
 - Name conflict detection across plugins
 - Rejects overly broad URL patterns (`*://*/*`) and reserved names
+- Can generate JSON Schema (via `zod-to-json-schema`) for IDE support
 
 **Merge** (`merge.ts`):
 - Converts `PluginManifest` → `ServiceDefinition` for the service registry
 - Converts `PluginManifest` → `WebappServiceConfig` for service controllers
 - Dynamically imports plugin tool modules (`registerTools` + `isHealthy`)
-- Resolves built-in health check evaluators by name
+- Health check evaluators come from plugin `isHealthy` exports (no hardcoded evaluators)
 - `loadPlugins()` — the primary entry point that runs the full pipeline
+- Supports `skipRegistryMerge` option for hot-reload scenarios
 
 ### `@opentabs/mcp-server`
 
 The MCP server, refactored to be plugin-aware. Contains only:
 
 - **Platform infrastructure**: HTTP server, WebSocket relay, hot reload, config
-- **Platform-native tools**: Browser tab tools, extension reload tool
-- **Plugin initialization** (`plugin-init.ts`): Wires the plugin-loader into the server startup
+- **Platform-native tools**: Browser tab tools, extension reload tool, capture/scaffold tools
+- **Plugin initialization** (`plugin-init.ts`): Wires the plugin-loader into the server startup, registers runtime permissions
 
 Service-specific tools (Slack, Datadog, etc.) are **gone from this package** — they live in plugins. The `tools/index.ts` has a `setPluginRegistrations()` function that the plugin initializer calls to inject discovered plugin tools into the registration pipeline.
 
@@ -161,6 +179,17 @@ The Chrome extension, refactored to be a generic adapter runtime. Contains:
 - **No service-specific code**: All adapters come from plugins
 
 The adapter manager uses the plugin-loader to discover plugin adapters and register them as MAIN world content scripts. Service controller configs are built from plugin manifests.
+
+### `create-opentabs-plugin`
+
+CLI tool and programmatic API for scaffolding new OpenTabs plugins from the official template. Zero OpenTabs package dependencies — it's a standalone scaffolder that copies template files and replaces `{{variable}}` placeholders.
+
+**Template includes**: `opentabs-plugin.json` manifest, adapter with auth extraction patterns, tool entry point with `isHealthy` boilerplate, example tool definitions, package.json with correct peer dependencies, tsconfig, and a comprehensive README covering all adapter patterns (cookie-based, localStorage, CSRF, JS globals).
+
+**Usage**:
+- CLI: `bunx create-opentabs-plugin jira --domain .atlassian.net`
+- Programmatic: `import { scaffoldPlugin } from 'create-opentabs-plugin'`
+- From AI agent: via `capture_scaffold_plugin` MCP tool
 
 ### `@opentabs/plugin-slack`
 
@@ -225,7 +254,7 @@ Plugin adapters are ONLY injected into URLs matching their declared `urlPatterns
 
 ### Manifest Validation
 
-The plugin-loader validates every manifest at build time:
+The plugin-loader validates every manifest at build time (via Zod schema):
 - URL patterns must be scoped to specific domains (no `*://*/*`)
 - Network permissions must cover declared adapter domains
 - Plugin names must not collide with reserved platform names
@@ -234,6 +263,10 @@ The plugin-loader validates every manifest at build time:
 ### Request Provider Scoping
 
 Plugin tools communicate with browser adapters exclusively through `sendServiceRequest()`. The SDK's request provider pattern means plugins never import the WebSocket relay directly and cannot access other plugins' adapters.
+
+### Runtime Permission Enforcement
+
+Plugin tools that call `sendBrowserRequest()` (chrome.tabs/windows APIs) are checked at runtime against the plugin's declared `nativeApis` permissions. If a plugin doesn't declare `nativeApis: ['browser']` in its manifest, calls to `sendBrowserRequest()` from that plugin's tools are rejected with a descriptive error. Platform-native tools (browser_*, capture_*, reload_extension) bypass this check. The permission registry is populated during plugin initialization and uses AsyncLocalStorage-based tool ID tracking to identify which plugin a call originates from.
 
 ### Trust Tiers
 
@@ -264,9 +297,14 @@ A plugin needs three things:
 3. **Tools** (`src/tools/index.ts`) — MCP tools using `@opentabs/plugin-sdk/server`
 
 ```bash
-# Future: scaffold generator
-bunx create-opentabs-plugin my-service
+# Scaffold a new plugin from the official template
+bunx create-opentabs-plugin my-service --domain app.example.com
+
+# Or for a specific domain with a display name
+bunx create-opentabs-plugin google-sheets --domain docs.google.com --display "Google Sheets"
 ```
+
+The scaffolder generates a complete plugin directory with adapter auth patterns, tool boilerplate, correct peer dependencies, and a comprehensive README.
 
 ## What Changed From the Original Architecture
 
@@ -285,23 +323,37 @@ bunx create-opentabs-plugin my-service
 ## Implementation Status
 
 - [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest)
-- [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns)
-- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge)
-- [x] `@opentabs/mcp-server` — Partial (plugin-init, tools/index, browser tools, extension tools)
+- [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns, runtime permission enforcement)
+- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload)
+- [x] `@opentabs/mcp-server` — Partial (plugin-init with permission wiring, tools/index, browser tools, extension tools, capture tools)
 - [ ] `@opentabs/mcp-server` — Remaining (server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts)
 - [ ] `@opentabs/browser-extension` — Scaffolded (background script stubs)
+- [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, comprehensive README)
 - [x] `@opentabs/plugin-slack` — Partial (adapter, messages, search, types, isHealthy, error patterns)
 - [ ] `@opentabs/plugin-slack` — Remaining (channels, conversations, users, files, pins, stars, reactions)
 - [ ] Build system integration (Vite adapter builds, manifest generation)
 - [ ] Options page auto-generation from plugin manifests
-- [ ] CLI tooling (`opentabs plugins add/remove/list/create`)
-- [ ] Plugin template + `create-opentabs-plugin` scaffolder
+- [ ] CLI tooling (`opentabs plugins add/remove/list`)
 - [ ] Plugin testing utilities (`@opentabs/plugin-test-utils`)
-- [ ] AI-assisted plugin creation (capture mode, API discovery, scaffold tools)
-- [ ] Runtime permission enforcement (service scoping, nativeApis checks)
+- [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired)
+- [ ] AI-assisted plugin creation — Remaining (extension-side capture interceptors, background script capture handlers)
+- [x] Runtime permission enforcement — Complete (nativeApis checks via permission registry + AsyncLocalStorage)
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 4 (2026-02-10)
+
+- **Deleted**: `validate.ts` from `@opentabs/plugin-loader` — Superseded by `manifest-schema.ts` (Zod-based) in Session 3. Removed stale `./validate` export path from `package.json` and consolidated barrel exports in `index.ts`.
+- **Fixed**: Slack plugin `@opentabs/plugin-sdk` dependency conflict — Was listed in both `dependencies` and `peerDependencies`, which causes npm to install a nested copy defeating singleton guarantees. Moved to `devDependencies` only (for monorepo workspace resolution); `peerDependencies` declares the version range for published consumers.
+- **Fixed**: Zod peer dependency range in `@opentabs/plugin-sdk` and `@opentabs/plugin-slack` — Changed from `>=3.0.0` to `^4.0.0`. Zod 4 has breaking changes from Zod 3, and the `@modelcontextprotocol/sdk` requires Zod 4. The loose range would silently accept incompatible Zod 3 installations.
+- **Added**: Runtime `nativeApis` permission enforcement in `@opentabs/plugin-sdk/server` — New permission registry (`__registerPluginPermissions`, `hasNativeApiPermission`) that maps plugin names to their declared `nativeApis` permissions. `sendBrowserRequest()` now checks this registry and rejects calls from plugins that didn't declare `'browser'` in their manifest. Platform-native tools (prefixed `browser_`, `capture_`, `reload_extension`) bypass the check. Uses AsyncLocalStorage tool ID tracking to identify the calling plugin. Fail-closed: unknown plugins are denied by default.
+- **Changed**: Plugin initialization wires permission registry — `plugin-init.ts` now calls `__registerPluginPermissions()` for each loaded plugin during startup and hot reload, populating the enforcement registry from manifest declarations.
+- **Removed**: Hardcoded Slack/Snowflake health check evaluators from `merge.ts` — `resolveBuiltinEvaluator()` contained service-specific logic (`slack-api-ok-field`, `snowflake-user-field`) that belongs in plugins, not the platform. Replaced with `resolveHealthCheckEvaluator()` that validates the plugin's `isHealthy` export backs the declared evaluator name, and logs a warning if a plugin declares a custom evaluator without exporting `isHealthy`.
+- **Fixed**: `refreshPluginTools()` hot-reload strategy — Was catching "registry is frozen" errors and returning empty results, defeating the purpose of hot reload. Now uses `skipRegistryMerge: true` option in `loadPlugins()` to cleanly bypass registry freezing while still re-discovering and re-importing plugin tool modules.
+- **Added**: `skipRegistryMerge` option to `loadPlugins()` — Allows hot-reload to re-run the full discovery→validate→load pipeline without hitting the frozen registry guard. The returned `registry` reflects what would be merged without actually calling `setServiceRegistry()`.
+- **Added**: `create-opentabs-plugin` package — CLI scaffolder and programmatic API for generating new plugins from the official template. Includes template files: `opentabs-plugin.json`, `adapter.ts` with documented auth patterns (cookie, localStorage, CSRF, JS globals), `tools/index.ts` with `registerTools` + `isHealthy` boilerplate, `tools/general.ts` with example tool definitions, `package.json` with correct peer/dev deps, `tsconfig.json`, and a comprehensive `README.md` plugin development guide.
+- **Added**: Capture tools for AI-assisted plugin creation (`capture/index.ts`) — 10 new platform-native MCP tools: `capture_start`, `capture_stop`, `capture_status` (capture control); `capture_get_requests`, `capture_clear` (data retrieval); `capture_analyze` (API catalog generation with endpoint grouping, auth pattern detection, path normalization); `capture_get_page_scripts`, `capture_fetch_script`, `capture_inspect_auth` (page inspection); `capture_scaffold_plugin` (plugin generation via create-opentabs-plugin); `capture_test_plugin`, `capture_plugin_debug` (development lifecycle). Analysis logic includes URL path normalization (UUID/ID collapsing), auth pattern detection (Bearer, cookie, API key, CSRF), and endpoint grouping with deduplication.
 
 ### Session 3 (2026-02-10)
 

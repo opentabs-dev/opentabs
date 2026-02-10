@@ -14,9 +14,9 @@
       "types": "./dist/discover.d.ts",
       "import": "./dist/discover.js"
     },
-    "./validate": {
-      "types": "./dist/validate.d.ts",
-      "import": "./dist/validate.js"
+    "./manifest-schema": {
+      "types": "./dist/manifest-schema.d.ts",
+      "import": "./dist/manifest-schema.js"
     },
     "./merge": {
       "types": "./dist/merge.d.ts",

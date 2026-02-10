@@ -13,7 +13,7 @@
 
 import { discoverPlugins, determineTrustTier } from './discover.js';
 import { validateOrThrow, checkNameConflicts } from './manifest-schema.js';
-import { setServiceRegistry, computeServiceIds, isJsonRpcError } from '@opentabs/core';
+import { setServiceRegistry, computeServiceIds } from '@opentabs/core';
 import { resolve, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { DiscoveredPlugin, DiscoveryOptions } from './discover.js';
@@ -25,7 +25,6 @@ import type {
   PluginTrustTier,
   ToolRegistrationFn,
   HealthCheckEvaluator,
-  PluginHealthCheckConfig,
   JsonRpcResponse,
 } from '@opentabs/core';
 
@@ -123,14 +122,10 @@ const manifestToServiceConfigs = (
     params: { ...manifest.service.healthCheck.params },
   };
 
-  // Adapt the evaluator function signature: the service controller passes
-  // mutable string[], but the plugin manifest declares readonly string[].
-  const adaptedIsHealthy = isHealthy
-    ? (response: JsonRpcResponse, patterns: string[]): boolean => isHealthy(response, patterns)
-    : undefined;
-
-  // Resolve built-in evaluators by name
-  const resolvedIsHealthy = adaptedIsHealthy ?? resolveBuiltinEvaluator(manifest.service.healthCheck);
+  // Resolve the health check evaluator: plugin-exported isHealthy takes
+  // precedence; the manifest's evaluator field is a declarative hint that
+  // a custom evaluator is expected.
+  const resolvedIsHealthy = resolveHealthCheckEvaluator(manifest, isHealthy);
 
   if (manifest.service.environments.length === 1) {
     const env = manifest.service.environments[0]!;
@@ -184,51 +179,51 @@ const manifestToServiceConfigs = (
 };
 
 // =============================================================================
-// Built-in Health Check Evaluators
+// Health Check Evaluator Resolution
 //
-// Plugins can specify a named evaluator in their manifest instead of shipping
-// custom JavaScript. These cover the most common patterns.
+// Plugins provide custom health check evaluation by exporting an `isHealthy`
+// function from their tools entry module. The `evaluator` field in the manifest
+// is a declarative hint that a custom evaluator is expected — the actual
+// implementation comes from the plugin's `isHealthy` export, not from
+// hardcoded platform logic.
+//
+// The platform supplies only the 'default' evaluator (response is healthy if
+// it's not a JSON-RPC error). All service-specific evaluators (e.g. checking
+// Slack's `ok` field or Snowflake's `user` field) belong in their respective
+// plugin packages.
 // =============================================================================
 
 /**
- * Resolve a named evaluator string to a function, if applicable.
- * Returns undefined for the default evaluator (which is just !isJsonRpcError).
+ * Validate that a plugin's declared evaluator is backed by an actual `isHealthy`
+ * export. When the manifest declares a non-default evaluator but the plugin
+ * module doesn't export `isHealthy`, the platform logs a warning and falls back
+ * to the default evaluator.
+ *
+ * @param manifest - The plugin manifest
+ * @param isHealthy - The isHealthy export from the plugin's tools module (if any)
+ * @returns The resolved evaluator function, or undefined for the default
  */
-const resolveBuiltinEvaluator = (
-  healthCheck: PluginHealthCheckConfig,
-): ((response: JsonRpcResponse, authErrorPatterns: string[]) => boolean) | undefined => {
-  const evaluator = healthCheck.evaluator;
-  if (!evaluator || evaluator === 'default') return undefined;
+const resolveHealthCheckEvaluator = (
+  manifest: PluginManifest,
+  isHealthy?: HealthCheckEvaluator,
+): HealthCheckEvaluator | undefined => {
+  const evaluatorName = manifest.service.healthCheck.evaluator;
 
-  switch (evaluator) {
-    case 'slack-api-ok-field':
-      // Slack wraps its errors inside a successful JSON-RPC response.
-      // The response.result.ok field indicates the real status.
-      return (response, authErrorPatterns) => {
-        if (isJsonRpcError(response)) return false;
-        const data = response.result as { ok?: boolean; error?: string } | undefined;
-        if (data && data.ok === false) {
-          const error = data.error ?? '';
-          if (authErrorPatterns.some(p => error.includes(p))) {
-            console.log(`[OpenTabs] Slack session expired: ${error}`);
-          }
-          return false;
-        }
-        return true;
-      };
+  // No custom evaluator declared — use default (!isJsonRpcError)
+  if (!evaluatorName || evaluatorName === 'default') return isHealthy;
 
-    case 'snowflake-user-field':
-      // Snowflake's health check returns a user object when healthy.
-      return response => {
-        if ('error' in response) return false;
-        const result = (response as { result?: { user?: boolean } }).result;
-        return !!result?.user;
-      };
-
-    default:
-      console.error(`[OpenTabs] Unknown health check evaluator: "${evaluator}". Using default.`);
-      return undefined;
+  // Custom evaluator declared — the plugin MUST export isHealthy
+  if (!isHealthy) {
+    console.error(
+      `[OpenTabs] Plugin "${manifest.name}" declares health check evaluator "${evaluatorName}" ` +
+        `but does not export an isHealthy function from its tools module. ` +
+        `Falling back to the default evaluator. To fix this, export an isHealthy ` +
+        `function from ${manifest.tools.entry}.`,
+    );
+    return undefined;
   }
+
+  return isHealthy;
 };
 
 // =============================================================================
@@ -447,6 +442,20 @@ interface PluginLoadFailure {
 }
 
 /**
+ * Options for loadPlugins beyond discovery options.
+ */
+interface LoadPluginsOptions extends DiscoveryOptions {
+  /**
+   * Skip the registry merge step (setServiceRegistry). Used during hot reload
+   * when the registry is already frozen from the initial load.
+   *
+   * When true, the returned `registry` and `serviceIds` reflect what WOULD be
+   * merged, but setServiceRegistry() is not called.
+   */
+  readonly skipRegistryMerge?: boolean;
+}
+
+/**
  * Load all plugins and merge them into the platform.
  *
  * This is the primary entry point for both the MCP server and the browser
@@ -455,7 +464,7 @@ interface PluginLoadFailure {
  *
  * @param builtinDefinitions - Platform-native service definitions (can be empty)
  * @param builtinToolRegistrations - Platform-native tool registrations (browser, extension)
- * @param options - Discovery options (root directory, config, verbosity)
+ * @param options - Discovery and loading options (root directory, config, verbosity, skipRegistryMerge)
  * @returns The complete LoadPluginsResult
  *
  * @example
@@ -472,10 +481,11 @@ interface PluginLoadFailure {
 const loadPlugins = async (
   builtinDefinitions: readonly ServiceDefinition[],
   builtinToolRegistrations: readonly ToolRegistrationFn[],
-  options?: DiscoveryOptions,
+  options?: LoadPluginsOptions,
 ): Promise<LoadPluginsResult> => {
+  const { skipRegistryMerge, ...discoveryOptions } = options ?? {};
   // 1. Discover
-  const discovered = await discoverPlugins(options);
+  const discovered = await discoverPlugins(discoveryOptions);
 
   // 2. Validate manifests (early — before expensive module loading)
   const validatedManifests: PluginManifest[] = [];
@@ -533,8 +543,15 @@ const loadPlugins = async (
     }
   }
 
-  // 5. Merge into platform
-  const registry = mergeIntoRegistry(builtinDefinitions, resolved);
+  // 5. Merge into platform (skip registry freeze during hot reload)
+  let registry: readonly ServiceDefinition[];
+  if (skipRegistryMerge) {
+    // Compute what the registry would be without freezing it
+    const pluginDefinitions = resolved.map(p => manifestToServiceDefinition(p.manifest, p.manifest.name));
+    registry = [...builtinDefinitions, ...pluginDefinitions];
+  } else {
+    registry = mergeIntoRegistry(builtinDefinitions, resolved);
+  }
   const serviceIds = computeServiceIds(registry);
   const toolRegistrations = mergeToolRegistrations(builtinToolRegistrations, resolved);
   const serviceConfigs = mergeServiceConfigs(resolved);
@@ -559,7 +576,13 @@ const loadPlugins = async (
   };
 };
 
-export type { ServiceControllerHealthCheck, WebappServiceConfig, LoadPluginsResult, PluginLoadFailure };
+export type {
+  ServiceControllerHealthCheck,
+  WebappServiceConfig,
+  LoadPluginsResult,
+  LoadPluginsOptions,
+  PluginLoadFailure,
+};
 
 export {
   manifestToServiceDefinition,

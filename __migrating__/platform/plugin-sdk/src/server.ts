@@ -45,6 +45,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import type { McpServer, RegisteredTool, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import type { NativeApiPermission } from '@opentabs/core';
 
 // =============================================================================
 // Tool Result Types
@@ -150,6 +151,77 @@ const getCurrentToolId = (): string | undefined => toolIdStorage.getStore();
 const withToolId = <T>(toolId: string, fn: () => T): T => toolIdStorage.run(toolId, fn);
 
 // =============================================================================
+// Permission Registry — Runtime nativeApis Enforcement
+//
+// The plugin-loader registers each plugin's declared nativeApis permissions
+// via __registerPluginPermissions(). At runtime, sendBrowserRequest() checks
+// the current tool's plugin against this registry and rejects calls from
+// plugins that didn't declare 'browser' in their manifest.
+//
+// Platform-native tools (those with the PLATFORM_TOOL_PREFIX) bypass this
+// check — they're part of the platform itself.
+// =============================================================================
+
+/** Prefix used by platform-native tool names (browser_*, reload_extension, capture_*, etc.). */
+const PLATFORM_TOOL_PREFIXES = ['browser_', 'reload_extension', 'capture_'];
+
+/**
+ * Maps tool name prefixes (plugin names) to their allowed nativeApi permissions.
+ * Example: { 'slack': new Set(), 'jira': new Set(['browser']) }
+ */
+const pluginPermissions = new Map<string, ReadonlySet<NativeApiPermission>>();
+
+/**
+ * Register a plugin's nativeApi permissions for runtime enforcement.
+ *
+ * Called by the MCP server's plugin initialization code after loading each
+ * plugin. Maps tool names belonging to that plugin to the plugin's declared
+ * nativeApis permissions set.
+ *
+ * @param pluginName - The plugin name (used as tool name prefix, e.g. 'slack')
+ * @param nativeApis - The nativeApis permissions declared in the plugin's manifest
+ */
+const __registerPluginPermissions = (pluginName: string, nativeApis: readonly NativeApiPermission[]): void => {
+  pluginPermissions.set(pluginName, new Set(nativeApis));
+};
+
+/**
+ * Reset the permission registry. Used only in tests.
+ */
+const __resetPluginPermissions = (): void => {
+  pluginPermissions.clear();
+};
+
+/**
+ * Check whether the current tool has a specific nativeApi permission.
+ * Platform-native tools always have permission. Plugin tools are checked
+ * against the permission registry populated during plugin initialization.
+ *
+ * @param permission - The nativeApi permission to check (e.g. 'browser')
+ * @returns true if allowed, false if denied
+ */
+const hasNativeApiPermission = (permission: NativeApiPermission): boolean => {
+  const toolId = getCurrentToolId();
+
+  // Outside a tool context (e.g. during initialization) — allow
+  if (!toolId) return true;
+
+  // Platform-native tools always have permission
+  if (PLATFORM_TOOL_PREFIXES.some(prefix => toolId.startsWith(prefix))) return true;
+
+  // Extract plugin name from tool ID (convention: <plugin>_<action>)
+  const underscoreIndex = toolId.indexOf('_');
+  const pluginName = underscoreIndex > 0 ? toolId.slice(0, underscoreIndex) : toolId;
+
+  const permissions = pluginPermissions.get(pluginName);
+
+  // If the plugin isn't registered, deny by default (fail-closed)
+  if (!permissions) return false;
+
+  return permissions.has(permission);
+};
+
+// =============================================================================
 // Service Request Functions
 //
 // These are the primary API for plugin tools to communicate with their
@@ -194,12 +266,25 @@ const sendServiceRequest = (service: string, params: Record<string, unknown>, ac
  * Send a request to the browser controller (chrome.tabs/windows APIs).
  *
  * Requires the plugin to declare `nativeApis: ['browser']` in its manifest.
- * Without this permission, the request will be rejected by the platform.
+ * Without this permission, the request is rejected at runtime with a
+ * descriptive error. Platform-native tools (browser_*, reload_extension)
+ * bypass this check.
  *
  * @param action - The browser controller action (e.g. 'listTabs', 'openTab')
  * @param params - Action-specific parameters
+ * @throws Error if the calling plugin lacks the 'browser' nativeApi permission
  */
 const sendBrowserRequest = <T>(action: string, params?: Record<string, unknown>): Promise<T> => {
+  if (!hasNativeApiPermission('browser')) {
+    const toolId = getCurrentToolId() ?? 'unknown';
+    return Promise.reject(
+      new Error(
+        `Permission denied: tool "${toolId}" called sendBrowserRequest() but its plugin ` +
+          `does not declare 'browser' in permissions.nativeApis. Add it to opentabs-plugin.json.`,
+      ),
+    );
+  }
+
   const toolId = getCurrentToolId();
   return getProvider().sendBrowserRequest<T>(action, {
     ...params,
@@ -478,8 +563,11 @@ export {
   __setRequestProvider,
   __resetRequestProvider,
   __resetErrorPatterns,
+  __registerPluginPermissions,
+  __resetPluginPermissions,
   getCurrentToolId,
   withToolId,
+  hasNativeApiPermission,
   sendServiceRequest,
   sendBrowserRequest,
   reloadExtension,

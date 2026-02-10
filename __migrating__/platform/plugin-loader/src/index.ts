@@ -30,16 +30,10 @@ export {
   rawManifestSchema,
   pluginNameSchema,
   zodErrorToValidationErrors,
+  validatePluginManifest,
+  validateOrThrow,
+  checkNameConflicts,
 } from './manifest-schema.js';
-
-// -----------------------------------------------------------------------------
-// Validate — Check plugin manifests against the platform schema
-//
-// Validation functions are re-exported from manifest-schema.ts which uses Zod
-// for declarative schema validation with cross-field consistency checks.
-// -----------------------------------------------------------------------------
-
-export { validatePluginManifest, validateOrThrow, checkNameConflicts } from './manifest-schema.js';
 
 export type { ValidationError, ValidationResult } from './manifest-schema.js';
 
@@ -61,5 +55,6 @@ export type {
   ServiceControllerHealthCheck,
   WebappServiceConfig,
   LoadPluginsResult,
+  LoadPluginsOptions,
   PluginLoadFailure,
 } from './merge.js';

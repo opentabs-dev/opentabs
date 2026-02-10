@@ -1,7 +1,7 @@
 {
-  "name": "@opentabs/plugin-slack",
-  "version": "1.0.0",
-  "description": "OpenTabs plugin for Slack — send messages, search conversations, manage channels, and more from AI agents",
+  "name": "opentabs-plugin-{{pluginName}}",
+  "version": "0.1.0",
+  "description": "{{description}}",
   "type": "module",
   "main": "dist/tools/index.js",
   "types": "dist/tools/index.d.ts",
@@ -22,15 +22,14 @@
   "keywords": [
     "opentabs-plugin",
     "mcp",
-    "slack",
-    "ai",
     "model-context-protocol",
-    "chrome-extension"
+    "{{pluginName}}"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "clean": "rimraf dist",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
     "@opentabs/plugin-sdk": "^1.0.0",
@@ -38,17 +37,12 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@opentabs/plugin-sdk": "workspace:*",
+    "@opentabs/plugin-sdk": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.12.0",
-    "@opentabs/core": "workspace:*",
-    "typescript": "^5.9.3",
+    "rimraf": "^6.0.0",
+    "typescript": "^5.9.0",
     "zod": "^4.3.6"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/nichochar/opentabs",
-    "directory": "plugins/slack"
-  },
-  "author": "OpenTabs",
+  "author": "{{author}}",
   "license": "MIT"
 }

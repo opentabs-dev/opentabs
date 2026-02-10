@@ -28,6 +28,7 @@
 // =============================================================================
 
 import { registerBrowserTabsTools } from './browser/tabs.js';
+import { registerCaptureTools } from './capture/index.js';
 import { registerExtensionReloadTools } from './extension/reload.js';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ToolRegistrationFn } from '@opentabs/core';
@@ -46,6 +47,7 @@ import type { ToolRegistrationFn } from '@opentabs/core';
 const PLATFORM_REGISTRATIONS: ToolRegistrationFn[] = [
   registerBrowserTabsTools as ToolRegistrationFn,
   registerExtensionReloadTools as ToolRegistrationFn,
+  registerCaptureTools as ToolRegistrationFn,
 ];
 
 // =============================================================================
@@ -179,6 +181,7 @@ const getToolCountSummary = (): {
 
 export { registerBrowserTabsTools } from './browser/tabs.js';
 export { registerExtensionReloadTools } from './extension/reload.js';
+export { registerCaptureTools } from './capture/index.js';
 
 export {
   setPluginRegistrations,

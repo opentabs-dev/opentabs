@@ -29,8 +29,8 @@
 
 import { setPluginRegistrations } from './tools/index.js';
 import { loadPlugins } from '@opentabs/plugin-loader';
-import { __setRequestProvider } from '@opentabs/plugin-sdk/server';
-import type { ServiceDefinition, ToolRegistrationFn } from '@opentabs/core';
+import { __setRequestProvider, __registerPluginPermissions } from '@opentabs/plugin-sdk/server';
+import type { ServiceDefinition, ToolRegistrationFn, NativeApiPermission } from '@opentabs/core';
 import type { LoadPluginsResult } from '@opentabs/plugin-loader';
 import type { RequestProvider } from '@opentabs/plugin-sdk/server';
 
@@ -163,11 +163,17 @@ export const initializePlugins = async (
     },
   );
 
-  // 2. Extract plugin tool registrations and inject into tools/index.ts
+  // 2. Register runtime permissions for each plugin (nativeApis enforcement)
+  for (const plugin of loadResult.plugins) {
+    const nativeApis = plugin.manifest.permissions.nativeApis ?? [];
+    __registerPluginPermissions(plugin.manifest.name, nativeApis as readonly NativeApiPermission[]);
+  }
+
+  // 3. Extract plugin tool registrations and inject into tools/index.ts
   const pluginToolRegistrations = loadResult.plugins.map(p => p.registerTools as ToolRegistrationFn);
   setPluginRegistrations(pluginToolRegistrations);
 
-  // 3. Build summary
+  // 4. Build summary
   const summary: PluginInitSummary = {
     pluginsLoaded: loadResult.plugins.length,
     pluginsFailed: loadResult.failures.length,
@@ -180,7 +186,7 @@ export const initializePlugins = async (
     totalToolRegistrations: loadResult.toolRegistrations.length,
   };
 
-  // 4. Log summary
+  // 5. Log summary
   if (verbose) {
     if (summary.pluginsLoaded > 0) {
       console.error(
@@ -215,11 +221,9 @@ export const initializePlugins = async (
 // initializePlugins() that skips registry setup (the registry is already
 // frozen from the initial load) and only refreshes tool registrations.
 //
-// Note: In practice, the full initializePlugins() is called on hot reload
-// because module re-evaluation means fresh state. The registry freezing is
-// handled by the core module — if it's already frozen, the second call to
-// setServiceRegistry() will throw. The hot-reload handler in server.ts
-// catches this and proceeds with just the tool registration refresh.
+// Uses `skipRegistryMerge: true` to avoid hitting the "registry is frozen"
+// guard in setServiceRegistry(). The registry contents don't change during
+// hot reload — only tool handler code is refreshed.
 // =============================================================================
 
 /**
@@ -227,7 +231,8 @@ export const initializePlugins = async (
  * registry. Used during hot reload when the registry is already frozen.
  *
  * This re-discovers plugins, re-imports their tool modules (picking up code
- * changes), and updates the tool registration pipeline.
+ * changes), and updates the tool registration pipeline. The service registry
+ * is NOT modified — it was frozen during initial startup and remains unchanged.
  *
  * @param options - Optional overrides for the discovery process
  * @returns Summary of what was refreshed
@@ -242,40 +247,19 @@ export const refreshPluginTools = async (options?: {
     console.error('[MCP] Refreshing plugin tools for hot reload...');
   }
 
-  // Re-discover and re-load plugin modules
-  // We pass empty arrays for builtins because we only care about plugin tools.
-  // The registry merge will be skipped if it's already frozen (the loader
-  // catches the error internally and proceeds with tool loading).
-  let loadResult: LoadPluginsResult;
-  try {
-    loadResult = await loadPlugins([], [], {
-      rootDir: options?.rootDir,
-      verbose,
-    });
-  } catch (err) {
-    // If the registry is frozen (expected on hot reload), we need to
-    // re-discover plugins without the merge step.
-    const message = err instanceof Error ? err.message : String(err);
+  // Re-discover and re-load plugin modules with skipRegistryMerge to avoid
+  // hitting the frozen registry guard. Tool modules are re-imported fresh,
+  // picking up any code changes.
+  const loadResult = await loadPlugins([], [], {
+    rootDir: options?.rootDir,
+    verbose,
+    skipRegistryMerge: true,
+  });
 
-    if (message.includes('registry is frozen')) {
-      // On hot reload, the registry is already set. We just need to
-      // re-load tool modules. Use a simplified discovery path.
-      if (verbose) {
-        console.error('[MCP] Registry already frozen (expected during hot reload). ' + 'Refreshing tool modules only.');
-      }
-
-      // Return a minimal summary indicating no changes
-      return {
-        pluginsLoaded: 0,
-        pluginsFailed: 0,
-        pluginNames: [],
-        failures: [],
-        totalServices: 0,
-        totalToolRegistrations: 0,
-      };
-    }
-
-    throw err;
+  // Re-register runtime permissions (plugin manifests may have changed)
+  for (const plugin of loadResult.plugins) {
+    const nativeApis = plugin.manifest.permissions.nativeApis ?? [];
+    __registerPluginPermissions(plugin.manifest.name, nativeApis as readonly NativeApiPermission[]);
   }
 
   // Update tool registrations
