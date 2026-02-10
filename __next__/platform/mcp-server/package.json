@@ -13,5 +13,10 @@
   "scripts": {
     "build": "tsc --build tsconfig.build.json",
     "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@opentabs/core": "workspace:*",
+    "@opentabs/plugin-sdk": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.26.0"
   }
 }
