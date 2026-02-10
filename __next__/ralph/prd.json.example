@@ -1,0 +1,62 @@
+{
+  "project": "OpenTabs Next",
+  "branchName": "ralph/example-feature",
+  "description": "Example Feature - Demonstrates the prd.json format for Ralph",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add core type definitions",
+      "description": "As a developer, I need the TypeScript types defined so other stories can build on them.",
+      "acceptanceCriteria": [
+        "New type file created with all required interfaces",
+        "Types are exported and importable from the package",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Implement backend logic",
+      "description": "As a developer, I need the core logic implemented so the UI can consume it.",
+      "acceptanceCriteria": [
+        "Function handles all defined input types correctly",
+        "Error cases return descriptive error messages",
+        "Unit tests cover happy path and error cases",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Add MCP tool definition",
+      "description": "As an AI agent, I want an MCP tool that exposes this functionality so I can use it.",
+      "acceptanceCriteria": [
+        "Tool registered in the MCP server with clear name and description",
+        "Tool parameters have accurate descriptions with examples",
+        "Tool returns actionable data including IDs for follow-up actions",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add UI controls to options page",
+      "description": "As a user, I want to configure this feature from the extension options page.",
+      "acceptanceCriteria": [
+        "Toggle control appears in the correct options section",
+        "Setting persists across extension reloads",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
