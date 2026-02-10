@@ -130,6 +130,23 @@ These architectural questions have been thoroughly researched and decided. Do no
 
 This is a secondary objective. The capture tools and scaffolder already exist in draft form. **Do not advance this feature until Phases 1-3 are complete.** The capture system is worthless if the plugin it generates can't be loaded by a running server and tested against a real browser. Get the runtime working first, then the self-evolving loop becomes testable.
 
+## Updating These Instructions
+
+This file is meant to evolve across sessions. But evolution must be tightly scoped to prevent the instruction-editing from becoming the work itself.
+
+**You MUST update this file when:**
+- You **complete a phase** — mark it done and remove or collapse its details so the next session focuses on what's next, not what's finished
+- You hit an **architectural question** during implementation that required significant investigation — add the conclusion to "Settled Decisions" so the next session doesn't re-investigate it
+- You discover a **new anti-pattern** (something that wasted your time or led you astray) — add a brief rule to prevent the next session from repeating it
+
+**You MUST NOT:**
+- Spend more than 5 minutes editing this file per session
+- Weaken or remove existing rules (especially "implement first", "no scaffolding", "every session must produce runnable code")
+- Add new phases, features, or scope — that's the human's job
+- Rewrite sections that are working fine just to improve prose
+
+The goal: each session leaves this file slightly more useful for the next session, with zero time wasted on meta-work.
+
 ## After Making Changes
 
 1. Update the implementation status checklist in README.md
