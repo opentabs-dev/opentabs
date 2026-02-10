@@ -13,7 +13,7 @@
       "production": "{{domain}}"
     },
     "urlPatterns": {
-      "production": ["*://{{domain}}/*"]
+      "production": ["{{urlPattern}}"]
     }
   },
 
@@ -41,7 +41,7 @@
   },
 
   "permissions": {
-    "network": ["{{domain}}"],
+    "network": ["{{networkDomain}}"],
     "storage": false,
     "nativeApis": []
   },

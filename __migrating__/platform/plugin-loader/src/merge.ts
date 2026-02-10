@@ -12,7 +12,7 @@
 // =============================================================================
 
 import { discoverPlugins, determineTrustTier } from './discover.js';
-import { validateOrThrow, checkNameConflicts } from './manifest-schema.js';
+import { validateOrThrow, checkNameConflicts, checkUrlPatternOverlaps } from './manifest-schema.js';
 import { setServiceRegistry, computeServiceIds } from '@opentabs/core';
 import { resolve, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -250,7 +250,10 @@ const loadPluginModule = async (
   // Resolve the tools entry relative to the package root
   const absoluteEntry = isAbsolute(toolsEntry) ? toolsEntry : resolve(packagePath, toolsEntry);
 
-  const entryUrl = pathToFileURL(absoluteEntry).href;
+  // Append a cache-busting query parameter so that re-imports during hot reload
+  // bypass the module cache and pick up fresh code. Without this, Node/Bun
+  // returns the cached module for the same URL on subsequent import() calls.
+  const entryUrl = `${pathToFileURL(absoluteEntry).href}?t=${Date.now()}`;
 
   // Dynamic import — the module must export a named `registerTools` function
   const mod = (await import(entryUrl)) as {
@@ -278,30 +281,27 @@ const loadPluginModule = async (
 /**
  * Resolve a discovered plugin into a fully loaded ResolvedPlugin.
  *
+ * Accepts a pre-validated manifest to avoid redundant validation. The caller
+ * (loadPlugins) validates manifests early — before expensive module loading —
+ * and passes the validated manifest here.
+ *
  * Steps:
- * 1. Validate the manifest
- * 2. Determine trust tier
- * 3. Load the tools module (registerTools + optional isHealthy)
- * 4. Resolve the adapter path
+ * 1. Determine trust tier
+ * 2. Load the tools module (registerTools + optional isHealthy)
+ * 3. Resolve the adapter path
  *
  * @param discovered - A plugin found by the discovery phase
+ * @param manifest - The already-validated plugin manifest
  * @returns A fully resolved plugin, or undefined if loading fails
  */
-const resolvePlugin = async (discovered: DiscoveredPlugin): Promise<ResolvedPlugin | undefined> => {
-  // 1. Validate manifest
-  let manifest: PluginManifest;
-  try {
-    manifest = validateOrThrow(discovered.rawManifest, discovered.packageName);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[OpenTabs] ${message}`);
-    return undefined;
-  }
-
-  // 2. Trust tier
+const resolvePlugin = async (
+  discovered: DiscoveredPlugin,
+  manifest: PluginManifest,
+): Promise<ResolvedPlugin | undefined> => {
+  // 1. Trust tier
   const trustTier: PluginTrustTier = determineTrustTier(discovered);
 
-  // 3. Load tools module
+  // 2. Load tools module
   let registerTools: ToolRegistrationFn;
   let isHealthy: HealthCheckEvaluator | undefined;
 
@@ -315,7 +315,7 @@ const resolvePlugin = async (discovered: DiscoveredPlugin): Promise<ResolvedPlug
     return undefined;
   }
 
-  // 4. Resolve adapter path
+  // 3. Resolve adapter path
   const adapterEntry = manifest.adapter.entry;
   const adapterPath = isAbsolute(adapterEntry) ? adapterEntry : resolve(discovered.packagePath, adapterEntry);
 
@@ -487,16 +487,15 @@ const loadPlugins = async (
   // 1. Discover
   const discovered = await discoverPlugins(discoveryOptions);
 
-  // 2. Validate manifests (early — before expensive module loading)
-  const validatedManifests: PluginManifest[] = [];
-  const validDiscovered: DiscoveredPlugin[] = [];
+  // 2. Validate manifests (early — before expensive module loading).
+  //    Track {discovered, manifest} pairs so indices stay in sync.
+  const validated: { discovered: DiscoveredPlugin; manifest: PluginManifest }[] = [];
   const failures: PluginLoadFailure[] = [];
 
   for (const plugin of discovered) {
     try {
       const manifest = validateOrThrow(plugin.rawManifest, plugin.packageName);
-      validatedManifests.push(manifest);
-      validDiscovered.push(plugin);
+      validated.push({ discovered: plugin, manifest });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[OpenTabs] ${message}`);
@@ -504,35 +503,42 @@ const loadPlugins = async (
     }
   }
 
-  // 3. Check for name conflicts across all validated plugins
-  const conflicts = checkNameConflicts(validatedManifests);
+  // 3. Check for name conflicts and URL pattern overlaps across all validated plugins
+  const allManifests = validated.map(v => v.manifest);
+  const conflicts = checkNameConflicts(allManifests);
   if (conflicts.length > 0) {
     for (const conflict of conflicts) {
       console.error(`[OpenTabs] Plugin conflict: ${conflict.message}`);
     }
-    // Remove conflicting plugins (keep the first one)
+    // Remove conflicting plugins (keep the first occurrence of each name)
     const seenNames = new Set<string>();
-    const deduped: DiscoveredPlugin[] = [];
-    for (let i = 0; i < validDiscovered.length; i++) {
-      const manifest = validatedManifests[i]!;
-      if (seenNames.has(manifest.name)) {
+    const deduped: typeof validated = [];
+    for (const entry of validated) {
+      if (seenNames.has(entry.manifest.name)) {
         failures.push({
-          packageName: validDiscovered[i]!.packageName,
-          error: `Name conflict: "${manifest.name}" already claimed by another plugin`,
+          packageName: entry.discovered.packageName,
+          error: `Name conflict: "${entry.manifest.name}" already claimed by another plugin`,
         });
         continue;
       }
-      seenNames.add(manifest.name);
-      deduped.push(validDiscovered[i]!);
+      seenNames.add(entry.manifest.name);
+      deduped.push(entry);
     }
-    validDiscovered.length = 0;
-    validDiscovered.push(...deduped);
+    validated.length = 0;
+    validated.push(...deduped);
   }
 
-  // 4. Resolve all plugins (load modules)
+  // 3b. Check for URL pattern overlaps (warnings, not fatal)
+  const overlaps = checkUrlPatternOverlaps(validated.map(v => v.manifest));
+  for (const overlap of overlaps) {
+    console.error(`[OpenTabs] Warning: ${overlap.message}`);
+  }
+
+  // 4. Resolve all plugins (load modules).
+  //    The manifest is already validated — pass it directly to avoid redundant parsing.
   const resolved: ResolvedPlugin[] = [];
-  for (const plugin of validDiscovered) {
-    const result = await resolvePlugin(plugin);
+  for (const { discovered: plugin, manifest } of validated) {
+    const result = await resolvePlugin(plugin, manifest);
     if (result) {
       resolved.push(result);
     } else {

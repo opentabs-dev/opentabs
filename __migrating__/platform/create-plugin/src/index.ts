@@ -16,7 +16,7 @@
 
 import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // -----------------------------------------------------------------------------
 // Types
@@ -82,12 +82,29 @@ const resolveVariables = (options: ScaffoldOptions): Record<string, string> => {
   const domain = options.domain ?? 'app.example.com';
   const author = options.author ?? '';
 
+  // Derive URL pattern and network permission from the domain.
+  // Leading-dot domains (e.g. ".slack.com") mean "any subdomain" and need
+  // a wildcard host in the URL pattern: *://*.slack.com/*
+  // Exact domains (e.g. "app.example.com") use the domain directly.
+  let urlPattern: string;
+  let networkDomain: string;
+  if (domain.startsWith('.')) {
+    // ".slack.com" → URL pattern "*://*<.slack.com>/*", network "*.slack.com"
+    urlPattern = `*://*${domain}/*`;
+    networkDomain = `*${domain}`;
+  } else {
+    urlPattern = `*://${domain}/*`;
+    networkDomain = domain;
+  }
+
   return {
     pluginName,
     displayName,
     description,
     domain,
     author,
+    urlPattern,
+    networkDomain,
   };
 };
 
@@ -341,9 +358,11 @@ const main = async (): Promise<void> => {
   }
 };
 
-// Auto-run CLI when executed directly
-const isDirectExecution =
-  process.argv[1] && (process.argv[1].includes('create-opentabs-plugin') || process.argv[1].includes('create-plugin'));
+// Auto-run CLI when executed directly.
+// Compare import.meta.url against process.argv[1] to reliably detect whether
+// this module is the Node/Bun entry point vs. being imported as a library.
+const entryUrl = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : '';
+const isDirectExecution = import.meta.url === entryUrl;
 
 if (isDirectExecution) {
   main().catch(err => {

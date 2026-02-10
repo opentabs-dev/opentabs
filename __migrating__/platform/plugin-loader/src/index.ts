@@ -33,6 +33,7 @@ export {
   validatePluginManifest,
   validateOrThrow,
   checkNameConflicts,
+  checkUrlPatternOverlaps,
 } from './manifest-schema.js';
 
 export type { ValidationError, ValidationResult } from './manifest-schema.js';

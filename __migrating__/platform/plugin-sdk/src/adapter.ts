@@ -150,9 +150,12 @@ const parseAction = (method: string): string | undefined => {
 /**
  * Create a scoped fetch function that restricts requests to allowed domains.
  *
- * The platform uses this to wrap the native fetch for plugin adapters,
- * enforcing the network permission boundaries declared in the plugin manifest.
- * Plugin authors can also use it directly for defense-in-depth.
+ * This is an **opt-in helper** for defense-in-depth — plugin authors call it
+ * in their adapter to self-restrict which domains their fetch calls can reach.
+ * It is NOT automatically enforced by the platform. Adapters run in the page's
+ * MAIN world and have full access to the native `fetch`; a malicious adapter
+ * could bypass this wrapper. The real isolation boundary is Chrome's content
+ * script URL matching, which prevents adapter injection on non-matching pages.
  *
  * @param allowedDomains - Domain patterns the adapter is permitted to access.
  *   Supports leading wildcards: '*.example.com' matches 'api.example.com'.

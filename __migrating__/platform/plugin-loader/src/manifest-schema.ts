@@ -359,6 +359,111 @@ const checkNameConflicts = (manifests: readonly PluginManifest[]): readonly Vali
 };
 
 // -----------------------------------------------------------------------------
+// URL Pattern Overlap Detection
+//
+// Two plugins whose URL patterns overlap could both be injected into the same
+// page, leading to adapter registration conflicts (one overwrites the other on
+// window.__openTabs.adapters). This function detects overlaps and returns
+// warnings so the platform can alert the user.
+// -----------------------------------------------------------------------------
+
+/**
+ * Extract the host portion from a Chrome match pattern.
+ * E.g. "*://*.slack.com/*" → "*.slack.com"
+ *      "*://app.example.com/*" → "app.example.com"
+ * Returns undefined for patterns that can't be parsed.
+ */
+const extractHostFromPattern = (pattern: string): string | undefined => {
+  // Chrome match pattern format: <scheme>://<host>/<path>
+  const match = pattern.match(/^(?:\*|https?):\/\/([^/]+)\/.*/);
+  return match?.[1];
+};
+
+/**
+ * Check whether two host patterns could match the same hostname.
+ *
+ * Rules:
+ * - "*.example.com" overlaps with "*.example.com" (identical)
+ * - "*.example.com" overlaps with "sub.example.com" (wildcard covers exact)
+ * - "app.example.com" overlaps with "app.example.com" (identical)
+ * - "*.example.com" overlaps with "*.sub.example.com" (parent wildcard covers child)
+ * - "*.slack.com" does NOT overlap with "*.jira.com" (different base domains)
+ */
+const hostsOverlap = (hostA: string, hostB: string): boolean => {
+  if (hostA === hostB) return true;
+
+  // Normalize: "*.example.com" → suffix ".example.com"
+  const suffixA = hostA.startsWith('*.') ? hostA.slice(1) : null;
+  const suffixB = hostB.startsWith('*.') ? hostB.slice(1) : null;
+
+  // Both wildcards: check if one suffix contains the other
+  if (suffixA && suffixB) {
+    return suffixA.endsWith(suffixB) || suffixB.endsWith(suffixA);
+  }
+
+  // One wildcard, one exact: check if exact host falls under the wildcard
+  if (suffixA) {
+    return hostB.endsWith(suffixA) || hostB === suffixA.slice(1);
+  }
+  if (suffixB) {
+    return hostA.endsWith(suffixB) || hostA === suffixB.slice(1);
+  }
+
+  // Both exact — already handled by the identity check above
+  return false;
+};
+
+/**
+ * Check for URL pattern overlaps between plugin manifests.
+ *
+ * Two plugins whose URL patterns overlap could both be injected into the same
+ * page, causing adapter registration conflicts. Returns warnings (not errors)
+ * because some overlaps may be intentional in advanced setups.
+ *
+ * @param manifests - Array of validated manifests to check
+ * @returns Array of overlap warnings (empty if no overlaps)
+ */
+const checkUrlPatternOverlaps = (manifests: readonly PluginManifest[]): readonly ValidationError[] => {
+  const warnings: ValidationError[] = [];
+
+  // Collect all hosts per plugin
+  const pluginHosts = manifests.map(manifest => {
+    const hosts: string[] = [];
+    for (const patterns of Object.values(manifest.adapter.urlPatterns)) {
+      for (const pattern of patterns) {
+        const host = extractHostFromPattern(pattern);
+        if (host) hosts.push(host);
+      }
+    }
+    return { name: manifest.name, displayName: manifest.displayName, hosts };
+  });
+
+  // Compare every pair of plugins
+  for (let i = 0; i < pluginHosts.length; i++) {
+    for (let j = i + 1; j < pluginHosts.length; j++) {
+      const a = pluginHosts[i]!;
+      const b = pluginHosts[j]!;
+
+      for (const hostA of a.hosts) {
+        for (const hostB of b.hosts) {
+          if (hostsOverlap(hostA, hostB)) {
+            warnings.push({
+              path: 'adapter.urlPatterns',
+              message:
+                `URL pattern overlap: plugin "${a.name}" (host: ${hostA}) and ` +
+                `plugin "${b.name}" (host: ${hostB}) may match the same pages. ` +
+                `This could cause adapter registration conflicts.`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return warnings;
+};
+
+// -----------------------------------------------------------------------------
 // Exports
 // -----------------------------------------------------------------------------
 
@@ -369,6 +474,7 @@ export {
   validatePluginManifest,
   validateOrThrow,
   checkNameConflicts,
+  checkUrlPatternOverlaps,
   zodErrorToValidationErrors,
 };
 

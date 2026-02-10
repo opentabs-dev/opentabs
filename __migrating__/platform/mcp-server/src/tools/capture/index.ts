@@ -795,44 +795,144 @@ export const registerCaptureTools = (server: McpServer): Map<string, RegisteredT
   // =========================================================================
 
   // -------------------------------------------------------------------------
-  // Test a locally installed plugin
+  // Verify a locally installed plugin is wired correctly
   // -------------------------------------------------------------------------
 
   define(
-    'capture_test_plugin',
+    'capture_verify_plugin',
     {
       description:
-        'Test a locally installed plugin by calling one of its tools and returning ' +
-        'the result. Use this after building a plugin to verify it works end-to-end.\n\n' +
+        'Verify that a locally installed plugin is correctly wired into the platform.\n\n' +
+        'Checks:\n' +
+        '1. Whether the service is registered in the platform\n' +
+        '2. Whether a matching browser tab is connected\n' +
+        '3. Whether the adapter responds to a health check request\n\n' +
+        'Use this after building and installing a plugin to diagnose issues ' +
+        'before testing individual tools. Returns actionable diagnostics for ' +
+        'each check that fails.\n\n' +
         'Workflow:\n' +
-        '1. Build the plugin: run build in the plugin directory\n' +
-        '2. Build MCP server: bun run build from packages/mcp-server/\n' +
-        '3. Reload extension: call reload_extension\n' +
-        '4. Open target web app in Chrome and sign in\n' +
-        '5. Call this tool to test a specific plugin tool',
+        '1. Build the plugin and MCP server\n' +
+        '2. Call reload_extension\n' +
+        '3. Open the target web app in Chrome and sign in\n' +
+        '4. Call this tool to verify everything is connected',
       inputSchema: {
-        toolName: z.string().describe('Name of the tool to test (e.g. "jira_api_request")'),
-        params: z.record(z.unknown()).optional().describe('Parameters to pass to the tool (as a JSON object)'),
+        serviceName: z.string().describe('Plugin/service name to verify (e.g. "jira", "slack")'),
       },
     },
-    async ({ toolName, params }) =>
-      // This tool delegates to the actual tool by name. The MCP server
-      // processes tool calls by name, so we just provide guidance here
-      // since we can't call another tool from within a tool handler.
-      success({
-        message:
-          `To test the "${toolName}" tool, call it directly as an MCP tool. ` +
-          `This tool exists to document the testing workflow.`,
-        testingWorkflow: {
-          step1: 'Build the plugin: bun run build (from plugin directory)',
-          step2: 'Build MCP server: bun run build (from packages/mcp-server/)',
-          step3: 'Reload extension: call reload_extension tool',
-          step4: `Open the target web app in Chrome and sign in`,
-          step5: `Call the ${toolName} tool directly with params: ${JSON.stringify(params ?? {})}`,
-          step6: 'If it fails, check error messages and iterate on the adapter/tools code',
-        },
-        suggestedParams: params,
-      }),
+    async ({ serviceName }) => {
+      const checks: {
+        name: string;
+        passed: boolean;
+        detail: string;
+      }[] = [];
+
+      // Check 1: Service connection status via the extension
+      let serviceConnected = false;
+      let tabId: number | undefined;
+      let tabUrl: string | undefined;
+      try {
+        const statusResult = await sendBrowserRequest<{
+          services: Record<
+            string,
+            {
+              connected: boolean;
+              tabId?: number;
+              tabUrl?: string;
+            }
+          >;
+          mcpConnected: boolean;
+        }>('getStatus', {});
+
+        const serviceStatus = statusResult.services?.[serviceName];
+
+        checks.push({
+          name: 'Extension connected',
+          passed: statusResult.mcpConnected ?? false,
+          detail: statusResult.mcpConnected
+            ? 'Chrome extension is connected to the MCP server.'
+            : 'Chrome extension is NOT connected. Ensure the extension is installed and the MCP server is running.',
+        });
+
+        if (serviceStatus) {
+          serviceConnected = serviceStatus.connected;
+          tabId = serviceStatus.tabId;
+          tabUrl = serviceStatus.tabUrl;
+          checks.push({
+            name: 'Service registered',
+            passed: true,
+            detail: `Service "${serviceName}" is registered in the platform.`,
+          });
+          checks.push({
+            name: 'Tab connected',
+            passed: serviceStatus.connected,
+            detail: serviceStatus.connected
+              ? `Connected to tab ${serviceStatus.tabId} (${serviceStatus.tabUrl ?? 'unknown URL'}).`
+              : `No matching tab found. Open the target web application in Chrome and sign in.`,
+          });
+        } else {
+          checks.push({
+            name: 'Service registered',
+            passed: false,
+            detail:
+              `Service "${serviceName}" not found in the platform registry. ` +
+              'Possible causes:\n' +
+              '  - Plugin is not installed (bun add <package>)\n' +
+              '  - Plugin manifest has a different "name" field\n' +
+              '  - MCP server needs rebuilding (bun run build from packages/mcp-server/)\n' +
+              '  - Extension needs reloading (call reload_extension)',
+          });
+        }
+      } catch (err) {
+        checks.push({
+          name: 'Extension connected',
+          passed: false,
+          detail: `Failed to query extension status: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+
+      // Check 2: If tab is connected, try a lightweight adapter ping
+      if (serviceConnected && tabId) {
+        try {
+          const pingResult = await sendBrowserRequest<{
+            result?: unknown;
+            error?: string;
+            logs: string[];
+          }>('executeScript', {
+            tabId,
+            script: `return !!window.__openTabs?.adapters?.['${serviceName}']`,
+          });
+
+          const adapterLoaded = pingResult.result === true;
+          checks.push({
+            name: 'Adapter loaded',
+            passed: adapterLoaded,
+            detail: adapterLoaded
+              ? `Adapter "${serviceName}" is registered on window.__openTabs.adapters.`
+              : `Adapter "${serviceName}" is NOT found on the page. The adapter script may have failed to load. ` +
+                'Check the browser console for errors.',
+          });
+        } catch (err) {
+          checks.push({
+            name: 'Adapter loaded',
+            passed: false,
+            detail: `Failed to check adapter: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      }
+
+      const allPassed = checks.every(c => c.passed);
+
+      return success({
+        serviceName,
+        allPassed,
+        checks,
+        tabId,
+        tabUrl,
+        summary: allPassed
+          ? `Plugin "${serviceName}" is fully operational. You can now call its tools directly.`
+          : `Plugin "${serviceName}" has issues. See the checks above for diagnostics.`,
+      });
+    },
   );
 
   // -------------------------------------------------------------------------

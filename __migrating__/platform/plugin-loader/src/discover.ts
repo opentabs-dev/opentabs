@@ -15,7 +15,7 @@
 //    development and monorepo setups).
 //
 // Discovery produces DiscoveredPlugin objects — raw manifest + paths — which
-// are then validated by validate.ts and resolved by merge.ts.
+// are then validated by manifest-schema.ts and resolved by merge.ts.
 // =============================================================================
 
 import { readFile, readdir, access, stat } from 'node:fs/promises';

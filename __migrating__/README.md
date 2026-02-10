@@ -55,7 +55,8 @@ __migrating__/
 │   │   └── template/                  # Plugin template files
 │   │       ├── opentabs-plugin.json   # Template manifest
 │   │       ├── package.json           # Template package.json
-│   │       ├── tsconfig.json          # Template tsconfig
+│   │       ├── tsconfig.json          # Template tsconfig (type checking)
+│   │       ├── tsconfig.build.json    # Template tsconfig (build output)
 │   │       ├── README.md              # Template README with full guide
 │   │       └── src/
 │   │           ├── adapter.ts         # Template adapter with auth patterns
@@ -65,7 +66,9 @@ __migrating__/
 │   │
 │   └── browser-extension/             # @opentabs/browser-extension
 │       └── src/
-│           └── background/            # Plugin-aware background script
+│           ├── capture-content-script.ts  # Relay: MAIN world → background for captured requests
+│           └── background/
+│               └── capture-handler.ts     # Capture session management + interceptor injection
 │
 └── plugins/                           # Plugin implementations
     └── slack/                         # @opentabs/plugin-slack
@@ -248,25 +251,34 @@ Every plugin ships this file in its package root. It's the single declarative co
 
 ## Security Model
 
-### Domain Isolation
+Security is layered. No single mechanism is a complete boundary — the layers reinforce each other.
 
-Plugin adapters are ONLY injected into URLs matching their declared `urlPatterns`. The browser enforces this at the content script level — a Slack plugin physically cannot access a Jira page.
+### Domain Isolation (Chrome-Enforced)
 
-### Manifest Validation
+Plugin adapters are ONLY injected into URLs matching their declared `urlPatterns`. Chrome enforces this at the content script registration level — a Slack plugin physically cannot execute on a Jira page. This is the strongest isolation boundary and is enforced by the browser, not by OpenTabs code.
+
+**URL pattern overlap detection**: The plugin-loader checks all loaded plugins for overlapping URL patterns (via `checkUrlPatternOverlaps`). If two plugins could match the same page, a warning is logged because both adapters would register on `window.__openTabs.adapters` and the second would overwrite the first.
+
+### Manifest Validation (Build-Time)
 
 The plugin-loader validates every manifest at build time (via Zod schema):
 - URL patterns must be scoped to specific domains (no `*://*/*`)
 - Network permissions must cover declared adapter domains
 - Plugin names must not collide with reserved platform names
 - Health check methods must be prefixed with the plugin name
+- URL patterns are checked for cross-plugin overlaps (warnings)
 
-### Request Provider Scoping
+### Request Provider Scoping (Server-Side)
 
-Plugin tools communicate with browser adapters exclusively through `sendServiceRequest()`. The SDK's request provider pattern means plugins never import the WebSocket relay directly and cannot access other plugins' adapters.
+Plugin tools communicate with browser adapters exclusively through `sendServiceRequest()`. The SDK's request provider pattern means plugins never import the WebSocket relay directly and cannot address other plugins' adapters — the service name is the routing key.
 
-### Runtime Permission Enforcement
+### Runtime Permission Enforcement (Server-Side)
 
 Plugin tools that call `sendBrowserRequest()` (chrome.tabs/windows APIs) are checked at runtime against the plugin's declared `nativeApis` permissions. If a plugin doesn't declare `nativeApis: ['browser']` in its manifest, calls to `sendBrowserRequest()` from that plugin's tools are rejected with a descriptive error. Platform-native tools (browser_*, capture_*, reload_extension) bypass this check. The permission registry is populated during plugin initialization and uses AsyncLocalStorage-based tool ID tracking to identify which plugin a call originates from.
+
+### Network Scoping (Advisory, In-Adapter)
+
+The SDK provides `createScopedFetch()` which restricts `fetch` calls to declared network domains. **This is advisory, not a hard boundary.** Adapters run in the page's MAIN world JavaScript context — they have the same privileges as the page itself. A malicious adapter could call the native `fetch` directly and bypass the scoped wrapper. The real protection comes from the domain isolation layer above: adapters only run on pages matching their declared URL patterns, so the damage surface is limited to the domains the adapter already has legitimate access to.
 
 ### Trust Tiers
 
@@ -275,6 +287,12 @@ Plugin tools that call `sendBrowserRequest()` (chrome.tabs/windows APIs) are che
 | Official | `@opentabs/plugin-*` | Auto-trusted, reviewed by maintainers |
 | Community | `opentabs-plugin-*` | User prompted on first install |
 | Local | Relative path | Developer's own — no verification |
+
+### What This Model Does NOT Protect Against
+
+- A plugin's adapter running arbitrary code in the page context (MAIN world scripts have full page access — this is by design, same as any browser extension content script)
+- A malicious npm package executing arbitrary code in the MCP server process (same trust model as any npm dependency)
+- Two plugins injected into the same page overwriting each other's adapter registration (mitigated by URL pattern overlap warnings)
 
 ## Plugin Installation
 
@@ -324,23 +342,39 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 
 - [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest)
 - [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns, runtime permission enforcement)
-- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload)
+- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload, URL pattern overlap detection)
 - [x] `@opentabs/mcp-server` — Partial (plugin-init with permission wiring, tools/index, browser tools, extension tools, capture tools)
 - [ ] `@opentabs/mcp-server` — Remaining (server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts)
-- [ ] `@opentabs/browser-extension` — Scaffolded (background script stubs)
-- [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, comprehensive README)
+- [ ] `@opentabs/browser-extension` — Partial (capture handler with interceptor injection, content script relay; remaining: background script entry, adapter manager, mcp-router, service controllers, offscreen manager, manifest generation)
+- [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, tsconfig.build.json, comprehensive README)
 - [x] `@opentabs/plugin-slack` — Partial (adapter, messages, search, types, isHealthy, error patterns)
 - [ ] `@opentabs/plugin-slack` — Remaining (channels, conversations, users, files, pins, stars, reactions)
 - [ ] Build system integration (Vite adapter builds, manifest generation)
 - [ ] Options page auto-generation from plugin manifests
 - [ ] CLI tooling (`opentabs plugins add/remove/list`)
 - [ ] Plugin testing utilities (`@opentabs/plugin-test-utils`)
-- [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired)
-- [ ] AI-assisted plugin creation — Remaining (extension-side capture interceptors, background script capture handlers)
+- [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired, verify tool for plugin readiness checks, extension-side capture handler + content script relay)
+- [ ] AI-assisted plugin creation — Remaining (wire capture handler into BrowserController action dispatch, register capture content script dynamically on capture_start, background message listener for `capture_request` messages)
 - [x] Runtime permission enforcement — Complete (nativeApis checks via permission registry + AsyncLocalStorage)
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 5 (2025-07-14)
+
+- **Fixed**: Missing `tsconfig.build.json` in plugin template — The template's `package.json` references `tsc -p tsconfig.build.json` but only `tsconfig.json` existed. Added the missing file so scaffolded plugins build successfully out of the box.
+- **Fixed**: Template URL pattern generation for leading-dot domains — When a domain starts with `.` (e.g. `.slack.com`), the scaffolder now generates `*://*.slack.com/*` instead of the invalid `*://.slack.com/*`. Added computed `{{urlPattern}}` and `{{networkDomain}}` template variables that handle both exact and wildcard domain formats.
+- **Fixed**: Hot-reload module caching in `loadPluginModule` — Dynamic `import()` calls cache by URL. Added a `?t=${Date.now()}` cache-busting query parameter so that re-imports during hot reload pick up fresh code instead of returning stale cached modules.
+- **Fixed**: Double validation in plugin resolution pipeline — `loadPlugins` validated manifests in step 2, then `resolvePlugin` validated the same manifest again in step 1. Refactored to use `{discovered, manifest}` pairs throughout the pipeline so the pre-validated manifest is passed directly to `resolvePlugin`, eliminating redundant work and keeping parallel array indices in sync during the name-conflict dedup step.
+- **Fixed**: Stale `validate.ts` reference in `discover.ts` module doc comment — Updated to reference `manifest-schema.ts` which replaced it in Session 3.
+- **Added**: URL pattern overlap detection (`checkUrlPatternOverlaps`) in `@opentabs/plugin-loader` — Detects when two plugins' URL patterns could match the same pages, which would cause adapter registration conflicts on `window.__openTabs.adapters`. Uses host extraction and wildcard-aware overlap checking. Wired into `loadPlugins` as a warning (not fatal) after name conflict checks.
+- **Added**: Extension-side capture handler (`browser-extension/src/background/capture-handler.ts`) — `CaptureHandler` class that manages per-tab capture sessions, injects fetch/XHR interceptors into the page's MAIN world via `chrome.scripting.executeScript`, stores captured request metadata, and provides action handlers for all capture-related browser controller operations (startCapture, stopCapture, captureStatus, getCapturedRequests, clearCapture, getPageScripts, fetchScript, inspectAuth). Interceptor patches both `window.fetch` and `XMLHttpRequest.prototype` to capture URL, method, headers, status, content type, timing, and optionally response bodies. Includes auto-stop when maxRequests threshold is reached and guards against double-injection.
+- **Added**: Capture content script relay (`browser-extension/src/capture-content-script.ts`) — Bridge between the MAIN world interceptor (which cannot access Chrome extension APIs) and the background script. Listens for `window.postMessage` events with type `__opentabs_capture__` and forwards them via `chrome.runtime.sendMessage` to the background script's `CaptureHandler.addRequest()`. Designed to be registered dynamically when capture starts and unregistered when it stops.
+- **Added**: Auth inspection script in capture handler — `inspectAuth` action that examines localStorage, sessionStorage, cookies, meta tags, and common JavaScript globals for auth-related keys. Values are partially redacted for security (first 8-30 chars visible). Helps AI agents determine the correct auth extraction strategy for a new plugin's adapter.
+- **Fixed**: Fragile CLI entry detection in `create-opentabs-plugin` — Replaced string-matching heuristic (`process.argv[1].includes('create-plugin')`) with robust `import.meta.url === pathToFileURL(resolve(process.argv[1])).href` comparison. The old detection could false-positive on unrelated scripts with "create-plugin" in their path.
+- **Fixed**: `createScopedFetch` doc comment in `@opentabs/plugin-sdk/adapter` — Was described as "The platform uses this to wrap the adapter's fetch calls to enforce this allowlist" which implied automatic enforcement. Rewritten to honestly describe it as an opt-in helper for defense-in-depth, clarifying that MAIN world adapters have full access to the native `fetch` and the real isolation boundary is Chrome's content script URL matching.
+- **Replaced**: No-op `capture_test_plugin` tool with `capture_verify_plugin` — The old tool couldn't actually test anything (tools can't invoke other tools). The new tool performs real checks: queries the extension for service registration status, verifies tab connectivity, and checks whether the adapter is loaded on the page via `executeScript`. Returns structured diagnostics with actionable fix suggestions for each failing check.
+- **Changed**: Security model documentation — Rewrote to honestly describe MAIN world limitations. `createScopedFetch` is now documented as advisory (not a hard boundary). Added explicit "What This Model Does NOT Protect Against" section. Documented URL pattern overlap detection as a security mitigation.
 
 ### Session 4 (2026-02-10)
 
