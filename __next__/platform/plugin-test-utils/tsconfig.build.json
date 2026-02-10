@@ -1,3 +1,4 @@
 {
-  "extends": "./tsconfig.json"
+  "extends": "./tsconfig.json",
+  "references": [{ "path": "../core/tsconfig.build.json" }, { "path": "../plugin-sdk/tsconfig.build.json" }]
 }
