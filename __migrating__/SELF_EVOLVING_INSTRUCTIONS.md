@@ -102,6 +102,12 @@ Only after the system is running end-to-end, review the design with fresh eyes:
 
 Fix what you found. **Every design change must be motivated by a concrete problem you encountered during implementation.**
 
+## Settled Decisions — Do Not Revisit
+
+These architectural questions have been thoroughly researched and decided. Do not spend time re-evaluating them.
+
+- **Each plugin ships its own MAIN world adapter script.** We evaluated three alternatives (fully declarative adapters, a single universal bundled script, background-mediated fetch) and all are unviable. The core reasons: (1) httpOnly cookies require same-origin `fetch()` from within the page — moving fetch to the background breaks `SameSite` cookie enforcement, (2) services like Snowflake call page-internal JS functions (`window.numeracy.nufetch()`) that can't be expressed declaratively, (3) bundling all plugin adapters into one universal script loses per-plugin URL scoping, per-plugin hot reload, and per-plugin isolation. The real security boundary is Chrome's content script URL matching (a Slack plugin can't run on a Jira page) plus trust tiers for plugin review. This is the same trust model as npm packages, VS Code extensions, and Chrome extensions themselves.
+
 ## Rules
 
 1. **Implement first, design second.** If you catch yourself writing types or interfaces that aren't needed by code you're about to write, stop. Write the code first, then extract types from it.
