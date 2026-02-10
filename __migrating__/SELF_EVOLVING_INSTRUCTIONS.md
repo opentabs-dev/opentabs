@@ -11,21 +11,9 @@ The migration staging area is at `__migrating__/` in the repo root. It contains:
 
 The original (pre-migration) **working** codebase is in: `chrome-extension/`, `packages/mcp-server/`, `packages/shared/`, `pages/`.
 
-## Critical Problem: Prior Sessions Were Not Implementing
+## Session History
 
-Previous sessions spent most of their effort on:
-- Designing SDK abstractions, type hierarchies, and plugin manifest schemas
-- Writing documentation, changelogs, and architecture diagrams
-- Creating scaffolders, test utilities, and validation layers
-- Discussing security models and trust tiers
-
-What they **did not do**:
-- Port the actual MCP server runtime (`server.ts`, `http-server.ts`, `websocket-relay.ts`, `hot-reload.ts`, `config.ts`) — these files **do not exist** in `__migrating__/platform/mcp-server/`
-- Port the Chrome extension background script, adapter manager, MCP router, offscreen manager, or service controllers
-- Complete the Slack plugin (only messages + search tools exist; channels, conversations, users, files, pins, stars, reactions are missing — all of which exist and work in the original codebase)
-- Make anything actually **run**
-
-The result: we have a beautifully designed SDK that nobody can use because the server that hosts plugins doesn't exist yet. **You cannot find design issues in an SDK by staring at type definitions. You find them by building a real server that loads real plugins and running real tools against a real browser.**
+Sessions 1-6 built the SDK layer (core, plugin-sdk, plugin-loader, manifest validation, scaffolder, test utilities, capture tools). What remains is the runtime — the actual MCP server, Chrome extension background, and complete plugin implementations. Check the README.md implementation status checklist for current state before starting work.
 
 ## Your Task: Build, Don't Architect
 
@@ -47,6 +35,8 @@ These need to land in `__migrating__/platform/mcp-server/src/`. The new versions
 2. Use `registerAllTools()` from `tools/index.ts` (already exists) instead of the hardcoded service array
 3. Wire the request provider so `sendServiceRequest()` from plugin tools reaches the WebSocket relay
 4. Otherwise be **faithful ports** — don't redesign the server architecture, just adapt it to use the plugin system
+
+**Import mapping**: The original code imports from `@extension/shared` — in the new architecture, these map to `@opentabs/core` (types, JSON-RPC, messaging, services) and `@opentabs/plugin-sdk/server` (tool registration, request provider). Read both packages' `index.ts` to find the equivalent exports.
 
 **Success criteria**: You can run `bun --hot dist/index.js` and the server starts, accepts MCP client connections, discovers installed plugins, and registers their tools.
 
@@ -81,14 +71,15 @@ Port the extension background script to work with the plugin system:
 
 ### Phase 4: End-to-End Verification
 
-Once Phases 1-3 are done:
-1. Start the MCP server with `bun --hot`
-2. Load the extension in Chrome
-3. Open Slack in a Chrome tab
-4. Call `slack_send_message` through an MCP client
-5. Verify the message appears in Slack
+Once Phases 1-3 are done, verify the system works end-to-end. What you can verify from CLI:
+1. `bun --hot dist/index.js` starts without errors
+2. `curl http://127.0.0.1:3000/health` returns healthy status with plugin tools listed
+3. Extension builds without errors (`turbo build --filter=chrome-extension...`)
 
-If anything fails, **that failure is the most valuable design feedback you can get**. Fix the bug, and if the fix reveals a design flaw in the SDK/loader/manifest, fix the design too. This is how we find real issues — not by theorizing about them.
+What requires manual verification (note this for the human):
+4. Load the extension in Chrome, open Slack, call `slack_send_message` through an MCP client
+
+If anything fails in steps 1-3, fix it. Those failures are the most valuable design feedback — they reveal real issues in the SDK/loader/manifest that theorizing never would.
 
 ### Phase 5: Design Review Through Usage
 
@@ -110,7 +101,7 @@ These architectural questions have been thoroughly researched and decided. Do no
 
 ## Rules
 
-1. **Implement first, design second.** If you catch yourself writing types or interfaces that aren't needed by code you're about to write, stop. Write the code first, then extract types from it.
+1. **Write clean code, but don't invent new abstractions.** The original codebase is the design — port it faithfully to the plugin architecture. Write the same quality of code as the original. Don't add new abstraction layers, helper utilities, or type hierarchies that don't exist in the original. Don't write types or interfaces that aren't needed by code you're about to write. If a design question comes up during porting, check how the original solved it before inventing something new.
 
 2. **Port, don't reinvent.** The original codebase works. Your job is to adapt it to the plugin architecture, not to redesign it. If the original `http-server.ts` handles CORS a certain way, keep it. If the original `websocket-relay.ts` has a reconnection strategy, port it faithfully.
 
@@ -141,7 +132,7 @@ This file is meant to evolve across sessions. But evolution must be tightly scop
 
 **You MUST NOT:**
 - Spend more than 5 minutes editing this file per session
-- Weaken or remove existing rules (especially "implement first", "no scaffolding", "every session must produce runnable code")
+- Weaken or remove existing rules (especially "no new abstractions", "no scaffolding", "every session must produce runnable code")
 - Add new phases, features, or scope — that's the human's job
 - Rewrite sections that are working fine just to improve prose
 
