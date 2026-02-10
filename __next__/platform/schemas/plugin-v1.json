@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9.]+)?(\\+[a-zA-Z0-9.]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapter": {
+      "type": "object",
+      "properties": {
+        "domains": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9.-]+\\.[a-z]{2,}$"
+          }
+        },
+        "urlPatterns": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hostPermissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaultUrl": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": ["domains", "urlPatterns", "hostPermissions", "defaultUrl"],
+      "additionalProperties": false
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 300000
+        },
+        "environments": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["webapp", "native"]
+          }
+        },
+        "authErrorPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "healthCheck": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "params": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            }
+          },
+          "required": ["method"],
+          "additionalProperties": false
+        },
+        "notConnectedMessage": {
+          "type": "string"
+        },
+        "tabNotFoundMessage": {
+          "type": "string"
+        }
+      },
+      "required": ["timeout", "environments"],
+      "additionalProperties": false
+    },
+    "tools": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "tools": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "required": ["name", "tools"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["categories"],
+      "additionalProperties": false
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "storage": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nativeApis": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["browser", "tabs", "scripting", "storage"]
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "name",
+    "displayName",
+    "version",
+    "description",
+    "author",
+    "icon",
+    "adapter",
+    "service",
+    "tools",
+    "permissions"
+  ],
+  "additionalProperties": false,
+  "$id": "https://opentabs.dev/schemas/plugin-v1.json",
+  "title": "OpenTabs Plugin Manifest",
+  "description": "Schema for opentabs-plugin.json — the plugin manifest file for OpenTabs plugins."
+}

@@ -13,5 +13,9 @@
   "scripts": {
     "build": "tsc --build tsconfig.build.json",
     "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "@opentabs/core": "workspace:*",
+    "zod": "^4.3.6"
   }
 }

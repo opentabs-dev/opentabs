@@ -35,6 +35,7 @@ export default tseslint.config(
       '__next__/platform/create-plugin/template/**',
       '__next__/platform/browser-extension/build.ts',
       '__next__/platform/browser-extension/__generated__/**',
+      '__next__/platform/*/scripts/**',
     ],
   },
   {
