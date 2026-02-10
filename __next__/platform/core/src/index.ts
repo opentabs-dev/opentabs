@@ -30,3 +30,32 @@ export {
   type RegistryChange,
   type RegistryChangeListener,
 } from './services.js';
+
+export {
+  type NativeApiPermission,
+  type TrustTier,
+  type PluginAdapterConfig,
+  type PluginHealthCheckConfig,
+  type PluginServiceConfig,
+  type PluginToolCategory,
+  type PluginPermissions,
+  type PluginManifest,
+  type StoredPluginManifest,
+  type StoredServiceDefinition,
+  type StoredServiceConfig,
+  type PluginInstallPayload,
+} from './plugin-manifest.js';
+
+export {
+  type PluginLifecycleContext,
+  type PluginInstallContext,
+  type PluginUninstallContext,
+  type PluginEnableContext,
+  type PluginDisableContext,
+  type PluginSettingsChangeContext,
+  type LifecycleHookName,
+  type ToolRegistrationFn,
+  type McpServerLike,
+  type RegisteredToolLike,
+  type ResolvedPlugin,
+} from './plugin-lifecycle.js';
