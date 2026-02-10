@@ -7,7 +7,6 @@
  */
 
 import { hasOffscreenDocument, sendToOffscreen, initializeWebSocket } from './offscreen-manager.js';
-import { restoreConnectionState } from './state-persistence.js';
 import { Defaults, MessageTypes } from '@opentabs/core';
 import type { ServiceManager } from './service-managers/types.js';
 import type { ConnectionStatus } from '@opentabs/core';
@@ -41,8 +40,6 @@ const handleKeepaliveAlarm = async (
     // Communication with offscreen document failed, reinitialize
     await initializeWebSocket();
   }
-
-  await restoreConnectionState(connectionStatus);
 
   for (const manager of Object.values(managers)) {
     if (!manager.isConnected()) {

@@ -54,9 +54,17 @@ export const MessageTypes = {
   SIDE_PANEL_CLOSED: 'side_panel_closed',
   CLOSE_SIDE_PANEL: 'close_side_panel',
 
-  // Plugin system
-  PLUGIN_ADAPTER_REGISTER: 'plugin_adapter_register',
-  PLUGIN_ADAPTER_UNREGISTER: 'plugin_adapter_unregister',
+  // Plugin system — dynamic install/uninstall/enable/disable
+  PLUGIN_SYNC: 'plugin_sync',
+  PLUGIN_INSTALL: 'plugin_install',
+  PLUGIN_UNINSTALL: 'plugin_uninstall',
+  PLUGIN_ENABLE: 'plugin_enable',
+  PLUGIN_DISABLE: 'plugin_disable',
+  PLUGIN_INSTALLED: 'plugin_installed',
+  PLUGIN_UNINSTALLED: 'plugin_uninstalled',
+  PLUGIN_ENABLED: 'plugin_enabled',
+  PLUGIN_DISABLED: 'plugin_disabled',
+  PLUGIN_LIST: 'plugin_list',
 } as const;
 
 export type MessageType = (typeof MessageTypes)[keyof typeof MessageTypes];
@@ -158,6 +166,23 @@ export interface SidePanelClosedMessage {
   readonly windowId: number;
 }
 
+/** UI → Background: enable a plugin */
+export interface PluginEnableMessage {
+  readonly type: typeof MessageTypes.PLUGIN_ENABLE;
+  readonly pluginName: string;
+}
+
+/** UI → Background: disable a plugin */
+export interface PluginDisableMessage {
+  readonly type: typeof MessageTypes.PLUGIN_DISABLE;
+  readonly pluginName: string;
+}
+
+/** UI → Background: list installed plugins */
+export interface PluginListMessage {
+  readonly type: typeof MessageTypes.PLUGIN_LIST;
+}
+
 /**
  * Union of all messages the background script can receive
  * via chrome.runtime.onMessage.
@@ -170,7 +195,10 @@ export type BackgroundMessage =
   | FocusTabMessage
   | OpenServerFolderMessage
   | SidePanelOpenedMessage
-  | SidePanelClosedMessage;
+  | SidePanelClosedMessage
+  | PluginEnableMessage
+  | PluginDisableMessage
+  | PluginListMessage;
 
 // -----------------------------------------------------------------------------
 // Messages: Background → UI
@@ -291,6 +319,21 @@ export interface ConnectionStatus {
 /** Tool permissions map — keys are tool IDs, values are enabled/disabled state */
 export interface ToolPermissions {
   [toolId: string]: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// Plugin Status (included in StatusUpdateMessage and plugin list responses)
+// -----------------------------------------------------------------------------
+
+/** Status of a single installed plugin. */
+export interface InstalledPluginStatus {
+  readonly name: string;
+  readonly displayName: string;
+  readonly version: string;
+  readonly description: string;
+  readonly enabled: boolean;
+  readonly trustTier: 'official' | 'verified' | 'community' | 'local';
+  readonly installedAt: number;
 }
 
 // -----------------------------------------------------------------------------

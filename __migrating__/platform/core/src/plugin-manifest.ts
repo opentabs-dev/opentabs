@@ -10,6 +10,7 @@
 // =============================================================================
 
 import type { JsonRpcResponse } from './json-rpc.js';
+import type { PluginLifecycleHooks } from './plugin-lifecycle.js';
 import type { ServiceEnv } from './services.js';
 
 // -----------------------------------------------------------------------------
@@ -402,6 +403,19 @@ export interface ResolvedPlugin {
    * module if it exports an `isHealthy` function.
    */
   readonly isHealthy?: HealthCheckEvaluator;
+
+  /**
+   * Lifecycle hooks extracted from the plugin's tools entry module.
+   *
+   * The plugin-loader scans the module's named exports for well-known
+   * hook names (onInstall, onUninstall, onEnable, onDisable,
+   * onSettingsChange) and collects any that are functions. All hooks
+   * are optional — an empty object means the plugin exports no hooks.
+   *
+   * Hooks run in the MCP server process and have access to the same
+   * sendServiceRequest / sendBrowserRequest APIs as tool handlers.
+   */
+  readonly lifecycleHooks: PluginLifecycleHooks;
 
   /** Trust tier, determined by the package name and registry status. */
   readonly trustTier: PluginTrustTier;

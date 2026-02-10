@@ -3,8 +3,9 @@
 // Service timeouts, display names, and URLs are looked up at call time from
 // the dynamic registry populated by plugins at startup.
 
+import { getLastPluginPayloads } from './plugin-init.js';
 import { isJsonRpcResponse, isJsonRpcError } from './types.js';
-import { getServiceTimeouts, getServiceDisplayNames, getServiceUrl } from '@opentabs/core';
+import { getServiceTimeouts, getServiceDisplayNames, getServiceUrl, MessageTypes } from '@opentabs/core';
 import open from 'open';
 import { WebSocketServer, WebSocket } from 'ws';
 import { dirname } from 'node:path';
@@ -55,6 +56,12 @@ class WebSocketRelay {
 
           // Send server info to the extension when it connects
           this.sendServerInfo();
+
+          // Push all discovered plugin install payloads to the extension.
+          // This enables the extension to dynamically install/update plugins
+          // without a rebuild. On reconnect, the full set is re-sent so the
+          // extension can reconcile its stored state.
+          this.sendPluginSync();
 
           ws.on('message', data => {
             this.handleMessage(data.toString());
@@ -128,6 +135,42 @@ class WebSocketRelay {
         serverPath: this.serverPath,
       };
       this.client.send(JSON.stringify(serverInfo));
+    }
+  }
+
+  /**
+   * Send all discovered plugin install payloads to the extension.
+   *
+   * Called automatically when the extension connects (or reconnects).
+   * The extension receives a `plugin_sync` message containing every
+   * discovered plugin's manifest, adapter code, service definitions,
+   * and service configs. The extension reconciles this with its stored
+   * state: installing new plugins, upgrading changed ones, and removing
+   * plugins that are no longer discovered by the server.
+   *
+   * Also callable externally after hot reload to push updated plugin
+   * definitions to the extension without waiting for a reconnect.
+   */
+  sendPluginSync(): void {
+    if (!this.client || this.client.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const payloads = getLastPluginPayloads();
+    if (payloads.length === 0) {
+      return;
+    }
+
+    const message = {
+      type: MessageTypes.PLUGIN_SYNC,
+      plugins: payloads,
+    };
+
+    try {
+      this.client.send(JSON.stringify(message));
+      console.error(`[MCP] Sent plugin_sync with ${payloads.length} plugin(s) to extension`);
+    } catch (err) {
+      console.error('[MCP] Failed to send plugin_sync:', err instanceof Error ? err.message : err);
     }
   }
 

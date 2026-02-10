@@ -28,9 +28,26 @@
 // =============================================================================
 
 import { setPluginRegistrations } from './tools/index.js';
-import { loadPlugins } from '@opentabs/plugin-loader';
+import { loadPlugins, manifestToServiceDefinition, manifestToServiceConfigs } from '@opentabs/plugin-loader';
 import { __setRequestProvider, __registerPluginPermissions } from '@opentabs/plugin-sdk/server';
-import type { ServiceDefinition, ToolRegistrationFn, NativeApiPermission } from '@opentabs/core';
+import { readFileSync } from 'node:fs';
+import type {
+  ServiceDefinition,
+  ToolRegistrationFn,
+  NativeApiPermission,
+  PluginInstallPayload,
+  StoredPluginManifest,
+  StoredServiceDefinition,
+  StoredServiceConfig,
+  ResolvedPlugin,
+  PluginLifecycleContext,
+  PluginInstallContext,
+  PluginUninstallContext,
+  PluginEnableContext,
+  PluginDisableContext,
+  PluginSettingsChangeContext,
+  LifecycleHookName,
+} from '@opentabs/core';
 import type { LoadPluginsResult } from '@opentabs/plugin-loader';
 import type { RequestProvider } from '@opentabs/plugin-sdk/server';
 
@@ -42,7 +59,7 @@ import type { RequestProvider } from '@opentabs/plugin-sdk/server';
  * The result of initializing the plugin system. Contains everything the MCP
  * server needs to operate with plugins loaded.
  */
-export interface PluginInitResult {
+interface PluginInitResult {
   /** All successfully loaded plugins (manifests + tool registrations). */
   readonly loadResult: LoadPluginsResult;
 
@@ -57,7 +74,7 @@ export interface PluginInitResult {
  * Human-readable summary of the plugin initialization, for logging and
  * health check responses.
  */
-export interface PluginInitSummary {
+interface PluginInitSummary {
   /** Number of plugins successfully loaded. */
   readonly pluginsLoaded: number;
 
@@ -98,9 +115,329 @@ export interface PluginInitSummary {
  *
  * @param provider - The request provider implementation (wraps the WebSocket relay)
  */
-export const wireRequestProvider = (provider: RequestProvider): void => {
+const wireRequestProvider = (provider: RequestProvider): void => {
   __setRequestProvider(provider);
 };
+
+// =============================================================================
+// Lifecycle Hook Invocation
+//
+// Lifecycle hooks run in the MCP server process (Node/Bun) and have access
+// to the same sendServiceRequest / sendBrowserRequest APIs as tool handlers.
+// All hooks are optional and async. Failures in hooks are logged but never
+// propagate — a broken hook must not prevent the platform operation from
+// completing.
+//
+// The resolved plugins are cached after discovery so hooks can be invoked
+// later (e.g. when the extension confirms an install or the user changes
+// settings). Plugin code is already loaded in memory via dynamic import.
+// =============================================================================
+
+/** Cached resolved plugins from the most recent discovery. */
+let resolvedPlugins: readonly ResolvedPlugin[] = [];
+
+/** Get the cached resolved plugins. */
+const getResolvedPlugins = (): readonly ResolvedPlugin[] => resolvedPlugins;
+
+/** Find a resolved plugin by name. */
+const findResolvedPlugin = (name: string): ResolvedPlugin | undefined =>
+  resolvedPlugins.find(p => p.manifest.name === name);
+
+/**
+ * Safely invoke a lifecycle hook on a plugin. Catches and logs errors
+ * so a broken hook never prevents the platform operation from completing.
+ *
+ * @param pluginName - The plugin name (for logging)
+ * @param hookName - The hook name (for logging)
+ * @param hookFn - The hook function to call (may be undefined)
+ * @param context - The context to pass to the hook
+ */
+const invokeLifecycleHook = async <T extends PluginLifecycleContext>(
+  pluginName: string,
+  hookName: LifecycleHookName,
+  hookFn: ((ctx: T) => Promise<void> | void) | undefined,
+  context: T,
+): Promise<void> => {
+  if (!hookFn) return;
+
+  try {
+    await hookFn(context);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[MCP] Lifecycle hook "${hookName}" for plugin "${pluginName}" threw an error: ${message}`);
+  }
+};
+
+/**
+ * Build the base lifecycle context shared by all hooks.
+ */
+const buildBaseContext = (plugin: ResolvedPlugin, settings?: Record<string, unknown>): PluginLifecycleContext => ({
+  pluginName: plugin.manifest.name,
+  pluginVersion: plugin.manifest.version,
+  packagePath: plugin.packagePath,
+  settings: settings ?? {},
+});
+
+/**
+ * Invoke the `onInstall` hook for a plugin.
+ *
+ * Called after the extension confirms that a plugin was installed or upgraded.
+ *
+ * @param pluginName - The plugin name
+ * @param reason - 'install' for first install, 'upgrade' for version change
+ * @param previousVersion - The previous version string (for upgrades)
+ * @param settings - Current user settings for the plugin
+ */
+const invokeOnInstall = async (
+  pluginName: string,
+  reason: 'install' | 'upgrade',
+  previousVersion?: string,
+  settings?: Record<string, unknown>,
+): Promise<void> => {
+  const plugin = findResolvedPlugin(pluginName);
+  if (!plugin?.lifecycleHooks.onInstall) return;
+
+  const context: PluginInstallContext = {
+    ...buildBaseContext(plugin, settings),
+    reason,
+    previousVersion,
+  };
+
+  await invokeLifecycleHook(pluginName, 'onInstall', plugin.lifecycleHooks.onInstall, context);
+};
+
+/**
+ * Invoke the `onUninstall` hook for a plugin.
+ *
+ * Called just before the extension removes a plugin's data. The hook runs
+ * while the plugin is still loaded in memory, so it can perform cleanup.
+ *
+ * @param pluginName - The plugin name
+ * @param settings - Current user settings for the plugin
+ */
+const invokeOnUninstall = async (pluginName: string, settings?: Record<string, unknown>): Promise<void> => {
+  const plugin = findResolvedPlugin(pluginName);
+  if (!plugin?.lifecycleHooks.onUninstall) return;
+
+  const context: PluginUninstallContext = buildBaseContext(plugin, settings);
+
+  await invokeLifecycleHook(pluginName, 'onUninstall', plugin.lifecycleHooks.onUninstall, context);
+};
+
+/**
+ * Invoke the `onEnable` hook for a plugin.
+ *
+ * Called when a previously disabled plugin is re-enabled by the user.
+ *
+ * @param pluginName - The plugin name
+ * @param settings - Current user settings for the plugin
+ */
+const invokeOnEnable = async (pluginName: string, settings?: Record<string, unknown>): Promise<void> => {
+  const plugin = findResolvedPlugin(pluginName);
+  if (!plugin?.lifecycleHooks.onEnable) return;
+
+  const context: PluginEnableContext = buildBaseContext(plugin, settings);
+
+  await invokeLifecycleHook(pluginName, 'onEnable', plugin.lifecycleHooks.onEnable, context);
+};
+
+/**
+ * Invoke the `onDisable` hook for a plugin.
+ *
+ * Called when the user disables a plugin. The hook can clean up timers,
+ * caches, or other resources that should not persist while inactive.
+ *
+ * @param pluginName - The plugin name
+ * @param settings - Current user settings for the plugin
+ */
+const invokeOnDisable = async (pluginName: string, settings?: Record<string, unknown>): Promise<void> => {
+  const plugin = findResolvedPlugin(pluginName);
+  if (!plugin?.lifecycleHooks.onDisable) return;
+
+  const context: PluginDisableContext = buildBaseContext(plugin, settings);
+
+  await invokeLifecycleHook(pluginName, 'onDisable', plugin.lifecycleHooks.onDisable, context);
+};
+
+/**
+ * Invoke the `onSettingsChange` hook for a plugin.
+ *
+ * Called when the user modifies any of the plugin's settings. The hook
+ * receives both the previous and current settings, plus a list of which
+ * keys changed, so it can react selectively.
+ *
+ * @param pluginName - The plugin name
+ * @param currentSettings - The new settings values
+ * @param previousSettings - The settings values before the change
+ * @param changedKeys - Which settings keys were modified
+ */
+const invokeOnSettingsChange = async (
+  pluginName: string,
+  currentSettings: Record<string, unknown>,
+  previousSettings: Record<string, unknown>,
+  changedKeys: readonly string[],
+): Promise<void> => {
+  const plugin = findResolvedPlugin(pluginName);
+  if (!plugin?.lifecycleHooks.onSettingsChange) return;
+
+  const context: PluginSettingsChangeContext = {
+    ...buildBaseContext(plugin, currentSettings),
+    previousSettings,
+    changedKeys,
+  };
+
+  await invokeLifecycleHook(pluginName, 'onSettingsChange', plugin.lifecycleHooks.onSettingsChange, context);
+};
+
+// =============================================================================
+// Plugin Install Payloads — For Pushing to the Extension
+//
+// After discovering plugins, the MCP server builds PluginInstallPayload
+// objects that contain everything the extension needs to dynamically
+// install a plugin at runtime: the manifest, adapter IIFE code, service
+// definitions, and service configs. These payloads are sent over WebSocket
+// to the extension, which stores them in chrome.storage.local.
+//
+// The payloads are cached so they can be re-sent when the extension
+// reconnects (e.g. after an extension reload or service worker restart).
+// =============================================================================
+
+/** Cached payloads from the most recent plugin discovery. */
+let lastPluginPayloads: readonly PluginInstallPayload[] = [];
+
+/**
+ * Get the most recently built plugin install payloads. Used to re-sync
+ * with the extension when it reconnects.
+ */
+const getLastPluginPayloads = (): readonly PluginInstallPayload[] => lastPluginPayloads;
+
+/**
+ * Build PluginInstallPayload objects from resolved plugins.
+ *
+ * Reads each plugin's compiled adapter IIFE from disk and packages it
+ * with the manifest, service definitions, and service configs into a
+ * payload the extension can store and activate at runtime.
+ *
+ * @param plugins - Resolved plugins from the plugin-loader
+ * @returns Array of install payloads ready to send to the extension
+ */
+const buildPluginInstallPayloads = (plugins: readonly ResolvedPlugin[]): PluginInstallPayload[] => {
+  const payloads: PluginInstallPayload[] = [];
+
+  for (const plugin of plugins) {
+    try {
+      // Read the compiled adapter IIFE from disk
+      const adapterCode = readFileSync(plugin.adapterPath, 'utf-8');
+
+      // Convert the full manifest to the storable subset
+      const manifest = pluginManifestToStored(plugin.manifest);
+
+      // Build service definitions (JSON-serializable)
+      const coreDef = manifestToServiceDefinition(plugin.manifest, plugin.manifest.name);
+      const serviceDefinitions: StoredServiceDefinition[] = [
+        {
+          type: coreDef.type,
+          displayName: coreDef.displayName,
+          environments: [...coreDef.environments],
+          domains: { ...coreDef.domains } as Record<string, string>,
+          urlPatterns: Object.fromEntries(Object.entries(coreDef.urlPatterns).map(([k, v]) => [k, [...v]])) as Record<
+            string,
+            readonly string[]
+          >,
+          iconName: coreDef.iconName,
+          timeout: coreDef.timeout,
+          defaultUrl: coreDef.defaultUrl,
+          hostPermissions: coreDef.hostPermissions ? [...coreDef.hostPermissions] : undefined,
+          source: 'plugin',
+          packageName: coreDef.packageName,
+        },
+      ];
+
+      // Build service configs (JSON-serializable, no function refs)
+      const coreConfigs = manifestToServiceConfigs(plugin.manifest, plugin.isHealthy);
+      const serviceConfigs: Record<string, StoredServiceConfig> = {};
+
+      for (const [serviceId, config] of Object.entries(coreConfigs)) {
+        serviceConfigs[serviceId] = {
+          serviceId: config.serviceId,
+          displayName: config.displayName,
+          adapterName: config.adapterName,
+          urlPatterns: [...config.urlPatterns],
+          domain: config.domain,
+          authErrorPatterns: [...config.authErrorPatterns],
+          healthCheck: {
+            method: config.healthCheck.method,
+            params: { ...config.healthCheck.params },
+          },
+          healthCheckEvaluator: plugin.manifest.service.healthCheck.evaluator,
+          notConnectedMessage: config.notConnectedMessage,
+          tabNotFoundMessage: config.tabNotFoundMessage,
+        };
+      }
+
+      payloads.push({
+        name: plugin.manifest.name,
+        adapterCode,
+        manifest,
+        serviceDefinitions,
+        serviceConfigs,
+        version: plugin.manifest.version,
+        trustTier: plugin.trustTier,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[MCP] Failed to build install payload for plugin "${plugin.manifest.name}": ${message}`);
+    }
+  }
+
+  // Cache for re-sync on reconnect
+  lastPluginPayloads = payloads;
+
+  return payloads;
+};
+
+/**
+ * Convert a full PluginManifest to the JSON-serializable StoredPluginManifest
+ * subset that the extension stores in chrome.storage.local.
+ */
+const pluginManifestToStored = (manifest: ResolvedPlugin['manifest']): StoredPluginManifest => ({
+  name: manifest.name,
+  displayName: manifest.displayName,
+  version: manifest.version,
+  description: manifest.description,
+  author: manifest.author,
+  icon: manifest.icon,
+  adapter: {
+    domains: { ...manifest.adapter.domains },
+    urlPatterns: Object.fromEntries(Object.entries(manifest.adapter.urlPatterns).map(([k, v]) => [k, [...v]])),
+    hostPermissions: manifest.adapter.hostPermissions ? [...manifest.adapter.hostPermissions] : undefined,
+    defaultUrl: manifest.adapter.defaultUrl,
+  },
+  service: {
+    timeout: manifest.service.timeout,
+    environments: [...manifest.service.environments],
+    authErrorPatterns: [...manifest.service.authErrorPatterns],
+    healthCheck: {
+      method: manifest.service.healthCheck.method,
+      params: { ...manifest.service.healthCheck.params },
+      evaluator: manifest.service.healthCheck.evaluator,
+    },
+    notConnectedMessage: manifest.service.notConnectedMessage,
+    tabNotFoundMessage: manifest.service.tabNotFoundMessage,
+  },
+  tools: {
+    categories: manifest.tools.categories?.map(c => ({
+      id: c.id,
+      label: c.label,
+      tools: c.tools ? [...c.tools] : undefined,
+    })),
+  },
+  permissions: {
+    network: [...manifest.permissions.network],
+    storage: manifest.permissions.storage,
+    nativeApis: manifest.permissions.nativeApis ? [...manifest.permissions.nativeApis] : undefined,
+  },
+});
 
 // =============================================================================
 // Plugin Initialization — Main Entry Point
@@ -135,7 +472,7 @@ export const wireRequestProvider = (provider: RequestProvider): void => {
  * const server = createServer();
  * ```
  */
-export const initializePlugins = async (
+const initializePlugins = async (
   builtinDefinitions: readonly ServiceDefinition[] = [],
   options?: {
     /** Root directory for plugin discovery. Default: process.cwd() */
@@ -173,7 +510,14 @@ export const initializePlugins = async (
   const pluginToolRegistrations = loadResult.plugins.map(p => p.registerTools as ToolRegistrationFn);
   setPluginRegistrations(pluginToolRegistrations);
 
-  // 4. Build summary
+  // 4. Cache resolved plugins for lifecycle hook invocation
+  resolvedPlugins = loadResult.plugins;
+
+  // 5. Build install payloads for the extension (adapter code + configs)
+  //    These are cached and sent to the extension over WebSocket when it connects.
+  buildPluginInstallPayloads(loadResult.plugins);
+
+  // 6. Build summary
   const summary: PluginInitSummary = {
     pluginsLoaded: loadResult.plugins.length,
     pluginsFailed: loadResult.failures.length,
@@ -186,7 +530,7 @@ export const initializePlugins = async (
     totalToolRegistrations: loadResult.toolRegistrations.length,
   };
 
-  // 5. Log summary
+  // 7. Log summary
   if (verbose) {
     if (summary.pluginsLoaded > 0) {
       console.error(
@@ -237,7 +581,7 @@ export const initializePlugins = async (
  * @param options - Optional overrides for the discovery process
  * @returns Summary of what was refreshed
  */
-export const refreshPluginTools = async (options?: {
+const refreshPluginTools = async (options?: {
   readonly rootDir?: string;
   readonly verbose?: boolean;
 }): Promise<PluginInitSummary> => {
@@ -266,6 +610,10 @@ export const refreshPluginTools = async (options?: {
   const pluginToolRegistrations = loadResult.plugins.map(p => p.registerTools as ToolRegistrationFn);
   setPluginRegistrations(pluginToolRegistrations);
 
+  // Cache resolved plugins and rebuild install payloads for the extension
+  resolvedPlugins = loadResult.plugins;
+  buildPluginInstallPayloads(loadResult.plugins);
+
   const summary: PluginInitSummary = {
     pluginsLoaded: loadResult.plugins.length,
     pluginsFailed: loadResult.failures.length,
@@ -283,4 +631,24 @@ export const refreshPluginTools = async (options?: {
   }
 
   return summary;
+};
+
+// =============================================================================
+// Exports
+// =============================================================================
+
+export type { PluginInitResult, PluginInitSummary };
+
+export {
+  wireRequestProvider,
+  getResolvedPlugins,
+  invokeOnInstall,
+  invokeOnUninstall,
+  invokeOnEnable,
+  invokeOnDisable,
+  invokeOnSettingsChange,
+  getLastPluginPayloads,
+  buildPluginInstallPayloads,
+  initializePlugins,
+  refreshPluginTools,
 };

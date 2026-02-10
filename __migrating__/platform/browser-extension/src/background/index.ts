@@ -4,102 +4,109 @@
  * Wires together the extracted modules. Each concern lives in its own file;
  * this file handles initialization and the message router that dispatches to them.
  *
- * The service registry is populated dynamically via setServiceRegistry()
- * during initialization, using build-time generated plugin data.
+ * The plugin system is fully dynamic: plugins are installed, updated, and
+ * removed at runtime via WebSocket messages from the MCP server. Plugin data
+ * (manifests, adapter code, service configs) is stored in chrome.storage.local
+ * and loaded on startup. No build-time code generation is required.
+ *
+ * Initialization flow:
+ *   1. Initialize the plugin manager (loads plugins from storage, creates
+ *      service controllers, populates the service registry)
+ *   2. Set up WebSocket connection to the MCP server
+ *   3. Register tab event listeners (delegate to plugin manager)
+ *   4. Set up alarms for keepalive and health checks
+ *   5. Wait for MCP server to push plugin sync on connect
  */
 
-import { registerAdapters } from './adapter-manager.js';
 import { setupAlarms } from './alarm-handlers.js';
 import { BrowserController } from './browser-controller.js';
 import { updateBadge } from './icon-manager.js';
 import { handleMcpMessage } from './mcp-router.js';
 import { initializeWebSocket, sendViaWebSocket, updateWebSocketUrl } from './offscreen-manager.js';
-import { WebappServiceController } from './service-controllers/index.js';
+import {
+  initializePluginManager,
+  getManagers,
+  getConnectionStatus,
+  handlePluginInstall,
+  handlePluginUninstall,
+  handlePluginEnable,
+  handlePluginDisable,
+  handlePluginSync,
+  handleTabLoadComplete,
+  handleTabRemoved,
+  listPlugins,
+} from './plugin-manager.js';
 import { setupSidePanel, markOpened, markClosed } from './side-panel-manager.js';
 import { checkAndRefreshStaleTabs } from './stale-tab-manager.js';
-import { saveConnectionState, restoreConnectionState } from './state-persistence.js';
-import { Defaults, MessageTypes, setServiceRegistry, getServiceIds } from '@opentabs/core';
-import type { ServiceManager, ServiceManagerContext } from './service-managers/types.js';
-import type {
-  ConnectionStatus,
-  ServiceConnectionStatus,
-  BackgroundMessage,
-  ServiceDefinition,
-  WebappServiceConfig,
-} from '@opentabs/core';
+import { MessageTypes } from '@opentabs/core';
+import type { ServiceManagerContext } from './service-managers/types.js';
+import type { BackgroundMessage, PluginInstallPayload, PluginUninstallPayload } from '@opentabs/core';
 
 console.log('[OpenTabs] Background script loaded');
 
-// ============================================================================
-// Plugin Configuration — Injected at Build Time
+// =============================================================================
+// Startup
 //
-// These functions are the bridge between the build-time plugin discovery
-// (which runs in Node via @opentabs/plugin-loader) and the runtime extension
-// background script (which runs in Chrome's service worker).
+// The background script starts by initializing the plugin manager, which
+// loads all previously installed plugins from chrome.storage.local and
+// creates their service controllers. No build-time generated data is needed.
 //
-// A build script calls loadPlugins() at build time, serializes the results,
-// and generates a module that exports these two data structures. The background
-// script imports and passes them to initialize().
-//
-// For development, these can also be populated inline for testing.
-// ============================================================================
+// When the MCP server connects over WebSocket, it sends a plugin_sync
+// message with all discovered plugins. The plugin manager reconciles
+// this with the stored state: installing new plugins, upgrading changed
+// ones, and removing stale ones.
+// =============================================================================
 
-/**
- * Initialize the extension background with plugin-provided configuration.
- *
- * This is the main entry point. Call this with the service definitions and
- * service configs produced by @opentabs/plugin-loader at build time.
- *
- * @param serviceDefinitions - ServiceDefinition[] from mergeIntoRegistry()
- * @param serviceConfigs - Record<string, WebappServiceConfig> from mergeServiceConfigs()
- */
-const initialize = async (
-  serviceDefinitions: readonly ServiceDefinition[],
-  serviceConfigs: Record<string, WebappServiceConfig>,
-): Promise<void> => {
-  // 1. Populate the dynamic service registry so all modules can access it
-  setServiceRegistry(serviceDefinitions);
+const start = async (): Promise<void> => {
+  // ============================================================================
+  // 1. Build the service manager context (shared dependencies for controllers)
+  // ============================================================================
 
-  const serviceIds = getServiceIds();
-
-  // 2. Build connection status from the dynamic registry
-  const DEFAULT_CONNECTION: ServiceConnectionStatus = { connected: false };
-
-  const connectionStatus: ConnectionStatus = {
-    mcpConnected: false,
-    port: Defaults.WS_PORT,
-    serverPath: undefined,
-    services: Object.fromEntries(serviceIds.map(id => [id, { ...DEFAULT_CONNECTION }])),
+  const boundUpdateBadge = async (): Promise<void> => {
+    const status = getConnectionStatus();
+    await updateBadge(status);
   };
 
-  // 3. Bind convenience helpers that close over shared state
-  const boundUpdateBadge = (): Promise<void> => updateBadge(connectionStatus);
-
-  const boundSaveConnectionState = (): Promise<void> => saveConnectionState(managers, connectionStatus);
-
-  // 4. Build service manager context
   const serviceManagerCtx: ServiceManagerContext = {
     sendViaWebSocket,
     updateBadge: boundUpdateBadge,
-    saveConnectionState: boundSaveConnectionState,
   };
 
-  // 5. Create service managers from plugin-provided configs
-  const managers: Record<string, ServiceManager> = Object.fromEntries(
-    Object.entries(serviceConfigs).map(([serviceId, config]) => [
-      serviceId,
-      new WebappServiceController(connectionStatus, serviceManagerCtx, config),
-    ]),
-  );
+  // ============================================================================
+  // 2. Initialize the plugin manager
+  //
+  // This loads all previously installed plugins from chrome.storage.local,
+  // creates their service controllers, populates the service registry,
+  // and injects adapters into any existing matching tabs.
+  // ============================================================================
+
+  // Restore the WebSocket port from storage
+  let restoredPort: number | undefined;
+  try {
+    const stored = await chrome.storage.sync.get('wsPort');
+    if (typeof stored.wsPort === 'number') {
+      restoredPort = stored.wsPort;
+    }
+  } catch {
+    // Storage may not be available yet
+  }
+
+  await initializePluginManager(serviceManagerCtx, restoredPort);
 
   const browserController = new BrowserController();
 
   // ============================================================================
-  // Message Handlers
+  // 3. Message Handlers
   // ============================================================================
 
   chrome.runtime.onMessage.addListener((message: BackgroundMessage, sender, sendResponse) => {
-    // Offscreen document messages
+    const connectionStatus = getConnectionStatus();
+    const managers = getManagers();
+
+    // ------------------------------------------------------------------
+    // Offscreen document messages (WebSocket lifecycle + data)
+    // ------------------------------------------------------------------
+
     if ('source' in message && message.source === 'offscreen') {
       if (message.type === MessageTypes.CONNECTED) {
         console.log('[OpenTabs] WebSocket connected');
@@ -111,7 +118,24 @@ const initialize = async (
         connectionStatus.serverPath = undefined;
         boundUpdateBadge();
       } else if (message.type === MessageTypes.MESSAGE) {
-        handleMcpMessage(message.data as Record<string, unknown>, {
+        const data = message.data as Record<string, unknown>;
+
+        // Handle plugin system messages before MCP routing
+        if (data.type === MessageTypes.PLUGIN_SYNC) {
+          handlePluginSyncMessage(data);
+          return;
+        }
+        if (data.type === MessageTypes.PLUGIN_INSTALL) {
+          handlePluginInstallMessage(data);
+          return;
+        }
+        if (data.type === MessageTypes.PLUGIN_UNINSTALL) {
+          handlePluginUninstallMessage(data);
+          return;
+        }
+
+        // Standard MCP JSON-RPC routing
+        handleMcpMessage(data, {
           managers,
           browserController,
           sendViaWebSocket,
@@ -122,7 +146,10 @@ const initialize = async (
       return;
     }
 
+    // ------------------------------------------------------------------
     // Content script: tab ready
+    // ------------------------------------------------------------------
+
     if (message.type === MessageTypes.TAB_READY && 'serviceId' in message && sender.tab?.id) {
       const manager = managers[message.serviceId];
       if (manager) {
@@ -133,13 +160,19 @@ const initialize = async (
       return false;
     }
 
-    // Status request
+    // ------------------------------------------------------------------
+    // Status request (side panel, options page)
+    // ------------------------------------------------------------------
+
     if (message.type === MessageTypes.GET_STATUS) {
       sendResponse(connectionStatus);
       return true;
     }
 
+    // ------------------------------------------------------------------
     // Port change
+    // ------------------------------------------------------------------
+
     if (message.type === MessageTypes.SET_PORT && 'port' in message) {
       const newPort = message.port;
       if (typeof newPort === 'number' && newPort > 0 && newPort < 65536) {
@@ -153,7 +186,10 @@ const initialize = async (
       return true;
     }
 
+    // ------------------------------------------------------------------
     // Focus tab
+    // ------------------------------------------------------------------
+
     if (message.type === MessageTypes.FOCUS_TAB && 'serviceId' in message) {
       const manager = managers[message.serviceId];
       if (manager) {
@@ -164,14 +200,20 @@ const initialize = async (
       return true;
     }
 
+    // ------------------------------------------------------------------
     // Open server folder
+    // ------------------------------------------------------------------
+
     if (message.type === MessageTypes.OPEN_SERVER_FOLDER) {
       sendViaWebSocket({ type: MessageTypes.OPEN_SERVER_FOLDER });
       sendResponse({ success: true });
       return true;
     }
 
+    // ------------------------------------------------------------------
     // Side panel lifecycle
+    // ------------------------------------------------------------------
+
     if (message.type === MessageTypes.SIDE_PANEL_OPENED && 'windowId' in message) {
       markOpened(message.windowId);
       return false;
@@ -182,68 +224,189 @@ const initialize = async (
       return false;
     }
 
+    // ------------------------------------------------------------------
+    // Plugin enable / disable (from options page or side panel)
+    // ------------------------------------------------------------------
+
+    if (message.type === MessageTypes.PLUGIN_ENABLE && 'pluginName' in message) {
+      handlePluginEnable(message.pluginName)
+        .then(success => {
+          boundUpdateBadge();
+          sendResponse({ success });
+        })
+        .catch(err => {
+          sendResponse({ success: false, error: err instanceof Error ? err.message : String(err) });
+        });
+      return true;
+    }
+
+    if (message.type === MessageTypes.PLUGIN_DISABLE && 'pluginName' in message) {
+      handlePluginDisable(message.pluginName)
+        .then(success => {
+          boundUpdateBadge();
+          sendResponse({ success });
+        })
+        .catch(err => {
+          sendResponse({ success: false, error: err instanceof Error ? err.message : String(err) });
+        });
+      return true;
+    }
+
+    // ------------------------------------------------------------------
+    // Plugin list (for options page / side panel)
+    // ------------------------------------------------------------------
+
+    if (message.type === MessageTypes.PLUGIN_LIST) {
+      listPlugins()
+        .then(sendResponse)
+        .catch(() => sendResponse([]));
+      return true;
+    }
+
     return false;
   });
 
   // ============================================================================
-  // Tab Event Listeners
+  // 4. Tab Event Listeners
+  //
+  // All tab events are forwarded through the plugin manager, which delegates
+  // to both the adapter manager (for dynamic injection) and the service
+  // controllers (for tab lifecycle management).
   // ============================================================================
 
   chrome.tabs.onRemoved.addListener(tabId => {
-    for (const [serviceId, manager] of Object.entries(managers)) {
-      if (tabId === manager.getTabId()) {
-        console.log(`[OpenTabs] ${serviceId} tab closed`);
-        manager.handleDisconnect(tabId);
-      }
-    }
+    handleTabRemoved(tabId);
   });
 
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status !== 'complete' || !tab.url) return;
-
-    for (const manager of Object.values(managers)) {
-      manager.handleTabLoadComplete(tabId, tab.url);
-    }
+    handleTabLoadComplete(tabId, tab.url);
   });
 
   // ============================================================================
-  // Startup Sequence
+  // 5. Startup Sequence
   // ============================================================================
 
-  await restoreConnectionState(connectionStatus);
   await initializeWebSocket();
 
-  try {
-    await registerAdapters();
-    console.log('[OpenTabs] Adapters registered successfully');
-  } catch (err) {
-    console.error('[OpenTabs] Failed to register adapters:', err);
-  }
-
   await setupSidePanel();
-  await setupAlarms(connectionStatus, managers);
+  await setupAlarms(getConnectionStatus(), getManagers());
   await checkAndRefreshStaleTabs();
 
+  // Trigger tab discovery for all service controllers
+  const managers = getManagers();
   await Promise.all(Object.values(managers).map(manager => manager.findTabs()));
 
   await boundUpdateBadge();
   console.log('[OpenTabs] Initialization complete');
 };
 
-// ============================================================================
-// Exports
+// =============================================================================
+// Plugin WebSocket Message Handlers
 //
-// The background script exports `initialize` so that the build system can
-// generate a thin entry point that imports the build-time plugin data and
-// calls initialize() with it.
+// These handle plugin management commands received from the MCP server
+// over the WebSocket connection. The MCP server discovers plugins at
+// startup (and on hot reload) and pushes them to the extension.
+// =============================================================================
+
+/**
+ * Handle a plugin_sync message: the MCP server pushes all discovered plugins.
+ * Reconciles the extension's stored plugins with the server's set.
+ */
+const handlePluginSyncMessage = async (data: Record<string, unknown>): Promise<void> => {
+  const payloads = data.plugins as PluginInstallPayload[] | undefined;
+  if (!Array.isArray(payloads)) {
+    console.error('[OpenTabs] Invalid plugin_sync message: missing plugins array');
+    return;
+  }
+
+  try {
+    const result = await handlePluginSync(payloads);
+
+    // Send confirmation back to MCP server
+    await sendViaWebSocket({
+      type: MessageTypes.PLUGIN_INSTALLED,
+      syncResult: result,
+    });
+
+    // Update UI
+    const connectionStatus = getConnectionStatus();
+    await updateBadge(connectionStatus);
+  } catch (err) {
+    console.error('[OpenTabs] Plugin sync failed:', err);
+  }
+};
+
+/**
+ * Handle a plugin_install message: the MCP server pushes a single plugin.
+ */
+const handlePluginInstallMessage = async (data: Record<string, unknown>): Promise<void> => {
+  const payload = data.plugin as PluginInstallPayload | undefined;
+  if (!payload || typeof payload.name !== 'string') {
+    console.error('[OpenTabs] Invalid plugin_install message: missing plugin payload');
+    return;
+  }
+
+  const result = await handlePluginInstall(payload);
+
+  // Send confirmation back to MCP server
+  await sendViaWebSocket({
+    type: MessageTypes.PLUGIN_INSTALLED,
+    result,
+  });
+
+  // Update UI
+  const connectionStatus = getConnectionStatus();
+  await updateBadge(connectionStatus);
+};
+
+/**
+ * Handle a plugin_uninstall message: the MCP server requests plugin removal.
+ */
+const handlePluginUninstallMessage = async (data: Record<string, unknown>): Promise<void> => {
+  const payload = data.plugin as PluginUninstallPayload | undefined;
+  if (!payload || typeof payload.name !== 'string') {
+    console.error('[OpenTabs] Invalid plugin_uninstall message: missing plugin payload');
+    return;
+  }
+
+  const result = await handlePluginUninstall(payload.name);
+
+  // Send confirmation back to MCP server
+  await sendViaWebSocket({
+    type: MessageTypes.PLUGIN_UNINSTALLED,
+    result,
+  });
+
+  // Update UI
+  const connectionStatus = getConnectionStatus();
+  await updateBadge(connectionStatus);
+};
+
+// =============================================================================
+// Entry Point
 //
-// Example generated entry point:
+// The background script is self-initializing. No external caller needs to
+// invoke initialize() with build-time data — everything is loaded from
+// chrome.storage.local and the MCP server pushes plugin updates over WS.
 //
-//   import { initialize } from '@opentabs/browser-extension';
-//   import { serviceDefinitions, serviceConfigs } from './__generated__/plugin-config.js';
-//   initialize(serviceDefinitions, serviceConfigs);
-//
-// For development/testing, you can call initialize() directly with inline data.
-// ============================================================================
+// The `initialize` export is kept for backward compatibility with the
+// build script's generated entry point. If called with service definitions
+// and configs, they are ignored — the plugin manager loads from storage.
+// =============================================================================
+
+/**
+ * @deprecated Use the self-initializing `start()` flow instead.
+ * Kept for backward compatibility with build-generated entry points.
+ * The parameters are ignored — plugin data comes from storage and WS sync.
+ */
+const initialize = async (): Promise<void> => {
+  await start();
+};
+
+// Auto-start the background script
+start().catch(err => {
+  console.error('[OpenTabs] Background startup failed:', err);
+});
 
 export { initialize };

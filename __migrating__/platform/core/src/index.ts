@@ -53,6 +53,9 @@ export type {
   OpenServerFolderMessage,
   SidePanelOpenedMessage,
   SidePanelClosedMessage,
+  PluginEnableMessage,
+  PluginDisableMessage,
+  PluginListMessage,
   BackgroundMessage,
   StatusUpdateMessage,
   CloseSidePanelMessage,
@@ -70,6 +73,7 @@ export type {
   ServiceConnectionStatus,
   ConnectionStatus,
   ToolPermissions,
+  InstalledPluginStatus,
 } from './messaging.js';
 
 // -----------------------------------------------------------------------------
@@ -80,6 +84,9 @@ export {
   getServiceRegistry,
   setServiceRegistry,
   resetServiceRegistry,
+  addServiceDefinitions,
+  removeServiceDefinitions,
+  onRegistryChange,
   getServiceIds,
   getServiceTypes,
   getServiceUrlPatterns,
@@ -121,3 +128,33 @@ export type {
   McpServerLike,
   RegisteredToolLike,
 } from './plugin-manifest.js';
+
+// -----------------------------------------------------------------------------
+// Plugin Lifecycle — Lifecycle hooks and dynamic storage types
+// -----------------------------------------------------------------------------
+
+export { LIFECYCLE_HOOK_NAMES } from './plugin-lifecycle.js';
+
+export type {
+  PluginLifecycleContext,
+  PluginInstallContext,
+  PluginUninstallContext,
+  PluginEnableContext,
+  PluginDisableContext,
+  PluginSettingsChangeContext,
+  OnInstallHook,
+  OnUninstallHook,
+  OnEnableHook,
+  OnDisableHook,
+  OnSettingsChangeHook,
+  PluginLifecycleHooks,
+  LifecycleHookName,
+  StoredPluginData,
+  StoredPluginManifest,
+  StoredServiceDefinition,
+  StoredServiceConfig,
+  PluginInstallPayload,
+  PluginUninstallPayload,
+  PluginInstallResult,
+  PluginUninstallResult,
+} from './plugin-lifecycle.js';

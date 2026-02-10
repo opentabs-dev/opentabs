@@ -202,7 +202,6 @@ class WebappServiceController implements ServiceManager {
     this.tabId = null;
     this.setConnectionStatus({ connected: false, tabId: undefined, tabUrl: undefined });
     await this.ctx.updateBadge();
-    await this.ctx.saveConnectionState();
   }
 
   handleTabReady(tabId: number, tabUrl: string): void {
@@ -215,7 +214,6 @@ class WebappServiceController implements ServiceManager {
       if (valid && !this.getConnectionStatus().connected) {
         this.setConnectionStatus({ connected: true, tabId, tabUrl });
         this.ctx.updateBadge();
-        this.ctx.saveConnectionState();
       }
     });
   }
@@ -303,7 +301,6 @@ class WebappServiceController implements ServiceManager {
         if (valid) {
           this.setConnectionStatus({ connected: true });
           await this.ctx.updateBadge();
-          this.ctx.saveConnectionState();
           return true;
         }
       }

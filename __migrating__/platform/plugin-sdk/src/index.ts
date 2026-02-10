@@ -60,6 +60,45 @@ export type {
 } from '@opentabs/core';
 
 // -----------------------------------------------------------------------------
+// Lifecycle Hook Types — Re-exported for plugin authors
+//
+// Plugin authors export lifecycle hooks from their tools entry module.
+// These types provide the signatures and context interfaces for each hook.
+//
+// Usage in a plugin's tools/index.ts:
+//
+//   import type { OnInstallHook, OnSettingsChangeHook } from '@opentabs/plugin-sdk';
+//
+//   export const onInstall: OnInstallHook = async (ctx) => {
+//     console.log(`${ctx.pluginName} installed (${ctx.reason})`);
+//   };
+//
+//   export const onSettingsChange: OnSettingsChangeHook = async (ctx) => {
+//     if (ctx.changedKeys.includes('apiEndpoint')) {
+//       // Re-initialize with new endpoint
+//     }
+//   };
+// -----------------------------------------------------------------------------
+
+export type {
+  PluginLifecycleContext,
+  PluginInstallContext,
+  PluginUninstallContext,
+  PluginEnableContext,
+  PluginDisableContext,
+  PluginSettingsChangeContext,
+  OnInstallHook,
+  OnUninstallHook,
+  OnEnableHook,
+  OnDisableHook,
+  OnSettingsChangeHook,
+  PluginLifecycleHooks,
+  LifecycleHookName,
+} from '@opentabs/core';
+
+export { LIFECYCLE_HOOK_NAMES } from '@opentabs/core';
+
+// -----------------------------------------------------------------------------
 // JSON-RPC Types — Re-exported for convenience
 // -----------------------------------------------------------------------------
 

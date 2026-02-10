@@ -6,14 +6,16 @@ import type { JsonRpcRequest, JsonRpcResponse, ServiceConnectionStatus } from '@
 /**
  * Common context needed by service controllers.
  * Passed in to provide dependencies without circular imports.
+ *
+ * Connection state (tab IDs, connected flags, auth session validity) is
+ * never persisted to storage. All connection status is derived at runtime
+ * through live queries: findTabs() → checkSession() → handleTabReady().
  */
 export interface ServiceManagerContext {
   /** Send data via WebSocket */
   sendViaWebSocket: (data: unknown) => Promise<void>;
   /** Update badge/icon status */
   updateBadge: () => Promise<void>;
-  /** Save connection state to storage */
-  saveConnectionState: () => Promise<void>;
 }
 
 /**

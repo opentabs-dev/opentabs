@@ -102,42 +102,136 @@ interface ServiceDefinition {
 type ServiceId = string;
 
 // -----------------------------------------------------------------------------
-// Service Registry — Dynamic, Built at Startup
+// Service Registry — Dynamic, Supports Runtime Mutations
 // -----------------------------------------------------------------------------
 
 /**
  * The live service registry. Starts empty and is populated during platform
  * initialization by merging built-in definitions with plugin definitions.
  *
+ * The registry supports runtime mutations via addServiceDefinitions() and
+ * removeServiceDefinitions() to enable dynamic plugin install/uninstall
+ * without requiring a full extension rebuild or registry reset.
+ *
  * All modules that need service data import this and call the getter.
- * The registry is frozen after initialization to prevent runtime mutation.
  */
-let registry: readonly ServiceDefinition[] = [];
+let registry: ServiceDefinition[] = [];
 
-/** Whether the registry has been frozen (initialization complete). */
-let registryFrozen = false;
+/**
+ * Listeners notified when the registry changes. Used by the browser
+ * extension background script to react to dynamic plugin install/uninstall
+ * (e.g. creating or destroying service controllers, injecting adapters).
+ */
+type RegistryChangeListener = (added: readonly ServiceDefinition[], removed: readonly ServiceDefinition[]) => void;
+
+const registryChangeListeners: RegistryChangeListener[] = [];
+
+/**
+ * Register a listener that fires whenever the service registry is mutated
+ * (via setServiceRegistry, addServiceDefinitions, or removeServiceDefinitions).
+ *
+ * @param listener - Callback receiving arrays of added and removed definitions
+ * @returns An unsubscribe function
+ */
+const onRegistryChange = (listener: RegistryChangeListener): (() => void) => {
+  registryChangeListeners.push(listener);
+  return () => {
+    const idx = registryChangeListeners.indexOf(listener);
+    if (idx >= 0) registryChangeListeners.splice(idx, 1);
+  };
+};
+
+/** Notify all registry change listeners. */
+const notifyRegistryChange = (added: readonly ServiceDefinition[], removed: readonly ServiceDefinition[]): void => {
+  for (const listener of registryChangeListeners) {
+    try {
+      listener(added, removed);
+    } catch (err) {
+      console.error('[OpenTabs] Registry change listener error:', err);
+    }
+  }
+};
 
 /**
  * Get the current service registry. Returns an empty array before
- * initialization. After initialization, returns the frozen registry.
+ * initialization.
  */
 const getServiceRegistry = (): readonly ServiceDefinition[] => registry;
 
 /**
- * Replace the service registry contents. Called once during platform
+ * Replace the service registry contents. Called during platform
  * initialization after all plugins are discovered and validated.
  *
- * Throws if the registry has already been frozen (double-initialization).
+ * Can be called multiple times (e.g. on hot reload). Subsequent calls
+ * replace the registry contents entirely.
  */
 const setServiceRegistry = (definitions: readonly ServiceDefinition[]): void => {
-  if (registryFrozen) {
-    throw new Error('Service registry is frozen. setServiceRegistry() can only be called once during initialization.');
-  }
-  registry = Object.freeze([...definitions]);
-  registryFrozen = true;
+  const previous = registry;
+  registry = [...definitions];
 
   // Recompute all derived lookup tables
   recomputeDerivedConstants();
+
+  // Determine added/removed for listeners
+  const previousTypes = new Set(previous.map(d => d.type));
+  const currentTypes = new Set(registry.map(d => d.type));
+  const added = registry.filter(d => !previousTypes.has(d.type));
+  const removed = previous.filter(d => !currentTypes.has(d.type));
+  if (added.length > 0 || removed.length > 0) {
+    notifyRegistryChange(added, removed);
+  }
+};
+
+/**
+ * Add service definitions to the registry at runtime.
+ *
+ * Used when a plugin is dynamically installed without a full rebuild.
+ * Throws if any definition's type collides with an existing entry.
+ *
+ * @param definitions - Service definitions to add
+ */
+const addServiceDefinitions = (definitions: readonly ServiceDefinition[]): void => {
+  const existingTypes = new Set(registry.map(d => d.type));
+
+  for (const def of definitions) {
+    if (existingTypes.has(def.type)) {
+      throw new Error(
+        `Cannot add service "${def.type}": a service with that type is already registered. ` +
+          'Uninstall the existing plugin first.',
+      );
+    }
+  }
+
+  registry.push(...definitions);
+
+  // Recompute derived lookup tables
+  recomputeDerivedConstants();
+
+  if (definitions.length > 0) {
+    notifyRegistryChange(definitions, []);
+  }
+};
+
+/**
+ * Remove service definitions from the registry at runtime.
+ *
+ * Used when a plugin is dynamically uninstalled. Silently ignores types
+ * that are not in the registry (idempotent).
+ *
+ * @param serviceTypes - The service type strings to remove
+ */
+const removeServiceDefinitions = (serviceTypes: readonly string[]): void => {
+  const toRemove = new Set(serviceTypes);
+  const removed = registry.filter(d => toRemove.has(d.type));
+
+  if (removed.length === 0) return;
+
+  registry = registry.filter(d => !toRemove.has(d.type));
+
+  // Recompute derived lookup tables
+  recomputeDerivedConstants();
+
+  notifyRegistryChange([], removed);
 };
 
 /**
@@ -145,7 +239,7 @@ const setServiceRegistry = (definitions: readonly ServiceDefinition[]): void => 
  */
 const resetServiceRegistry = (): void => {
   registry = [];
-  registryFrozen = false;
+  registryChangeListeners.length = 0;
   recomputeDerivedConstants();
 };
 
@@ -349,6 +443,9 @@ export {
   getServiceRegistry,
   setServiceRegistry,
   resetServiceRegistry,
+  addServiceDefinitions,
+  removeServiceDefinitions,
+  onRegistryChange,
   getServiceIds,
   getServiceTypes,
   getServiceUrlPatterns,

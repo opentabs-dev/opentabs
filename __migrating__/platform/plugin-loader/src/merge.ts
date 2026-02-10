@@ -13,7 +13,7 @@
 
 import { discoverPlugins, determineTrustTier } from './discover.js';
 import { validateOrThrow, checkNameConflicts, checkUrlPatternOverlaps } from './manifest-schema.js';
-import { setServiceRegistry, computeServiceIds } from '@opentabs/core';
+import { setServiceRegistry, computeServiceIds, LIFECYCLE_HOOK_NAMES } from '@opentabs/core';
 import { resolve, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { DiscoveredPlugin, DiscoveryOptions } from './discover.js';
@@ -27,6 +27,7 @@ import type {
   HealthCheckEvaluator,
   WebappServiceConfig,
   HealthCheckConfig,
+  PluginLifecycleHooks,
 } from '@opentabs/core';
 
 // =============================================================================
@@ -195,11 +196,17 @@ const resolveHealthCheckEvaluator = (
 
 /**
  * Dynamically import a plugin's tools module and extract the registerTools
- * function and optional isHealthy evaluator.
+ * function, optional isHealthy evaluator, and any lifecycle hooks.
+ *
+ * Lifecycle hooks are named exports from the same tools entry module:
+ *   onInstall, onUninstall, onEnable, onDisable, onSettingsChange
+ *
+ * All hooks are optional. The loader scans for well-known export names
+ * defined in LIFECYCLE_HOOK_NAMES and collects any that are functions.
  *
  * @param manifest - The validated plugin manifest
  * @param packagePath - Absolute path to the plugin package root
- * @returns The registerTools function and optional isHealthy evaluator
+ * @returns The registerTools function, optional isHealthy evaluator, and lifecycle hooks
  */
 const loadPluginModule = async (
   manifest: PluginManifest,
@@ -207,6 +214,7 @@ const loadPluginModule = async (
 ): Promise<{
   registerTools: ToolRegistrationFn;
   isHealthy?: HealthCheckEvaluator;
+  lifecycleHooks: PluginLifecycleHooks;
 }> => {
   const toolsEntry = manifest.tools.entry;
 
@@ -219,10 +227,8 @@ const loadPluginModule = async (
   const entryUrl = `${pathToFileURL(absoluteEntry).href}?t=${Date.now()}`;
 
   // Dynamic import — the module must export a named `registerTools` function
-  const mod = (await import(entryUrl)) as {
-    registerTools?: ToolRegistrationFn;
-    isHealthy?: HealthCheckEvaluator;
-  };
+  // and may optionally export isHealthy and lifecycle hooks.
+  const mod = (await import(entryUrl)) as Record<string, unknown>;
 
   if (!mod.registerTools || typeof mod.registerTools !== 'function') {
     throw new Error(
@@ -231,9 +237,21 @@ const loadPluginModule = async (
     );
   }
 
+  // Extract lifecycle hooks by scanning for well-known export names.
+  // Only functions are accepted — non-function exports with hook names are
+  // silently ignored (they may be type re-exports or constants).
+  const lifecycleHooks: Record<string, unknown> = {};
+  for (const hookName of LIFECYCLE_HOOK_NAMES) {
+    const exported = mod[hookName];
+    if (typeof exported === 'function') {
+      lifecycleHooks[hookName] = exported;
+    }
+  }
+
   return {
-    registerTools: mod.registerTools,
-    isHealthy: mod.isHealthy && typeof mod.isHealthy === 'function' ? mod.isHealthy : undefined,
+    registerTools: mod.registerTools as ToolRegistrationFn,
+    isHealthy: typeof mod.isHealthy === 'function' ? (mod.isHealthy as HealthCheckEvaluator) : undefined,
+    lifecycleHooks: lifecycleHooks as PluginLifecycleHooks,
   };
 };
 
@@ -264,14 +282,16 @@ const resolvePlugin = async (
   // 1. Trust tier
   const trustTier: PluginTrustTier = determineTrustTier(discovered);
 
-  // 2. Load tools module
+  // 2. Load tools module (registerTools + optional isHealthy + lifecycle hooks)
   let registerTools: ToolRegistrationFn;
   let isHealthy: HealthCheckEvaluator | undefined;
+  let lifecycleHooks: PluginLifecycleHooks = {};
 
   try {
     const loaded = await loadPluginModule(manifest, discovered.packagePath);
     registerTools = loaded.registerTools;
     isHealthy = loaded.isHealthy;
+    lifecycleHooks = loaded.lifecycleHooks;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[OpenTabs] Failed to load tools module for plugin "${manifest.name}": ${message}`);
@@ -288,6 +308,7 @@ const resolvePlugin = async (
     adapterPath,
     registerTools,
     isHealthy,
+    lifecycleHooks,
     trustTier,
   };
 };
