@@ -14,9 +14,10 @@
       "version": "1.0.0",
       "dependencies": {
         "@opentabs/core": "workspace:*",
+        "@opentabs/plugin-loader": "workspace:*",
+        "@opentabs/plugin-slack": "workspace:*",
       },
       "devDependencies": {
-        "@opentabs/plugin-loader": "workspace:*",
         "@types/chrome": "^0.0.318",
         "typescript": "^5.9.3",
       },

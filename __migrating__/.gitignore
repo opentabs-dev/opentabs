@@ -1,0 +1,14 @@
+# Build output
+dist/
+
+# Generated build-time files
+platform/browser-extension/__generated__/
+
+# Node modules (managed by package manager)
+node_modules/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Bun lockfile binary
+bun.lock

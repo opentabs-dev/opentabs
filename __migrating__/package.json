@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "tsc --build",
+    "build:extension": "bun run platform/browser-extension/build.ts",
     "clean": "rimraf platform/*/dist plugins/*/dist",
     "type-check": "tsc --noEmit"
   },

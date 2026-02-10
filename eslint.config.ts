@@ -33,6 +33,8 @@ export default tseslint.config(
       '**/*.test.ts',
       '**/*.spec.ts',
       '__migrating__/platform/create-plugin/template/**',
+      '__migrating__/platform/browser-extension/build.ts',
+      '__migrating__/platform/browser-extension/__generated__/**',
     ],
   },
   {

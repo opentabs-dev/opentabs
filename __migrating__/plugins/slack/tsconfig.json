@@ -2,11 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
   "include": ["src"],
-  "references": [
-    { "path": "../../platform/core" },
-    { "path": "../../platform/plugin-sdk" }
-  ]
+  "references": [{ "path": "../../platform/core" }, { "path": "../../platform/plugin-sdk" }]
 }

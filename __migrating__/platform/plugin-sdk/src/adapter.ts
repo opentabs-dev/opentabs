@@ -163,7 +163,10 @@ const parseAction = (method: string): string | undefined => {
  * @param pluginName - The plugin name, used in error messages.
  * @returns A fetch-compatible function that rejects disallowed domains.
  */
-const createScopedFetch = (allowedDomains: readonly string[], pluginName: string): typeof fetch => {
+const createScopedFetch = (
+  allowedDomains: readonly string[],
+  pluginName: string,
+): ((input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) => {
   const originalFetch = globalThis.fetch;
 
   return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

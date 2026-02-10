@@ -21,9 +21,8 @@ import { registerReactionTools } from './reactions.js';
 import { registerSearchTools } from './search.js';
 import { registerStarTools } from './stars.js';
 import { registerUserTools } from './users.js';
-import { isJsonRpcError, registerErrorPatterns } from '@opentabs/plugin-sdk/server';
+import { registerErrorPatterns } from '@opentabs/plugin-sdk/server';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JsonRpcResponse, HealthCheckEvaluator } from '@opentabs/plugin-sdk';
 
 // ---------------------------------------------------------------------------
 // Tool Registration Function Type
@@ -145,54 +144,14 @@ export const registerTools = (server: McpServer): Map<string, RegisteredTool> =>
 };
 
 // ---------------------------------------------------------------------------
-// isHealthy — Optional Export
+// isHealthy — Re-exported from health-check.ts
 //
-// Custom health check evaluator for Slack. The platform detects this export
-// during plugin loading and wires it into the WebappServiceController's
-// health check pipeline.
+// The health check evaluator lives in a separate module (health-check.ts)
+// with minimal dependencies (@opentabs/core only). This allows the browser
+// extension build to import it via the ./health-check export path without
+// pulling in @modelcontextprotocol/sdk or other server-side dependencies.
 //
-// Slack's Web API has a unique behavior: API errors are returned as
-// successful HTTP responses (and therefore successful JSON-RPC responses)
-// with { ok: false, error: "..." } in the result body. The default health
-// check evaluator (which just checks !isJsonRpcError) would incorrectly
-// treat an expired session as healthy. This evaluator checks the inner
-// ok field to catch authentication failures.
+// The MCP server path loads isHealthy through this barrel export.
 // ---------------------------------------------------------------------------
 
-/**
- * Evaluate whether a Slack health check response indicates a healthy session.
- *
- * The health check calls `auth.test` via the adapter. A healthy response has:
- * - No JSON-RPC error
- * - result.ok === true
- *
- * An unhealthy response has result.ok === false with an error string like
- * "invalid_auth", "not_authed", or "token_revoked".
- *
- * @param response - The JSON-RPC response from the health check request
- * @param authErrorPatterns - Strings that indicate authentication failure
- * @returns true if the session is healthy, false otherwise
- */
-export const isHealthy: HealthCheckEvaluator = (
-  response: JsonRpcResponse,
-  authErrorPatterns: readonly string[],
-): boolean => {
-  // JSON-RPC level error — adapter itself failed (tab closed, etc.)
-  if (isJsonRpcError(response)) return false;
-
-  // Slack API level error — successful JSON-RPC but Slack returned an error
-  const data = response.result as { ok?: boolean; error?: string } | undefined;
-
-  if (data && data.ok === false) {
-    const error = data.error ?? '';
-
-    // Check if this is specifically an auth error (for logging purposes)
-    if (authErrorPatterns.some(pattern => error.includes(pattern))) {
-      console.log(`[OpenTabs] Slack session expired: ${error}`);
-    }
-
-    return false;
-  }
-
-  return true;
-};
+export { isHealthy } from '../health-check.js';

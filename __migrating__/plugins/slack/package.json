@@ -13,6 +13,10 @@
     "./adapter": {
       "types": "./dist/adapter.d.ts",
       "import": "./dist/adapter.js"
+    },
+    "./health-check": {
+      "types": "./dist/health-check.d.ts",
+      "import": "./dist/health-check.js"
     }
   },
   "files": [

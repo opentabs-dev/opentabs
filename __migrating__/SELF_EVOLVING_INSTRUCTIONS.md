@@ -33,28 +33,19 @@ All 12 background modules + offscreen document ported from `chrome-extension/src
 
 **Remaining for full build**: Vite build integration and MV3 manifest generation from the dynamic plugin registry. These are build-system tasks, not runtime porting.
 
-### Phase 4: Make the Extension Buildable and Loadable (CURRENT PRIORITY)
+### Phase 4: Make the Extension Buildable and Loadable — ✅ DONE (Session 9)
 
-The background modules are ported, but the extension can't be built or loaded yet. This phase bridges the gap:
+`bun run build:extension` produces a loadable `dist/` folder. Uses `Bun.build()` instead of Vite — simpler, no extra dependencies. Build script discovers plugins via `@opentabs/plugin-loader`, generates background entry point with serialized ServiceDefinition[] and WebappServiceConfig (including isHealthy imports from plugin `./health-check` export paths), bundles background (ESM), adapter IIFEs, content stub IIFE (with pre-populated service registry), offscreen document, generates manifest.json, and copies static assets. See Session 9 changelog.
 
-1. **Build script that generates plugin data** — A script that runs `loadPlugins()` from `@opentabs/plugin-loader` at build time and produces a generated entry point that calls `initialize(serviceDefinitions, serviceConfigs)`. See the settled decision on "Extension background uses build-time plugin data."
-2. **Vite config for the extension** — Adapt the existing `chrome-extension/vite.config.mts` to the new package structure. Must compile background, offscreen, and content scripts. Must build plugin adapter IIFEs (see `chrome-extension/build-adapters.mts` for the original approach).
-3. **MV3 manifest generation** — The original `chrome-extension/manifest.ts` generates `manifest.json` from the static service registry. The new version must generate it from the dynamic plugin registry (populated at build time). Key sections: `content_scripts` (adapter injection), `web_accessible_resources` (adapter IIFE files), `host_permissions` (from plugin manifests), `permissions`.
-4. **Extension loads in Chrome** — `bun run build` produces a `dist/` folder that can be loaded as an unpacked extension in `chrome://extensions/`.
+### Phase 5: End-to-End Verification (CURRENT PRIORITY)
 
-**Success criteria**: Run `bun run build`, load the `dist/` folder in Chrome, extension connects to the MCP server via WebSocket.
-
-Reference the original build system: `chrome-extension/vite.config.mts`, `chrome-extension/manifest.ts`, `chrome-extension/build-adapters.mts`.
-
-### Phase 5: End-to-End Verification
-
-Once Phase 4 is done, verify the full stack works. What you can verify from CLI:
+Verify the full stack works. What you can verify from CLI:
 1. `bun --hot dist/index.js` starts without errors (MCP server)
 2. `curl http://127.0.0.1:3000/health` returns healthy status with plugin tools listed
 3. Extension builds without errors
 
 What requires manual verification (note this for the human):
-4. Load the extension in Chrome, open Slack, call `slack_send_message` through an MCP client
+4. Load the migrated extension (`__migrating__/dist/`) in Chrome, open Slack, call `slack_send_message` through an MCP client
 
 If anything fails in steps 1-3, fix it. Those failures reveal real issues that theorizing never would.
 
@@ -77,6 +68,12 @@ These architectural questions have been thoroughly researched and decided. Do no
 - **Each plugin ships its own MAIN world adapter script.** We evaluated three alternatives (fully declarative adapters, a single universal bundled script, background-mediated fetch) and all are unviable. The core reasons: (1) httpOnly cookies require same-origin `fetch()` from within the page — moving fetch to the background breaks `SameSite` cookie enforcement, (2) services like Snowflake call page-internal JS functions (`window.numeracy.nufetch()`) that can't be expressed declaratively, (3) bundling all plugin adapters into one universal script loses per-plugin URL scoping, per-plugin hot reload, and per-plugin isolation. The real security boundary is Chrome's content script URL matching (a Slack plugin can't run on a Jira page) plus trust tiers for plugin review. This is the same trust model as npm packages, VS Code extensions, and Chrome extensions themselves.
 
 - **Extension background uses build-time plugin data, not runtime discovery.** The MCP server discovers plugins at runtime (node_modules scan). The Chrome extension cannot — it runs in a service worker without filesystem access. The solution: a build script runs `loadPlugins()` from `@opentabs/plugin-loader` at build time, producing `ServiceDefinition[]` and `Record<string, WebappServiceConfig>`. A generated entry point imports this data and calls `initialize(serviceDefinitions, serviceConfigs)` from `@opentabs/browser-extension`. This means the dynamic registry (`setServiceRegistry()`) is populated once at startup from static build-time data, and all dynamic getter functions (`getServiceIds()`, `getServiceUrlPatterns()`, etc.) work correctly from that point forward.
+
+- **Plugins export `isHealthy` from a separate `./health-check` entry point.** The plugin's main tools entry (`tools/index.ts`) imports `@modelcontextprotocol/sdk`, `zod`, and other server-side dependencies via side effects (e.g. `registerErrorPatterns()`). Importing `isHealthy` from the main entry pulls all of those into the extension background bundle. The solution: each plugin that has a custom health check evaluator exports `isHealthy` from a lightweight `health-check.ts` module that depends only on `@opentabs/core`. The plugin's `package.json` declares a `./health-check` export path. The build script detects this and generates an import from `@opentabs/plugin-<name>/health-check`. The main `tools/index.ts` re-exports `isHealthy` from `health-check.ts` so the MCP server path is unchanged.
+
+- **Extension build uses `Bun.build()`, not Vite.** The original codebase uses Vite with a complex multi-package Turborepo setup. The migrating workspace is a standalone Bun workspace without Vite, HMR plugins, or the `@extension/*` package aliases. Rather than porting the entire Vite toolchain, a single `build.ts` script uses `Bun.build()` directly — it handles ESM bundling (background), IIFE bundling (adapters, content stub), and file generation (manifest.json, entry points) in ~400 lines with zero extra dependencies. This is sufficient for the plugin architecture proof-of-concept. Vite can be reintroduced later if the build needs dev-mode HMR or more sophisticated transforms.
+
+- **Content stub IIFE needs its own pre-populated service registry.** The content stub is bundled as a separate IIFE with its own copy of `@opentabs/core`. The dynamic registry in that copy starts empty — `setServiceRegistry()` is only called in the background script's copy. The build script generates a content stub wrapper that calls `setServiceRegistry(serviceDefinitions)` with the build-time data before importing the stub logic, so `getServiceTypeFromHostname()` works correctly.
 
 ## Rules
 

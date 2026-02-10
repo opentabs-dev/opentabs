@@ -372,12 +372,11 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns, runtime permission enforcement)
 - [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload, URL pattern overlap detection, JSON Schema generation)
 - [x] `@opentabs/mcp-server` — Complete (plugin-init, tools/index, browser tools, extension tools, capture tools, server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts, types.ts, file-store.ts, index.ts)
-- [x] `@opentabs/browser-extension` — Complete (background script entry, adapter manager, mcp-router, browser controller, service controllers, service managers, offscreen manager + document, icon manager, state persistence, alarm handlers, side panel manager, stale tab manager, capture handler)
-- [ ] `@opentabs/browser-extension` — Remaining (manifest generation from dynamic registry, Vite build integration)
+- [x] `@opentabs/browser-extension` — Complete (background script entry, adapter manager, mcp-router, browser controller, service controllers, service managers, offscreen manager + document, icon manager, state persistence, alarm handlers, side panel manager, stale tab manager, capture handler, content stub, build script, manifest generation)
 - [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, tsconfig.build.json, comprehensive README with test-utils examples)
 - [x] `@opentabs/plugin-test-utils` — Complete (mock request provider with stub builders and call history, test harness with mock MCP server and parsed results, assertion helpers)
-- [x] `@opentabs/plugin-slack` — Complete (adapter, messages, search, channels, conversations, users, files, pins, stars, reactions, types, isHealthy, error patterns)
-- [ ] Build system integration (Vite adapter builds, manifest generation)
+- [x] `@opentabs/plugin-slack` — Complete (adapter, messages, search, channels, conversations, users, files, pins, stars, reactions, types, isHealthy, error patterns, health-check export path)
+- [x] Build system integration — Complete (Bun-based build script: plugin discovery, background entry generation, adapter IIFE bundling, content stub bundling, offscreen bundling, manifest.json generation, static asset copy)
 - [ ] Options page auto-generation from plugin manifests
 - [ ] CLI tooling (`opentabs plugins add/remove/list`)
 - [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired, verify tool for plugin readiness checks, extension-side capture handler with dynamic relay injection + background integration guide)
@@ -387,6 +386,20 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 9 (2025-07-18)
+
+- **Implemented**: Extension build script (`platform/browser-extension/build.ts`) — Single Bun script that runs the full build pipeline: discovers plugins via `@opentabs/plugin-loader`, generates a background entry point module with serialized `ServiceDefinition[]` and `WebappServiceConfig` data (including wired `isHealthy` imports), bundles background script (ESM), plugin adapter IIFEs, content stub IIFE, and offscreen document using `Bun.build()`, generates `manifest.json` from the dynamic plugin registry, and copies static assets (icons, `_locales`). Output: `dist/` folder loadable as an unpacked Chrome extension.
+- **Implemented**: Content stub (`platform/browser-extension/src/content-stub/index.ts`) — Ported from `pages/content/src/stub/index.ts`, replacing `@extension/shared` imports with `@opentabs/core`. The build script generates a wrapper entry that pre-populates the service registry via `setServiceRegistry()` before the stub runs, so `getServiceTypeFromHostname()` works in the content stub's isolated IIFE copy of `@opentabs/core`.
+- **Implemented**: Plugin health-check export path — Created `plugins/slack/src/health-check.ts` with a lightweight `isHealthy` export that depends only on `@opentabs/core` (no MCP server dependencies). `tools/index.ts` re-exports `isHealthy` from this module. Added `./health-check` export path to the Slack plugin's `package.json`. This allows the extension build to import `isHealthy` without pulling in `@modelcontextprotocol/sdk`, `zod`, or other server-side dependencies.
+- **Implemented**: Manifest generation from dynamic plugin registry — The build script generates `manifest.json` with `host_permissions`, `content_scripts`, and `web_accessible_resources` derived from discovered plugin manifests, matching the pattern of the original `chrome-extension/manifest.ts`.
+- **Fixed**: `@opentabs/plugin-sdk` tsconfig missing DOM lib — `adapter.ts` uses `window`, `RequestInfo`, `globalThis.location` which require DOM types. Added `"lib": ["ES2022", "DOM", "DOM.Iterable"]` to `tsconfig.json`.
+- **Fixed**: `@opentabs/plugin-sdk` `createScopedFetch` return type — Changed from `typeof fetch` (which includes Bun's `preconnect` method) to explicit `(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>` to avoid bun-types conflict.
+- **Fixed**: `@opentabs/plugin-slack` tsconfig missing DOM lib — `adapter.ts` uses `window.location.origin` which requires DOM types.
+- **Added**: `build:extension` script to root workspace `package.json` — Convenience alias for `bun run platform/browser-extension/build.ts`.
+- **Added**: `.gitignore` for `__migrating__/` — Ignores `dist/`, `__generated__/`, `node_modules/`, `*.tsbuildinfo`.
+- **Verified**: Full extension build pipeline passes: `bun run build:extension` discovers the Slack plugin, generates all entry points, bundles 4 scripts (background 42KB, content stub 6KB, adapter 5.5KB, offscreen 4.5KB), generates correct `manifest.json` with Slack URL patterns, and copies all static assets.
+- **Status**: Phase 4 (Make Extension Buildable and Loadable) is **complete**. The build script produces a loadable `dist/` folder. Phase 5 (E2E verification — manual Chrome loading, WebSocket connection, tool invocation) requires human interaction.
 
 ### Session 8 (2026-02-10)
 
