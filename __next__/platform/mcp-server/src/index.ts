@@ -54,3 +54,4 @@ startServer().catch((err: unknown) => {
 export { parseConfig, type ServerConfig } from './config.js';
 export { startHttpServer, getStreamSessionCount, getSseSessionCount } from './http-server.js';
 export { createMcpServer, SERVER_NAME, SERVER_VERSION } from './server.js';
+export { WebSocketRelay, relay, type ExtensionStatus } from './websocket-relay.js';

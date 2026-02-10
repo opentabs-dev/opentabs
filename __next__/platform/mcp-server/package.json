@@ -15,8 +15,12 @@
     "clean": "rimraf dist"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@opentabs/core": "workspace:*",
     "@opentabs/plugin-sdk": "workspace:*",
-    "@modelcontextprotocol/sdk": "^1.26.0"
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1"
   }
 }
