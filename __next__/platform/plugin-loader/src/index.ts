@@ -26,3 +26,12 @@ export {
   type DiscoverySource,
   type OpenTabsProjectConfig,
 } from './discover.js';
+
+export {
+  loadPlugins,
+  manifestToServiceDefinition,
+  manifestToServiceConfigs,
+  type LoadPluginsResult,
+  type PluginFailure,
+  type PluginToolRegistration,
+} from './merge.js';
