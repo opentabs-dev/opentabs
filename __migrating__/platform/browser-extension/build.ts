@@ -326,9 +326,12 @@ console.log('[Build] Bundling offscreen document...');
 
 const offscreenEntry = resolve(EXTENSION_SRC_DIR, 'offscreen', 'offscreen.ts');
 
+const offscreenOutDir = resolve(OUT_DIR, 'offscreen');
+mkdirSync(offscreenOutDir, { recursive: true });
+
 const offscreenResult = await Bun.build({
   entrypoints: [offscreenEntry],
-  outdir: OUT_DIR,
+  outdir: offscreenOutDir,
   target: 'browser',
   format: 'esm',
   naming: 'offscreen.js',
@@ -350,7 +353,7 @@ if (!offscreenResult.success) {
 
 // Copy offscreen.html
 const offscreenHtmlSrc = resolve(EXTENSION_SRC_DIR, 'offscreen', 'offscreen.html');
-cpSync(offscreenHtmlSrc, resolve(OUT_DIR, 'offscreen.html'));
+cpSync(offscreenHtmlSrc, resolve(offscreenOutDir, 'offscreen.html'));
 console.log('[Build] Offscreen document bundled');
 
 // ---------------------------------------------------------------------------

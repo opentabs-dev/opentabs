@@ -575,10 +575,13 @@ export const registerCaptureTools = (server: McpServer): Map<string, RegisteredT
           totalApiRequests: catalog.totalRequests,
           uniqueEndpoints: catalog.uniqueEndpoints,
           authPatterns: catalog.authPatterns.map(p => `${p.type}: ${p.description}`),
-          topEndpoints: catalog.endpoints
+          topEndpoints: [...catalog.endpoints]
             .sort((a, b) => b.sampleCount - a.sampleCount)
             .slice(0, 20)
-            .map(e => `${e.method} ${e.path} (${e.sampleCount}x, status: ${e.statusCodes.join('/')})`),
+            .map(
+              (e: (typeof catalog.endpoints)[number]) =>
+                `${e.method} ${e.path} (${e.sampleCount}x, status: ${e.statusCodes.join('/')})`,
+            ),
         },
       });
     },
@@ -758,7 +761,17 @@ export const registerCaptureTools = (server: McpServer): Map<string, RegisteredT
       try {
         // Dynamically import the scaffolder to avoid a hard dependency
         // that would fail if create-opentabs-plugin isn't installed.
-        const { scaffoldPlugin } = await import('create-opentabs-plugin');
+        // @ts-expect-error — create-opentabs-plugin is an optional peer dependency
+        const { scaffoldPlugin } = (await import('create-opentabs-plugin')) as {
+          scaffoldPlugin: (opts: {
+            pluginName: string;
+            domain: string;
+            displayName?: string;
+            description?: string;
+            author?: string;
+            outputDir?: string;
+          }) => Promise<{ outputDir: string; pluginName: string; files: string[]; variables: Record<string, string> }>;
+        };
 
         const result = await scaffoldPlugin({
           pluginName,

@@ -377,6 +377,7 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [x] `@opentabs/plugin-test-utils` — Complete (mock request provider with stub builders and call history, test harness with mock MCP server and parsed results, assertion helpers)
 - [x] `@opentabs/plugin-slack` — Complete (adapter, messages, search, channels, conversations, users, files, pins, stars, reactions, types, isHealthy, error patterns, health-check export path)
 - [x] Build system integration — Complete (Bun-based build script: plugin discovery, background entry generation, adapter IIFE bundling, content stub bundling, offscreen bundling, manifest.json generation, static asset copy)
+- [x] End-to-end verification — Complete (MCP server starts, discovers plugins, registers 58 tools; extension builds, loads in Chrome, connects via WebSocket; Slack tools return real data through full chain: MCP client → HTTP → MCP server → WebSocket → extension background → MAIN world adapter → Slack API)
 - [ ] Options page auto-generation from plugin manifests
 - [ ] CLI tooling (`opentabs plugins add/remove/list`)
 - [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired, verify tool for plugin readiness checks, extension-side capture handler with dynamic relay injection + background integration guide)
@@ -386,6 +387,14 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 10 (2025-02-09)
+
+- **Fixed**: Root `tsconfig.json` missing — `tsc --build` failed because only `tsconfig.base.json` existed. Created root `tsconfig.json` with project references to all 8 package `tsconfig.build.json` files.
+- **Fixed**: Type errors in `@opentabs/mcp-server` — (1) `readonly` array `.sort()` in capture tools replaced with `[...array].sort()`, (2) `create-opentabs-plugin` dynamic import typed with `@ts-expect-error` + inline type assertion since the module is an optional peer dependency, (3) `ToolRegistrationFn` casts in `tools/index.ts` changed from `as ToolRegistrationFn` to `as unknown as ToolRegistrationFn` to bridge the `McpServer` vs `McpServerLike` type gap.
+- **Fixed**: Offscreen document path mismatch — Build script output offscreen files to `dist/offscreen.html` (root), but `offscreen-manager.ts` references `offscreen/offscreen.html`. The extension could never create the offscreen document, so no WebSocket connection was established. Fixed `build.ts` to output into `dist/offscreen/` subdirectory, matching the original extension's layout.
+- **Verified**: Full end-to-end stack operational. MCP server discovers Slack plugin (58 tools). Extension loads in Chrome, connects via WebSocket. `slack_list_channels` returns real channel data (#general, #random, #ucsc). `slack_get_my_profile` returns authenticated user info. `browser_list_tabs` returns live tab data. All data flows through the complete chain: MCP client → Streamable HTTP → MCP server → WebSocket → Chrome extension background → offscreen document → MAIN world adapter → Slack API → response back.
+- **Status**: Phase 5 (End-to-End Verification) is **complete**. The migrated plugin-based architecture is fully functional. Remaining work: options page auto-generation, CLI tooling, capture handler wiring, plugin registry website.
 
 ### Session 9 (2025-07-18)
 

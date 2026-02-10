@@ -45,9 +45,9 @@ import type { ToolRegistrationFn } from '@opentabs/core';
 // =============================================================================
 
 const PLATFORM_REGISTRATIONS: ToolRegistrationFn[] = [
-  registerBrowserTabsTools as ToolRegistrationFn,
-  registerExtensionReloadTools as ToolRegistrationFn,
-  registerCaptureTools as ToolRegistrationFn,
+  registerBrowserTabsTools as unknown as ToolRegistrationFn,
+  registerExtensionReloadTools as unknown as ToolRegistrationFn,
+  registerCaptureTools as unknown as ToolRegistrationFn,
 ];
 
 // =============================================================================

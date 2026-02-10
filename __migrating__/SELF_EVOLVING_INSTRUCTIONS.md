@@ -37,21 +37,13 @@ All 12 background modules + offscreen document ported from `chrome-extension/src
 
 `bun run build:extension` produces a loadable `dist/` folder. Uses `Bun.build()` instead of Vite — simpler, no extra dependencies. Build script discovers plugins via `@opentabs/plugin-loader`, generates background entry point with serialized ServiceDefinition[] and WebappServiceConfig (including isHealthy imports from plugin `./health-check` export paths), bundles background (ESM), adapter IIFEs, content stub IIFE (with pre-populated service registry), offscreen document, generates manifest.json, and copies static assets. See Session 9 changelog.
 
-### Phase 5: End-to-End Verification (CURRENT PRIORITY)
+### Phase 5: End-to-End Verification — ✅ DONE (Session 10)
 
-Verify the full stack works. What you can verify from CLI:
-1. `bun --hot dist/index.js` starts without errors (MCP server)
-2. `curl http://127.0.0.1:3000/health` returns healthy status with plugin tools listed
-3. Extension builds without errors
+Full stack verified. TypeScript builds clean (root `tsconfig.json` with project references was missing — created). Extension builds via `bun run build:extension`. MCP server starts, discovers Slack plugin, registers 58 tools. Extension loads in Chrome, connects via WebSocket. Slack tools (`slack_list_channels`, `slack_get_my_profile`) return real data. Browser tools (`browser_list_tabs`) return live tab data. Fixed: offscreen document path mismatch (`dist/offscreen.html` vs expected `dist/offscreen/offscreen.html`) that prevented WebSocket connection.
 
-What requires manual verification (note this for the human):
-4. Load the migrated extension (`__migrating__/dist/`) in Chrome, open Slack, call `slack_send_message` through an MCP client
+### Phase 6: Design Review Through Usage (CURRENT PRIORITY)
 
-If anything fails in steps 1-3, fix it. Those failures reveal real issues that theorizing never would.
-
-### Phase 6: Design Review Through Usage
-
-Only after the system is running end-to-end, review the design with fresh eyes:
+The system is running end-to-end. Review the design with fresh eyes:
 
 - Did `sendServiceRequest()` work smoothly, or was the API awkward?
 - Did the plugin manifest have all the fields the runtime actually needed?
@@ -73,7 +65,9 @@ These architectural questions have been thoroughly researched and decided. Do no
 
 - **Extension build uses `Bun.build()`, not Vite.** The original codebase uses Vite with a complex multi-package Turborepo setup. The migrating workspace is a standalone Bun workspace without Vite, HMR plugins, or the `@extension/*` package aliases. Rather than porting the entire Vite toolchain, a single `build.ts` script uses `Bun.build()` directly — it handles ESM bundling (background), IIFE bundling (adapters, content stub), and file generation (manifest.json, entry points) in ~400 lines with zero extra dependencies. This is sufficient for the plugin architecture proof-of-concept. Vite can be reintroduced later if the build needs dev-mode HMR or more sophisticated transforms.
 
-- **Content stub IIFE needs its own pre-populated service registry.** The content stub is bundled as a separate IIFE with its own copy of `@opentabs/core`. The dynamic registry in that copy starts empty — `setServiceRegistry()` is only called in the background script's copy. The build script generates a content stub wrapper that calls `setServiceRegistry(serviceDefinitions)` with the build-time data before importing the stub logic, so `getServiceTypeFromHostname()` works correctly.
+- **Content stub IIFE needs its own pre-populated service registry.** The content stub is bundled as a separate IIFE with its own copy of `@opentabs/core`. The dynamic registry in that copy starts empty — `setServiceRegistry()` is only called in the background script's copy. The build script generates a content stub wrapper that calls `setServiceRegistry(serviceDefinitions)` with the build-time data before importing the stub logic, so `getServiceTypeFromHostname()` works correctly in the content stub's isolated IIFE copy of `@opentabs/core`.
+
+- **Build output paths must match runtime path constants.** The background script references resource paths like `offscreen/offscreen.html` and `side-panel/index.html` as string constants (used in `chrome.offscreen.createDocument()`, `chrome.sidePanel.setOptions()`, etc.). The build script must output these files into matching subdirectory structures, not flat at the `dist/` root. Session 10 discovered this when the offscreen document was built to `dist/offscreen.html` but `offscreen-manager.ts` expected `offscreen/offscreen.html` — the extension silently failed to create the offscreen document, so no WebSocket connection was ever established. When adding new extension resources, always verify the build output path matches the runtime constant.
 
 ## Rules
 
