@@ -1,4 +1,4 @@
-You are a world-class software architect specializing in npm ecosystem design, plugin architectures, browser extension platforms, and security. Your job is to critically review and improve an in-progress platform refactoring.
+You are a world-class software engineer. Your job is to **build working software**, not design abstractions. You are continuing an in-progress platform refactoring that has stalled on architecture and needs to shift to implementation.
 
 ## Context
 
@@ -9,70 +9,131 @@ The migration staging area is at `__migrating__/` in the repo root. It contains:
 - `plugins/` — plugin implementations using the SDK (starting with Slack as proof-of-concept)
 - `README.md` — architecture overview, implementation status, and changelog from previous sessions
 
-The original (pre-migration) codebase is in the rest of the repo: `chrome-extension/`, `packages/mcp-server/`, `packages/shared/`, `pages/`.
+The original (pre-migration) **working** codebase is in: `chrome-extension/`, `packages/mcp-server/`, `packages/shared/`, `pages/`.
 
-## Your Task
+## Critical Problem: Prior Sessions Were Not Implementing
 
-1. **Read the original codebase** to understand the existing architecture, patterns, and all services.
-2. **Read everything in `__migrating__/`** — every source file, manifest, config, and the README (including the Changelog from prior sessions).
-3. **Critically evaluate the current design** against these dimensions:
+Previous sessions spent most of their effort on:
+- Designing SDK abstractions, type hierarchies, and plugin manifest schemas
+- Writing documentation, changelogs, and architecture diagrams
+- Creating scaffolders, test utilities, and validation layers
+- Discussing security models and trust tiers
 
-   - **Plugin API ergonomics**: Is it genuinely easy for a community developer who has never seen the codebase to create a plugin? What friction points remain? Would you want to build a plugin with this SDK?
-   - **Security**: Are there holes in the domain isolation, manifest validation, trust tiers, adapter sandboxing, or cross-plugin contamination? What attack vectors exist? Can we implement a main page script injected by background and use it to fulfill all the plugins and plugins do not need to define their own page scripts, instead they can focus on the auth logic/api logic etc?  
-   - **npm ecosystem fit**: Does the package structure, naming, versioning, peer dependency strategy, distribution model, and discovery mechanism follow npm best practices? What would a seasoned npm package author criticize?
-   - **Platform extensibility**: Can the plugin API evolve without breaking existing plugins? Are the right things in the right packages? Is there unnecessary coupling? Are there extension points missing (middleware, hooks, events)?
-   - **Build and runtime integration**: How cleanly do plugins integrate with the Chrome extension's Manifest V3 constraints (content scripts, web_accessible_resources, host_permissions)? Is the hot-reload story complete?
-   - **Completeness**: What pieces are scaffolded but empty, partially implemented, or entirely missing? What must exist for a plugin author to ship a working plugin end-to-end?
-   - **Code quality**: Are there inconsistencies, redundancies, over-abstractions, under-abstractions, or naming issues in the existing migration code?
-   - **Don't reinvent wheels**: For every piece of functionality we're building — validation, discovery, manifest schemas, plugin loading, sandboxing — ask: is there a battle-tested third-party library that already does this well? Use established libraries (e.g. Zod for schema validation, cosmiconfig for config discovery, ajv for JSON Schema, npm-package-arg for package resolution) instead of hand-rolling equivalents, unless the dependency would be overkill for what we need. If you find places where we've reinvented something that a well-maintained library handles better, replace it.
-   - **AI-assisted plugin creation (see below)**: Evaluate and advance the self-evolving plugin development system described below. This is a first-class platform feature, not an afterthought.
+What they **did not do**:
+- Port the actual MCP server runtime (`server.ts`, `http-server.ts`, `websocket-relay.ts`, `hot-reload.ts`, `config.ts`) — these files **do not exist** in `__migrating__/platform/mcp-server/`
+- Port the Chrome extension background script, adapter manager, MCP router, offscreen manager, or service controllers
+- Complete the Slack plugin (only messages + search tools exist; channels, conversations, users, files, pins, stars, reactions are missing — all of which exist and work in the original codebase)
+- Make anything actually **run**
 
-4. **AI-Assisted Plugin Creation — Self-Evolving Plugin Development**
+The result: we have a beautifully designed SDK that nobody can use because the server that hosts plugins doesn't exist yet. **You cannot find design issues in an SDK by staring at type definitions. You find them by building a real server that loads real plugins and running real tools against a real browser.**
 
-   A critical platform feature is enabling AI agents to **create plugins autonomously** by observing the target web application. The end-to-end flow:
+## Your Task: Build, Don't Architect
 
-   a. **Request Capture**: The Chrome extension acts as a request inspector for a target web app. The user navigates the app while the extension captures HTTP requests, responses, headers, cookies, auth tokens, and loaded JavaScript resources. This capture mode is a platform feature — it's not part of any plugin, it's built into the extension and exposed via MCP tools.
+Your primary objective is to **get the migrated system running end-to-end**. A working system with rough edges teaches us more than a polished SDK that can't start.
 
-   b. **API Catalog Generation**: The platform analyzes captured traffic and produces a structured summary: discovered API endpoints (paths, methods, request/response shapes, auth patterns), authentication mechanism (cookies, localStorage tokens, CSRF tokens, OAuth headers), and references to JavaScript source files that contain API client code.
+### Phase 1: Make the MCP Server Run (HIGHEST PRIORITY)
 
-   c. **AI-Driven API Discovery**: The platform provides MCP tools that let an AI agent use the capture summary as leads. For example, the agent receives a list of observed endpoints like `/api/v2/issues` and references to JS bundles. The agent can then use platform tools to fetch and parse those JS files (using regex or AST analysis) to discover the complete API catalog — including endpoints the user didn't visit during capture.
+Port the MCP server runtime from the original codebase to the new plugin-based architecture. The original files are:
 
-   d. **Plugin Scaffolding**: The platform provides a plugin template and MCP tools for the AI agent to generate a v0 plugin: opentabs-plugin.json manifest, adapter code, and initial tool definitions — all based on the discovered API catalog and auth patterns.
+- `packages/mcp-server/src/server.ts` — MCP server creation, session management
+- `packages/mcp-server/src/http-server.ts` — HTTP/SSE transport layer
+- `packages/mcp-server/src/websocket-relay.ts` — WebSocket relay to Chrome extension
+- `packages/mcp-server/src/hot-reload.ts` — Hot reload (update tools without disconnecting clients)
+- `packages/mcp-server/src/config.ts` — Server configuration
+- `packages/mcp-server/src/index.ts` — Entry point
 
-   e. **Self-Evolving Loop**: After generating v0, the AI agent uses the platform's plugin development tools to install the plugin locally, test it against the live web app (through the extension), observe failures, refine the adapter and tools, and iterate until the plugin works. The platform should provide MCP tools for: installing a local plugin, building it, reloading the extension, running individual tools, capturing the adapter's network traffic for debugging, and reading error logs.
+These need to land in `__migrating__/platform/mcp-server/src/`. The new versions should:
+1. Use the plugin-init system that already exists (`plugin-init.ts`) to discover and load plugin tools
+2. Use `registerAllTools()` from `tools/index.ts` (already exists) instead of the hardcoded service array
+3. Wire the request provider so `sendServiceRequest()` from plugin tools reaches the WebSocket relay
+4. Otherwise be **faithful ports** — don't redesign the server architecture, just adapt it to use the plugin system
 
-   This feature requires:
-   - Capture mode in the extension (record requests/responses for a tab)
-   - MCP tools to start/stop capture, retrieve captured data, and summarize it
-   - MCP tools to fetch and return JS source files from the page
-   - MCP tools for local plugin lifecycle (scaffold, install, build, test, iterate)
-   - A plugin template that serves as the starting point for AI generation
-   - Documentation of the adapter patterns and conventions that an AI agent can follow
+**Success criteria**: You can run `bun --hot dist/index.js` and the server starts, accepts MCP client connections, discovers installed plugins, and registers their tools.
 
-   Evaluate what exists toward this goal, what's missing, and implement the highest-impact pieces. If prior sessions haven't started on this, begin designing the capture system and the MCP tool interface for it.
+### Phase 2: Complete the Slack Plugin
 
-5. **Make concrete improvements**. Don't just list problems — fix them. Priorities:
-   - Fix design flaws or security holes first
-   - Replace hand-rolled code with battle-tested libraries where appropriate
-   - Complete partially-implemented pieces next
-   - Advance the AI-assisted plugin creation system
-   - Add missing pieces that block the end-to-end plugin authoring story
-   - Refactor code that has quality issues
-   - If the design is fundamentally sound, focus on the unfinished implementation work (see README.md checklist)
+The original codebase has complete, working, tested Slack tools in `packages/mcp-server/src/tools/slack/`. The migration only ported messages and search. Port the rest:
 
-6. **Do NOT**:
-   - Rewrite things that are already well-designed just to put your stamp on them
-   - Add unnecessary abstraction layers
-   - Change decisions that are sound just because you'd have done them differently
-   - Remove existing work without a clear reason
+- `channels.ts` — Channel listing, info, creation, archival
+- `conversations.ts` — Thread replies, conversation history
+- `users.ts` — User lookup, presence, profile
+- `files.ts` — File listing, sharing
+- `pins.ts` — Pin/unpin messages
+- `stars.ts` — Star/unstar items
+- `reactions.ts` — Add/remove/list reactions
 
-7. **After making changes**, update the README.md implementation status checklist and add a `## Changelog` section at the bottom of README.md (or append to the existing one) documenting what you changed and why, in this format:
-Changelog
+Each tool file should use the plugin SDK (`createToolRegistrar`, `sendServiceRequest`, `success`, `error`) instead of the original monolith imports. The original files are your reference implementation — port them, don't reinvent them.
 
-   ### Session N (date)
-   - **Changed**: [what] — [why]
-   - **Added**: [what] — [why]
-   - **Fixed**: [what] — [why]
-   - **Replaced**: [hand-rolled X] with [library Y] — [why]
-   
-8. **At the end**, give an honest assessment: "Here is what I improved and what remains. On a scale of 1-10, this design is at N. The highest-impact remaining work is: [list]." If you genuinely believe the design is at 9+ and the only remaining items are trivial, say so — that's the signal to stop iterating.
+**Success criteria**: All Slack tools from the original codebase exist in the plugin and work through the SDK's request provider pattern.
+
+### Phase 3: Port the Chrome Extension Background
+
+Port the extension background script to work with the plugin system:
+
+- `chrome-extension/src/background/index.ts` — Background script entry
+- `chrome-extension/src/background/mcp-router.ts` — Routes JSON-RPC to service handlers
+- `chrome-extension/src/background/adapter-manager.ts` — Registers MAIN world adapters (now from plugins)
+- `chrome-extension/src/background/service-controllers/` — Per-service controllers (now built from plugin manifests)
+- `chrome-extension/src/offscreen/` — Persistent WebSocket (MV3 workaround)
+- Manifest generation from dynamic registry
+
+**Success criteria**: The extension builds, loads in Chrome, connects to the MCP server via WebSocket, and routes tool requests to the correct service adapter.
+
+### Phase 4: End-to-End Verification
+
+Once Phases 1-3 are done:
+1. Start the MCP server with `bun --hot`
+2. Load the extension in Chrome
+3. Open Slack in a Chrome tab
+4. Call `slack_send_message` through an MCP client
+5. Verify the message appears in Slack
+
+If anything fails, **that failure is the most valuable design feedback you can get**. Fix the bug, and if the fix reveals a design flaw in the SDK/loader/manifest, fix the design too. This is how we find real issues — not by theorizing about them.
+
+### Phase 5: Design Review Through Usage
+
+Only after the system is running end-to-end, review the design with fresh eyes:
+
+- Did `sendServiceRequest()` work smoothly, or was the API awkward?
+- Did the plugin manifest have all the fields the runtime actually needed?
+- Did hot reload work with plugins?
+- Was there friction in the port that suggests the SDK is missing something?
+- Were there things the original code did that the new abstractions made harder?
+
+Fix what you found. **Every design change must be motivated by a concrete problem you encountered during implementation.**
+
+## Rules
+
+1. **Implement first, design second.** If you catch yourself writing types or interfaces that aren't needed by code you're about to write, stop. Write the code first, then extract types from it.
+
+2. **Port, don't reinvent.** The original codebase works. Your job is to adapt it to the plugin architecture, not to redesign it. If the original `http-server.ts` handles CORS a certain way, keep it. If the original `websocket-relay.ts` has a reconnection strategy, port it faithfully.
+
+3. **One file at a time, tested.** After porting each file, verify it compiles. After porting a group of files, verify the system starts. Don't port everything then debug a mountain of errors.
+
+4. **No more scaffolding work.** The scaffolder, test utilities, manifest schema, JSON Schema generation, and trust tier system are done. Do not improve them. Do not add features to them. They are good enough. Build the actual runtime.
+
+5. **No design documents.** Don't write new sections in README.md explaining architecture decisions. Write code. Update the implementation status checklist when you complete items. Add a brief changelog entry. That's it.
+
+6. **Every session must produce runnable code.** If at the end of your session the server still can't start, or the plugin still can't load, or the extension still can't connect, the session was wasted. Partial progress on a runnable piece (e.g., "server starts but hot reload isn't wired yet") is acceptable. No progress on runnability is not.
+
+7. **Don't refactor what's working.** The existing SDK code (`plugin-sdk/server.ts`, `plugin-sdk/adapter.ts`, `plugin-loader/`, `core/`) is architecturally sound. Don't touch it unless you hit a concrete bug during implementation.
+
+8. **Use the original codebase as ground truth.** When in doubt about how something should work, read the original code. It's battle-tested and running in production.
+
+## AI-Assisted Plugin Creation
+
+This is a secondary objective. The capture tools and scaffolder already exist in draft form. **Do not advance this feature until Phases 1-3 are complete.** The capture system is worthless if the plugin it generates can't be loaded by a running server and tested against a real browser. Get the runtime working first, then the self-evolving loop becomes testable.
+
+## After Making Changes
+
+1. Update the implementation status checklist in README.md
+2. Add a changelog entry in this format:
+
+```
+### Session N (date)
+- **Implemented**: [what] — [brief note]
+- **Ported**: [what from where] — [any adaptations]
+- **Fixed**: [what] — [why]
+```
+
+3. Give an honest status: "The server [can/cannot] start. The Slack plugin [is/is not] fully ported. The extension [can/cannot] connect. Remaining to reach end-to-end: [list]."

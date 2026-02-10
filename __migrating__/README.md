@@ -37,8 +37,14 @@ __migrating__/
 │   │   └── src/
 │   │       ├── index.ts               # Barrel export
 │   │       ├── discover.ts            # Scan node_modules for plugins
-│   │       ├── manifest-schema.ts     # Zod-based manifest validation
+│   │       ├── manifest-schema.ts     # Zod-based manifest validation + JSON Schema generation
 │   │       └── merge.ts              # Merge plugins into platform registry
+│   │
+│   ├── plugin-test-utils/             # @opentabs/plugin-test-utils
+│   │   └── src/
+│   │       ├── index.ts               # Barrel export
+│   │       ├── mock-provider.ts       # Mock RequestProvider with stub builders + call history
+│   │       └── test-harness.ts        # Mock MCP server, tool invocation, parsed results
 │   │
 │   ├── mcp-server/                    # @opentabs/mcp-server
 │   │   └── src/
@@ -54,10 +60,10 @@ __migrating__/
 │   │   │   └── index.ts              # Scaffolding logic + CLI entry point
 │   │   └── template/                  # Plugin template files
 │   │       ├── opentabs-plugin.json   # Template manifest
-│   │       ├── package.json           # Template package.json
+│   │       ├── package.json           # Template package.json (includes test-utils)
 │   │       ├── tsconfig.json          # Template tsconfig (type checking)
 │   │       ├── tsconfig.build.json    # Template tsconfig (build output)
-│   │       ├── README.md              # Template README with full guide
+│   │       ├── README.md              # Template README with full guide + testing examples
 │   │       └── src/
 │   │           ├── adapter.ts         # Template adapter with auth patterns
 │   │           └── tools/
@@ -66,9 +72,10 @@ __migrating__/
 │   │
 │   └── browser-extension/             # @opentabs/browser-extension
 │       └── src/
-│           ├── capture-content-script.ts  # Relay: MAIN world → background for captured requests
+│           ├── capture-content-script.ts  # Relay: MAIN world → background (static variant)
 │           └── background/
 │               └── capture-handler.ts     # Capture session management + interceptor injection
+│                                          # + inline relay script + background integration guide
 │
 └── plugins/                           # Plugin implementations
     └── slack/                         # @opentabs/plugin-slack
@@ -93,9 +100,11 @@ __migrating__/
     ↑
 @opentabs/mcp-server              ← Depends on core + plugin-sdk + plugin-loader.
 @opentabs/browser-extension       ← Depends on core + plugin-loader.
+@opentabs/plugin-test-utils       ← Depends on core + plugin-sdk. Testing utilities.
 create-opentabs-plugin            ← Zero OpenTabs deps. Standalone CLI scaffolder.
 
 @opentabs/plugin-slack            ← Peer depends on plugin-sdk. Standalone plugin.
+                                     Dev depends on plugin-test-utils.
 ```
 
 ## Package Descriptions
@@ -187,12 +196,31 @@ The adapter manager uses the plugin-loader to discover plugin adapters and regis
 
 CLI tool and programmatic API for scaffolding new OpenTabs plugins from the official template. Zero OpenTabs package dependencies — it's a standalone scaffolder that copies template files and replaces `{{variable}}` placeholders.
 
-**Template includes**: `opentabs-plugin.json` manifest, adapter with auth extraction patterns, tool entry point with `isHealthy` boilerplate, example tool definitions, package.json with correct peer dependencies, tsconfig, and a comprehensive README covering all adapter patterns (cookie-based, localStorage, CSRF, JS globals).
+**Template includes**: `opentabs-plugin.json` manifest, adapter with auth extraction patterns, tool entry point with `isHealthy` boilerplate, example tool definitions, package.json with correct peer/dev dependencies (including `@opentabs/plugin-test-utils`), tsconfig, and a comprehensive README covering all adapter patterns (cookie-based, localStorage, CSRF, JS globals) plus a full unit testing guide.
 
 **Usage**:
 - CLI: `bunx create-opentabs-plugin jira --domain .atlassian.net`
 - Programmatic: `import { scaffoldPlugin } from 'create-opentabs-plugin'`
 - From AI agent: via `capture_scaffold_plugin` MCP tool
+
+### `@opentabs/plugin-test-utils`
+
+Testing utilities for plugin authors. Provides everything needed to test plugin tools without a running MCP server, Chrome extension, or browser tabs.
+
+**`createMockProvider()`** — A mock `RequestProvider` that intercepts `sendServiceRequest()` and `sendBrowserRequest()` calls:
+- Fluent stub configuration: `.onServiceRequest('slack', { method: 'auth.test' }).resolveWith({ ok: true })`
+- Dynamic stubs: `.resolveUsing((service, params) => computeResponse(params))`
+- Error simulation: `.rejectWith('Connection closed')`
+- Call history: `.history`, `.serviceRequests`, `.browserRequests`
+- Assertions: `.assertServiceRequestMade('slack', { method: 'auth.test' })`, `.assertNoRequestsMade()`
+- SDK wiring: `.install()` / `.uninstall()` handles `__setRequestProvider` / `__resetRequestProvider`
+
+**`createTestHarness()`** — A test harness that wraps the plugin's `registerTools` function:
+- Mock MCP server that captures tool registrations without the actual MCP SDK
+- Tool invocation: `.callTool('slack_send_message', { channel: 'C1', text: 'hi' })`
+- Parsed results: `.isError`, `.text`, `.json<T>()`, `.data`
+- Introspection: `.toolNames`, `.getTool(name)`, `.hasTool(name)`
+- Assertions: `.assertToolRegistered(name)`, `.assertToolsRegistered([...])`
 
 ### `@opentabs/plugin-slack`
 
@@ -342,23 +370,34 @@ The scaffolder generates a complete plugin directory with adapter auth patterns,
 
 - [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest)
 - [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns, runtime permission enforcement)
-- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload, URL pattern overlap detection)
+- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge, skipRegistryMerge for hot reload, URL pattern overlap detection, JSON Schema generation)
 - [x] `@opentabs/mcp-server` — Partial (plugin-init with permission wiring, tools/index, browser tools, extension tools, capture tools)
 - [ ] `@opentabs/mcp-server` — Remaining (server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts)
-- [ ] `@opentabs/browser-extension` — Partial (capture handler with interceptor injection, content script relay; remaining: background script entry, adapter manager, mcp-router, service controllers, offscreen manager, manifest generation)
-- [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, tsconfig.build.json, comprehensive README)
+- [x] `@opentabs/browser-extension` — Partial (capture handler with interceptor injection, dynamic content script relay registration, background message listener integration guide)
+- [ ] `@opentabs/browser-extension` — Remaining (background script entry, adapter manager, mcp-router, service controllers, offscreen manager, manifest generation)
+- [x] `create-opentabs-plugin` — Complete (CLI scaffolder, template with adapter patterns, tools boilerplate, tsconfig.build.json, comprehensive README with test-utils examples)
+- [x] `@opentabs/plugin-test-utils` — Complete (mock request provider with stub builders and call history, test harness with mock MCP server and parsed results, assertion helpers)
 - [x] `@opentabs/plugin-slack` — Partial (adapter, messages, search, types, isHealthy, error patterns)
 - [ ] `@opentabs/plugin-slack` — Remaining (channels, conversations, users, files, pins, stars, reactions)
 - [ ] Build system integration (Vite adapter builds, manifest generation)
 - [ ] Options page auto-generation from plugin manifests
 - [ ] CLI tooling (`opentabs plugins add/remove/list`)
-- [ ] Plugin testing utilities (`@opentabs/plugin-test-utils`)
-- [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired, verify tool for plugin readiness checks, extension-side capture handler + content script relay)
-- [ ] AI-assisted plugin creation — Remaining (wire capture handler into BrowserController action dispatch, register capture content script dynamically on capture_start, background message listener for `capture_request` messages)
+- [x] AI-assisted plugin creation — Partial (capture MCP tools defined, analysis logic implemented, scaffold tool wired, verify tool for plugin readiness checks, extension-side capture handler with dynamic relay injection + background integration guide)
+- [ ] AI-assisted plugin creation — Remaining (wire capture handler into BrowserController action dispatch)
 - [x] Runtime permission enforcement — Complete (nativeApis checks via permission registry + AsyncLocalStorage)
+- [x] JSON Schema generation — Complete (generateJsonSchema() for IDE support in opentabs-plugin.json files)
 - [ ] Plugin registry website
 
 ## Changelog
+
+### Session 6 (2025-07-14)
+
+- **Added**: `@opentabs/plugin-test-utils` package — New package providing `createMockProvider()` and `createTestHarness()` for testing plugin tools in isolation. The mock provider intercepts `sendServiceRequest()` and `sendBrowserRequest()` calls, supports fluent stub configuration (`.resolveWith()`, `.resolveUsing()`, `.rejectWith()`), records call history, and provides assertion methods (`assertServiceRequestMade()`, `assertNoRequestsMade()`). The test harness wraps the plugin's `registerTools` function with a mock MCP server, collects registered tools, and provides `callTool(name, params)` with parsed results (`.isError`, `.text`, `.json<T>()`). This was the primary blocker for the end-to-end plugin authoring story — plugin authors had no way to write automated tests.
+- **Fixed**: Capture handler content script relay not dynamically registered — `CaptureHandler.startCapture()` injected the MAIN world interceptor (which posts messages via `window.postMessage`) but never injected the ISOLATED world relay content script that bridges those messages to `chrome.runtime.sendMessage`. The interceptor's captured data had no path to reach the background script. Added a two-step injection: first the relay content script in the ISOLATED world, then the interceptor in the MAIN world. Includes a double-injection guard (`__openTabsCaptureRelayInstalled` flag) and cleanup on `stopCapture()` and `cleanupTab()`. The relay script is now inlined in `capture-handler.ts` as `captureRelayScript` (self-contained function passed to `chrome.scripting.executeScript`), making the separate `capture-content-script.ts` file redundant for dynamic injection scenarios.
+- **Added**: Background message listener integration guide in `capture-handler.ts` — Documented the exact `chrome.runtime.onMessage.addListener` pattern needed to wire `capture_request` messages from the relay content script to `CaptureHandler.addRequest()`. This was the remaining gap preventing captured data from flowing back to the session store.
+- **Added**: `generateJsonSchema()` in `@opentabs/plugin-loader/manifest-schema` — Generates a JSON Schema object from the manifest Zod schema for IDE support. Plugin authors who use JSON manifests can reference this via the `$schema` field for autocompletion and inline validation in VS Code and other editors. Covers all structural validation (field types, required fields, patterns, enumerations, nested objects) but not cross-field consistency checks (those remain runtime-only via Zod `superRefine`). Exported from both `manifest-schema.ts` and the barrel `index.ts`.
+- **Changed**: Plugin template `package.json` now includes `@opentabs/plugin-test-utils` in `devDependencies` — Scaffolded plugins ship with test utilities out of the box so plugin authors can write tests immediately.
+- **Changed**: Plugin template `README.md` enhanced with comprehensive testing section — Added a full unit testing guide using `createMockProvider` and `createTestHarness` with a complete example test file, mock provider API reference, and test harness API reference. The existing manual testing section is preserved below the new automated testing guidance.
 
 ### Session 5 (2025-07-14)
 

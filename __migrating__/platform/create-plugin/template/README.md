@@ -156,7 +156,86 @@ const TOOL_REGISTRATIONS: ToolRegistrationFn[] = [
 
 ### Testing
 
-To test your plugin during development:
+#### Unit Testing with `@opentabs/plugin-test-utils`
+
+The recommended way to test plugin tools is with `@opentabs/plugin-test-utils`, which provides a mock request provider and test harness that simulate the MCP server environment without requiring a running server, Chrome extension, or browser tabs.
+
+```typescript
+// src/tools/__tests__/general.test.ts
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test'; // or vitest/jest
+import { createMockProvider, createTestHarness } from '@opentabs/plugin-test-utils';
+import { registerTools } from '../index.js';
+
+describe('{{pluginName}} tools', () => {
+  const mock = createMockProvider();
+  const harness = createTestHarness();
+
+  beforeEach(() => {
+    mock.install();
+    harness.registerTools(registerTools);
+  });
+
+  afterEach(() => {
+    mock.uninstall();
+    harness.reset();
+  });
+
+  it('registers the expected tools', () => {
+    harness.assertToolRegistered('{{pluginName}}_api_request');
+  });
+
+  it('makes an API request through the adapter', async () => {
+    // Stub the adapter response
+    mock.onServiceRequest('{{pluginName}}', { endpoint: '/api/items' }).resolveWith({
+      items: [{ id: 1, name: 'Test Item' }],
+      total: 1,
+    });
+
+    // Call the tool
+    const result = await harness.callTool('{{pluginName}}_api_request', {
+      endpoint: '/api/items',
+      method: 'GET',
+    });
+
+    // Assert on the result
+    expect(result.isError).toBe(false);
+    const data = result.json<{ items: { id: number; name: string }[]; total: number }>();
+    expect(data.items).toHaveLength(1);
+    expect(data.items[0].name).toBe('Test Item');
+
+    // Verify the adapter was called correctly
+    mock.assertServiceRequestMade('{{pluginName}}', { endpoint: '/api/items' });
+  });
+
+  it('handles adapter errors gracefully', async () => {
+    mock.onServiceRequest('{{pluginName}}').rejectWith('Connection closed');
+
+    const result = await harness.callTool('{{pluginName}}_api_request', {
+      endpoint: '/api/items',
+      method: 'GET',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain('Error');
+  });
+});
+```
+
+The mock provider supports:
+- **`onServiceRequest(service, paramsMatch?)`** — Stub adapter responses with `.resolveWith()`, `.resolveUsing()`, or `.rejectWith()`
+- **`onBrowserRequest(action, paramsMatch?)`** — Stub browser API responses
+- **`history`** / **`serviceRequests`** / **`browserRequests`** — Inspect recorded calls
+- **`assertServiceRequestMade(service, paramsMatch?)`** — Verify specific calls were made
+- **`assertNoRequestsMade()`** — Verify no calls were made
+
+The test harness supports:
+- **`registerTools(fn)`** — Register tools from your plugin's entry point
+- **`callTool(name, params)`** — Invoke a tool and get a parsed result with `.isError`, `.text`, `.json<T>()`
+- **`assertToolRegistered(name)`** / **`assertToolsRegistered(names)`** — Verify tool registration
+
+#### Manual Testing (Live)
+
+To test your plugin against a live web application:
 
 1. Build the plugin: `bun run build`
 2. Rebuild the MCP server (if using hot reload, it picks up changes automatically)

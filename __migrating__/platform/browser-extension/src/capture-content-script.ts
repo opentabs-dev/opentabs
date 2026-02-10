@@ -1,5 +1,5 @@
 // =============================================================================
-// Capture Content Script — Relay for MAIN World → Background
+// Capture Content Script — Relay for MAIN World → Background (Static Variant)
 //
 // This content script runs in the ISOLATED world of tabs where capture mode
 // is active. Its sole job is to listen for window.postMessage events from the
@@ -17,9 +17,21 @@
 //         → chrome.runtime.sendMessage({ type: 'capture_request', tabId, data })
 //           → Background script → CaptureHandler.addRequest(tabId, data)
 //
-// This script is registered dynamically by the CaptureHandler when capture
-// starts on a tab, and unregistered when capture stops. It is NOT part of
-// the static content_scripts in manifest.json — it's injected on demand.
+// NOTE: There are two ways to inject this relay:
+//
+// 1. **Inline injection (preferred)** — CaptureHandler.startCapture() injects
+//    the `captureRelayScript` function via chrome.scripting.executeScript in
+//    the ISOLATED world. This is self-contained in capture-handler.ts and
+//    requires no separate file.
+//
+// 2. **Static file injection** — This file can be registered via
+//    chrome.scripting.registerContentScripts with a file path. Useful if
+//    the build system bundles content scripts as separate files rather than
+//    inline functions.
+//
+// The inline approach (option 1) is currently used by CaptureHandler. This
+// file is retained as the static variant for alternative build configurations
+// or for registering via the manifest's content_scripts array.
 // =============================================================================
 
 // Listen for messages from the MAIN world interceptor

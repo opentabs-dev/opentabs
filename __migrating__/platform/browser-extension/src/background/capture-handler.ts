@@ -80,6 +80,12 @@ interface CaptureSummary {
 /** Active and completed capture sessions, keyed by tab ID. */
 const sessions = new Map<number, CaptureSession>();
 
+/**
+ * Track which tabs have the relay content script registered.
+ * Prevents double-registration and ensures cleanup on stop.
+ */
+const registeredRelayTabs = new Set<number>();
+
 // =============================================================================
 // Interceptor Injection Script
 //
@@ -620,7 +626,31 @@ class CaptureHandler {
       requests: [],
     });
 
-    // Inject the interceptor script into the page's MAIN world
+    // Step 1: Register the content script relay in the ISOLATED world.
+    // The relay listens for window.postMessage from the MAIN world interceptor
+    // and forwards captured request data to the background via
+    // chrome.runtime.sendMessage. It must be injected BEFORE the MAIN world
+    // interceptor so it's ready to receive messages immediately.
+    try {
+      if (!registeredRelayTabs.has(tabId)) {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          world: 'ISOLATED',
+          func: captureRelayScript,
+        });
+        registeredRelayTabs.add(tabId);
+      }
+    } catch (err) {
+      sessions.delete(tabId);
+      throw new Error(
+        `Failed to inject capture relay content script into tab ${tabId}: ` +
+          `${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+
+    // Step 2: Inject the interceptor script into the page's MAIN world.
+    // This patches fetch() and XMLHttpRequest to capture all HTTP traffic
+    // and post it back via window.postMessage to the relay above.
     try {
       await chrome.scripting.executeScript({
         target: { tabId },
@@ -630,6 +660,7 @@ class CaptureHandler {
       });
     } catch (err) {
       sessions.delete(tabId);
+      registeredRelayTabs.delete(tabId);
       throw new Error(
         `Failed to inject capture interceptors into tab ${tabId}: ` +
           `${err instanceof Error ? err.message : String(err)}`,
@@ -666,6 +697,9 @@ class CaptureHandler {
     } catch {
       // Tab may have navigated away or closed — that's OK
     }
+
+    // Clean up the relay content script registration for this tab
+    registeredRelayTabs.delete(tabId);
 
     return this.buildSummary(session);
   }
@@ -900,6 +934,7 @@ class CaptureHandler {
    */
   cleanupTab(tabId: number): void {
     sessions.delete(tabId);
+    registeredRelayTabs.delete(tabId);
   }
 
   /**
@@ -916,6 +951,69 @@ class CaptureHandler {
 // The BrowserController imports this and registers the action handlers.
 // The content script message listener calls addRequest() when it receives
 // captured request data from the page.
+// =============================================================================
+
+// =============================================================================
+// Capture Relay Content Script (ISOLATED world)
+//
+// This function is injected into the tab's ISOLATED world via
+// chrome.scripting.executeScript. It bridges the MAIN world interceptor
+// (which posts messages via window.postMessage) to the background script
+// (via chrome.runtime.sendMessage).
+//
+// Injected dynamically when capture starts — not part of the static
+// content_scripts in manifest.json.
+// =============================================================================
+
+const captureRelayScript = (): void => {
+  // Guard against double-injection
+  if ((window as unknown as Record<string, boolean>).__openTabsCaptureRelayInstalled) return;
+  (window as unknown as Record<string, boolean>).__openTabsCaptureRelayInstalled = true;
+
+  window.addEventListener('message', (event: MessageEvent) => {
+    // Only accept messages from the same window (same frame origin)
+    if (event.source !== window) return;
+
+    const message = event.data;
+    if (typeof message !== 'object' || message === null || message.type !== '__opentabs_capture__') {
+      return;
+    }
+
+    const data = message.data;
+    if (typeof data !== 'object' || data === null) return;
+
+    // Forward to the background script.
+    // The background script's message listener routes this to
+    // CaptureHandler.addRequest().
+    try {
+      chrome.runtime.sendMessage({
+        type: 'capture_request',
+        data,
+      });
+    } catch {
+      // Extension context may be invalidated if the extension was reloaded
+      // while capture was active. Silently ignore.
+    }
+  });
+
+  console.log('[OpenTabs] Capture relay content script loaded');
+};
+
+// =============================================================================
+// Background Message Listener Integration
+//
+// The background script must wire the 'capture_request' message type into
+// its chrome.runtime.onMessage listener. Example integration:
+//
+//   chrome.runtime.onMessage.addListener((message, sender) => {
+//     if (message.type === 'capture_request' && sender.tab?.id != null) {
+//       captureHandler.addRequest(sender.tab.id, message.data);
+//     }
+//   });
+//
+// This listener is NOT registered here because the background script's
+// onMessage handler is a single top-level listener that routes all message
+// types. The CaptureHandler is consumed by that router.
 // =============================================================================
 
 const captureHandler = new CaptureHandler();

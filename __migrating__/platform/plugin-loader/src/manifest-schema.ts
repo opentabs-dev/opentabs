@@ -464,6 +464,262 @@ const checkUrlPatternOverlaps = (manifests: readonly PluginManifest[]): readonly
 };
 
 // -----------------------------------------------------------------------------
+// JSON Schema Generation
+//
+// Generates a JSON Schema from the Zod schema for IDE support. Plugin authors
+// who use JSON manifests (opentabs-plugin.json) can reference this schema via
+// the "$schema" field for autocompletion and inline validation in VS Code,
+// WebStorm, and other editors that support JSON Schema.
+//
+// The generated schema covers structural validation (field types, required
+// fields, patterns, enumerations) but NOT cross-field consistency checks
+// (those are enforced by the Zod superRefine at runtime).
+// -----------------------------------------------------------------------------
+
+/**
+ * Generate a JSON Schema object from the raw manifest Zod schema.
+ *
+ * Uses the raw (pre-superRefine) schema because JSON Schema cannot express
+ * cross-field validation rules. The generated schema covers:
+ * - Required and optional fields
+ * - String patterns (plugin name, semver, URL match patterns)
+ * - Enumerated values (environments, setting types, native APIs)
+ * - Nested object structure (adapter, service, tools, permissions)
+ * - Array item types
+ *
+ * Cross-field validation (environment↔domain consistency, health check method
+ * prefix, network permission coverage) is handled at runtime by the Zod
+ * superRefine layer and cannot be expressed in JSON Schema.
+ *
+ * @returns A JSON Schema object suitable for writing to a .json file or
+ *   serving via HTTP for `$schema` references
+ *
+ * @example
+ * ```ts
+ * import { generateJsonSchema } from '@opentabs/plugin-loader/manifest-schema';
+ * import { writeFileSync } from 'node:fs';
+ *
+ * const schema = generateJsonSchema();
+ * writeFileSync('plugin-v1.schema.json', JSON.stringify(schema, null, 2));
+ * ```
+ */
+const generateJsonSchema = (): Record<string, unknown> => ({
+  $schema: 'http://json-schema.org/draft-07/schema#',
+  $id: 'https://opentabs.dev/schemas/plugin-v1.json',
+  title: 'OpenTabs Plugin Manifest',
+  description:
+    'Manifest schema for OpenTabs plugins. Declares the plugin identity, ' +
+    'adapter injection targets, service lifecycle configuration, MCP tool ' +
+    'entry points, and permission requirements.',
+  type: 'object',
+  required: ['name', 'displayName', 'version', 'description', 'adapter', 'service', 'tools', 'permissions'],
+  properties: {
+    $schema: {
+      type: 'string',
+      description: 'JSON Schema reference for IDE support.',
+    },
+    name: {
+      type: 'string',
+      pattern: PLUGIN_NAME_REGEX.source,
+      description:
+        'Unique plugin identifier. Lowercase alphanumeric with hyphens, ' +
+        'starting with a letter. Used as JSON-RPC method prefix and adapter name. ' +
+        `Must not be one of: ${RESERVED_PLUGIN_NAMES.join(', ')}.`,
+    },
+    displayName: {
+      type: 'string',
+      minLength: 1,
+      description: 'Human-readable display name shown in the UI.',
+    },
+    version: {
+      type: 'string',
+      pattern: SEMVER_REGEX.source,
+      description: 'Plugin version following semver (e.g. "1.2.3").',
+    },
+    description: {
+      type: 'string',
+      minLength: 1,
+      description: 'Short description of what the plugin does.',
+    },
+    author: { type: 'string', description: 'Plugin author name or organization.' },
+    homepage: { type: 'string', description: 'URL to the plugin homepage or repository.' },
+    license: { type: 'string', description: 'SPDX license identifier (e.g. "MIT").' },
+    adapter: {
+      type: 'object',
+      required: ['entry', 'domains', 'urlPatterns'],
+      description: 'Adapter configuration — how the plugin injects into web pages.',
+      properties: {
+        entry: {
+          type: 'string',
+          description: 'Relative path to the compiled adapter IIFE (e.g. "./dist/adapter.js").',
+        },
+        domains: {
+          type: 'object',
+          description:
+            'Domain strings keyed by environment. Leading dot means any subdomain ' +
+            '(e.g. ".slack.com" matches "brex.slack.com").',
+          additionalProperties: { type: 'string' },
+        },
+        urlPatterns: {
+          type: 'object',
+          description: 'Chrome match patterns keyed by environment (e.g. { production: ["*://*.slack.com/*"] }).',
+          additionalProperties: {
+            type: 'array',
+            items: {
+              type: 'string',
+              pattern: URL_MATCH_PATTERN_REGEX.source,
+            },
+          },
+        },
+        hostPermissions: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Explicit host permission patterns for the extension manifest.',
+        },
+        defaultUrl: {
+          type: 'string',
+          description: 'Canonical URL for UI links. Needed when domain has a leading dot.',
+        },
+      },
+    },
+    service: {
+      type: 'object',
+      required: ['timeout', 'environments', 'authErrorPatterns', 'healthCheck'],
+      description: 'Service lifecycle configuration.',
+      properties: {
+        timeout: {
+          type: 'number',
+          minimum: 1000,
+          maximum: 300000,
+          description: 'Request timeout in milliseconds (1000–300000).',
+        },
+        environments: {
+          type: 'array',
+          items: { type: 'string', enum: [...VALID_ENVIRONMENTS] },
+          minItems: 1,
+          description: 'Environments this service supports (e.g. ["production"]).',
+        },
+        authErrorPatterns: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Substrings in errors that indicate an expired session.',
+        },
+        healthCheck: {
+          type: 'object',
+          required: ['method', 'params'],
+          description: 'Health check JSON-RPC request configuration.',
+          properties: {
+            method: {
+              type: 'string',
+              description: 'JSON-RPC method (must be prefixed with plugin name, e.g. "slack.api").',
+            },
+            params: {
+              type: 'object',
+              description: 'JSON-RPC params for the health check request.',
+              additionalProperties: true,
+            },
+            evaluator: {
+              type: 'string',
+              description: 'Custom health evaluator name. Omit for default (!isJsonRpcError).',
+            },
+          },
+        },
+        notConnectedMessage: { type: 'string', description: 'Custom "not connected" error message.' },
+        tabNotFoundMessage: { type: 'string', description: 'Custom "tab not found" error message.' },
+      },
+    },
+    tools: {
+      type: 'object',
+      required: ['entry'],
+      description: 'MCP tool configuration.',
+      properties: {
+        entry: {
+          type: 'string',
+          description: 'Relative path to the compiled tools entry module (e.g. "./dist/tools/index.js").',
+        },
+        categories: {
+          type: 'array',
+          description: 'Tool categories for the options page UI.',
+          items: {
+            type: 'object',
+            required: ['id', 'label'],
+            properties: {
+              id: { type: 'string', description: 'Category identifier.' },
+              label: { type: 'string', description: 'Human-readable category label.' },
+              tools: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Tool IDs in this category.',
+              },
+            },
+          },
+        },
+      },
+    },
+    permissions: {
+      type: 'object',
+      required: ['network'],
+      description: 'Permission declarations.',
+      properties: {
+        network: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Network domains the adapter may access. Supports wildcards (e.g. "*.example.com").',
+        },
+        storage: {
+          type: 'boolean',
+          default: false,
+          description: 'Whether the adapter needs localStorage/sessionStorage access.',
+        },
+        nativeApis: {
+          type: 'array',
+          items: { type: 'string', enum: [...VALID_NATIVE_APIS] },
+          description: 'Platform-native API access (e.g. "browser" for tab tools).',
+        },
+      },
+    },
+    settings: {
+      type: 'object',
+      description: 'User-configurable settings schema.',
+      additionalProperties: {
+        type: 'object',
+        required: ['type', 'label'],
+        properties: {
+          type: { type: 'string', enum: [...VALID_SETTING_TYPES] },
+          label: { type: 'string' },
+          description: { type: 'string' },
+          default: {},
+          min: { type: 'number' },
+          max: { type: 'number' },
+          options: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['value', 'label'],
+              properties: {
+                value: { type: 'string' },
+                label: { type: 'string' },
+              },
+            },
+          },
+          placeholder: { type: 'string' },
+        },
+      },
+    },
+    icon: {
+      type: 'string',
+      description: 'Relative path to the plugin icon (PNG, 48x48 recommended).',
+    },
+    keywords: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Keywords for plugin registry discovery.',
+    },
+  },
+  additionalProperties: false,
+});
+
+// -----------------------------------------------------------------------------
 // Exports
 // -----------------------------------------------------------------------------
 
@@ -476,6 +732,7 @@ export {
   checkNameConflicts,
   checkUrlPatternOverlaps,
   zodErrorToValidationErrors,
+  generateJsonSchema,
 };
 
 export type { ValidationError, ValidationResult };
