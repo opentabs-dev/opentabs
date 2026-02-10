@@ -5,9 +5,5 @@
     "rootDir": "src"
   },
   "include": ["src"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../plugin-sdk" },
-    { "path": "../plugin-loader" }
-  ]
+  "references": [{ "path": "../core" }, { "path": "../plugin-sdk" }, { "path": "../plugin-loader" }]
 }

@@ -32,9 +32,9 @@ export default tseslint.config(
       'chrome-extension/manifest.js',
       '**/*.test.ts',
       '**/*.spec.ts',
-      '__migrating__/platform/create-plugin/template/**',
-      '__migrating__/platform/browser-extension/build.ts',
-      '__migrating__/platform/browser-extension/__generated__/**',
+      '__next__/platform/create-plugin/template/**',
+      '__next__/platform/browser-extension/build.ts',
+      '__next__/platform/browser-extension/__generated__/**',
     ],
   },
   {
