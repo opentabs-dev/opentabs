@@ -15,6 +15,8 @@
 //    shape expected by the MCP protocol.
 // 4. AsyncLocalStorage-based tool ID tracking — the current tool's name
 //    is available in nested async calls for permission enforcement.
+// 5. Extensible error pattern registry — plugins register domain-specific
+//    error patterns for user-friendly error messages.
 //
 // Usage in a plugin's tools module:
 //
@@ -38,6 +40,7 @@
 //
 // =============================================================================
 
+import { isJsonRpcError } from '@opentabs/core';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { McpServer, RegisteredTool, ToolCallback } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
@@ -90,12 +93,6 @@ interface RequestProvider {
    * Reload the Chrome extension. Platform-internal — not exposed to plugins.
    */
   reloadExtension: () => Promise<{ reloading: boolean }>;
-
-  /**
-   * Send a request to Slack's Enterprise Edge API. Slack-specific — provided
-   * for backward compatibility with the existing Slack plugin.
-   */
-  sendSlackEdgeRequest?: (endpoint: string, params: Record<string, unknown>, toolId?: string) => Promise<unknown>;
 }
 
 /** The registered request provider, set by the MCP server at startup. */
@@ -181,38 +178,16 @@ const withToolId = <T>(toolId: string, fn: () => T): T => toolIdStorage.run(tool
  *   body: { jql: 'project = ENG' },
  * });
  *
- * // Call with a custom action
+ * // Call with a custom action (e.g. Slack's Edge API)
  * const data = await sendServiceRequest('slack', {
- *   method: 'auth.test',
- *   params: {},
- * }, 'api');
+ *   endpoint: 'users/search',
+ *   params: { query: 'jane' },
+ * }, 'edgeApi');
  * ```
  */
 const sendServiceRequest = (service: string, params: Record<string, unknown>, action?: string): Promise<unknown> => {
   const toolId = getCurrentToolId();
   return getProvider().sendServiceRequest(service, { ...params, toolId }, action);
-};
-
-/**
- * Send a request to Slack's Enterprise Edge API.
- *
- * This is a Slack-specific convenience function for the Enterprise Edge API
- * (edgeapi.slack.com). Regular plugins should use sendServiceRequest() with
- * a custom action instead.
- *
- * @param endpoint - The Edge API endpoint (e.g. 'users/search')
- * @param params - Request parameters
- */
-const sendSlackEdgeRequest = (endpoint: string, params: Record<string, unknown>): Promise<unknown> => {
-  const p = getProvider();
-  if (!p.sendSlackEdgeRequest) {
-    throw new Error(
-      'sendSlackEdgeRequest is not available. ' +
-        'Ensure the MCP server request provider implements sendSlackEdgeRequest.',
-    );
-  }
-  const toolId = getCurrentToolId();
-  return p.sendSlackEdgeRequest(endpoint, params, toolId);
 };
 
 /**
@@ -271,18 +246,26 @@ const error = (err: unknown): ToolResult => {
 };
 
 // =============================================================================
-// Error Formatting
+// Extensible Error Pattern Registry
 //
-// Pattern-based error message formatting. Transforms raw error messages into
-// actionable, user-friendly descriptions. Service-agnostic patterns are
-// defined here; plugin-specific patterns could be added via a registry.
+// The SDK provides generic platform error patterns. Plugins can register
+// additional domain-specific patterns for user-friendly error messages.
+//
+// Pattern matching runs in registration order: platform patterns first, then
+// plugin patterns in the order they were registered. First match wins.
 // =============================================================================
 
-/** Error patterns and their user-friendly replacements. */
-const ERROR_PATTERNS: Array<{
+/** An error pattern: a predicate that matches error messages, and a formatter. */
+interface ErrorPattern {
   match: (msg: string) => boolean;
   format: (msg: string) => string;
-}> = [
+}
+
+/**
+ * Platform-level error patterns. These cover generic infrastructure errors
+ * that apply to all plugins (connection issues, timeouts, HTTP status codes).
+ */
+const PLATFORM_ERROR_PATTERNS: ErrorPattern[] = [
   {
     match: msg => msg.includes('not connected'),
     format: () =>
@@ -295,32 +278,6 @@ const ERROR_PATTERNS: Array<{
   {
     match: msg => msg.includes('timed out'),
     format: () => 'Request timed out. The API may be slow or the extension disconnected. Try refreshing the tab.',
-  },
-  {
-    match: msg => msg.includes('channel_not_found') || msg.includes('Channel not found'),
-    format: () =>
-      'Channel not found. Please check the channel name or ID is correct. For private channels, use the channel ID (starts with C).',
-  },
-  {
-    match: msg => msg.includes('not_in_channel'),
-    format: () => 'You are not a member of this channel. Join the channel first.',
-  },
-  {
-    match: msg => msg.includes('invalid_auth') || msg.includes('not_authed'),
-    format: () =>
-      'Authentication failed. Please refresh your service tab and try again. If the issue persists, sign out and back in.',
-  },
-  {
-    match: msg => msg.includes('ratelimited'),
-    format: () => 'Rate limited by the API. Please wait a moment and try again.',
-  },
-  {
-    match: msg => msg.includes('missing_scope'),
-    format: () => 'Missing permissions. Your session may not have access to this feature.',
-  },
-  {
-    match: msg => msg.includes('user_not_found'),
-    format: () => 'User not found. Please check the user ID is correct.',
   },
   {
     match: msg => msg.includes('Connection closed'),
@@ -336,11 +293,50 @@ const ERROR_PATTERNS: Array<{
   },
 ];
 
+/** Plugin-registered error patterns. Appended via registerErrorPatterns(). */
+const pluginErrorPatterns: ErrorPattern[] = [];
+
+/**
+ * Register additional error patterns for domain-specific error formatting.
+ *
+ * Plugins call this during tool registration to add patterns that match
+ * errors specific to their service (e.g. Slack's `channel_not_found`,
+ * Jira's `ISSUE_NOT_FOUND`).
+ *
+ * Patterns are checked after platform patterns. First match wins.
+ *
+ * @param patterns - Array of error patterns to register
+ *
+ * @example
+ * ```ts
+ * registerErrorPatterns([
+ *   {
+ *     match: msg => msg.includes('channel_not_found'),
+ *     format: () => 'Channel not found. Check the channel name or ID.',
+ *   },
+ *   {
+ *     match: msg => msg.includes('not_in_channel'),
+ *     format: () => 'You are not a member of this channel.',
+ *   },
+ * ]);
+ * ```
+ */
+const registerErrorPatterns = (patterns: ErrorPattern[]): void => {
+  pluginErrorPatterns.push(...patterns);
+};
+
+/**
+ * Reset plugin error patterns. Used only in tests.
+ */
+const __resetErrorPatterns = (): void => {
+  pluginErrorPatterns.length = 0;
+};
+
 /**
  * Format an error into a user-friendly message.
  *
- * Applies pattern matching against common error strings. If no pattern
- * matches, returns the raw error message.
+ * Applies pattern matching against platform patterns first, then plugin
+ * patterns. If no pattern matches, returns the raw error message.
  *
  * @param err - The error to format
  * @returns A user-friendly error description
@@ -349,7 +345,13 @@ const formatError = (err: unknown): string => {
   if (err instanceof Error) {
     const message = err.message;
 
-    for (const pattern of ERROR_PATTERNS) {
+    // Check platform patterns first
+    for (const pattern of PLATFORM_ERROR_PATTERNS) {
+      if (pattern.match(message)) return pattern.format(message);
+    }
+
+    // Check plugin-registered patterns
+    for (const pattern of pluginErrorPatterns) {
       if (pattern.match(message)) return pattern.format(message);
     }
 
@@ -469,20 +471,22 @@ const createToolRegistrar = (
   return { tools, define };
 };
 
-export type { ToolResult, RequestProvider, ToolConfig };
+export type { ToolResult, RequestProvider, ToolConfig, ErrorPattern };
 
 export {
+  isJsonRpcError,
   __setRequestProvider,
   __resetRequestProvider,
+  __resetErrorPatterns,
   getCurrentToolId,
   withToolId,
   sendServiceRequest,
-  sendSlackEdgeRequest,
   sendBrowserRequest,
   reloadExtension,
   success,
   error,
   formatError,
+  registerErrorPatterns,
   defineTool,
   createToolRegistrar,
 };

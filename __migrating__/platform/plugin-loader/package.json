@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@opentabs/core": "workspace:*",
-    "@opentabs/plugin-sdk": "workspace:*"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",

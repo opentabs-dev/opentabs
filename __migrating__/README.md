@@ -285,14 +285,32 @@ bunx create-opentabs-plugin my-service
 ## Implementation Status
 
 - [x] `@opentabs/core` — Complete (types, JSON-RPC, messaging, services, plugin manifest)
-- [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin)
-- [x] `@opentabs/plugin-loader` — Complete (discover, validate, merge)
+- [x] `@opentabs/plugin-sdk` — Complete (adapter utilities, server utilities, definePlugin, extensible error patterns)
+- [x] `@opentabs/plugin-loader` — Complete (discover, Zod-based validation, merge)
 - [x] `@opentabs/mcp-server` — Partial (plugin-init, tools/index, browser tools, extension tools)
 - [ ] `@opentabs/mcp-server` — Remaining (server.ts, http-server.ts, websocket-relay.ts, hot-reload.ts, config.ts)
 - [ ] `@opentabs/browser-extension` — Scaffolded (background script stubs)
-- [x] `@opentabs/plugin-slack` — Partial (adapter, messages, search, types, isHealthy)
+- [x] `@opentabs/plugin-slack` — Partial (adapter, messages, search, types, isHealthy, error patterns)
 - [ ] `@opentabs/plugin-slack` — Remaining (channels, conversations, users, files, pins, stars, reactions)
 - [ ] Build system integration (Vite adapter builds, manifest generation)
 - [ ] Options page auto-generation from plugin manifests
 - [ ] CLI tooling (`opentabs plugins add/remove/list/create`)
+- [ ] Plugin template + `create-opentabs-plugin` scaffolder
+- [ ] Plugin testing utilities (`@opentabs/plugin-test-utils`)
+- [ ] AI-assisted plugin creation (capture mode, API discovery, scaffold tools)
+- [ ] Runtime permission enforcement (service scoping, nativeApis checks)
 - [ ] Plugin registry website
+
+## Changelog
+
+### Session 3 (2026-02-10)
+
+- **Removed**: `sendSlackEdgeRequest` from `@opentabs/plugin-sdk/server` — Slack-specific method leaked into the generic SDK. Slack's Edge API is already accessible via the generic `sendServiceRequest('slack', params, 'edgeApi')` action parameter. Removed from `RequestProvider` interface and SDK exports.
+- **Added**: Extensible error pattern registry in `@opentabs/plugin-sdk/server` — Split error patterns into platform-level (connection, timeout, HTTP codes) and plugin-registered. Added `registerErrorPatterns()` public API and `__resetErrorPatterns()` for tests. Plugins register domain-specific patterns at module load time.
+- **Moved**: Slack-specific error patterns from SDK to `@opentabs/plugin-slack` — Patterns for `channel_not_found`, `not_in_channel`, `invalid_auth`, `ratelimited`, `missing_scope`, `user_not_found`, plus new patterns for `token_revoked`, `no_text`, `message_not_found`, `cant_delete_message`, `cant_update_message`. Registered via the new `registerErrorPatterns()` API.
+- **Added**: `isJsonRpcError` re-export from `@opentabs/plugin-sdk/server` — So plugins can import everything they need from the SDK without direct `@opentabs/core` dependency.
+- **Fixed**: `@opentabs/plugin-loader` dependency graph — Removed unnecessary `@opentabs/plugin-sdk` dependency (none of the loader's source files imported from it). Removed from both `package.json` and `tsconfig.json` references.
+- **Replaced**: Hand-rolled validation (~750 lines) with Zod schema in `@opentabs/plugin-loader` — Created `manifest-schema.ts` with declarative Zod schema covering all manifest fields, cross-field consistency (environment↔domain, health check method prefix, network permission coverage), and same `ValidationResult`/`ValidationError` API. Enables future JSON Schema generation via `zod-to-json-schema`. Added `zod` as dependency of `plugin-loader`.
+- **Changed**: `merge.ts` imports from `manifest-schema.js` instead of `validate.js` — Completes the Zod migration. The old `validate.ts` is superseded but retained for reference until confirmed safe to delete.
+- **Changed**: Slack plugin imports use `@opentabs/plugin-sdk` re-exports instead of direct `@opentabs/core` — `isJsonRpcError` and types now imported from SDK, reducing the plugin's dependency surface.
+- **Added**: Implementation status items for plugin template, test utils, AI-assisted creation, and runtime permission enforcement — Tracks remaining work identified during architecture review.

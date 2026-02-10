@@ -14,15 +14,82 @@
 
 import { registerMessageTools } from './messages.js';
 import { registerSearchTools } from './search.js';
-import { isJsonRpcError } from '@opentabs/core';
+import { isJsonRpcError, registerErrorPatterns } from '@opentabs/plugin-sdk/server';
 import type { McpServer, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { JsonRpcResponse, HealthCheckEvaluator } from '@opentabs/core';
+import type { JsonRpcResponse, HealthCheckEvaluator } from '@opentabs/plugin-sdk';
 
 // ---------------------------------------------------------------------------
 // Tool Registration Function Type
 // ---------------------------------------------------------------------------
 
 type ToolRegistrationFn = (server: McpServer) => Map<string, RegisteredTool>;
+
+// ---------------------------------------------------------------------------
+// Slack-Specific Error Patterns
+//
+// These patterns provide user-friendly error messages for common Slack API
+// errors. They are registered with the SDK's extensible error pattern system
+// so that the generic `error()` wrapper in tool handlers formats them nicely.
+// ---------------------------------------------------------------------------
+
+const SLACK_ERROR_PATTERNS = [
+  {
+    match: (msg: string) => msg.includes('channel_not_found') || msg.includes('Channel not found'),
+    format: () =>
+      'Channel not found. Please check the channel name or ID is correct. ' +
+      'For private channels, use the channel ID (starts with C).',
+  },
+  {
+    match: (msg: string) => msg.includes('not_in_channel'),
+    format: () => 'You are not a member of this channel. Join the channel first.',
+  },
+  {
+    match: (msg: string) => msg.includes('invalid_auth') || msg.includes('not_authed'),
+    format: () =>
+      'Slack authentication failed. Please refresh your Slack tab and try again. ' +
+      'If the issue persists, sign out and back in.',
+  },
+  {
+    match: (msg: string) => msg.includes('ratelimited'),
+    format: () => 'Rate limited by Slack. Please wait a moment and try again.',
+  },
+  {
+    match: (msg: string) => msg.includes('missing_scope'),
+    format: () => 'Missing Slack permissions. Your session may not have the required OAuth scopes for this feature.',
+  },
+  {
+    match: (msg: string) => msg.includes('user_not_found'),
+    format: () => 'Slack user not found. Please check the user ID is correct.',
+  },
+  {
+    match: (msg: string) => msg.includes('token_revoked'),
+    format: () => 'Slack token has been revoked. Please sign out and back in to Slack.',
+  },
+  {
+    match: (msg: string) => msg.includes('no_text'),
+    format: () => 'Message text is required. Please provide a non-empty message.',
+  },
+  {
+    match: (msg: string) => msg.includes('too_many_attachments'),
+    format: () => 'Too many attachments on this message. Slack limits the number of attachments per message.',
+  },
+  {
+    match: (msg: string) => msg.includes('message_not_found'),
+    format: () => 'Message not found. The message may have been deleted or the timestamp is incorrect.',
+  },
+  {
+    match: (msg: string) => msg.includes('cant_delete_message'),
+    format: () => "You can only delete your own messages. You don't have permission to delete this message.",
+  },
+  {
+    match: (msg: string) => msg.includes('cant_update_message'),
+    format: () => "You can only edit your own messages. You don't have permission to update this message.",
+  },
+];
+
+// Register Slack error patterns with the SDK on module load.
+// These are checked after platform-level patterns; first match wins.
+registerErrorPatterns(SLACK_ERROR_PATTERNS);
 
 // ---------------------------------------------------------------------------
 // All Tool Registrations

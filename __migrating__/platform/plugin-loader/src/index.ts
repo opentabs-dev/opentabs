@@ -22,12 +22,26 @@ export { discoverPlugins, determineTrustTier } from './discover.js';
 export type { DiscoveredPlugin, OpenTabsConfig, DiscoveryOptions } from './discover.js';
 
 // -----------------------------------------------------------------------------
-// Validate — Check plugin manifests against the platform schema
+// Manifest Schema — Zod-based validation and JSON Schema generation
 // -----------------------------------------------------------------------------
 
-export { validatePluginManifest, validateOrThrow, checkNameConflicts } from './validate.js';
+export {
+  pluginManifestSchema,
+  rawManifestSchema,
+  pluginNameSchema,
+  zodErrorToValidationErrors,
+} from './manifest-schema.js';
 
-export type { ValidationError, ValidationResult } from './validate.js';
+// -----------------------------------------------------------------------------
+// Validate — Check plugin manifests against the platform schema
+//
+// Validation functions are re-exported from manifest-schema.ts which uses Zod
+// for declarative schema validation with cross-field consistency checks.
+// -----------------------------------------------------------------------------
+
+export { validatePluginManifest, validateOrThrow, checkNameConflicts } from './manifest-schema.js';
+
+export type { ValidationError, ValidationResult } from './manifest-schema.js';
 
 // -----------------------------------------------------------------------------
 // Merge — Convert manifests to platform types and wire into the registry

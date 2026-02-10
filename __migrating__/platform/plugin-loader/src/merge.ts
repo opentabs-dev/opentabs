@@ -12,7 +12,7 @@
 // =============================================================================
 
 import { discoverPlugins, determineTrustTier } from './discover.js';
-import { validateOrThrow, checkNameConflicts } from './validate.js';
+import { validateOrThrow, checkNameConflicts } from './manifest-schema.js';
 import { setServiceRegistry, computeServiceIds, isJsonRpcError } from '@opentabs/core';
 import { resolve, isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
