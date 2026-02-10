@@ -354,6 +354,43 @@ cpSync(offscreenHtmlSrc, resolve(OUT_DIR, 'offscreen.html'));
 console.log('[Build] Offscreen document bundled');
 
 // ---------------------------------------------------------------------------
+// Step 6b: Bundle the side panel
+// ---------------------------------------------------------------------------
+
+console.log('[Build] Bundling side panel...');
+
+mkdirSync(resolve(OUT_DIR, 'side-panel'), { recursive: true });
+
+const sidePanelEntry = resolve(EXTENSION_SRC_DIR, 'side-panel', 'side-panel.ts');
+
+const sidePanelResult = await Bun.build({
+  entrypoints: [sidePanelEntry],
+  outdir: resolve(OUT_DIR, 'side-panel'),
+  target: 'browser',
+  format: 'esm',
+  naming: 'side-panel.js',
+  minify: false,
+  sourcemap: 'none',
+  external: ['chrome'],
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
+});
+
+if (!sidePanelResult.success) {
+  console.error('[Build] Side panel bundle failed:');
+  for (const log of sidePanelResult.logs) {
+    console.error(log);
+  }
+  process.exit(1);
+}
+
+// Copy side-panel HTML
+const sidePanelHtmlSrc = resolve(EXTENSION_SRC_DIR, 'side-panel', 'index.html');
+cpSync(sidePanelHtmlSrc, resolve(OUT_DIR, 'side-panel', 'index.html'));
+console.log('[Build] Side panel bundled');
+
+// ---------------------------------------------------------------------------
 // Step 7: Generate manifest.json
 // ---------------------------------------------------------------------------
 
@@ -394,7 +431,7 @@ const manifest = {
   version: extensionPkg.version,
   description: '__MSG_extensionDescription__',
   host_permissions: hostPermissions,
-  permissions: ['storage', 'scripting', 'tabs', 'alarms', 'offscreen'],
+  permissions: ['storage', 'scripting', 'tabs', 'alarms', 'offscreen', 'sidePanel'],
   background: {
     service_worker: 'background.js',
     type: 'module',
@@ -412,6 +449,9 @@ const manifest = {
     '32': 'icons/icon-32.png',
     '48': 'icons/icon-48.png',
     '128': 'icons/icon-128.png',
+  },
+  side_panel: {
+    default_path: 'side-panel/index.html',
   },
   content_scripts: contentScripts,
   web_accessible_resources: webAccessibleResources,
