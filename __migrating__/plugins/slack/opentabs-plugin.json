@@ -1,0 +1,155 @@
+{
+  "$schema": "https://opentabs.dev/schemas/plugin-v1.json",
+  "name": "slack",
+  "displayName": "Slack",
+  "version": "1.0.0",
+  "description": "Slack integration for OpenTabs — send messages, search conversations, manage channels, read threads, manage files, pins, stars, and reactions from AI agents",
+  "author": "OpenTabs",
+  "homepage": "https://github.com/nichochar/opentabs",
+  "license": "MIT",
+
+  "adapter": {
+    "entry": "./dist/adapter.js",
+    "domains": {
+      "production": ".slack.com"
+    },
+    "urlPatterns": {
+      "production": ["*://*.slack.com/*"]
+    },
+    "hostPermissions": [
+      "https://*.slack.com/*",
+      "https://edgeapi.slack.com/*"
+    ],
+    "defaultUrl": "https://app.slack.com"
+  },
+
+  "service": {
+    "timeout": 30000,
+    "environments": ["production"],
+    "authErrorPatterns": [
+      "invalid_auth",
+      "not_authed",
+      "token_revoked",
+      "Not authenticated"
+    ],
+    "healthCheck": {
+      "method": "slack.api",
+      "params": {
+        "method": "auth.test",
+        "params": {}
+      },
+      "evaluator": "slack-api-ok-field"
+    }
+  },
+
+  "tools": {
+    "entry": "./dist/tools/index.js",
+    "categories": [
+      {
+        "id": "messages",
+        "label": "Messages",
+        "tools": [
+          "slack_send_message",
+          "slack_read_messages",
+          "slack_read_thread",
+          "slack_reply_to_thread",
+          "slack_react_to_message",
+          "slack_update_message",
+          "slack_delete_message"
+        ]
+      },
+      {
+        "id": "search",
+        "label": "Search",
+        "tools": [
+          "slack_search_messages",
+          "slack_search_files"
+        ]
+      },
+      {
+        "id": "channels",
+        "label": "Channels",
+        "tools": [
+          "slack_list_channels",
+          "slack_get_channel_info",
+          "slack_create_channel",
+          "slack_archive_channel",
+          "slack_invite_to_channel",
+          "slack_set_channel_topic",
+          "slack_set_channel_purpose"
+        ]
+      },
+      {
+        "id": "conversations",
+        "label": "Conversations",
+        "tools": [
+          "slack_open_dm",
+          "slack_list_members"
+        ]
+      },
+      {
+        "id": "users",
+        "label": "Users",
+        "tools": [
+          "slack_get_user_info",
+          "slack_get_user_presence",
+          "slack_find_user_by_email",
+          "slack_search_users",
+          "slack_list_users"
+        ]
+      },
+      {
+        "id": "files",
+        "label": "Files",
+        "tools": [
+          "slack_list_files",
+          "slack_get_file_info"
+        ]
+      },
+      {
+        "id": "pins",
+        "label": "Pins",
+        "tools": [
+          "slack_pin_message",
+          "slack_unpin_message",
+          "slack_list_pins"
+        ]
+      },
+      {
+        "id": "stars",
+        "label": "Stars",
+        "tools": [
+          "slack_add_star",
+          "slack_remove_star",
+          "slack_list_stars"
+        ]
+      },
+      {
+        "id": "reactions",
+        "label": "Reactions",
+        "tools": [
+          "slack_add_reaction",
+          "slack_remove_reaction",
+          "slack_get_reactions"
+        ]
+      }
+    ]
+  },
+
+  "permissions": {
+    "network": [
+      "*.slack.com",
+      "edgeapi.slack.com"
+    ],
+    "storage": true,
+    "nativeApis": []
+  },
+
+  "keywords": [
+    "slack",
+    "messaging",
+    "chat",
+    "workspace",
+    "communication"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "opentabs-migrating",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "platform/*",
+    "plugins/*"
+  ],
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "rimraf platform/*/dist plugins/*/dist",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "@opentabs/plugin-sdk",
+  "version": "1.0.0",
+  "description": "SDK for building OpenTabs plugins — adapter utilities and MCP tool helpers",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./adapter": {
+      "types": "./dist/adapter.d.ts",
+      "import": "./dist/adapter.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentabs/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": {
+      "optional": false
+    },
+    "zod": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  },
+  "keywords": [
+    "opentabs",
+    "mcp",
+    "plugin-sdk",
+    "chrome-extension"
+  ],
+  "license": "MIT"
+}

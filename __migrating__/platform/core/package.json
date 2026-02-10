@@ -1,0 +1,42 @@
+{
+  "name": "@opentabs/core",
+  "version": "1.0.0",
+  "description": "Core types, constants, and utilities shared across the OpenTabs platform",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./json-rpc": {
+      "types": "./dist/json-rpc.d.ts",
+      "import": "./dist/json-rpc.js"
+    },
+    "./messaging": {
+      "types": "./dist/messaging.d.ts",
+      "import": "./dist/messaging.js"
+    },
+    "./services": {
+      "types": "./dist/services.d.ts",
+      "import": "./dist/services.js"
+    },
+    "./plugin-manifest": {
+      "types": "./dist/plugin-manifest.d.ts",
+      "import": "./dist/plugin-manifest.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT"
+}
