@@ -1,0 +1,479 @@
+{
+  "project": "OpenTabs Platform",
+  "branchName": "ralph/opentabs-platform",
+  "description": "Open-source platform enabling AI agents to interact with web applications through browser-authenticated sessions. Plugin SDK, MCP server, Chrome extension, build tooling, and Slack plugin as DX acceptance test. See tasks/prd-opentabs-platform.md for full architecture, protocol spec, and design decisions.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Monorepo scaffold and MCP server skeleton",
+      "description": "As an AI development agent, I need the project monorepo structure and a basic MCP server with HTTP + WebSocket so that subsequent stories have a foundation to build on.\n\nThis is the FIRST story — it bootstraps the entire project from scratch.\n\nProject structure (see tasks/prd-opentabs-platform.md 'Project Structure' section):\n  platform/               — bun workspace members\n    plugin-sdk/           — @opentabs/plugin-sdk\n    mcp-server/           — @opentabs/mcp-server\n    browser-extension/    — Chrome extension\n    create-plugin/        — create-opentabs-plugin CLI\n  plugins/                — NOT workspace members (for Slack plugin later)\n  tasks/                  — PRD files (already exists)\n\nAll packages must be npm-publish-ready (correct exports, types, files fields) but use local file: references during development. See PRD 'Package Architecture & Local Development' section.",
+      "acceptanceCriteria": [
+        "Root package.json created with bun workspaces: ['platform/*']",
+        "Root tsconfig.json uses composite project references for all platform/* packages",
+        "Root scripts: 'build' runs tsc --build, 'type-check' runs tsc --noEmit across all packages",
+        "platform/mcp-server/package.json: name '@opentabs/mcp-server', type 'module', proper exports map, files array",
+        "platform/plugin-sdk/package.json: name '@opentabs/plugin-sdk', type 'module' (placeholder — filled in US-004)",
+        "platform/browser-extension/package.json: name '@opentabs/browser-extension', type 'module' (placeholder — filled in US-002)",
+        "platform/create-plugin/package.json: name 'create-opentabs-plugin', type 'module' (placeholder — filled in US-006)",
+        "MCP server src/index.ts starts HTTP server on port 9515 (configurable via PORT env var)",
+        "HTTP server handles WebSocket upgrade at /ws path — accepts connections, logs connect/disconnect",
+        "Entry point is compatible with bun --hot: uses module.hot?.dispose for server cleanup on hot reload",
+        "bun run build compiles TS to JS in dist/ without deleting dist/ first (safe for hot reload)",
+        "Server can be started with: bun --hot platform/mcp-server/dist/index.js",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Chrome extension scaffold with background, offscreen, and alarm",
+      "description": "As the platform, I need the Chrome extension skeleton with Manifest V3 configuration, background service worker, offscreen document, and alarm-based keepalive. This is the extension scaffold only — no WebSocket, adapter injection, or tool dispatch yet.\n\nSee tasks/prd-opentabs-platform.md 'Chrome Extension' section. Monorepo exists from US-001.",
+      "acceptanceCriteria": [
+        "platform/browser-extension/manifest.json is valid MV3 with permissions: offscreen, storage, unlimitedStorage, alarms, tabs, scripting, sidePanel",
+        "manifest.json declares background service_worker pointing to built background.js",
+        "manifest.json declares host_permissions: ['<all_urls>']",
+        "src/background.ts is the background service worker entry point",
+        "src/offscreen/offscreen.html exists with minimal HTML that loads offscreen.js",
+        "src/offscreen/offscreen.ts is the offscreen document entry point (empty handler for now)",
+        "Background script creates offscreen document on startup using chrome.offscreen.createDocument if not already exists",
+        "Background script sets up chrome.alarms with 25-second interval for keepalive",
+        "Background script handles chrome.alarms.onAlarm to keep service worker alive",
+        "Extension builds to a loadable unpacked extension directory",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Extension ↔ MCP server WebSocket with auto-reconnect and extension.reload",
+      "description": "As the platform, I need the Chrome extension's offscreen document to maintain a persistent WebSocket connection to the MCP server, with auto-reconnect and exponential backoff, ping/pong keepalive, and extension.reload support. Background script routes messages between offscreen and extension internals.\n\nSee tasks/prd-opentabs-platform.md 'Extension Reload', 'Keepalive', and 'MCP Server ↔ Extension Protocol' sections.\n\nMCP server skeleton exists from US-001. Extension scaffold exists from US-002.",
+      "acceptanceCriteria": [
+        "Offscreen document connects to MCP server WebSocket at ws://localhost:9515/ws on startup",
+        "Auto-reconnect with exponential backoff: 1s, 2s, 4s, 8s, capped at 30s",
+        "On successful connect, backoff resets to 1s",
+        "Background ↔ offscreen communicate via chrome.runtime.sendMessage / onMessage",
+        "Messages received from MCP server forwarded: offscreen → background via chrome.runtime.sendMessage",
+        "Messages to MCP server forwarded: background → offscreen via chrome.runtime.sendMessage → WebSocket.send",
+        "Offscreen sends ping {jsonrpc:'2.0', method:'ping'} every 30s as keepalive",
+        "MCP server handles ping and responds with {jsonrpc:'2.0', method:'pong'}",
+        "Background handles 'extension.reload' JSON-RPC method: responds with {reloading:true}, then calls chrome.runtime.reload()",
+        "After chrome.runtime.reload(), offscreen document is recreated and reconnects automatically",
+        "Connection state (connected/disconnected) is trackable from background script",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Plugin SDK — OpenTabsPlugin, defineTool, ToolError",
+      "description": "As a plugin author, I need the @opentabs/plugin-sdk package with the OpenTabsPlugin abstract class, defineTool() factory, and ToolError class so I can write type-safe browser-session plugins.\n\nSee tasks/prd-opentabs-platform.md 'Plugin SDK' section for the complete TypeScript API design including ToolDefinition interface, generics, and Zod integration.\n\nThis is a standalone package with NO platform dependencies. Monorepo exists from US-001.",
+      "acceptanceCriteria": [
+        "platform/plugin-sdk/src/index.ts exports: OpenTabsPlugin, defineTool, ToolError, and ToolDefinition type",
+        "OpenTabsPlugin is an abstract class with abstract readonly fields: name (string), version (string), description (string), urlPatterns (string[]), tools (ToolDefinition[])",
+        "OpenTabsPlugin has abstract method: isReady(): Promise<boolean>",
+        "OpenTabsPlugin has optional field: displayName?: string",
+        "ToolDefinition<TInput, TOutput> interface has: name (string), description (string), input (TInput extends z.ZodObject), output (TOutput extends z.ZodType), handle(params: z.infer<TInput>): Promise<z.infer<TOutput>>",
+        "defineTool<TInput, TOutput>() is a type-safe identity function that provides full generic inference — handle() params and return type are inferred from input/output schemas",
+        "ToolError extends Error with constructor(message: string, public readonly code: string)",
+        "Zod is declared as peerDependency in package.json, not bundled — types use import type { z } from 'zod'",
+        "package.json has correct exports map, types field, and files array for npm publishing",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "opentabs build CLI — manifest generation and IIFE bundling",
+      "description": "As a plugin author, I need the 'opentabs build' command to import my plugin module, extract metadata and Zod schemas, convert to JSON Schema, validate, write opentabs-plugin.json manifest, and bundle the adapter as a self-contained IIFE.\n\nSee tasks/prd-opentabs-platform.md 'Plugin Build Tooling' section for the 7-step build pipeline and 'Plugin Manifest' section for the output format.\n\nPlugin SDK exists from US-004. The CLI can live in @opentabs/plugin-sdk or a separate build package.\n\nHot reload is available for MCP server (bun --hot) and extension (extension.reload) from US-001/US-003.",
+      "acceptanceCriteria": [
+        "'opentabs build' CLI command executable from a plugin project directory",
+        "Dynamically imports the plugin's main module and reads the default-exported OpenTabsPlugin instance",
+        "Extracts metadata: name, version, description, urlPatterns, displayName",
+        "Extracts each tool's: name, description, input Zod schema, output Zod schema",
+        "Converts Zod schemas to JSON Schema (using zod-to-json-schema or equivalent library)",
+        "Validates: URL patterns are valid Chrome match patterns and not overly broad (rejects *://*/*)",
+        "Validates: plugin name is lowercase alphanumeric + hyphens, not a reserved name (e.g., 'system', 'browser')",
+        "Validates: all required fields present (name, version, description, urlPatterns, at least one tool)",
+        "Writes opentabs-plugin.json in the project root with manifest data including JSON Schemas",
+        "Bundles the plugin source into dist/adapter.iife.js as a self-contained IIFE for browser injection",
+        "IIFE registers the adapter on window.__openTabs.adapters[pluginName] when executed",
+        "Validation errors produce clear, actionable error messages identifying the specific issue",
+        "Exit code 0 on success, non-zero on validation failure",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "create-opentabs-plugin scaffolding CLI",
+      "description": "As a plugin developer, I want to run 'bunx create-opentabs-plugin jira --domain .atlassian.net' and get a ready-to-build plugin project with correct structure, dependencies, and build scripts.\n\nSee tasks/prd-opentabs-platform.md 'create-opentabs-plugin' section.\n\nPlugin SDK exists from US-004. opentabs build exists from US-005.",
+      "acceptanceCriteria": [
+        "CLI entry point in platform/create-plugin/ package with bin field in package.json",
+        "Accepts: plugin name (required positional arg), --domain flag, --display flag, --description flag",
+        "Creates a new directory named after the plugin",
+        "Generates package.json with: name 'opentabs-plugin-{name}', 'opentabs-plugin' keyword, peerDependency on @opentabs/plugin-sdk, build script 'tsc && opentabs build', dev script 'bun run build --watch'",
+        "Generates tsconfig.json with strict mode, ES module output, composite: true",
+        "Generates src/index.ts with a concrete plugin class extending OpenTabsPlugin using provided name/domain/display",
+        "Generates src/tools/example.ts with a sample tool using defineTool() with Zod input/output schemas",
+        "Plugin name validation: lowercase alphanumeric + hyphens only, rejects reserved names",
+        "Generated project uses 'file:' reference for @opentabs/plugin-sdk during local development",
+        "Generated project builds successfully with 'bun install && bun run build' (produces opentabs-plugin.json and dist/adapter.iife.js)",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "MCP server — MCP client connections and extension protocol",
+      "description": "As the platform, I need the MCP server to accept MCP client connections (for AI agents like Claude Code) via @modelcontextprotocol/sdk with streamable HTTP transport, and implement the full JSON-RPC protocol with the Chrome extension.\n\nSee tasks/prd-opentabs-platform.md 'MCP Server ↔ Extension Protocol' section for ALL message formats: sync.full, tab.syncAll, tab.stateChanged, tool.dispatch routing, config operations, tool activity notifications, error codes.\n\nMCP server skeleton with WebSocket exists from US-001. Extension WebSocket exists from US-003.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "@modelcontextprotocol/sdk installed as dependency of @opentabs/mcp-server",
+        "MCP server accepts MCP client connections using streamable HTTP transport (SSE)",
+        "MCP server registers tools dynamically — empty tool list initially (discovery fills it in US-011)",
+        "On WebSocket connect from extension: sends sync.full notification with plugins array (empty initially)",
+        "Receives tab.syncAll from extension: stores complete tab-to-plugin mapping in memory",
+        "Receives tab.stateChanged from extension: updates tab-to-plugin mapping incrementally",
+        "Tab mapping tracks per-plugin: state ('closed'|'unavailable'|'ready'), tabId (number|null), url (string|null)",
+        "Routes tool.dispatch requests from MCP client to extension: finds plugin, sends to extension via WebSocket, returns response to MCP client",
+        "Handles config.getState: returns full state (plugins, tools, tab states) for side panel",
+        "Handles config.setToolEnabled and config.setAllToolsEnabled: updates config, re-registers MCP tools",
+        "Sends tool.invocationStart and tool.invocationEnd notifications to extension during tool execution",
+        "GET /health returns 200 with JSON status including connected clients count",
+        "All JSON-RPC messages follow the protocol spec in the PRD (jsonrpc:'2.0', correct error codes: -32001 to -32603)",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Config system — ~/.opentabs/config.json",
+      "description": "As a user, I want ~/.opentabs/config.json created automatically on first MCP server run, serving as the single source of truth for local plugin paths and tool enabled/disabled state.\n\nSee tasks/prd-opentabs-platform.md US-003 (Config system) section.\n\nMCP server exists from US-001/US-007.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Config module in platform/mcp-server/src/config.ts (or similar path)",
+        "~/.opentabs/ directory created on first run if it doesn't exist",
+        "~/.opentabs/config.json created with default structure: { \"plugins\": [], \"tools\": {} }",
+        "plugins array holds filesystem paths to local plugins",
+        "tools object maps prefixed tool names to booleans: { \"slack_send_message\": true, \"slack_search\": false }",
+        "All tools of a newly discovered plugin start disabled by default (absent from tools = disabled)",
+        "Disabled tools are NOT registered as MCP tools — they don't appear in MCP client's tool list",
+        "Config is re-read on MCP server hot reload (bun --hot module re-evaluation)",
+        "File read errors (permissions, corrupt JSON, missing file) caught — server starts with defaults and logs warning",
+        "Exports functions: loadConfig(), saveConfig(), isToolEnabled(toolName), setToolEnabled(toolName, enabled), setAllToolsEnabled(pluginName, enabled)",
+        "Config is valid JSON, human-editable with any text editor",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Extension — plugin storage and IIFE injection into matching tabs",
+      "description": "As the platform, I need the Chrome extension to handle sync.full and plugin.update/uninstall messages from the MCP server by storing plugin data in chrome.storage.local and injecting adapter IIFEs into matching tabs via chrome.scripting.executeScript (MAIN world).\n\nSee tasks/prd-opentabs-platform.md 'Chrome Extension' section and 'Connection & Initial Sync' protocol. IIFE injection into MAIN world may face CSP restrictions — implementation should try chrome.scripting.executeScript first and explore alternatives if needed (see PRD 'CSP handling' note).\n\nExtension scaffold + WebSocket exist from US-002/US-003. MCP server protocol exists from US-007.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "On sync.full message from MCP server: stores each plugin's manifest + IIFE string in chrome.storage.local keyed by plugin name",
+        "On sync.full: for each plugin, queries chrome.tabs matching urlPatterns, injects IIFE via chrome.scripting.executeScript with world:'MAIN'",
+        "On plugin.update message: updates stored IIFE in chrome.storage.local, re-injects into all matching tabs",
+        "On plugin.uninstall message: removes plugin data from chrome.storage.local",
+        "Tab URL matching uses the plugin's urlPatterns from the manifest",
+        "IIFE injection handles CSP — tries chrome.scripting.executeScript first; explores script element injection or declarativeNetRequest CSP modification as fallback if needed",
+        "plugin.update responds with { reinjectedTabs: [tabId, ...] }",
+        "plugin.uninstall responds with { success: true }",
+        "On extension startup: reads previously stored plugins from chrome.storage.local and re-injects into matching tabs",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Extension — tool dispatch and tab state tracking",
+      "description": "As the platform, I need the Chrome extension to handle tool.dispatch messages by finding the matching tab and executing the tool via chrome.scripting.executeScript (MAIN world), and to track tab state changes and push them to the MCP server.\n\nSee tasks/prd-opentabs-platform.md 'Tool Dispatch (Critical Path)' and 'Tab State Push' protocol sections. Tab states: closed (no matching tab), unavailable (tab exists but isReady()=false), ready (isReady()=true). Error codes: -32001 (closed), -32002 (unavailable), -32603 (internal).\n\nPlugin storage + IIFE injection exist from US-009.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "On tool.dispatch message: looks up plugin by name from stored data, finds first tab matching plugin's URL patterns",
+        "Executes tool via chrome.scripting.executeScript world:'MAIN' — calls injected adapter's handle() for the specified tool name with provided input",
+        "Returns tool output as JSON-RPC success: { result: { output: ... } }",
+        "Returns JSON-RPC error code -32001 if no matching tab exists (state: closed)",
+        "Returns JSON-RPC error code -32002 if tab exists but adapter isReady() returns false (state: unavailable)",
+        "Returns JSON-RPC error code -32603 for internal errors (dispatch failures, script errors)",
+        "Listens to chrome.tabs.onUpdated (URL changes, loading complete) and chrome.tabs.onRemoved",
+        "On tab URL change or close: determines if it affects any plugin's tab state, sends tab.stateChanged notification to MCP server via WebSocket",
+        "On WebSocket connect/reconnect: scans all open tabs, sends tab.syncAll with current state of all known plugins",
+        "Tab state per plugin: 'closed' (no matching tab), 'unavailable' (tab exists, isReady=false), 'ready' (tab exists, isReady=true)",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Plugin discovery from node_modules and local paths",
+      "description": "As the platform, I need the MCP server to discover plugins from node_modules (npm) and local filesystem paths (config), read their manifests + IIFEs, register MCP tools, and send plugin payloads to the extension.\n\nSee tasks/prd-opentabs-platform.md US-005 (Plugin discovery) section, 'npm Distribution' section, and 'Tool Name Prefixing' section.\n\nConfig system exists from US-008. MCP server protocol exists from US-007. Extension handles sync.full/plugin payloads from US-009. opentabs build can produce test manifests from US-005.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Discovery module scans node_modules for packages matching opentabs-plugin-* or @*/opentabs-plugin-*",
+        "Also checks for 'opentabs-plugin' keyword in package.json as fallback discovery method",
+        "Reads local plugin paths from ~/.opentabs/config.json plugins array",
+        "For each discovered plugin: reads opentabs-plugin.json manifest and dist/adapter.iife.js from plugin directory",
+        "Registers MCP tools from manifest JSON Schema definitions via @modelcontextprotocol/sdk",
+        "Tool names auto-prefixed: e.g., plugin 'slack' tool 'send_message' → MCP tool 'slack_send_message'",
+        "Only tools marked enabled in config are registered — disabled tools don't appear in MCP tool list",
+        "Validates: plugin name matches npm package name (minus 'opentabs-plugin-' prefix), URL patterns present and valid",
+        "Trust tiers: @opentabs/ scope → 'official', npm package → 'community', filesystem path → 'local'",
+        "Failed plugins logged as errors but don't crash server — other plugins continue loading",
+        "Sends sync.full to extension with all discovered plugin payloads (manifest + IIFE) on startup",
+        "Sends notifications/tools/list_changed to connected MCP clients after tool registration",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Local plugin file watching with hot re-injection",
+      "description": "As a plugin developer, I need the MCP server to watch local plugin directories for IIFE and manifest changes on disk, re-read them, and push updates to the extension for re-injection — enabling sub-second feedback during development.\n\nSee tasks/prd-opentabs-platform.md US-006 (File watching) and 'Plugin Hot Reload (Local Development)' sections for the full flow:\n  Plugin author saves → bun build --watch runs → IIFE changes on disk → MCP server detects → sends plugin.update → extension re-injects → next tool call uses new code.\n\nPlugin discovery exists from US-011. Extension handles plugin.update from US-009. Config provides local paths from US-008.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "MCP server sets up fs.watch on each local plugin's directory (paths from config.json plugins array)",
+        "Watches for changes to opentabs-plugin.json and dist/adapter.iife.js",
+        "On IIFE change: re-reads IIFE file content, sends plugin.update JSON-RPC to extension via WebSocket",
+        "On manifest change: re-reads manifest, re-registers MCP tools if schemas/tool list changed, sends notifications/tools/list_changed to MCP clients",
+        "File change events debounced at ~200ms to handle rapid successive writes from build --watch",
+        "File watching is ONLY for local plugins (filesystem paths in config), not npm-installed plugins",
+        "Handles file read errors gracefully (file briefly unavailable during write) — retries once after short delay",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Slack plugin — scaffold via create-opentabs-plugin and local install",
+      "description": "As a plugin developer, I need the Slack plugin scaffolded using create-opentabs-plugin and set up as a standalone project in plugins/slack/, proving the end-to-end developer workflow from scaffolding to MCP server discovery. This is the DX acceptance test — any friction must be fixed in the platform.\n\nSee tasks/prd-opentabs-platform.md 'Slack Plugin — DX Acceptance Test' section.\n\nScaffolding CLI exists from US-006. Config exists from US-008. Discovery exists from US-011.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Slack plugin created by running: bunx create-opentabs-plugin slack --domain .slack.com --display Slack (from the project root or plugins/ directory)",
+        "Output placed in plugins/slack/ — NOT a workspace member of the platform monorepo",
+        "package.json updated with '@opentabs/plugin-sdk': 'file:../../platform/plugin-sdk' (local reference for development)",
+        "package.json has 'opentabs-plugin' keyword and correct 'files' array including opentabs-plugin.json and dist/",
+        "Build script: 'tsc && opentabs build', Dev script: 'bun run build --watch'",
+        "bun install && bun run build succeeds in plugins/slack/ — produces opentabs-plugin.json and dist/adapter.iife.js",
+        "plugins/slack absolute path added to ~/.opentabs/config.json plugins array",
+        "MCP server discovers the Slack plugin on startup and logs successful discovery",
+        "Any friction in scaffolding or build process is fixed in create-opentabs-plugin or opentabs build before proceeding",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Slack plugin — isReady and core messaging tools",
+      "description": "As a user, I need the Slack plugin to verify authentication via isReady() and provide core tools: send_message, read_messages, search_messages, list_channels. All tools use fetch to call Slack's internal API (same-origin, page's cookies).\n\nSee tasks/prd-opentabs-platform.md 'Usage Example — Slack Plugin' for the send_message reference implementation.\n\nSlack plugin scaffold exists from US-013. Extension dispatch exists from US-010. File watching for dev iteration from US-012.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension. For plugin dev: bun run build --watch + MCP server file watcher → auto re-injection.",
+      "acceptanceCriteria": [
+        "isReady() calls /api/auth.test via fetch (POST) and returns true if response data.ok === true",
+        "Tool: send_message — POST to /api/chat.postMessage with channel + text params, Zod input/output schemas with .describe() on each field",
+        "Tool: read_messages — POST to /api/conversations.history with channel + optional limit (default 20), returns messages array",
+        "Tool: search_messages — POST to /api/search.messages with query + optional count, returns matching messages",
+        "Tool: list_channels — POST to /api/conversations.list with optional limit + types filter, returns channels array",
+        "All tools use fetch to Slack's internal API endpoints (same-origin requests using page's cookies)",
+        "All Zod input and output schemas have .describe() on every field for clear MCP tool descriptions",
+        "Error cases throw ToolError with Slack's error codes (e.g., 'channel_not_found', 'not_authed', 'invalid_auth')",
+        "Tools are in separate files under src/tools/ and imported in src/index.ts tools array",
+        "bun run build succeeds — updated opentabs-plugin.json and dist/adapter.iife.js",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Slack plugin — conversation and channel management tools",
+      "description": "As a user, I need expanded Slack tools for conversation and channel management beyond the core messaging tools.\n\nCore Slack tools exist from US-014.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension. For plugin dev: bun run build --watch + MCP server file watcher → auto re-injection.",
+      "acceptanceCriteria": [
+        "Tool: get_channel_info — retrieves detailed info about a channel (topic, purpose, member count, is_private)",
+        "Tool: create_channel — creates a new public or private channel with name and optional topic",
+        "Tool: set_channel_topic — sets the topic of a channel",
+        "Tool: set_channel_purpose — sets the purpose of a channel",
+        "Tool: invite_to_channel — invites a user (by user ID) to a channel",
+        "Tool: list_members — lists members of a channel with optional limit/cursor pagination",
+        "All tools use fetch to Slack internal APIs with Zod input/output schemas and .describe() on fields",
+        "Error cases throw ToolError with Slack error codes",
+        "bun run build succeeds",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Slack plugin — users, files, reactions, and utility tools",
+      "description": "As a user, I need expanded Slack tools for user profiles, file operations, reactions, pins, and stars.\n\nConversation management tools exist from US-015.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension. For plugin dev: bun run build --watch + MCP server file watcher → auto re-injection.",
+      "acceptanceCriteria": [
+        "Tool: get_user_profile — retrieves a user's profile information by user ID",
+        "Tool: list_users — lists users in the workspace with optional limit and cursor",
+        "Tool: upload_file — uploads a file to a channel (content as string or base64)",
+        "Tool: list_files — lists files in a channel or workspace with optional filters",
+        "Tool: add_reaction — adds an emoji reaction to a message (by channel + timestamp)",
+        "Tool: remove_reaction — removes an emoji reaction from a message",
+        "Tool: pin_message — pins a message to a channel",
+        "Tool: unpin_message — unpins a message from a channel",
+        "All tools use fetch to Slack internal APIs with Zod input/output schemas and .describe() on fields",
+        "Error cases throw ToolError with Slack error codes",
+        "bun run build succeeds",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Side panel — React app shell with MCP connectivity indicator",
+      "description": "As a user, I need the Chrome extension side panel as a React app with an MCP connectivity indicator and a disconnected state. The side panel communicates with the MCP server through the background script (relayed over WebSocket) — it does NOT use chrome.storage for settings.\n\nSee tasks/prd-opentabs-platform.md 'Side Panel' section. Copy design language from existing @extension/ui retro components if available, otherwise use Tailwind CSS + lucide-react icons.\n\nExtension WebSocket exists from US-003. MCP server protocol exists from US-007.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Side panel React app set up in platform/browser-extension (e.g., src/side-panel/ directory)",
+        "manifest.json updated with side_panel configuration pointing to built side-panel HTML",
+        "Header component: OpenTabs name/logo, MCP connectivity indicator (green dot when connected, red when disconnected)",
+        "Side panel fetches state from MCP server via config.getState JSON-RPC relayed through background script",
+        "Disconnected state: entire UI greyed out with prominent 'MCP server not connected' message, all controls disabled",
+        "Background script relays side panel ↔ MCP server messages via the existing WebSocket connection",
+        "Uses Tailwind CSS for styling and lucide-react for icons",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Side panel — plugin cards with tool toggles",
+      "description": "As a user, I need the side panel to display plugins as expandable cards, each showing a list of tools with toggle switches for enabling/disabling individual tools or all tools for a plugin.\n\nSee tasks/prd-opentabs-platform.md 'Side Panel' layout section and 'Config — Side Panel Operations' protocol section.\n\nSide panel shell exists from US-017. Config system exists from US-008.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Plugin list displays each plugin as an expandable card with click to expand/collapse",
+        "Each card shows: plugin displayName, version, trust tier badge (Official / Community / Local)",
+        "Each card has an enable all / disable all toggle for all of the plugin's tools",
+        "Expanded card shows individual tool list with per-tool toggle switches (on/off)",
+        "Each tool row shows: tool name (without plugin prefix), description from manifest",
+        "Toggling a single tool sends config.setToolEnabled JSON-RPC to MCP server via background",
+        "Toggling all tools sends config.setAllToolsEnabled JSON-RPC to MCP server via background",
+        "Newly installed plugins show all tools as disabled (off) by default",
+        "Plugin list updates in real-time after toggle operations complete",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Side panel — tab state indicators per plugin",
+      "description": "As a user, I need the side panel to show a colored status indicator per plugin so I know if I need to open a browser tab or log in to a service.\n\nSee tasks/prd-opentabs-platform.md 'Tab State Model' section. States: closed (red), unavailable (yellow), ready (green).\n\nSide panel with plugin cards exists from US-018.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Each plugin card displays a colored dot: green (ready), yellow (unavailable), red (closed)",
+        "'closed' state shows hint text: 'Open <domain> in your browser' (e.g., 'Open app.slack.com in your browser')",
+        "'unavailable' state shows hint text: 'Log in to <displayName>' (e.g., 'Log in to Slack')",
+        "'ready' state shows no hint text (clean, good state)",
+        "Tab state updates from MCP server reflected in real-time without manual refresh",
+        "Tab state comes from config.getState response and tab.stateChanged notifications relayed via background script",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Side panel — tool activity animation during invocation",
+      "description": "As a user, I want the side panel to show a visual pulse/spinner animation when a tool is being invoked, providing real-time feedback.\n\nSee tasks/prd-opentabs-platform.md 'Tool Activity (for Side Panel)' protocol section.\n\nSide panel with tool list exists from US-018. MCP server sends tool.invocationStart/End from US-007.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Background script forwards tool.invocationStart and tool.invocationEnd notifications from MCP server to side panel",
+        "Side panel shows a pulse/spinner animation on the active tool's row when invocationStart is received",
+        "Animation clears when tool.invocationEnd is received for that tool",
+        "If side panel is not open during invocation, no error occurs (notifications are fire-and-forget)",
+        "Activity is transient — no persistent activity log, just visual feedback during execution",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Console logging on tool invocation in target tab",
+      "description": "As a user, I want every tool invocation to log a console.warn in the target tab's DevTools for transparency and security, so I can see what plugins are doing in my browser.\n\nSee tasks/prd-opentabs-platform.md 'Console Logging (Security/Transparency)' section.\n\nExtension dispatch exists from US-010.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "Before executing a tool dispatch in the target tab, extension injects a console.warn via chrome.scripting.executeScript",
+        "Log format: '[OpenTabs] <plugin>.<tool> invoked — <link>' (e.g., '[OpenTabs] slack.send_message invoked — https://npmjs.com/package/opentabs-plugin-slack')",
+        "Link is the npm package URL for published (community/official) plugins",
+        "Link is the local filesystem path for local plugins (e.g., /Users/dev/plugins/slack)",
+        "Logging is injected at the extension dispatch level — plugin authors do NOT implement this",
+        "Warning is minimal: one line with link only, does NOT log request params or response data",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Outdated plugin version check on MCP server startup",
+      "description": "As a user, I want the MCP server to check for newer versions of installed npm plugins on startup and tell me what command to run to update.\n\nSee tasks/prd-opentabs-platform.md US-016 section.\n\nPlugin discovery exists from US-011.\n\nHot reload available: bun --hot for MCP server, extension.reload for extension.",
+      "acceptanceCriteria": [
+        "On startup, MCP server queries npm registry for each installed npm plugin's latest published version",
+        "Skips local plugins (filesystem paths) — only checks npm-installed packages",
+        "Check is non-blocking — server startup and tool registration continue without waiting for results",
+        "Outdated plugins logged to stdout: 'opentabs-plugin-X: 1.0.0 → 1.1.0 (run: bun update opentabs-plugin-X)'",
+        "Results stored in memory and included in config.getState response for side panel display",
+        "Network errors for individual package checks are caught — don't affect other checks or server startup",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Full lifecycle verification — end-to-end plugin flow",
+      "description": "As a platform developer, I want to verify the complete plugin lifecycle end-to-end: scaffold → build → local install → discover → enable → dispatch → console log → hot reload.\n\nSee tasks/prd-opentabs-platform.md US-017 section.\n\nAll platform features exist from previous stories. This story verifies they work together.",
+      "acceptanceCriteria": [
+        "Scaffold a test plugin with create-opentabs-plugin (or verify existing Slack plugin setup works)",
+        "Build the plugin: bun run build produces opentabs-plugin.json and dist/adapter.iife.js",
+        "Plugin path added to ~/.opentabs/config.json and MCP server discovers it on startup",
+        "All tools start disabled by default — not visible in MCP client tool list",
+        "Enable a tool via side panel toggle → tool appears in MCP client's tool list (notifications/tools/list_changed sent)",
+        "Tool invocation works end-to-end: MCP client → MCP server → extension → adapter in tab → web API → response back",
+        "Tool invocation logs console.warn in target tab's DevTools",
+        "Side panel shows activity animation during tool invocation",
+        "Disable tool via side panel toggle → tool removed from MCP client's tool list",
+        "Modify plugin code → bun run build → MCP server detects file change → sends plugin.update → extension re-injects → next tool call uses updated code",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "All code paths verified: scaffold→build→discover→enable→dispatch→console log→activity animation→disable→file watching hot reload. Manual browser verification recommended for final end-to-end testing."
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "OpenTabs",
+  "version": "0.0.1",
+  "description": "Enable AI agents to interact with web applications through browser-authenticated sessions",
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "side-panel/side-panel.html"
+  },
+  "permissions": [
+    "offscreen",
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "tabs",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ]
+}

@@ -1,0 +1,272 @@
+{
+  "name": "opentabs-plugin-e2e-test",
+  "version": "0.0.1",
+  "displayName": "E2E Test",
+  "description": "Dead-simple plugin for E2E testing — relays to a local test web server",
+  "url_patterns": [
+    "http://localhost/*"
+  ],
+  "tools": [
+    {
+      "name": "echo",
+      "description": "Echo a message back — simplest possible tool for E2E testing",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The message to echo back"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the request succeeded"
+          },
+          "message": {
+            "type": "string",
+            "description": "The echoed message"
+          }
+        },
+        "required": [
+          "ok",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "greet",
+      "description": "Greet a person by name — tests input→output transformation via the server",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name of the person to greet"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the request succeeded"
+          },
+          "greeting": {
+            "type": "string",
+            "description": "The computed greeting message"
+          }
+        },
+        "required": [
+          "ok",
+          "greeting"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_items",
+      "description": "List items from the test server with optional pagination — mirrors patterns like Slack's conversations.list",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number",
+            "description": "Maximum number of items to return (default 10, max 100)"
+          },
+          "offset": {
+            "type": "number",
+            "description": "Offset for pagination (default 0)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the request succeeded"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "description": "Unique item identifier"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "Item name"
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            },
+            "description": "Array of items"
+          },
+          "total": {
+            "type": "number",
+            "description": "Total number of items available"
+          }
+        },
+        "required": [
+          "ok",
+          "items",
+          "total"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_status",
+      "description": "Get the current status of the test server — tests zero-input tools (similar to Slack's auth.test)",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the server is reachable and responding"
+          },
+          "authenticated": {
+            "type": "boolean",
+            "description": "Whether the current session is authenticated"
+          },
+          "uptime": {
+            "type": "number",
+            "description": "Server uptime in seconds"
+          },
+          "version": {
+            "type": "string",
+            "description": "Server version string"
+          }
+        },
+        "required": [
+          "ok",
+          "authenticated",
+          "uptime",
+          "version"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "create_item",
+      "description": "Create a new item on the test server — tests write operations (similar to Slack's conversations.create)",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name for the new item"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description for the item"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the item was created successfully"
+          },
+          "item": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Unique identifier of the created item"
+              },
+              "name": {
+                "type": "string",
+                "description": "Name of the created item"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description of the created item"
+              },
+              "created_at": {
+                "type": "string",
+                "description": "ISO 8601 timestamp of when the item was created"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "description",
+              "created_at"
+            ],
+            "additionalProperties": false,
+            "description": "The newly created item"
+          }
+        },
+        "required": [
+          "ok",
+          "item"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "failing_tool",
+      "description": "A tool that always fails — calls a server endpoint that returns an error, testing ToolError propagation through the full dispatch stack",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "error_code": {
+            "type": "string",
+            "description": "The error code the server should return (default \"deliberate_failure\")"
+          },
+          "error_message": {
+            "type": "string",
+            "description": "The error message the server should return (default \"This tool always fails\")"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "Always false — this tool is designed to fail"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}

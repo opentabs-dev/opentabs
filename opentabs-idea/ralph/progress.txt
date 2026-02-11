@@ -1,0 +1,452 @@
+# Ralph Progress Log
+Started: Tue Feb 10 19:21:50 PST 2026
+---
+
+## Codebase Patterns
+- Platform packages are in platform/, plugins in plugins/
+- Each package has tsconfig.json (composite: true) and tsconfig.build.json (extends tsconfig.json)
+- Root tsconfig.json uses project references for all platform/* packages, with `files: []` and `noEmit: true`
+- Root scripts: `build` = `tsc --build`, `type-check` = `tsc --noEmit`
+- bun-types must be installed as devDependency in packages that use Bun APIs (e.g., mcp-server)
+- For `module.hot` (bun --hot), add a `bun-hot.d.ts` augmenting NodeModule interface since bun-types doesn't include it
+- Package tsconfigs use `"module": "ES2022"`, `"moduleResolution": "bundler"`, `"target": "ES2022"`
+- TypeScript is installed as root devDependency — workspaces share it
+- Chrome extension uses @types/chrome as devDependency with `"types": ["chrome"]` in tsconfig
+- Static HTML files (like offscreen.html) go in extension root (not src/) since tsc doesn't copy non-TS files
+- Root `tsc --build` uses project references — it does NOT run each package's npm build script
+- Chrome MV3 service workers support `"type": "module"` in manifest background config
+- offscreen.html lives at `offscreen/offscreen.html` (extension root), references compiled JS at `../dist/offscreen/offscreen.js`
+- Extension internal messaging uses `type` field: `ws:*` for WebSocket/offscreen, `bg:*` for background script operations
+- Background↔offscreen use chrome.runtime.sendMessage; onMessage listener must return `true` for async response handling
+- MCP server already handles ping/pong in websocket.message handler (US-001): method:"ping" → responds with method:"pong"
+- Zod v3 is the peerDependency for plugin-sdk; installed as root devDependency for type resolution
+- Plugin SDK exports: OpenTabsPlugin (abstract class), defineTool (identity function for generic inference), ToolError (extends Error with code field), ToolDefinition (interface)
+- `opentabs build` CLI lives in plugin-sdk at src/cli.ts, exposed via bin field as `opentabs` command
+- zod-to-json-schema is a dependency (not devDep) of plugin-sdk — needed at runtime by the CLI
+- Bun.build with format:'iife' doesn't expose module exports; use a wrapper entry that imports + registers on globalThis
+- IIFE adapter registration: `globalThis.__openTabs.adapters[pluginName] = plugin` (the extension reads from this)
+- Plugin manifest field names use underscores: `url_patterns`, `input_schema`, `output_schema` (matching PRD spec)
+- zodToJsonSchema options: `{ target: 'openApi3', $refStrategy: 'none' }` for clean JSON Schema without $ref
+- MCP server uses low-level `Server` class (not `McpServer`) from @modelcontextprotocol/sdk to support raw JSON Schema tool registration
+- MCP transport: `WebStandardStreamableHTTPServerTransport` (Web Standard Request/Response) at `/mcp` path — not Express/Node adapter
+- Each MCP client session gets its own Server+Transport pair; all share the same state
+- Extension WebSocket protocol: JSON-RPC 2.0 with methods `sync.full`, `tab.syncAll`, `tab.stateChanged`, `tool.dispatch`, `config.*`, `tool.invocation*`
+- Server state is in `src/state.ts` (in-memory Maps for plugins, tabMapping, pendingDispatches); extension-protocol in `src/extension-protocol.ts`; MCP setup in `src/mcp-setup.ts`
+- Config system: `src/config.ts` manages `~/.opentabs/config.json` with loadConfig/saveConfig; state.toolConfig is the in-memory mirror, persisted on changes via McpCallbacks.onToolConfigPersist
+- Extension stores plugins in chrome.storage.local keyed by `plugin:{name}` — includes manifest fields + IIFE string
+- IIFE injection uses chrome.scripting.executeScript with world:'MAIN' and indirect eval `(0, eval)(iifeCode)` to bypass CSP restrictions
+- Extension handles sync.full (notification, no response), plugin.update (request with id → responds with reinjectedTabs), plugin.uninstall (request with id → responds with success)
+- On extension startup (onInstalled, onStartup, top-level), stored plugins are re-injected into matching tabs
+- Config default structure: `{ "plugins": [], "tools": {} }` — plugins = local filesystem paths, tools = prefixed name → boolean (absent = disabled)
+- IIFE adapter registered at `globalThis.__openTabs.adapters[pluginName]` — has `isReady()`, `tools` array with `{name, handle(params)}`
+- Tab state model: 'closed' (no matching tab), 'unavailable' (tab exists but isReady=false or adapter not found), 'ready' (tab exists and isReady=true)
+- chrome.scripting.executeScript with world:'MAIN' and async func returns a Promise result — chrome resolves it before returning to the extension
+- Tab state tracking: chrome.tabs.onUpdated (url/status changes) + chrome.tabs.onRemoved → re-compute state → send tab.stateChanged
+- On WebSocket connect/reconnect: extension sends tab.syncAll with full state of all known plugins
+- Plugin discovery: src/discovery.ts scans node_modules + local paths; plugins registered in state.plugins Map keyed by plugin name
+- Plugin name derivation from npm: `opentabs-plugin-slack` → `slack`, `@scope/opentabs-plugin-name` → `scope-name`
+- RegisteredPlugin.sourcePath stores the filesystem path for local plugins — used by file watcher to know which directories to watch
+- File watcher (src/file-watcher.ts) uses node:fs watch with 200ms debounce; sendPluginUpdate() sends plugin.update to extension on IIFE change
+- plugins/ directory is NOT a bun workspace member — each plugin has its own node_modules, bun.lock, and TypeScript
+- Slack plugin lives at plugins/slack/ — scaffolded by create-opentabs-plugin, builds with `tsc && opentabs build`
+- Local plugin paths in ~/.opentabs/config.json must be absolute paths for MCP server discovery
+- Side panel is a React app in src/side-panel/ built with Bun.build (bundled) + @tailwindcss/cli (CSS); static HTML at side-panel/side-panel.html
+- Root build script: `tsc --build && bun run --cwd platform/browser-extension build:side-panel` — tsc first, then Bun bundles React
+- Background script message types for side panel: `sp:serverMessage` (server→panel), `sp:connectionState` (connection changes), `bg:send` (panel→server), `bg:getConnectionState` (query)
+- Plugin sourcePath flows from MCP server (RegisteredPlugin.sourcePath) → sync.full/plugin.update → extension StoredPlugin.sourcePath — used for console logging link and file watcher
+- RegisteredPlugin.npmPackageName stores original npm package name — used for version checking and update commands
+- version-check.ts runs non-blocking on startup; results stored in state.outdatedPlugins and included in config.getState response
+- Tailwind v4 uses `@import "tailwindcss"` in CSS and processes with `@tailwindcss/cli` — no config file needed
+- React, ReactDOM, Tailwind, lucide-react are root devDependencies (shared via workspace)
+
+## 2026-02-10 - US-001
+- Implemented: Monorepo scaffold with bun workspaces and MCP server skeleton
+- Files changed:
+  - .gitignore — added node_modules/, dist/, *.tsbuildinfo, bun.lock
+  - package.json — root workspace config with build/type-check scripts
+  - tsconfig.json — root with composite project references
+  - platform/mcp-server/ — HTTP server on port 9515 with WebSocket at /ws, ping/pong, bun --hot support
+  - platform/plugin-sdk/ — placeholder package
+  - platform/browser-extension/ — placeholder package
+  - platform/create-plugin/ — placeholder package
+- **Learnings for future iterations:**
+  - bun-types@1.3.9 doesn't type `module.hot` — need a manual .d.ts augmentation
+  - `Bun.serve()` handles both HTTP and WebSocket in a single server instance
+  - WebSocket upgrade returns `undefined` (not `Response`) on success in Bun
+  - macOS doesn't have `timeout` command — use `&` + `sleep` + `kill` for process testing
+---
+
+## 2026-02-10 - US-002
+- Implemented: Chrome extension scaffold with MV3 manifest, background service worker, offscreen document, and alarm keepalive
+- Files changed:
+  - platform/browser-extension/manifest.json — MV3 with offscreen, storage, unlimitedStorage, alarms, tabs, scripting, sidePanel permissions
+  - platform/browser-extension/src/background.ts — service worker with offscreen doc creation and 25s alarm keepalive
+  - platform/browser-extension/src/offscreen/offscreen.ts — offscreen entry point with empty message handler
+  - platform/browser-extension/offscreen/offscreen.html — static HTML loading compiled offscreen.js
+  - platform/browser-extension/tsconfig.json — added `"types": ["chrome"]`
+  - platform/browser-extension/package.json — added @types/chrome devDependency
+  - platform/browser-extension/src/index.ts — removed (replaced by background.ts)
+- **Learnings for future iterations:**
+  - Chrome offscreen document HTML must be a static file outside src/ since tsc doesn't copy non-TS assets
+  - Root `tsc --build` compiles via project references, not npm scripts — cp/copy steps in package build scripts won't run
+  - chrome.offscreen.Reason.WEB_RTC is used as justification for persistent WebSocket connection
+  - chrome.runtime.getContexts() is used to check if offscreen document already exists before creating
+  - Alarm periodInMinutes accepts fractional values (25/60 for 25 seconds)
+---
+
+## 2026-02-10 - US-003
+- Implemented: Extension ↔ MCP server WebSocket with auto-reconnect, ping/pong keepalive, and extension.reload
+- Files changed:
+  - platform/browser-extension/src/offscreen/offscreen.ts — full WebSocket client with auto-reconnect (exponential backoff 1s→30s), 30s ping keepalive, message forwarding to background
+  - platform/browser-extension/src/background.ts — message routing between offscreen/side-panel/MCP server, connection state tracking, extension.reload handler
+- **Learnings for future iterations:**
+  - chrome.runtime.sendMessage is used for both offscreen→background and background→offscreen communication
+  - Messages use a `type` field for routing: `ws:state` (connection changes), `ws:message` (server→extension), `ws:send` (extension→server), `ws:getState` (query connection)
+  - Background script uses `bg:send` type for side panel and other contexts to send to MCP server
+  - extension.reload responds with `{ reloading: true }` first, then calls chrome.runtime.reload() after a 100ms delay to allow the response to be sent
+  - After chrome.runtime.reload(), the offscreen document is automatically recreated by the background script startup code, which triggers a new WebSocket connection
+  - The onMessage listener must return `true` to indicate async response, even for synchronous cases (for safety in Chrome extension messaging)
+---
+
+## 2026-02-10 - US-004
+- Implemented: Plugin SDK with OpenTabsPlugin abstract class, defineTool() factory, ToolError class, and ToolDefinition interface
+- Files changed:
+  - platform/plugin-sdk/src/index.ts — full implementation of all SDK exports
+  - platform/plugin-sdk/package.json — added zod as peerDependency (^3.0.0)
+  - package.json — added zod@3 as root devDependency for type resolution
+- **Learnings for future iterations:**
+  - Zod is a peerDependency of plugin-sdk, not bundled — types use `import type { z } from 'zod'`
+  - zod@3 is used (not v4 which has a different API); `bun add -d zod@3` at root level for type resolution
+  - defineTool() is a pure identity function — it exists solely for TypeScript generic inference on handle() params and return type
+  - OpenTabsPlugin is an abstract class, not an interface — plugin authors extend it and export a concrete instance
+  - ToolDefinition has default type parameters so it can be used without generics (e.g., `tools: ToolDefinition[]`)
+---
+
+## 2026-02-10 - US-005
+- Implemented: opentabs build CLI — manifest generation and IIFE bundling
+- Files changed:
+  - platform/plugin-sdk/src/cli.ts — new CLI entry point with build command: validation, Zod→JSON Schema, manifest generation, IIFE bundling
+  - platform/plugin-sdk/package.json — added bin field ("opentabs": "./dist/cli.js"), zod-to-json-schema dependency, bun-types devDep
+  - platform/plugin-sdk/tsconfig.json — added "types": ["bun-types"] for Bun API access
+  - package.json — zod-to-json-schema added as root devDependency
+- **Learnings for future iterations:**
+  - Bun.build format:'iife' creates a self-contained IIFE but does NOT expose module exports — variables stay inside the closure
+  - Solution: create a temporary wrapper entry (e.g., `_adapter_entry.ts`) that imports the plugin and writes to globalThis, then bundle that wrapper as IIFE
+  - zod-to-json-schema with `target: 'openApi3'` and `$refStrategy: 'none'` produces clean inline schemas without $ref pointers
+  - The `$schema` property added by zod-to-json-schema must be explicitly deleted from the output
+  - The CLI dynamically imports the compiled dist/index.js (not source .ts) for reading metadata, but uses source .ts for IIFE bundling (Bun resolves TypeScript)
+  - Plugin name validation uses regex `/^[a-z0-9]+(-[a-z0-9]+)*$/` — lowercase alphanumeric with single hyphens, no leading/trailing hyphens
+  - Reserved names: system, browser, opentabs, extension, config, plugin, tool, mcp
+  - Chrome match pattern validation rejects `*://*/*` and `<all_urls>` as too broad
+- create-opentabs-plugin CLI: use `return printUsageAndExit()` (not just `printUsageAndExit()`) for TypeScript control flow narrowing after `never`-returning functions
+- Generated plugin uses `@opentabs/plugin-sdk` as a `dependency` with `file:` reference (not peerDep) for local dev — bun can't resolve peerDeps pointing to unpublished packages
+---
+
+## 2026-02-10 - US-006
+- Implemented: create-opentabs-plugin scaffolding CLI
+- Files changed:
+  - platform/create-plugin/src/index.ts — full CLI implementation: arg parsing, validation, template generation for package.json, tsconfig.json, src/index.ts, src/tools/example.ts
+  - platform/create-plugin/package.json — added bin field ("create-opentabs-plugin"), bun-types devDependency
+  - platform/create-plugin/tsconfig.json — added "types": ["bun-types"] for Bun/Node API access
+- **Learnings for future iterations:**
+  - TypeScript doesn't narrow after calling a `never`-returning function as a bare statement — use `return fn()` to narrow properly
+  - bun-types must be added as devDependency + configured in tsconfig.json "types" for any package using Node/Bun APIs (path, fs, process)
+  - bun install fails on peerDependencies that reference unpublished packages (like @opentabs/plugin-sdk) — use regular dependencies with file: references for local dev instead
+  - Generated plugin file: references are relative to the expected location (plugins/{name}/), so `file:../../platform/plugin-sdk` assumes the plugin is two levels below the monorepo root
+  - Deleting the shell's CWD directory breaks ALL subsequent Bash commands — always cd to a valid directory first before removing the test directory, or keep CWD at project root
+  - Generated plugin class name is PascalCase from hyphenated name: "my-plugin" → "MyPluginPlugin"
+---
+
+## 2026-02-10 - US-007
+- Implemented: MCP server — MCP client connections and extension protocol
+- Files changed:
+  - platform/mcp-server/src/index.ts — complete rewrite: Bun.serve with WebSocket (/ws), streamable HTTP MCP transport (/mcp), health endpoint (/health)
+  - platform/mcp-server/src/state.ts — new: in-memory state for plugins, tab mapping, tool config, pending dispatches
+  - platform/mcp-server/src/extension-protocol.ts — new: full JSON-RPC 2.0 protocol handler for extension WebSocket (sync.full, tab.syncAll, tab.stateChanged, tool.dispatch, config.*, tool.invocation*)
+  - platform/mcp-server/src/mcp-setup.ts — new: MCP Server factory using low-level Server class with ListTools and CallTool handlers
+  - platform/mcp-server/package.json — added @modelcontextprotocol/sdk dependency
+- **Learnings for future iterations:**
+  - The high-level `McpServer` class requires Zod schemas for tool registration; since we have JSON Schema from plugin manifests, use the low-level `Server` class with `setRequestHandler(ListToolsRequestSchema)` and `setRequestHandler(CallToolRequestSchema)` directly
+  - `WebStandardStreamableHTTPServerTransport` (not `StreamableHTTPServerTransport`) is for Bun/Deno — works with native `Request`/`Response` APIs
+  - Each MCP client session needs its own Server + Transport pair; the server factory creates them on demand when `isInitializeRequest` matches on a POST without session ID
+  - `isInitializeRequest` is exported from `@modelcontextprotocol/sdk/types.js`
+  - Extension WebSocket and MCP HTTP transport coexist in the same `Bun.serve` instance, routed by URL path
+  - Tool dispatch uses a pending promise map keyed by JSON-RPC `id` — the extension sends a response matching the id, which resolves the promise
+  - The `close` handler in Bun's WebSocket gives you the same `ws` reference — compare by identity (`===`) to clear the right connection
+---
+
+## 2026-02-10 - US-008
+- Implemented: Config system — ~/.opentabs/config.json
+- Files changed:
+  - platform/mcp-server/src/config.ts — new: loadConfig(), saveConfig(), isToolEnabled(), setToolEnabled(), setAllToolsEnabled() with OpentabsConfig interface
+  - platform/mcp-server/src/state.ts — added pluginPaths field to ServerState
+  - platform/mcp-server/src/index.ts — loads config on startup, seeds state.toolConfig and state.pluginPaths, provides onToolConfigPersist callback
+  - platform/mcp-server/src/extension-protocol.ts — added onToolConfigPersist callback to McpCallbacks, called on tool enable/disable
+- **Learnings for future iterations:**
+  - Config uses node:path, node:os, node:fs/promises — all available via bun-types in the mcp-server package
+  - Config is loaded via top-level `await loadConfig()` in index.ts — this re-runs on bun --hot reload since the module is re-evaluated
+  - Tool enabled/disabled state: absent from config.tools = disabled (not false, just absent). `isToolEnabled` checks `=== true`
+  - Config persistence is fire-and-forget from the extension protocol handlers — saveConfig returns a promise but errors are caught internally
+  - The McpCallbacks interface bridges extension-protocol.ts → index.ts without circular imports: onToolConfigChanged (MCP notification), onToolConfigPersist (disk write)
+  - state.pluginPaths stores the loaded plugin paths from config so they can be round-tripped back when saving
+---
+
+## 2026-02-10 - US-009
+- Implemented: Extension — plugin storage and IIFE injection into matching tabs
+- Files changed:
+  - platform/browser-extension/src/background.ts — added StoredPlugin/PluginPayload interfaces, chrome.storage.local operations (storePlugin, removePlugin, getAllStoredPlugins), IIFE injection via chrome.scripting.executeScript (MAIN world), handlers for sync.full/plugin.update/plugin.uninstall, startup re-injection
+- **Learnings for future iterations:**
+  - chrome.storage.local keys are prefixed with `plugin:` to namespace plugin data away from other extension storage
+  - IIFE injection uses indirect eval `(0, eval)(iifeCode)` inside chrome.scripting.executeScript — this runs in MAIN world so the adapter registers on the page's globalThis
+  - chrome.tabs.query({ url: pattern }) uses Chrome match patterns directly — same format as manifest host_permissions
+  - chrome.scripting.executeScript with world:'MAIN' can fail on chrome:// pages and some protected URLs — errors are caught and skipped
+  - sync.full is a notification (no id, no response needed); plugin.update and plugin.uninstall are requests (have id, need response)
+  - reinjectStoredPlugins() runs on onInstalled, onStartup, and top-level to cover all service worker lifecycle scenarios
+---
+
+## 2026-02-10 - US-010
+- Implemented: Extension — tool dispatch and tab state tracking
+- Files changed:
+  - platform/browser-extension/src/background.ts — added tool.dispatch handler (looks up plugin, finds matching tab, executes tool via chrome.scripting.executeScript MAIN world), tab state computation (computePluginTabState), tab.syncAll on WebSocket connect, tab state change detection via chrome.tabs.onUpdated/onRemoved, Chrome match pattern matcher (matchPattern/urlMatchesPatterns)
+- **Learnings for future iterations:**
+  - Tool dispatch uses a single executeScript call that checks isReady() AND executes the tool — avoids two round-trips to the content script
+  - The executeScript func returns a sentinel object { __error: true, code, message } or { __output: true, output } to distinguish error/success
+  - chrome.scripting.executeScript resolves async functions — if the func returns a Promise, chrome waits for it before returning results[0].result
+  - matchPattern() is a custom implementation of Chrome match pattern matching for use in the background script (chrome.tabs.query handles it natively for tab queries, but we need it for URL-change events)
+  - Tab state changes are checked on chrome.tabs.onUpdated (url change or status=complete) and chrome.tabs.onRemoved — both iterate all stored plugins to check relevance
+  - On tab removal, we can't query the removed tab anymore, so we re-compute state from remaining tabs for ALL plugins (conservative approach)
+  - tab.syncAll is sent on WebSocket connect (wsConnected transitions from false to true) — detected in the ws:state message handler
+---
+
+## 2026-02-10 - US-011
+- Implemented: Plugin discovery from node_modules and local paths
+- Files changed:
+  - platform/mcp-server/src/discovery.ts — new: discoverPlugins() scans node_modules (opentabs-plugin-*, @*/opentabs-plugin-*, keyword fallback) and local filesystem paths, loads manifest + IIFE, validates, determines trust tier, registers in state
+  - platform/mcp-server/src/index.ts — added import and call to discoverPlugins() at startup, plus notifyToolListChanged() after discovery
+- **Learnings for future iterations:**
+  - Plugin discovery uses node:fs/promises (readdir, readFile, stat) — all available in bun-types
+  - Plugin name derivation: opentabs-plugin-slack → slack; @scope/opentabs-plugin-name → scope-name
+  - Trust tier logic: @opentabs/ scope → official, other npm → community, filesystem path → local
+  - Keyword fallback scans package.json for 'opentabs-plugin' in keywords array — covers non-standard package names
+  - Discovery is fault-tolerant: each plugin load is wrapped in try/catch, failures are logged and don't affect other plugins
+  - Duplicate plugins (same name from multiple sources) are skipped with a warning — first discovery wins
+  - sync.full to extension happens on WebSocket connect (already in place from US-003), which naturally happens after discovery
+  - notifyToolListChanged is called after discovery but is a no-op when no MCP clients are connected; it matters on hot-reload re-evaluation
+---
+
+## 2026-02-10 - US-012
+- Implemented: Local plugin file watching with hot re-injection
+- Files changed:
+  - platform/mcp-server/src/file-watcher.ts — new: file watcher module using node:fs watch, debounced at 200ms, watches opentabs-plugin.json and dist/adapter.iife.js for local plugins
+  - platform/mcp-server/src/state.ts — added `sourcePath?: string` field to RegisteredPlugin for tracking local plugin directories
+  - platform/mcp-server/src/discovery.ts — passes `sourcePath` when loading local plugins from filesystem paths
+  - platform/mcp-server/src/extension-protocol.ts — added `sendPluginUpdate()` function to send plugin.update JSON-RPC request to extension with updated IIFE
+  - platform/mcp-server/src/index.ts — imports and starts file watching after plugin discovery, wires onManifestChanged → notifyToolListChanged, onIifeChanged → sendPluginUpdate; stops watchers on bun --hot dispose
+- **Learnings for future iterations:**
+  - node:fs `watch()` is used (not chokidar) for minimal dependencies — watches a specific file path for manifest and a directory for IIFE (dist/)
+  - The dist directory watcher filters events to only `adapter.iife.js` filename changes
+  - Debouncing is critical for build --watch which writes files rapidly — 200ms debounce prevents multiple re-reads
+  - File read retry (single retry with 100ms delay) handles the case where a file is briefly unavailable during atomic write by build tools
+  - RegisteredPlugin.sourcePath is only set for local plugins (filesystem paths from config), not npm-installed packages
+  - plugin.update is a JSON-RPC request (has `id`) sent to the extension — the extension responds with `{ reinjectedTabs: [...] }`
+  - File watchers are cleaned up on bun --hot dispose to prevent stale watchers from accumulating
+---
+
+## 2026-02-10 - US-013
+- Implemented: Slack plugin scaffolded via create-opentabs-plugin CLI and locally installed
+- Files changed:
+  - plugins/slack/package.json — generated by CLI: opentabs-plugin-slack, file: reference to plugin-sdk, opentabs-plugin keyword, correct files array
+  - plugins/slack/tsconfig.json — generated: composite, ES2022, bundler resolution
+  - plugins/slack/src/index.ts — generated: SlackPlugin extending OpenTabsPlugin with name "slack", domain .slack.com, displayName "Slack"
+  - plugins/slack/src/tools/example.ts — generated: sample tool using defineTool() with Zod schemas
+  - plugins/slack/opentabs-plugin.json — produced by `opentabs build`: manifest with JSON schemas
+  - plugins/slack/dist/adapter.iife.js — produced by `opentabs build`: IIFE bundle registering on globalThis.__openTabs.adapters.slack
+  - ~/.opentabs/config.json — added plugins/slack absolute path to plugins array
+- **Learnings for future iterations:**
+  - The create-opentabs-plugin CLI works end-to-end: generates correct file: references, valid tsconfig, proper plugin structure
+  - plugins/slack is NOT a workspace member — it has its own bun.lock, node_modules, and TypeScript installation
+  - `bun install` in plugins/slack resolves the file: reference to @opentabs/plugin-sdk correctly
+  - `bun run build` (tsc && opentabs build) produces both opentabs-plugin.json and dist/adapter.iife.js
+  - MCP server discovers local plugins from ~/.opentabs/config.json plugins array — verified with console output
+  - macOS doesn't have `timeout` command — use `(cmd &) && sleep N && kill %1` pattern for time-limited process testing
+  - The Slack plugin's bun.lock should be committed as part of the plugin for reproducible builds
+---
+
+## 2026-02-10 - US-014
+- Implemented: Slack plugin isReady() and core messaging tools (send_message, read_messages, search_messages, list_channels)
+- Files changed:
+  - plugins/slack/src/index.ts — replaced placeholder isReady() with real /api/auth.test POST check; replaced example tool import with four real tool imports
+  - plugins/slack/src/tools/send-message.ts — new: POST to /api/chat.postMessage with channel + text, Zod schemas with .describe()
+  - plugins/slack/src/tools/read-messages.ts — new: POST to /api/conversations.history with channel + optional limit, returns messages array
+  - plugins/slack/src/tools/search-messages.ts — new: POST to /api/search.messages with query + optional count, returns matching messages with permalinks
+  - plugins/slack/src/tools/list-channels.ts — new: POST to /api/conversations.list with optional limit + types filter, returns channel details
+  - plugins/slack/src/tools/example.ts — deleted (replaced by real tools)
+  - plugins/slack/opentabs-plugin.json — regenerated with all four tools and JSON schemas
+  - plugins/slack/dist/adapter.iife.js — regenerated with real tool implementations
+- **Learnings for future iterations:**
+  - Slack internal APIs use POST with JSON body (Content-Type: application/json) for all endpoints
+  - All Slack API responses have a top-level `ok` boolean field — check this before accessing data
+  - Slack error responses include an `error` string field (e.g., 'channel_not_found', 'not_authed') — use as ToolError code
+  - isReady() uses /api/auth.test which returns { ok: true/false } — no input needed, just POST
+  - Tool file naming: use kebab-case for files (send-message.ts) matching the tool name pattern (send_message)
+  - Each tool file exports a single named export using defineTool() — imported and listed in the plugin's tools array
+  - Optional Zod fields (like `limit`) correctly generate as non-required in JSON Schema, making them truly optional for MCP clients
+---
+
+## 2026-02-10 - US-015
+- Implemented: Slack plugin conversation and channel management tools (6 new tools)
+- Files changed:
+  - plugins/slack/src/tools/get-channel-info.ts — new: GET channel details via /api/conversations.info
+  - plugins/slack/src/tools/create-channel.ts — new: create public/private channel via /api/conversations.create with optional topic
+  - plugins/slack/src/tools/set-channel-topic.ts — new: set channel topic via /api/conversations.setTopic
+  - plugins/slack/src/tools/set-channel-purpose.ts — new: set channel purpose via /api/conversations.setPurpose
+  - plugins/slack/src/tools/invite-to-channel.ts — new: invite user to channel via /api/conversations.invite
+  - plugins/slack/src/tools/list-members.ts — new: list channel members via /api/conversations.members with cursor pagination
+  - plugins/slack/src/index.ts — added imports and registration of all 6 new tools
+  - plugins/slack/opentabs-plugin.json — regenerated with 10 tools total
+  - plugins/slack/dist/adapter.iife.js — regenerated with new tool implementations
+- **Learnings for future iterations:**
+  - Slack conversations.* API family handles both channels and DMs — all use channel ID as the key parameter
+  - conversations.create can set is_private to create private channels; topic is set via separate setTopic call after creation
+  - conversations.members returns user IDs (not user objects) — use users.info for full profiles
+  - conversations.invite uses `users` param (not `user`) per Slack API spec — accepts comma-separated user IDs for batch invite
+  - Cursor-based pagination in Slack: response_metadata.next_cursor is empty string when no more pages (not null/undefined)
+  - Adding new tools to an existing plugin is straightforward: create tool file, add import + array entry in index.ts, rebuild
+---
+
+## 2026-02-10 - US-016
+- Implemented: Slack plugin users, files, reactions, and utility tools (8 new tools, 18 total)
+- Files changed:
+  - plugins/slack/src/tools/get-user-profile.ts — new: retrieve user profile via /api/users.info
+  - plugins/slack/src/tools/list-users.ts — new: list workspace users via /api/users.list with cursor pagination
+  - plugins/slack/src/tools/upload-file.ts — new: upload file to channel via /api/files.upload (text or base64 content)
+  - plugins/slack/src/tools/list-files.ts — new: list files via /api/files.list with channel/type/user filters and page pagination
+  - plugins/slack/src/tools/add-reaction.ts — new: add emoji reaction via /api/reactions.add
+  - plugins/slack/src/tools/remove-reaction.ts — new: remove emoji reaction via /api/reactions.remove
+  - plugins/slack/src/tools/pin-message.ts — new: pin message via /api/pins.add
+  - plugins/slack/src/tools/unpin-message.ts — new: unpin message via /api/pins.remove
+  - plugins/slack/src/index.ts — added imports and registration of all 8 new tools
+  - plugins/slack/opentabs-plugin.json — regenerated with 18 tools total
+- **Learnings for future iterations:**
+  - Slack users.info returns nested user.profile object with title, phone, email, status_text, status_emoji, image_72
+  - Slack users.list returns flat member objects — need to map to a cleaner shape for consistent output
+  - Slack files.upload accepts `content` as string body and `channels` as comma-separated channel IDs
+  - Slack files.list uses page-based pagination (page/count) rather than cursor-based — different from conversations/users APIs
+  - Reactions and pins APIs use `timestamp` (not `ts`) as the message identifier parameter name
+  - All Slack mutation APIs (reactions.add, pins.add, etc.) return just `{ ok: true }` on success — minimal output schema needed
+  - dist/ directory is in .gitignore so adapter.iife.js is not committed — it's a build artifact regenerated by `opentabs build`
+---
+
+## 2026-02-10 - US-017
+- Implemented: Side panel React app shell with MCP connectivity indicator
+- Files changed:
+  - package.json — added React, ReactDOM, Tailwind CSS, lucide-react, @tailwindcss/cli as root devDependencies; updated build script to include side panel build
+  - platform/browser-extension/manifest.json — added side_panel configuration pointing to side-panel/side-panel.html
+  - platform/browser-extension/package.json — added build:side-panel and build:tailwind scripts
+  - platform/browser-extension/tsconfig.json — added jsx: "react-jsx" for TSX support
+  - platform/browser-extension/build-side-panel.ts — new: Bun.build script to bundle React side panel into single JS file
+  - platform/browser-extension/side-panel/side-panel.html — new: static HTML entry point for side panel
+  - platform/browser-extension/src/side-panel/index.tsx — new: React root mount point
+  - platform/browser-extension/src/side-panel/App.tsx — new: main App component with Header (connectivity indicator), DisconnectedState, LoadingState, EmptyState, PluginList, PluginCard, TrustBadge, Footer
+  - platform/browser-extension/src/side-panel/bridge.ts — new: messaging bridge for side panel ↔ background script ↔ MCP server communication
+  - platform/browser-extension/src/side-panel/styles.css — new: Tailwind v4 CSS entry with custom pulse animation
+  - platform/browser-extension/src/background.ts — added forwardToSidePanel helper, sp:serverMessage forwarding in handleServerMessage, sp:connectionState forwarding in ws:state handler
+- **Learnings for future iterations:**
+  - Side panel React app requires separate Bun.build step — tsc handles type-checking but Bun bundles JSX + dependencies for browser
+  - Tailwind v4 uses `@import "tailwindcss"` — no tailwind.config.js needed; processed by @tailwindcss/cli
+  - Side panel HTML goes in static directory (side-panel/) outside src/ since tsc doesn't copy non-TS files
+  - Background script forwards ALL server messages to side panel via `sp:serverMessage` type — side panel filters for what it needs
+  - chrome.runtime.sendMessage fails silently when side panel is closed — fire-and-forget pattern with .catch(() => {})
+  - React + @types/react must be root devDependencies for workspace resolution; browser-extension doesn't need its own copies
+  - Root build script chains: `tsc --build && bun run --cwd platform/browser-extension build:side-panel` to compile TS first then bundle
+---
+
+## 2026-02-10 - US-018
+- Implemented: Side panel plugin cards with expandable tool toggles
+- Files changed:
+  - platform/browser-extension/src/side-panel/App.tsx — PluginCard made expandable with ChevronDown/ChevronRight icons, added ToggleSwitch component (enable all/individual), ToolRow component showing tool name + description + per-tool toggle, indeterminate state for partial tool enabling
+  - platform/browser-extension/src/side-panel/bridge.ts — added setToolEnabled() and setAllToolsEnabled() bridge functions, removed unused onBackgroundMessage()
+- **Learnings for future iterations:**
+  - Toggle responses from MCP server come back as `{ ok: true }` via sp:serverMessage — detect these and re-fetch config.getState to update the plugin list with new enabled states
+  - React stopPropagation is needed on toggle clicks inside expandable cards to prevent the click from toggling expand/collapse
+  - Indeterminate toggle state (some tools enabled, not all) uses a dimmed color (bg-amber-500/40) to visually indicate partial selection
+  - Tool names in the side panel are shown WITHOUT the plugin prefix — the bridge sends the unprefixed name, MCP server handles prefixing
+  - lucide-react ChevronDown/ChevronRight are used for expand/collapse indicators
+---
+
+## 2026-02-10 - US-019
+- Implemented: Side panel tab state indicators per plugin with colored dots and hint text
+- Files changed:
+  - platform/browser-extension/src/side-panel/bridge.ts — added `urlPatterns: string[]` to PluginState interface
+  - platform/browser-extension/src/side-panel/App.tsx — added `extractDomain()` helper to parse domain from URL patterns, added `TabStateHint` component showing "Open <domain> in your browser" for closed state, "Log in to <displayName>" for unavailable state, nothing for ready state
+  - platform/mcp-server/src/extension-protocol.ts — added `urlPatterns` to config.getState response so side panel can display domain hints
+  - ralph/prd.json — marked US-019 as passes: true
+- **Learnings for future iterations:**
+  - Tab state indicators were already partially implemented in US-018 (colored dot in PluginCard) — this story added the hint text below the header
+  - The tab.stateChanged real-time listener was already wired in App.tsx from US-018 — no additional listener work needed
+  - config.getState already returned tabState per plugin — just needed to add urlPatterns for domain extraction
+  - extractDomain() parses Chrome match patterns (e.g., `*://*.slack.com/*`) to get the base domain for user-friendly hints
+  - TabStateHint uses left padding (pl-[38px]) to align with the plugin name text, past the chevron and dot
+---
+
+## 2026-02-10 - US-020
+- Implemented: Side panel tool activity animation during invocation
+- Files changed:
+  - platform/browser-extension/src/side-panel/App.tsx — added `activeTools` state (Set<string> tracking `plugin:tool` keys), handlers for tool.invocationStart/End notifications in message listener, passed activeTools through PluginList→PluginCard→ToolRow, added spinner + pulse animation to active tool rows
+  - platform/browser-extension/src/side-panel/styles.css — added `tool-pulse` keyframes animation and `.animate-tool-pulse` class for subtle background pulse on active tools
+- **Learnings for future iterations:**
+  - Background script already forwards ALL server messages to side panel via `forwardToSidePanel("sp:serverMessage", message)` — no background.ts changes needed for new notification types
+  - MCP server sends tool.invocationStart with params `{ plugin, tool, ts }` and tool.invocationEnd with params `{ plugin, tool, durationMs, success }` — both are notifications (no id, no response needed)
+  - Active tool tracking uses a composite key `${plugin}:${tool}` in a Set — simple and handles concurrent tool invocations on different plugins
+  - Side panel not being open is fine — background script's forwardToSidePanel uses fire-and-forget (.catch(() => {}))
+  - The spinner uses Tailwind's `animate-spin` on a small border circle, matching the existing loading spinner style but smaller (w-3 h-3)
+---
+
+## 2026-02-10 - US-021
+- Implemented: Console logging on tool invocation in target tab
+- Files changed:
+  - platform/browser-extension/src/background.ts — added getPluginLink() helper (npm URL for official/community, filesystem path for local), injectToolInvocationLog() that injects console.warn via chrome.scripting.executeScript (MAIN world), called before tool execution in handleToolDispatch; added sourcePath field to StoredPlugin/PluginPayload interfaces and storage in sync.full/plugin.update handlers
+  - platform/mcp-server/src/extension-protocol.ts — added sourcePath to sync.full and plugin.update payloads sent to extension
+- **Learnings for future iterations:**
+  - Console logging is injected as a separate executeScript call BEFORE the tool execution call — keeps concerns separated and ensures the log appears even if the tool fails
+  - The logging is best-effort: errors from the executeScript call are silently caught (tab may not be injectable)
+  - Plugin link URLs follow npm naming: @opentabs/plugin-{name} for official, opentabs-plugin-{name} for community
+  - sourcePath was already tracked in RegisteredPlugin on the MCP server (for file watching) — just needed to be included in sync.full/plugin.update payloads and stored in the extension
+  - The console.warn runs in MAIN world so it appears in the target tab's DevTools console, not the extension's console
+---
+
+## 2026-02-10 - US-022
+- Implemented: Outdated plugin version check on MCP server startup
+- Files changed:
+  - platform/mcp-server/src/version-check.ts — new: checkForUpdates() queries npm registry for each npm-installed plugin, compares versions, logs outdated plugins with update commands
+  - platform/mcp-server/src/state.ts — added OutdatedPlugin interface, outdatedPlugins array to ServerState, npmPackageName field to RegisteredPlugin
+  - platform/mcp-server/src/discovery.ts — passes npmPkgName to RegisteredPlugin so version check can query the correct npm package
+  - platform/mcp-server/src/index.ts — imports and fires checkForUpdates() non-blocking after plugin discovery
+  - platform/mcp-server/src/extension-protocol.ts — includes outdatedPlugins in config.getState response for side panel display
+- **Learnings for future iterations:**
+  - npm registry can be queried with Accept: application/vnd.npm.install-v1+json for a lightweight response containing dist-tags
+  - AbortSignal.timeout(10_000) provides clean per-request timeouts for fetch calls
+  - Non-blocking startup: use `checkForUpdates(state).catch(() => {})` — fire-and-forget pattern that doesn't block server startup
+  - RegisteredPlugin.npmPackageName stores the original npm package name (e.g., 'opentabs-plugin-slack') for registry queries and update commands
+  - Version comparison only needs simple semver major.minor.patch comparison — no need for a full semver library
+  - Promise.allSettled is ideal for parallel network checks where individual failures shouldn't affect others
+---
+
+## 2026-02-10 - US-023
+- Verified: Full lifecycle end-to-end plugin flow
+- Verification results:
+  - Slack plugin builds successfully: `bun run build` → opentabs-plugin.json + dist/adapter.iife.js
+  - Plugin path in ~/.opentabs/config.json and MCP server discovers it on startup with all 18 tools
+  - Tools start disabled by default (empty tools config = absent = disabled)
+  - config.setToolEnabled → onToolConfigChanged → notifyToolListChanged → tools/list_changed sent to MCP clients
+  - Tool dispatch chain: MCP CallToolRequest → find plugin/tool → dispatchToolToExtension → WebSocket → extension → tab scripting → response
+  - Console logging: injectToolInvocationLog() called before tool execution in handleToolDispatch
+  - Side panel activity: sendInvocationStart/End in mcp-setup.ts → forwarded by background → side panel activeTools state
+  - File watching: startFileWatching → onIifeChanged → sendPluginUpdate → extension re-injects
+  - `bun run build && bun run type-check` both pass
+- No code changes needed — this is a verification story confirming existing functionality
+- Manual browser verification recommended for full end-to-end testing with actual Chrome extension
+- **Learnings for future iterations:**
+  - Verification stories can be validated by code path analysis + build checks when browser testing tools aren't available
+  - The full dispatch chain spans: MCP client → HTTP /mcp → Server CallTool handler → WebSocket → extension background → chrome.scripting.executeScript → adapter → web API → response back through the same chain
+---

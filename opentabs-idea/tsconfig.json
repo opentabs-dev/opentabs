@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "references": [
+    { "path": "platform/mcp-server" },
+    { "path": "platform/plugin-sdk" },
+    { "path": "platform/browser-extension" },
+    { "path": "platform/create-plugin" }
+  ],
+  "files": []
+}

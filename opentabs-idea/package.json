@@ -1,0 +1,26 @@
+{
+  "name": "opentabs",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "platform/*"
+  ],
+  "scripts": {
+    "build": "tsc --build && bun run --cwd platform/browser-extension build:side-panel",
+    "type-check": "tsc --noEmit",
+    "test:e2e": "npx playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/cli": "^4.1.18",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "zod": "3",
+    "zod-to-json-schema": "^3.25.1"
+  }
+}

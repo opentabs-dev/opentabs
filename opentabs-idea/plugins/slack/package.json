@@ -1,0 +1,33 @@
+{
+  "name": "opentabs-plugin-slack",
+  "version": "0.0.1",
+  "type": "module",
+  "keywords": [
+    "opentabs-plugin"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "opentabs-plugin.json"
+  ],
+  "scripts": {
+    "build": "tsc && opentabs build",
+    "dev": "bun run build --watch"
+  },
+  "peerDependencies": {
+    "zod": "^3.0.0"
+  },
+  "dependencies": {
+    "@opentabs/plugin-sdk": "file:../../platform/plugin-sdk"
+  },
+  "devDependencies": {
+    "zod": "3",
+    "typescript": "^5.9.3"
+  }
+}

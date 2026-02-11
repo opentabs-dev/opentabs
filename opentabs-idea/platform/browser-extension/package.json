@@ -1,0 +1,13 @@
+{
+  "name": "@opentabs/browser-extension",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build tsconfig.build.json",
+    "build:side-panel": "bun run build-side-panel.ts && bun run build:tailwind",
+    "build:tailwind": "bunx @tailwindcss/cli -i src/side-panel/styles.css -o dist/side-panel/styles.css --minify"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.36"
+  }
+}
