@@ -8,8 +8,6 @@ const config: KnipConfig = {
         // Peer dependencies required by ESLint plugins at runtime
         '@typescript-eslint/parser',
         'eslint-plugin-react-hooks',
-        // Root-level type packages consumed by workspaces
-        '@types/chrome',
       ],
     },
     'platform/shared': {

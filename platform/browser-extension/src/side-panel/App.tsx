@@ -119,6 +119,21 @@ const App = () => {
         return true;
       }
 
+      // Fallback: ws:message with sync.full is broadcast by the offscreen
+      // document to all extension contexts. When the side panel is opened as
+      // a regular extension page (not via chrome.sidePanel.open), the
+      // background's forwardToSidePanel may not reliably deliver
+      // sp:serverMessage. Handling ws:message directly ensures the side panel
+      // always refreshes after plugin changes.
+      if (message.type === 'ws:message') {
+        const wsData = message.data as Record<string, unknown> | undefined;
+        if (wsData?.method === 'sync.full') {
+          // Delay to let the background finish processing (storage writes, injection)
+          setTimeout(() => loadPluginsRef.current(), 1_500);
+        }
+        return false;
+      }
+
       // Not a side-panel message — don't call sendResponse, return false
       return false;
     };

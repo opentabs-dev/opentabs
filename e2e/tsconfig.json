@@ -13,7 +13,7 @@
     "skipLibCheck": true,
     "noEmit": true,
     "composite": true,
-    "types": ["node", "bun-types"]
+    "types": ["node", "bun-types", "chrome"]
   },
   "include": ["*.ts"]
 }
