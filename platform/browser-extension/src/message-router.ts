@@ -9,7 +9,7 @@ import { RELOAD_FLUSH_DELAY_MS, WS_CONNECTED_KEY } from './constants.js';
 import { cleanupAdaptersInMatchingTabs, injectPluginIntoMatchingTabs } from './iife-injection.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
 import { getAllPluginMeta, removePlugin, removePluginsBatch, storePluginsBatch } from './plugin-storage.js';
-import { clearPluginTabState, computePluginTabState, getPluginTabState, sendTabSyncAll } from './tab-state.js';
+import { clearPluginTabState, computePluginTabState, sendTabSyncAll } from './tab-state.js';
 import { handleToolDispatch } from './tool-dispatch.js';
 import type { PluginMeta } from './types.js';
 import type { TrustTier, WireToolDef } from '@opentabs-dev/shared';
@@ -27,7 +27,6 @@ const SIDE_PANEL_METHODS = new Set([
   'tool.invocationStart',
   'tool.invocationEnd',
   'plugins.changed',
-  'plugins.state',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -286,20 +285,10 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
   // race condition where tab.syncAll runs before plugins are in storage.
   await sendTabSyncAll();
 
-  // Push the full plugin state directly to the side panel so it updates
-  // immediately without a fetchConfigState() round-trip.
-  const pluginStates = metas.map(m => ({
-    name: m.name,
-    displayName: m.displayName ?? m.name,
-    version: m.version,
-    trustTier: m.trustTier,
-    tabState: getPluginTabState(m.name),
-    urlPatterns: m.urlPatterns,
-    tools: m.tools,
-  }));
+  // Notify the side panel so it refreshes its plugin list without user interaction
   forwardToSidePanel({
     type: 'sp:serverMessage',
-    data: { jsonrpc: '2.0', method: 'plugins.state', params: { plugins: pluginStates } },
+    data: { jsonrpc: '2.0', method: 'plugins.changed' },
   });
 };
 

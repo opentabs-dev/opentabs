@@ -141,12 +141,6 @@ export const clearTabStateCache = (): void => {
 };
 
 /**
- * Return the cached tab state for a single plugin. Returns 'closed' if no
- * state has been recorded yet (e.g., before sendTabSyncAll runs).
- */
-export const getPluginTabState = (pluginName: string): TabState => lastKnownState.get(pluginName) ?? 'closed';
-
-/**
  * Remove tab-state tracking entries for a single plugin. Called when a plugin
  * is uninstalled or removed during sync.full so the maps do not grow
  * unboundedly during long-running sessions.
