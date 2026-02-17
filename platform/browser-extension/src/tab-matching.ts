@@ -79,19 +79,18 @@ export const matchPattern = (url: string, pattern: string): boolean => {
 };
 
 /**
- * Find the best matching tab for a plugin's URL patterns.
+ * Find all matching tabs for a plugin's URL patterns, sorted by rank (best first).
  *
- * When multiple tabs match, prefers (in order):
+ * Ranking prefers (in order):
  *   1. Active tab in the focused window
  *   2. Active tab in any window
  *   3. Any tab in the focused window
  *   4. First matching tab
  *
- * This ensures that when a user has multiple matching tabs (e.g., two Slack
- * workspaces), tool dispatch targets the tab the user is most likely
- * interacting with.
+ * This enables fallback: when the best-ranked tab is not ready, callers can
+ * try subsequent tabs in order.
  */
-export const findMatchingTab = async (plugin: PluginMeta): Promise<chrome.tabs.Tab | null> => {
+export const findAllMatchingTabs = async (plugin: PluginMeta): Promise<chrome.tabs.Tab[]> => {
   // Collect all matching tabs across all URL patterns, deduplicating by tab ID
   const seen = new Set<number>();
   const allMatches: chrome.tabs.Tab[] = [];
@@ -111,10 +110,7 @@ export const findMatchingTab = async (plugin: PluginMeta): Promise<chrome.tabs.T
     }
   }
 
-  if (allMatches.length === 0) return null;
-
-  const first = allMatches[0];
-  if (allMatches.length === 1) return first ?? null;
+  if (allMatches.length <= 1) return allMatches;
 
   // Determine the focused window for ranking
   let focusedWindowId: number | undefined;
@@ -122,7 +118,7 @@ export const findMatchingTab = async (plugin: PluginMeta): Promise<chrome.tabs.T
     const focusedWindow = await chrome.windows.getLastFocused();
     focusedWindowId = focusedWindow.id;
   } catch {
-    // Cannot determine focused window — ranking falls back to first match
+    // Cannot determine focused window — ranking falls back to insertion order
   }
 
   // Rank: active+focused > active > focused > other
@@ -134,19 +130,16 @@ export const findMatchingTab = async (plugin: PluginMeta): Promise<chrome.tabs.T
     return 0;
   };
 
-  let best = first;
-  if (!best) return null;
-  let bestRank = rank(best);
+  return allMatches.slice().sort((a, b) => rank(b) - rank(a));
+};
 
-  for (let i = 1; i < allMatches.length; i++) {
-    const tab = allMatches[i];
-    if (!tab) continue;
-    const tabRank = rank(tab);
-    if (tabRank > bestRank) {
-      best = tab;
-      bestRank = tabRank;
-    }
-  }
-
-  return best;
+/**
+ * Find the best matching tab for a plugin's URL patterns.
+ *
+ * Returns the highest-ranked tab, or null if no matching tabs exist.
+ * See findAllMatchingTabs for ranking details.
+ */
+export const findMatchingTab = async (plugin: PluginMeta): Promise<chrome.tabs.Tab | null> => {
+  const tabs = await findAllMatchingTabs(plugin);
+  return tabs[0] ?? null;
 };

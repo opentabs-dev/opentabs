@@ -1,7 +1,7 @@
 import { IS_READY_TIMEOUT_MS } from './constants.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
 import { getAllPluginMeta } from './plugin-storage.js';
-import { findMatchingTab, urlMatchesPatterns } from './tab-matching.js';
+import { findAllMatchingTabs, urlMatchesPatterns } from './tab-matching.js';
 import type { PluginMeta } from './types.js';
 import type { TabState } from '@opentabs-dev/shared';
 
@@ -27,51 +27,74 @@ const lastKnownState = new Map<string, TabState>();
 const pluginLocks = new Map<string, Promise<void>>();
 
 /**
- * Compute the tab state for a single plugin by checking for matching tabs
- * and adapter readiness.
+ * Probe a single tab for adapter readiness. Returns true if the adapter's
+ * isReady() returns true within the timeout, false otherwise.
+ */
+const probeTabReadiness = async (tabId: number, pluginName: string): Promise<boolean> => {
+  const results = await Promise.race([
+    chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: async (pName: string) => {
+        const ot = (globalThis as Record<string, unknown>).__openTabs as
+          | { adapters?: Record<string, { isReady?: unknown }> }
+          | undefined;
+        const adapter = ot?.adapters?.[pName];
+        if (!adapter || typeof adapter !== 'object') return false;
+        if (typeof adapter.isReady !== 'function') return false;
+        return await (adapter.isReady as () => Promise<boolean>)();
+      },
+      args: [pluginName],
+    }),
+    new Promise<null>(resolve => setTimeout(() => resolve(null), IS_READY_TIMEOUT_MS)),
+  ]);
+
+  if (results === null) {
+    console.warn(`[opentabs] isReady() timed out for plugin "${pluginName}" in tab ${tabId}`);
+    return false;
+  }
+
+  const readyResult = results[0] as { result?: unknown } | undefined;
+  return readyResult?.result === true;
+};
+
+/**
+ * Compute the tab state for a single plugin by checking all matching tabs
+ * for adapter readiness. Reports 'ready' if ANY matching tab is ready,
+ * 'unavailable' if tabs exist but none are ready, 'closed' if no tabs match.
  */
 export const computePluginTabState = async (
   plugin: PluginMeta,
 ): Promise<{ state: TabState; tabId: number | null; url: string | null }> => {
-  const tab = await findMatchingTab(plugin);
-  if (!tab || tab.id === undefined) {
+  const tabs = await findAllMatchingTabs(plugin);
+  if (tabs.length === 0) {
     return { state: 'closed', tabId: null, url: null };
   }
 
-  try {
-    const results = await Promise.race([
-      chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        world: 'MAIN',
-        func: async (pName: string) => {
-          const ot = (globalThis as Record<string, unknown>).__openTabs as
-            | { adapters?: Record<string, { isReady?: unknown }> }
-            | undefined;
-          const adapter = ot?.adapters?.[pName];
-          if (!adapter || typeof adapter !== 'object') return false;
-          if (typeof adapter.isReady !== 'function') return false;
-          return await (adapter.isReady as () => Promise<boolean>)();
-        },
-        args: [plugin.name],
-      }),
-      new Promise<null>(resolve => setTimeout(() => resolve(null), IS_READY_TIMEOUT_MS)),
-    ]);
+  // Track the first unavailable tab for fallback reporting
+  let firstUnavailable: chrome.tabs.Tab | undefined;
 
-    if (results === null) {
-      console.warn(`[opentabs] isReady() timed out for plugin "${plugin.name}" in tab ${tab.id}`);
-      return { state: 'unavailable' as const, tabId: tab.id, url: tab.url ?? null };
+  for (const tab of tabs) {
+    if (tab.id === undefined) continue;
+    try {
+      const ready = await probeTabReadiness(tab.id, plugin.name);
+      if (ready) {
+        return { state: 'ready', tabId: tab.id, url: tab.url ?? null };
+      }
+      firstUnavailable ??= tab;
+    } catch (err) {
+      console.warn(`[opentabs] computePluginTabState failed for plugin ${plugin.name} in tab ${tab.id}:`, err);
+      firstUnavailable ??= tab;
     }
-
-    const readyResult = results[0] as { result?: unknown } | undefined;
-    const ready = readyResult?.result;
-    if (ready === true) {
-      return { state: 'ready', tabId: tab.id, url: tab.url ?? null };
-    }
-    return { state: 'unavailable', tabId: tab.id, url: tab.url ?? null };
-  } catch (err) {
-    console.warn(`[opentabs] computePluginTabState failed for plugin ${plugin.name}:`, err);
-    return { state: 'unavailable', tabId: tab.id, url: tab.url ?? null };
   }
+
+  // All matching tabs exist but none are ready
+  const fallbackTab = firstUnavailable ?? tabs[0];
+  return {
+    state: 'unavailable',
+    tabId: fallbackTab?.id ?? null,
+    url: fallbackTab?.url ?? null,
+  };
 };
 
 /**
