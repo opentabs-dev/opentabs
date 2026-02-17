@@ -49,7 +49,6 @@ import type { Invocation } from './test-server-utils.js';
 
 interface ServerState {
   authenticated: boolean;
-  errorMode: boolean;
   connectSrcNone: boolean;
   invocations: Invocation[];
   startedAt: number;
@@ -57,7 +56,6 @@ interface ServerState {
 
 const createDefaultState = (): ServerState => ({
   authenticated: true,
-  errorMode: false,
   connectSrcNone: false,
   invocations: [],
   startedAt: Date.now(),
@@ -74,20 +72,6 @@ const recordInvocation = (req: Request, path: string, body: unknown) => {
 };
 
 const requireAuth = (): Response | null => sharedRequireAuth(state.authenticated, jsonResponse);
-
-const maybeShortCircuit = (): Response | null => {
-  if (state.errorMode) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: 'server_error',
-        error_message: 'Error mode is enabled',
-      },
-      500,
-    );
-  }
-  return null;
-};
 
 // ---------------------------------------------------------------------------
 // Strict security headers applied to the page response
@@ -204,8 +188,6 @@ const server = Bun.serve({
     if (path === '/api/auth.check' && req.method === 'POST') {
       const body = await readBody(req);
       recordInvocation(req, path, body);
-      const sc = maybeShortCircuit();
-      if (sc) return sc;
       return jsonResponse({ ok: state.authenticated });
     }
 
@@ -213,8 +195,6 @@ const server = Bun.serve({
     if (path === '/api/echo' && req.method === 'POST') {
       const body = await readBody(req);
       recordInvocation(req, path, body);
-      const sc = maybeShortCircuit();
-      if (sc) return sc;
       const authErr = requireAuth();
       if (authErr) return authErr;
       return jsonResponse({ ok: true, message: body.message ?? '' });
@@ -224,8 +204,6 @@ const server = Bun.serve({
     if (path === '/api/greet' && req.method === 'POST') {
       const body = await readBody(req);
       recordInvocation(req, path, body);
-      const sc = maybeShortCircuit();
-      if (sc) return sc;
       const authErr = requireAuth();
       if (authErr) return authErr;
       const name = typeof body.name === 'string' ? body.name : 'World';
@@ -236,8 +214,6 @@ const server = Bun.serve({
     if (path === '/api/status' && req.method === 'POST') {
       const body = await readBody(req);
       recordInvocation(req, path, body);
-      const sc = maybeShortCircuit();
-      if (sc) return sc;
       return jsonResponse({
         ok: true,
         authenticated: state.authenticated,

@@ -120,6 +120,18 @@ bun run test:e2e      # E2E tests (Playwright)
 3. Enable Developer mode
 4. Load unpacked → select `platform/browser-extension` folder
 
+### Reloading the Extension After Code Changes
+
+The Chrome extension does NOT auto-reload. After building (`bun run build`), the extension must be manually reloaded for changes to take effect:
+
+1. `bun run build` (builds TypeScript + side panel)
+2. Open `chrome://extensions/`
+3. Find the "OpenTabs" extension card
+4. Click the circular refresh/reload icon on the card
+5. Close and reopen the side panel if it was open (it reconnects automatically via the offscreen document's WebSocket)
+
+**Important**: The MCP server supports hot reload (`bun --hot`) so server-side changes take effect automatically after `bun run build`. But browser extension changes (background script, side panel, adapter injection logic) always require the manual reload step above. Plugin adapter changes are picked up via the file watcher — no extension reload needed for plugin-only changes.
+
 ### Starting the MCP Server
 
 ```bash
