@@ -35,16 +35,17 @@
  * Default port: 9517 (override with PORT env var, use PORT=0 for dynamic)
  */
 
+import {
+  jsonResponse,
+  readBody,
+  recordInvocation as sharedRecordInvocation,
+  requireAuth as sharedRequireAuth,
+} from './test-server-utils.js';
+import type { Invocation } from './test-server-utils.js';
+
 // ---------------------------------------------------------------------------
 // State — mutated by /control endpoints, read by /api endpoints
 // ---------------------------------------------------------------------------
-
-interface Invocation {
-  ts: number;
-  method: string;
-  path: string;
-  body: unknown;
-}
 
 interface ServerState {
   authenticated: boolean;
@@ -65,42 +66,14 @@ const createDefaultState = (): ServerState => ({
 let state = createDefaultState();
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — thin wrappers around shared utilities with server-specific state
 // ---------------------------------------------------------------------------
 
-const jsonResponse = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-const readBody = async (req: Request): Promise<Record<string, unknown>> => {
-  try {
-    return (await req.json()) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-};
-
 const recordInvocation = (req: Request, path: string, body: unknown) => {
-  state.invocations.push({
-    ts: Date.now(),
-    method: req.method,
-    path,
-    body,
-  });
+  sharedRecordInvocation(state.invocations, req, path, body);
 };
 
-const requireAuth = (): Response | null => {
-  if (!state.authenticated) {
-    return jsonResponse({
-      ok: false,
-      error: 'not_authed',
-      error_message: 'Not authenticated',
-    });
-  }
-  return null;
-};
+const requireAuth = (): Response | null => sharedRequireAuth(state.authenticated, jsonResponse);
 
 const maybeShortCircuit = (): Response | null => {
   if (state.errorMode) {

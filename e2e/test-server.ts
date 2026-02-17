@@ -29,16 +29,17 @@
  * Default port: 9516 (override with PORT env var)
  */
 
+import {
+  jsonResponse as sharedJsonResponse,
+  readBody,
+  recordInvocation as sharedRecordInvocation,
+  requireAuth as sharedRequireAuth,
+} from './test-server-utils.js';
+import type { Invocation } from './test-server-utils.js';
+
 // ---------------------------------------------------------------------------
 // State — mutated by /control endpoints, read by /api endpoints
 // ---------------------------------------------------------------------------
-
-interface Invocation {
-  ts: number;
-  method: string;
-  path: string;
-  body: unknown;
-}
 
 interface ServerState {
   authenticated: boolean;
@@ -99,33 +100,13 @@ const createDefaultState = (): ServerState => ({
 let state = createDefaultState();
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — thin wrappers around shared utilities with server-specific state
 // ---------------------------------------------------------------------------
 
-const jsonResponse = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
-
-const readBody = async (req: Request): Promise<Record<string, unknown>> => {
-  try {
-    return (await req.json()) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
-};
+const jsonResponse = (data: unknown, status = 200) => sharedJsonResponse(data, status, true);
 
 const recordInvocation = (req: Request, path: string, body: unknown) => {
-  state.invocations.push({
-    ts: Date.now(),
-    method: req.method,
-    path,
-    body,
-  });
+  sharedRecordInvocation(state.invocations, req, path, body);
 };
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -151,19 +132,7 @@ const maybeShortCircuit = async (): Promise<Response | null> => {
   return null;
 };
 
-/**
- * If not authenticated, return an auth error response.
- */
-const requireAuth = (): Response | null => {
-  if (!state.authenticated) {
-    return jsonResponse({
-      ok: false,
-      error: 'not_authed',
-      error_message: 'Not authenticated',
-    });
-  }
-  return null;
-};
+const requireAuth = (): Response | null => sharedRequireAuth(state.authenticated, jsonResponse);
 
 // ---------------------------------------------------------------------------
 // Page HTML — the "web app" that the browser tab opens
