@@ -61,13 +61,10 @@ const sendRequest = (method: string, params: Record<string, unknown> = {}): Prom
 
     pendingRequests.set(id, { resolve, reject, timerId });
 
-    chrome.runtime.sendMessage({ type: 'bg:send', data }, () => {
-      if (chrome.runtime.lastError) {
-        clearTimeout(timerId);
-        pendingRequests.delete(id);
-        reject(new Error(chrome.runtime.lastError.message));
-      }
-      // Background ack received — actual response comes via sp:serverMessage
+    chrome.runtime.sendMessage({ type: 'bg:send', data }).catch((err: unknown) => {
+      clearTimeout(timerId);
+      pendingRequests.delete(id);
+      reject(err instanceof Error ? err : new Error(String(err)));
     });
   });
 };

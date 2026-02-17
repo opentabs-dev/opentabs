@@ -1,42 +1,32 @@
 import { fetchConfigState, handleServerResponse, rejectAllPending, setToolEnabled } from './bridge.js';
 import { beforeEach, describe, expect, test } from 'bun:test';
 
-/**
- * Captured sendMessage calls. Each entry has:
- * - message: the message object passed to sendMessage
- * - callback: the ack callback (called to simulate background response)
- */
-let sendMessageCalls: Array<{
-  message: unknown;
-  callback: (response?: unknown) => void;
-}> = [];
+/** Captured sendMessage calls. Each entry has the message object passed to sendMessage. */
+let sendMessageCalls: Array<{ message: unknown }> = [];
 
 /**
- * When set, chrome.runtime.lastError will be populated on the next sendMessage call.
+ * When set, chrome.runtime.sendMessage will reject with this error on the next call.
  * Cleared after each call.
  */
-let nextLastError: { message: string } | null = null;
+let nextSendError: { message: string } | null = null;
 
 beforeEach(() => {
   sendMessageCalls = [];
-  nextLastError = null;
+  nextSendError = null;
 
   (globalThis as Record<string, unknown>).chrome = {
     runtime: {
-      sendMessage: (message: unknown, callback?: (response?: unknown) => void) => {
-        const entry = { message, callback: callback ?? (() => {}) };
-        sendMessageCalls.push(entry);
+      sendMessage: (message: unknown) => {
+        sendMessageCalls.push({ message });
 
-        if (nextLastError) {
-          (chrome.runtime as Record<string, unknown>).lastError = nextLastError;
-          nextLastError = null;
-        } else {
-          (chrome.runtime as Record<string, unknown>).lastError = undefined;
+        if (nextSendError) {
+          const err = new Error(nextSendError.message);
+          nextSendError = null;
+          return Promise.reject(err);
         }
 
-        entry.callback();
+        return Promise.resolve();
       },
-      lastError: undefined as { message: string } | undefined,
     },
   };
 });
@@ -193,8 +183,8 @@ describe('rejectAllPending', () => {
 });
 
 describe('sendRequest error handling', () => {
-  test('rejects when chrome.runtime.lastError is set', async () => {
-    nextLastError = { message: 'Extension context invalidated.' };
+  test('rejects when sendMessage rejects', async () => {
+    nextSendError = { message: 'Extension context invalidated.' };
 
     const promise = fetchConfigState();
 
@@ -225,7 +215,7 @@ describe('getConnectionState', () => {
       message: unknown,
       callback: (response: unknown) => void,
     ) => {
-      sendMessageCalls.push({ message, callback });
+      sendMessageCalls.push({ message });
       (chrome.runtime as Record<string, unknown>).lastError = undefined;
       callback({ connected: true });
     };
@@ -240,7 +230,7 @@ describe('getConnectionState', () => {
       message: unknown,
       callback: (response: unknown) => void,
     ) => {
-      sendMessageCalls.push({ message, callback });
+      sendMessageCalls.push({ message });
       (chrome.runtime as Record<string, unknown>).lastError = undefined;
       callback({ connected: false });
     };
@@ -255,7 +245,7 @@ describe('getConnectionState', () => {
       message: unknown,
       callback: (response: unknown) => void,
     ) => {
-      sendMessageCalls.push({ message, callback });
+      sendMessageCalls.push({ message });
       (chrome.runtime as Record<string, unknown>).lastError = { message: 'error' };
       callback(undefined);
     };
