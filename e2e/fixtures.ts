@@ -299,7 +299,7 @@ const createServerWrapper = (): {
  * Start the MCP server subprocess.
  *
  * Pass port=0 to let the OS assign a free port (eliminates TOCTOU race).
- * The actual port is parsed from the server's "MCP server listening on
+ * The actual port is parsed from the server's "MCP server v<version> listening on
  * http://localhost:<port>" startup log line.
  *
  * Each test gets its own wrapper file so `triggerHotReload` is isolated
@@ -333,7 +333,7 @@ const startMcpServer = (configDir: string, hot: boolean = true, explicitPort?: n
       for (const line of text.split('\n')) {
         if (line.trim()) logs.push(line);
       }
-      if (!resolved && text.includes('MCP server listening')) {
+      if (!resolved && text.includes('MCP server') && text.includes('listening on')) {
         const actualPort = parsePortFromLogs(logs);
         if (!actualPort) {
           resolved = true;

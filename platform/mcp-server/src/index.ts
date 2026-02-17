@@ -47,6 +47,7 @@ import { log } from './logger.js';
 import { performReload } from './reload.js';
 import { installShutdownHandlers } from './shutdown.js';
 import { createState } from './state.js';
+import { version } from './version.js';
 import type { HotHandlers } from './http-routes.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import type { ReloadResult } from './reload.js';
@@ -194,7 +195,7 @@ const server = hotState?.server ?? createHttpServer();
 const actualPort = server.port ?? PORT;
 
 if (!isHotReload) {
-  log.info(`MCP server listening on http://localhost:${actualPort}`);
+  log.info(`MCP server v${version} listening on http://localhost:${actualPort}`);
 }
 
 // Install graceful shutdown handlers (once per process, survives hot reloads).

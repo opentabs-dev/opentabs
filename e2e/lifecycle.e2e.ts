@@ -72,7 +72,7 @@ test.describe('MCP server lifecycle', () => {
 
     // Verify server logs show the expected startup sequence
     const logsJoined = mcpServer.logs.join('\n');
-    expect(logsJoined).toContain('MCP server listening');
+    expect(logsJoined).toMatch(/MCP server v[\d.]+ listening/);
     expect(logsJoined).toContain('Extension WebSocket connected');
     expect(logsJoined).toContain('tab.syncAll received');
   });
@@ -87,7 +87,7 @@ test.describe('MCP server lifecycle', () => {
     // The server should NOT have any hot-reload cleanup messages
     const logsJoined = mcpServerNoHot.logs.join('\n');
     expect(logsJoined).not.toContain('Hot reload detected');
-    expect(logsJoined).toContain('MCP server listening');
+    expect(logsJoined).toMatch(/MCP server v[\d.]+ listening/);
   });
 });
 
