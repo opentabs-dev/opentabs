@@ -245,6 +245,127 @@ test.describe('Side panel data flow — tab state changes', () => {
       cleanupTestConfigDir(configDir);
     }
   });
+
+  test('tab state dot shows unavailable (amber) when auth is toggled off', async () => {
+    // 1. Start MCP server with e2e-test plugin, start test server
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const prefixedToolNames = readPluginToolNames();
+    const tools: Record<string, boolean> = {};
+    for (const t of prefixedToolNames) {
+      tools[t] = true;
+    }
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-unavail-'));
+    writeTestConfig(configDir, { plugins: [absPluginPath], tools });
+
+    const server = await startMcpServer(configDir, true);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      // 2. Wait for extension to connect and content scripts to be registered
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // 3. Open side panel
+      const sidePanelPage = await openSidePanel(context);
+
+      // 4. Verify plugin card is visible
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // 5. Open a matching tab (auth is ON by default → ready state)
+      const appTab = await context.newPage();
+      await appTab.goto(testServer.url, { waitUntil: 'load' });
+
+      // 6. Wait for server to report 'ready' state
+      await expect
+        .poll(
+          async () => {
+            const res = await fetch(`http://localhost:${server.port}/health`);
+            const body = (await res.json()) as {
+              pluginDetails?: Array<{ name: string; tabState: string }>;
+            };
+            return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+          },
+          { timeout: 30_000, message: 'Server tab state for e2e-test did not become ready' },
+        )
+        .toBe('ready');
+
+      // Reload side panel and verify green dot (ready)
+      await sidePanelPage.reload({ waitUntil: 'load' });
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
+      const readyCard = sidePanelPage.locator('button[aria-expanded]').first();
+      await expect(readyCard.locator('.bg-emerald-400')).toBeVisible({ timeout: 15_000 });
+
+      // 7. Toggle auth OFF on the test server
+      await testServer.setAuth(false);
+
+      // 8. Reload the app tab to trigger a tab state recheck.
+      // The page reload fires a status=complete event which causes the
+      // background to call checkTabStateChanges → computePluginTabState →
+      // isReady() → /api/auth.check → returns false → state = unavailable.
+      await appTab.reload({ waitUntil: 'load' });
+
+      // 9. Wait for server to report 'unavailable' state
+      await expect
+        .poll(
+          async () => {
+            const res = await fetch(`http://localhost:${server.port}/health`);
+            const body = (await res.json()) as {
+              pluginDetails?: Array<{ name: string; tabState: string }>;
+            };
+            return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+          },
+          { timeout: 30_000, message: 'Server tab state for e2e-test did not become unavailable' },
+        )
+        .toBe('unavailable');
+
+      // Reload side panel and verify amber dot (unavailable).
+      // When unavailable, TabStateHint renders "Log in to E2E Test" which
+      // also matches getByText('E2E Test'), so use the plugin card button
+      // locator directly instead of a text search.
+      await sidePanelPage.reload({ waitUntil: 'load' });
+      const unavailableCard = sidePanelPage.locator('button[aria-expanded]').first();
+      await expect(unavailableCard).toBeVisible({ timeout: 15_000 });
+      await expect(unavailableCard.locator('.bg-amber-400')).toBeVisible({ timeout: 15_000 });
+
+      // 10. Toggle auth back ON and verify transition back to ready
+      await testServer.setAuth(true);
+
+      // Reload the app tab to trigger another state recheck
+      await appTab.reload({ waitUntil: 'load' });
+
+      // 11. Wait for server to report 'ready' state again
+      await expect
+        .poll(
+          async () => {
+            const res = await fetch(`http://localhost:${server.port}/health`);
+            const body = (await res.json()) as {
+              pluginDetails?: Array<{ name: string; tabState: string }>;
+            };
+            return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+          },
+          { timeout: 30_000, message: 'Server tab state for e2e-test did not return to ready' },
+        )
+        .toBe('ready');
+
+      // Reload side panel and verify green dot (ready) again
+      await sidePanelPage.reload({ waitUntil: 'load' });
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
+      const restoredCard = sidePanelPage.locator('button[aria-expanded]').first();
+      await expect(restoredCard.locator('.bg-emerald-400')).toBeVisible({ timeout: 15_000 });
+
+      await sidePanelPage.close();
+      await appTab.close();
+    } finally {
+      await context.close();
+      await server.kill();
+      await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
