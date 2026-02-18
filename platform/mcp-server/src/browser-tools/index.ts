@@ -2,6 +2,7 @@
  * Browser tools barrel — collects all browser tool definitions into a single array.
  */
 
+import { clearConsoleLogs } from './clear-console-logs.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
 import { deleteCookies } from './delete-cookies.js';
@@ -9,6 +10,7 @@ import { disableNetworkCapture } from './disable-network-capture.js';
 import { enableNetworkCapture } from './enable-network-capture.js';
 import { executeScript } from './execute-script.js';
 import { focusTab } from './focus-tab.js';
+import { getConsoleLogs } from './get-console-logs.js';
 import { getCookies } from './get-cookies.js';
 import { getNetworkRequests } from './get-network-requests.js';
 import { getTabContent } from './get-tab-content.js';
@@ -47,6 +49,8 @@ const browserTools: BrowserToolDefinition[] = [
   enableNetworkCapture,
   getNetworkRequests,
   disableNetworkCapture,
+  getConsoleLogs,
+  clearConsoleLogs,
 ];
 
 export { browserTools };
