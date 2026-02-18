@@ -67,4 +67,27 @@ describe('executeScript handler', () => {
       execFile: '__exec-ghi789.js',
     });
   });
+
+  test('when writeExecFile rejects, the handler rejects with the same error and deleteExecFile is not called', () => {
+    const state = createState();
+    mockWriteExecFile.mockRejectedValue(new Error('disk full'));
+
+    const fn = async () => await executeScript.handler({ tabId: 3, code: 'return 1' }, state);
+    expect(fn).toThrow(/disk full/);
+
+    expect(mockDispatchToExtension).not.toHaveBeenCalled();
+    expect(mockDeleteExecFile).not.toHaveBeenCalled();
+  });
+
+  test('returns the result from dispatchToExtension on success', async () => {
+    const state = createState();
+    const dispatchResult = { value: 42, type: 'number' };
+    mockWriteExecFile.mockResolvedValue('__exec-ret001.js');
+    mockDispatchToExtension.mockResolvedValue(dispatchResult);
+    mockDeleteExecFile.mockResolvedValue(undefined);
+
+    const result = await executeScript.handler({ tabId: 7, code: 'return 42' }, state);
+
+    expect(result).toEqual(dispatchResult);
+  });
 });
