@@ -1,9 +1,11 @@
 import { loadConfig, saveConfig } from './config.js';
+import { isToolEnabled } from './state.js';
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { OpentabsConfig } from './config.js';
+import type { ServerState } from './state.js';
 
 // Override OPENTABS_CONFIG_DIR for test isolation.
 // Config functions read this env var lazily on each call.
@@ -158,5 +160,50 @@ describe('loadConfig / saveConfig round-trip', () => {
   test('default config includes empty npmPlugins array', async () => {
     const config = await loadConfig();
     expect(config.npmPlugins).toEqual([]);
+  });
+});
+
+describe('tool config round-trip with isToolEnabled', () => {
+  beforeEach(async () => {
+    await removeConfig();
+  });
+
+  test('disabled tools survive save → load cycle and isToolEnabled returns false', async () => {
+    await loadConfig();
+
+    const config: OpentabsConfig = {
+      plugins: [],
+      tools: { slack_send: false, slack_read: true },
+      secret: 'test-secret-roundtrip',
+    };
+    await saveConfigWrapped(config);
+
+    const loaded = await loadConfig();
+    expect(loaded.tools['slack_send']).toBe(false);
+    expect(loaded.tools['slack_read']).toBe(true);
+
+    // Verify isToolEnabled integration with loaded config
+    const stateWithConfig = { toolConfig: loaded.tools } as ServerState;
+    expect(isToolEnabled(stateWithConfig, 'slack_send')).toBe(false);
+    expect(isToolEnabled(stateWithConfig, 'slack_read')).toBe(true);
+  });
+
+  test('absent tools default to enabled via isToolEnabled', async () => {
+    await loadConfig();
+
+    const config: OpentabsConfig = {
+      plugins: [],
+      tools: { slack_send: false },
+      secret: 'test-secret-absent',
+    };
+    await saveConfigWrapped(config);
+
+    const loaded = await loadConfig();
+    const stateWithConfig = { toolConfig: loaded.tools } as ServerState;
+
+    // Tool not in config → isToolEnabled returns true (enabled by default)
+    expect(isToolEnabled(stateWithConfig, 'unknown_tool')).toBe(true);
+    // Disabled tool → isToolEnabled returns false
+    expect(isToolEnabled(stateWithConfig, 'slack_send')).toBe(false);
   });
 });
