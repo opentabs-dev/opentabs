@@ -1,4 +1,4 @@
-import { getPluginsFromConfig, readConfig, resolvePluginPath } from './config.js';
+import { getPluginsFromConfig, isConnectionRefused, readConfig, resolvePluginPath } from './config.js';
 import { afterAll, afterEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -145,5 +145,43 @@ describe('resolvePluginPath', () => {
   test('resolves bare name relative path against config directory', () => {
     const result = resolvePluginPath('my-plugin', '/home/user/.opentabs/config.json');
     expect(result).toBe('/home/user/.opentabs/my-plugin');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isConnectionRefused
+// ---------------------------------------------------------------------------
+
+describe('isConnectionRefused', () => {
+  test('returns true for TypeError with cause.code ECONNREFUSED', () => {
+    const err = new TypeError('fetch failed', { cause: { code: 'ECONNREFUSED' } });
+    expect(isConnectionRefused(err)).toBe(true);
+  });
+
+  test('returns false for TypeError without cause', () => {
+    const err = new TypeError('fetch failed');
+    expect(isConnectionRefused(err)).toBe(false);
+  });
+
+  test('returns false for TypeError with cause but different code', () => {
+    const err = new TypeError('fetch failed', { cause: { code: 'ENOTFOUND' } });
+    expect(isConnectionRefused(err)).toBe(false);
+  });
+
+  test('returns false for non-TypeError Error', () => {
+    const err = new Error('connection refused');
+    expect(isConnectionRefused(err)).toBe(false);
+  });
+
+  test('returns false for plain string', () => {
+    expect(isConnectionRefused('ECONNREFUSED')).toBe(false);
+  });
+
+  test('returns false for null', () => {
+    expect(isConnectionRefused(null)).toBe(false);
+  });
+
+  test('returns false for undefined', () => {
+    expect(isConnectionRefused(undefined)).toBe(false);
   });
 });
