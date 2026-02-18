@@ -15,7 +15,6 @@ describe('createState', () => {
     expect(state.pendingDispatches).toBeInstanceOf(Map);
     expect(state.pendingDispatches.size).toBe(0);
     expect(state.extensionWs).toBeNull();
-    expect(state.nextRequestId).toBe(1);
     expect(state.outdatedPlugins).toEqual([]);
     expect(state.browserTools).toEqual([]);
     expect(state.fileWatcherEntries).toEqual([]);
@@ -41,22 +40,19 @@ describe('createState', () => {
 });
 
 describe('getNextRequestId', () => {
-  test('returns incrementing IDs starting from 1', () => {
+  test('returns a valid UUID string', () => {
     const state = createState();
+    const id = getNextRequestId(state);
 
-    expect(getNextRequestId(state)).toBe(1);
-    expect(getNextRequestId(state)).toBe(2);
-    expect(getNextRequestId(state)).toBe(3);
+    expect(typeof id).toBe('string');
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
-  test('wraps around at 2 billion to avoid unsafe integer range', () => {
+  test('returns unique IDs on each call', () => {
     const state = createState();
-    state.nextRequestId = 2_000_000_000;
+    const ids = new Set(Array.from({ length: 100 }, () => getNextRequestId(state)));
 
-    expect(getNextRequestId(state)).toBe(2_000_000_000);
-    // After returning 2B, nextRequestId should have wrapped to 1
-    expect(state.nextRequestId).toBe(1);
-    expect(getNextRequestId(state)).toBe(1);
+    expect(ids.size).toBe(100);
   });
 });
 

@@ -542,10 +542,10 @@ describe('dispatchToExtension', () => {
     expect(sent.jsonrpc).toBe('2.0');
 
     const id = sent.id;
-    expect(typeof id).toBe('number');
+    expect(typeof id).toBe('string');
     expect(id).toBeDefined();
 
-    const pending = state.pendingDispatches.get(id ?? -1);
+    const pending = state.pendingDispatches.get(id ?? '');
     expect(pending).toBeDefined();
     expect(pending?.label).toBe('slack/echo');
 
@@ -565,7 +565,7 @@ describe('dispatchToExtension', () => {
     const rawSettle = ws.sent[0];
     expect(rawSettle).toBeDefined();
     const sent = parseJson(rawSettle as string);
-    const id = sent.id ?? -1;
+    const id = sent.id ?? '';
 
     // Simulate extension response
     handleExtensionMessage(state, JSON.stringify({ jsonrpc: '2.0', id, result: { output: 'success' } }), noopCallbacks);

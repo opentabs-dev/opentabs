@@ -24,10 +24,10 @@ describe('reloadExtension handler', () => {
 
     expect(result).toEqual({ ok: true, message: 'Reload signal sent to extension' });
     expect(sent).toHaveLength(1);
-    const msg = JSON.parse(sent[0] as string) as { jsonrpc: string; method: string; id: number };
+    const msg = JSON.parse(sent[0] as string) as { jsonrpc: string; method: string; id: string };
     expect(msg.jsonrpc).toBe('2.0');
     expect(msg.method).toBe('extension.reload');
-    expect(typeof msg.id).toBe('number');
+    expect(typeof msg.id).toBe('string');
   });
 
   test('returns error when ws.send throws', async () => {
@@ -47,22 +47,8 @@ describe('reloadExtension handler', () => {
     });
   });
 
-  test('increments nextRequestId after sending', async () => {
+  test('uses a UUID string id from getNextRequestId in the message', async () => {
     const state = createState();
-    state.extensionWs = {
-      send: () => {},
-      close: () => {},
-    };
-    const idBefore = state.nextRequestId;
-
-    await reloadExtension.handler({}, state);
-
-    expect(state.nextRequestId).toBe(idBefore + 1);
-  });
-
-  test('uses numeric id from getNextRequestId in the message', async () => {
-    const state = createState();
-    state.nextRequestId = 42;
     let captured = '';
     state.extensionWs = {
       send: (data: string) => {
@@ -73,7 +59,8 @@ describe('reloadExtension handler', () => {
 
     await reloadExtension.handler({}, state);
 
-    const msg = JSON.parse(captured) as { id: number };
-    expect(msg.id).toBe(42);
+    const msg = JSON.parse(captured) as { id: string };
+    expect(typeof msg.id).toBe('string');
+    expect(msg.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });

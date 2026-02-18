@@ -108,8 +108,11 @@ export interface ServerState {
   pendingDispatches: Map<string | number, PendingDispatch>;
   /** Extension WebSocket connection (single connection) */
   extensionWs: WsHandle | null;
-  /** JSON-RPC id counter for server→extension requests */
-  nextRequestId: number;
+  /**
+   * @deprecated No longer used — IDs are now generated via crypto.randomUUID().
+   * Retained as optional so hot reload does not fail on stale globalThis state.
+   */
+  nextRequestId?: number;
   /** Outdated npm plugins detected on startup */
   outdatedPlugins: OutdatedPlugin[];
   /** Browser tools — updated on each hot reload so existing session handlers see fresh definitions */
@@ -154,7 +157,6 @@ export const createState = (): ServerState => ({
   npmPlugins: [],
   pendingDispatches: new Map(),
   extensionWs: null,
-  nextRequestId: 1,
   outdatedPlugins: [],
   browserTools: [],
   fileWatcherEntries: [],
@@ -171,14 +173,8 @@ export const createState = (): ServerState => ({
   configWatcher: null,
 });
 
-/** Get the next JSON-RPC request ID, wrapping to avoid unsafe integer range */
-export const getNextRequestId = (state: ServerState): number => {
-  const id = state.nextRequestId++;
-  if (state.nextRequestId > 2_000_000_000) {
-    state.nextRequestId = 1;
-  }
-  return id;
-};
+/** Generate a cryptographically random JSON-RPC request ID */
+export const getNextRequestId = (_state: ServerState): string => crypto.randomUUID();
 
 /** Get the prefixed tool name: plugin_tool */
 export const prefixedToolName = (plugin: string, tool: string): string => `${plugin}_${tool}`;
