@@ -56,6 +56,15 @@ const mockHandleBrowserWaitForElement = mock(
 const mockHandleBrowserQueryElements = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
+const mockHandleBrowserGetCookies = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
+const mockHandleBrowserSetCookie = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
+const mockHandleBrowserDeleteCookies = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
 const mockHandleBrowserExecuteScript = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
@@ -83,6 +92,9 @@ await mock.module('./browser-commands.js', () => ({
   handleBrowserSelectOption: mockHandleBrowserSelectOption,
   handleBrowserWaitForElement: mockHandleBrowserWaitForElement,
   handleBrowserQueryElements: mockHandleBrowserQueryElements,
+  handleBrowserGetCookies: mockHandleBrowserGetCookies,
+  handleBrowserSetCookie: mockHandleBrowserSetCookie,
+  handleBrowserDeleteCookies: mockHandleBrowserDeleteCookies,
   handleBrowserExecuteScript: mockHandleBrowserExecuteScript,
 }));
 
@@ -436,6 +448,9 @@ const resetRoutingMocks = (): void => {
   mockHandleBrowserSelectOption.mockReset();
   mockHandleBrowserWaitForElement.mockReset();
   mockHandleBrowserQueryElements.mockReset();
+  mockHandleBrowserGetCookies.mockReset();
+  mockHandleBrowserSetCookie.mockReset();
+  mockHandleBrowserDeleteCookies.mockReset();
   mockHandleBrowserExecuteScript.mockReset();
 };
 
@@ -455,6 +470,9 @@ describe('handleServerMessage', () => {
     mockHandleBrowserSelectOption.mockResolvedValue(undefined);
     mockHandleBrowserWaitForElement.mockResolvedValue(undefined);
     mockHandleBrowserQueryElements.mockResolvedValue(undefined);
+    mockHandleBrowserGetCookies.mockResolvedValue(undefined);
+    mockHandleBrowserSetCookie.mockResolvedValue(undefined);
+    mockHandleBrowserDeleteCookies.mockResolvedValue(undefined);
     mockHandleBrowserExecuteScript.mockResolvedValue(undefined);
   });
 
@@ -714,6 +732,42 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleBrowserQueryElements).toHaveBeenCalledTimes(1);
       expect(mockHandleBrowserQueryElements).toHaveBeenCalledWith({ tabId: 19, selector: 'input', limit: 50 }, 34);
+    });
+
+    test('dispatches browser.getCookies to handleBrowserGetCookies', () => {
+      handleServerMessage({
+        method: 'browser.getCookies',
+        id: 35,
+        params: { url: 'https://example.com', name: 'session' },
+      });
+
+      expect(mockHandleBrowserGetCookies).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserGetCookies).toHaveBeenCalledWith({ url: 'https://example.com', name: 'session' }, 35);
+    });
+
+    test('dispatches browser.setCookie to handleBrowserSetCookie', () => {
+      handleServerMessage({
+        method: 'browser.setCookie',
+        id: 36,
+        params: { url: 'https://example.com', name: 'token', value: 'abc123' },
+      });
+
+      expect(mockHandleBrowserSetCookie).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserSetCookie).toHaveBeenCalledWith(
+        { url: 'https://example.com', name: 'token', value: 'abc123' },
+        36,
+      );
+    });
+
+    test('dispatches browser.deleteCookies to handleBrowserDeleteCookies', () => {
+      handleServerMessage({
+        method: 'browser.deleteCookies',
+        id: 37,
+        params: { url: 'https://example.com', name: 'token' },
+      });
+
+      expect(mockHandleBrowserDeleteCookies).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserDeleteCookies).toHaveBeenCalledWith({ url: 'https://example.com', name: 'token' }, 37);
     });
 
     test('dispatches browser.executeScript to handleBrowserExecuteScript', () => {

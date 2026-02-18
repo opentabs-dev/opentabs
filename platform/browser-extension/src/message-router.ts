@@ -1,8 +1,10 @@
 import {
   handleBrowserClickElement,
   handleBrowserCloseTab,
+  handleBrowserDeleteCookies,
   handleBrowserExecuteScript,
   handleBrowserFocusTab,
+  handleBrowserGetCookies,
   handleBrowserGetTabContent,
   handleBrowserGetTabInfo,
   handleBrowserListTabs,
@@ -11,6 +13,7 @@ import {
   handleBrowserQueryElements,
   handleBrowserScreenshotTab,
   handleBrowserSelectOption,
+  handleBrowserSetCookie,
   handleBrowserTypeText,
   handleBrowserWaitForElement,
 } from './browser-commands.js';
@@ -283,6 +286,30 @@ const methodHandlers = new Map<string, MessageHandler>([
     (params, id) => {
       if (id !== undefined) {
         handleBrowserQueryElements(params, id).catch(console.error);
+      }
+    },
+  ],
+  [
+    'browser.getCookies',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserGetCookies(params, id).catch(console.error);
+      }
+    },
+  ],
+  [
+    'browser.setCookie',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserSetCookie(params, id).catch(console.error);
+      }
+    },
+  ],
+  [
+    'browser.deleteCookies',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserDeleteCookies(params, id).catch(console.error);
       }
     },
   ],
