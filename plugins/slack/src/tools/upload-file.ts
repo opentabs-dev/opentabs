@@ -10,8 +10,8 @@ export const uploadFile = defineTool({
     content: z
       .string()
       .min(1)
-      .max(50_000_000)
-      .describe('File content as a UTF-8 string (text files) or base64-encoded string (binary files). Max 50MB.'),
+      .max(20_000_000)
+      .describe('File content as a UTF-8 string (text files) or base64-encoded string (binary files). Max 20MB.'),
     is_base64: z
       .boolean()
       .optional()
@@ -35,6 +35,12 @@ export const uploadFile = defineTool({
       .describe('Uploaded file metadata'),
   }),
   handle: async params => {
+    const BLOCKED_EXTENSIONS = new Set(['exe', 'sh', 'bat', 'cmd', 'com', 'app', 'dmg', 'msi', 'bin']);
+    const ext = params.filename.includes('.') ? params.filename.split('.').pop()!.toLowerCase() : '';
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      throw new ToolError(`File extension .${ext} is not allowed`, 'blocked_file_type');
+    }
+
     const decodeBase64 = (content: string): Uint8Array<ArrayBuffer> => {
       try {
         return Uint8Array.from(atob(content), c => c.charCodeAt(0));
@@ -49,6 +55,27 @@ export const uploadFile = defineTool({
     const contentBytes = params.is_base64
       ? decodeBase64(params.content)
       : new TextEncoder().encode(params.content);
+
+    if (params.is_base64) {
+      const MAGIC_BYTES: Record<string, number[]> = {
+        png: [0x89, 0x50, 0x4e, 0x47],
+        jpg: [0xff, 0xd8, 0xff],
+        jpeg: [0xff, 0xd8, 0xff],
+        pdf: [0x25, 0x50, 0x44, 0x46],
+        gif: [0x47, 0x49, 0x46],
+      };
+      const expectedMagic = MAGIC_BYTES[ext];
+      if (expectedMagic) {
+        const headerBytes = contentBytes.slice(0, expectedMagic.length);
+        const matches = expectedMagic.every((byte, i) => headerBytes[i] === byte);
+        if (!matches) {
+          throw new ToolError(
+            `File content does not match expected .${ext} format (magic bytes mismatch)`,
+            'magic_bytes_mismatch',
+          );
+        }
+      }
+    }
 
     const uploadResponse = await slackApi<{
       upload_url?: string;
