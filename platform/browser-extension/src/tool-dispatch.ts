@@ -2,7 +2,7 @@ import { SCRIPT_TIMEOUT_MS } from './constants.js';
 import { sendToServer } from './messaging.js';
 import { getPluginMeta } from './plugin-storage.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
-import { findAllMatchingTabs } from './tab-matching.js';
+import { findAllMatchingTabs, urlMatchesPatterns } from './tab-matching.js';
 import type { PluginMeta } from './types.js';
 
 /**
@@ -230,6 +230,19 @@ export const handleToolDispatch = async (params: Record<string, unknown>, id: st
 
   for (const tab of matchingTabs) {
     if (tab.id === undefined) continue;
+
+    // Re-validate tab URL to prevent TOCTOU race: the tab may have navigated
+    // between findAllMatchingTabs() and now.
+    try {
+      const currentTab = await chrome.tabs.get(tab.id);
+      if (!currentTab.url || !urlMatchesPatterns(currentTab.url, plugin.urlPatterns)) {
+        firstError ??= { code: -32001, message: 'Tab navigated away from matching URL' };
+        continue;
+      }
+    } catch {
+      firstError ??= { code: -32001, message: 'Tab closed before tool execution' };
+      continue;
+    }
 
     try {
       await injectToolInvocationLog(tab.id, pluginName, toolName, link);
