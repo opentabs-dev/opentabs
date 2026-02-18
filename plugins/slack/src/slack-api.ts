@@ -98,14 +98,130 @@ const getAuthFromBootData = (): SlackAuth | null => {
 };
 
 /**
- * Read Slack auth credentials from the web client's runtime state.
- * Tries multiple sources in order to support both old (WORKSPACE.slack.com)
- * and new (app.slack.com) Slack clients:
- *   1. localStorage `localConfig_v2` / `localConfig_v3`
- *   2. `window.boot_data.api_token`
- *   3. `window.TS.boot_data.api_token`
+ * Try to read auth from inline `<script>` tags in the page HTML.
+ * The modern app.slack.com client embeds configuration JSON in script tags
+ * during server-side rendering. This JSON contains `api_token`, `team_id`,
+ * and `team_url` fields needed for API calls.
  */
-const getAuth = (): SlackAuth | null => getAuthFromLocalStorage() ?? getAuthFromBootData();
+const getAuthFromPageScripts = (): SlackAuth | null => {
+  try {
+    const scripts = document.querySelectorAll('script:not([src])');
+    for (const script of scripts) {
+      const text = script.textContent;
+      if (!text) continue;
+
+      // Match xoxc- tokens (Slack session tokens) in any JSON-like context
+      const tokenMatch = /["']api_token["']\s*:\s*["'](xoxc-[a-zA-Z0-9-]+)["']/.exec(text);
+      if (!tokenMatch?.[1]) continue;
+
+      const token = tokenMatch[1];
+
+      // Extract team_id from the same script block
+      const teamIdMatch = /["']team_id["']\s*:\s*["'](T[A-Z0-9]+)["']/.exec(text);
+      const teamId = teamIdMatch?.[1] ?? '';
+
+      // Extract team_url from the same script block
+      const teamUrlMatch = /["']team_url["']\s*:\s*["'](https?:\/\/[^"']+)["']/.exec(text);
+      const teamUrl = teamUrlMatch?.[1]?.replace(/\/$/, '') ?? '';
+
+      return {
+        token,
+        workspaceUrl: teamUrl || window.location.origin,
+        teamId,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Scan all localStorage keys for Slack auth tokens.
+ * The modern app.slack.com client may store tokens under different key names
+ * than the legacy `localConfig_v2`/`v3` keys. This scans all keys and parses
+ * any JSON values that contain xoxc- tokens.
+ */
+const getAuthFromLocalStorageScan = (): SlackAuth | null => {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      // Skip keys already handled by getAuthFromLocalStorage
+      if (key === 'localConfig_v2' || key === 'localConfig_v3') continue;
+
+      const raw = localStorage.getItem(key);
+      if (!raw || !raw.includes('xoxc-')) continue;
+
+      // Try to parse as JSON and extract token
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        const auth = extractAuthFromObject(parsed);
+        if (auth) return auth;
+      } catch {
+        // Not JSON — try regex extraction from raw string
+        const tokenMatch = /(xoxc-[a-zA-Z0-9-]+)/.exec(raw);
+        if (tokenMatch?.[1]) {
+          return {
+            token: tokenMatch[1],
+            workspaceUrl: window.location.origin,
+            teamId: '',
+          };
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Recursively search a parsed JSON object for Slack auth fields
+ * (`api_token` or `token` containing an xoxc- value).
+ */
+const extractAuthFromObject = (obj: unknown): SlackAuth | null => {
+  if (typeof obj !== 'object' || obj === null) return null;
+
+  const record = obj as Record<string, unknown>;
+
+  // Check for api_token or token fields directly
+  const tokenCandidate = record.api_token ?? record.token;
+  if (typeof tokenCandidate === 'string' && tokenCandidate.startsWith('xoxc-')) {
+    const teamId = typeof record.team_id === 'string' ? record.team_id : '';
+    const teamUrl = typeof record.team_url === 'string' ? record.team_url : '';
+    return {
+      token: tokenCandidate,
+      workspaceUrl: teamUrl.replace(/\/$/, '') || window.location.origin,
+      teamId,
+    };
+  }
+
+  // Recurse one level into object values (avoid deep recursion on large structures)
+  for (const value of Object.values(record)) {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      const result = extractAuthFromObject(value);
+      if (result) return result;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Read Slack auth credentials from the web client's runtime state.
+ * Tries multiple sources in order of reliability to support both old
+ * (WORKSPACE.slack.com) and new (app.slack.com) Slack clients:
+ *   1. localStorage `localConfig_v2` / `localConfig_v3` (legacy client)
+ *   2. `window.boot_data` / `window.TS.boot_data` globals
+ *   3. Inline `<script>` tags with embedded config JSON
+ *   4. Full localStorage scan for any key containing an xoxc- token
+ */
+const getAuth = (): SlackAuth | null =>
+  getAuthFromLocalStorage() ??
+  getAuthFromBootData() ??
+  getAuthFromPageScripts() ??
+  getAuthFromLocalStorageScan();
 
 /**
  * Check if the current Slack session is authenticated.
