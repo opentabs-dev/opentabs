@@ -474,4 +474,4 @@ const checkBrowserToolReferences = (
   return matches;
 };
 
-export { checkBrowserToolReferences, determineTrustTier, discoverPlugins, pluginNameFromPackage };
+export { checkBrowserToolReferences, determineTrustTier, discoverPlugins, loadPluginFromDir, pluginNameFromPackage };
