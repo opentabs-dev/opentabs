@@ -35,8 +35,19 @@ export const uploadFile = defineTool({
       .describe('Uploaded file metadata'),
   }),
   handle: async params => {
+    const decodeBase64 = (content: string): Uint8Array<ArrayBuffer> => {
+      try {
+        return Uint8Array.from(atob(content), c => c.charCodeAt(0));
+      } catch {
+        throw new ToolError(
+          'Invalid base64 content — ensure the content is properly base64-encoded',
+          'invalid_base64',
+        );
+      }
+    };
+
     const contentBytes = params.is_base64
-      ? Uint8Array.from(atob(params.content), c => c.charCodeAt(0))
+      ? decodeBase64(params.content)
       : new TextEncoder().encode(params.content);
 
     const uploadResponse = await slackApi<{
