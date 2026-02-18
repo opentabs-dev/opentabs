@@ -105,6 +105,10 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 - Use arrow function expressions (not function declarations)
 - No TODO/FIXME/HACK comments — if something needs to be done, do it now
 
+## Own the Codebase
+
+You are the engineer on duty. If quality checks fail — even on code you did not write — it is your responsibility to fix them before moving on. Pre-existing test failures, lint errors, type errors, or build breakages are not someone else's problem. Fix them as part of your current story's work (or as a separate commit before your story if the fix is unrelated). A green build is a precondition, not an afterthought.
+
 ## Browser Testing (If Available)
 
 For any story that changes UI, verify it works in the browser if you have browser testing tools configured (e.g., via MCP):
