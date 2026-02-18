@@ -69,8 +69,27 @@ const validatePlugin = (plugin: OpenTabsPlugin): string[] => {
 };
 
 const convertToolSchemas = (tool: ToolDefinition) => {
-  const inputSchema = z.toJSONSchema(tool.input) as Record<string, unknown>;
-  const outputSchema = z.toJSONSchema(tool.output) as Record<string, unknown>;
+  let inputSchema: Record<string, unknown>;
+  try {
+    inputSchema = z.toJSONSchema(tool.input) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Tool "${tool.name}" input schema failed to serialize to JSON Schema. ` +
+        `Schemas cannot use .transform(), .pipe(), or .preprocess() — these produce runtime-only behavior ` +
+        `that cannot be represented in JSON Schema. ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  let outputSchema: Record<string, unknown>;
+  try {
+    outputSchema = z.toJSONSchema(tool.output) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `Tool "${tool.name}" output schema failed to serialize to JSON Schema. ` +
+        `Schemas cannot use .transform(), .pipe(), or .preprocess() — these produce runtime-only behavior ` +
+        `that cannot be represented in JSON Schema. ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   delete inputSchema['$schema'];
   delete outputSchema['$schema'];
