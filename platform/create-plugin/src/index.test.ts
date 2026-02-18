@@ -180,4 +180,114 @@ describe('create-opentabs-plugin CLI', () => {
       expect(indexContent).not.toContain('*://*.example.com/*');
     });
   });
+
+  describe('scaffolded plugin install and build', () => {
+    /** Absolute paths to local platform packages for file: overrides. */
+    const PLATFORM_DIR = resolve(import.meta.dirname, '..', '..', '..');
+    const localShared = `file:${join(PLATFORM_DIR, 'platform', 'shared')}`;
+    const localSdk = `file:${join(PLATFORM_DIR, 'platform', 'plugin-sdk')}`;
+    const localCli = `file:${join(PLATFORM_DIR, 'platform', 'cli')}`;
+
+    /**
+     * Override the scaffolded plugin's package.json to use local file: references
+     * instead of npm registry versions. This allows the test to run without
+     * requiring npm authentication for private @opentabs-dev packages.
+     */
+    const overrideToLocalPackages = async (projectDir: string): Promise<void> => {
+      const pkgPath = join(projectDir, 'package.json');
+      const pkg = (await Bun.file(pkgPath).json()) as Record<string, unknown>;
+
+      const deps = pkg.dependencies as Record<string, string> | undefined;
+      const devDeps = pkg.devDependencies as Record<string, string> | undefined;
+
+      if (deps?.['@opentabs-dev/plugin-sdk']) {
+        deps['@opentabs-dev/plugin-sdk'] = localSdk;
+      }
+      if (devDeps?.['@opentabs-dev/cli']) {
+        devDeps['@opentabs-dev/cli'] = localCli;
+      }
+
+      // Bun overrides resolve transitive @opentabs-dev/* deps to local packages
+      pkg.overrides = {
+        '@opentabs-dev/shared': localShared,
+        '@opentabs-dev/plugin-sdk': localSdk,
+        '@opentabs-dev/cli': localCli,
+      };
+
+      await Bun.write(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+    };
+
+    test(
+      'scaffolded plugin can be installed and built, producing valid manifest and adapter',
+      async () => {
+        const { exitCode: scaffoldExit } = runCli(['build-test', '--domain', 'example.com'], {
+          cwd: tmpDir,
+          configDir,
+        });
+        expect(scaffoldExit).toBe(0);
+
+        const projectDir = join(tmpDir, 'build-test');
+
+        // Override deps to use local platform packages (avoids npm auth requirement)
+        await overrideToLocalPackages(projectDir);
+
+        // bun install
+        const install = Bun.spawnSync(['bun', 'install'], { cwd: projectDir });
+        if (install.exitCode !== 0) {
+          console.error('install stdout:', install.stdout.toString());
+          console.error('install stderr:', install.stderr.toString());
+        }
+        expect(install.exitCode).toBe(0);
+
+        // bun run build (tsc && opentabs build)
+        const build = Bun.spawnSync(['bun', 'run', 'build'], { cwd: projectDir });
+        if (build.exitCode !== 0) {
+          console.error('build stdout:', build.stdout.toString());
+          console.error('build stderr:', build.stderr.toString());
+        }
+        expect(build.exitCode).toBe(0);
+
+        // Verify opentabs-plugin.json exists and is valid JSON
+        const manifestPath = join(projectDir, 'opentabs-plugin.json');
+        expect(existsSync(manifestPath)).toBe(true);
+
+        const manifest = (await Bun.file(manifestPath).json()) as {
+          name: string;
+          version: string;
+          tools: Array<{
+            name: string;
+            description: string;
+            input_schema: Record<string, unknown>;
+            output_schema: Record<string, unknown>;
+          }>;
+          adapterHash: string;
+          url_patterns: string[];
+        };
+
+        expect(manifest.name).toBe('build-test');
+        expect(manifest.version).toBe('0.0.1');
+        expect(typeof manifest.adapterHash).toBe('string');
+        expect(manifest.adapterHash.length).toBeGreaterThan(0);
+        expect(Array.isArray(manifest.url_patterns)).toBe(true);
+        expect(manifest.url_patterns).toContain('*://example.com/*');
+
+        // Verify tools array has at least one tool with required fields
+        expect(Array.isArray(manifest.tools)).toBe(true);
+        expect(manifest.tools.length).toBeGreaterThan(0);
+        const tool = manifest.tools[0];
+        expect(tool).toBeDefined();
+        expect(typeof tool?.name).toBe('string');
+        expect(typeof tool?.description).toBe('string');
+        expect(tool?.input_schema).toBeDefined();
+        expect(tool?.output_schema).toBeDefined();
+
+        // Verify dist/adapter.iife.js exists and is non-empty
+        const adapterPath = join(projectDir, 'dist', 'adapter.iife.js');
+        expect(existsSync(adapterPath)).toBe(true);
+        const adapterContent = await Bun.file(adapterPath).text();
+        expect(adapterContent.length).toBeGreaterThan(0);
+      },
+      { timeout: 60_000 },
+    );
+  });
 });
