@@ -14,6 +14,7 @@ import {
   handleBrowserGetStorage,
   handleBrowserGetTabContent,
   handleBrowserGetTabInfo,
+  handleBrowserGetResourceContent,
   handleBrowserListResources,
   handleBrowserListTabs,
   handleBrowserNavigateTab,
@@ -436,6 +437,16 @@ const methodHandlers = new Map<string, MessageHandler>([
       if (id !== undefined) {
         handleBrowserListResources(params, id).catch((err: unknown) =>
           console.warn('[opentabs] browser.listResources handler failed:', err),
+        );
+      }
+    },
+  ],
+  [
+    'browser.getResourceContent',
+    (params, id) => {
+      if (id !== undefined) {
+        handleBrowserGetResourceContent(params, id).catch((err: unknown) =>
+          console.warn('[opentabs] browser.getResourceContent handler failed:', err),
         );
       }
     },

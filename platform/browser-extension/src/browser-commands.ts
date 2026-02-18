@@ -30,6 +30,44 @@ interface CdpFrameResourceTree {
   resources: CdpResource[];
 }
 
+/** MIME types that represent text content and should be decoded from base64 */
+const TEXT_MIME_PREFIXES = ['text/'];
+const TEXT_MIME_EXACT = new Set([
+  'application/javascript',
+  'application/json',
+  'application/xml',
+  'application/xhtml+xml',
+  'application/x-javascript',
+  'application/ecmascript',
+]);
+
+const isTextMimeType = (mimeType: string): boolean => {
+  if (TEXT_MIME_PREFIXES.some(prefix => mimeType.startsWith(prefix))) return true;
+  return TEXT_MIME_EXACT.has(mimeType);
+};
+
+/**
+ * Find the frameId that owns a resource URL by walking the CDP resource tree.
+ * Returns the frame ID or null if the resource is not found in any frame.
+ */
+const findFrameForResource = (
+  tree: CdpFrameResourceTree,
+  targetUrl: string,
+): { frameId: string; mimeType: string } | null => {
+  for (const r of tree.resources) {
+    if (r.url === targetUrl) {
+      return { frameId: tree.frame.id, mimeType: r.mimeType };
+    }
+  }
+  if (tree.childFrames) {
+    for (const child of tree.childFrames) {
+      const found = findFrameForResource(child, targetUrl);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
 export const handleBrowserListTabs = async (id: string | number): Promise<void> => {
   try {
     const tabs = await chrome.tabs.query({});
@@ -1175,6 +1213,110 @@ export const handleBrowserListResources = async (
       resources.sort((a, b) => a.type.localeCompare(b.type) || a.url.localeCompare(b.url));
 
       sendToServer({ jsonrpc: '2.0', result: { frames, resources }, id });
+    } finally {
+      if (!alreadyAttached) {
+        await chrome.debugger.detach({ tabId }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
+      id,
+    });
+  }
+};
+
+export const handleBrowserGetResourceContent = async (
+  params: Record<string, unknown>,
+  id: string | number,
+): Promise<void> => {
+  try {
+    const tabId = params.tabId;
+    if (typeof tabId !== 'number') {
+      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid tabId parameter' }, id });
+      return;
+    }
+    const url = params.url;
+    if (typeof url !== 'string' || url.length === 0) {
+      sendToServer({ jsonrpc: '2.0', error: { code: -32602, message: 'Missing or invalid url parameter' }, id });
+      return;
+    }
+    const maxLength = typeof params.maxLength === 'number' ? params.maxLength : 500_000;
+
+    const alreadyAttached = isCapturing(tabId);
+    if (!alreadyAttached) {
+      try {
+        await chrome.debugger.attach({ tabId }, '1.3');
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        sendToServer({
+          jsonrpc: '2.0',
+          error: {
+            code: -32603,
+            message: msg.includes('Another debugger')
+              ? 'Failed to attach debugger — another debugger (e.g., DevTools) is already attached. ' +
+                'Close DevTools or enable network capture first (browser_enable_network_capture) ' +
+                'so this tool can reuse the existing debugger session.'
+              : `Failed to attach debugger: ${sanitizeErrorMessage(msg)}`,
+          },
+          id,
+        });
+        return;
+      }
+    }
+
+    try {
+      await chrome.debugger.sendCommand({ tabId }, 'Page.enable');
+
+      // Get the resource tree to find which frame owns the requested resource
+      const treeResult = (await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceTree')) as {
+        frameTree: CdpFrameResourceTree;
+      };
+
+      const match = findFrameForResource(treeResult.frameTree, url);
+      if (!match) {
+        sendToServer({
+          jsonrpc: '2.0',
+          error: {
+            code: -32602,
+            message: `Resource not found in page: ${url}. Use browser_list_resources to find valid resource URLs.`,
+          },
+          id,
+        });
+        return;
+      }
+
+      const contentResult = (await chrome.debugger.sendCommand({ tabId }, 'Page.getResourceContent', {
+        frameId: match.frameId,
+        url,
+      })) as { content: string; base64Encoded: boolean };
+
+      let content = contentResult.content;
+      let base64Encoded = contentResult.base64Encoded;
+
+      // Decode base64 text resources to UTF-8 strings
+      if (base64Encoded && isTextMimeType(match.mimeType)) {
+        try {
+          content = atob(content);
+          base64Encoded = false;
+        } catch {
+          // Decoding failed — return base64 as-is
+        }
+      }
+
+      // Truncate text content that exceeds maxLength
+      let truncated = false;
+      if (!base64Encoded && content.length > maxLength) {
+        content = content.slice(0, maxLength) + '... (truncated)';
+        truncated = true;
+      }
+
+      sendToServer({
+        jsonrpc: '2.0',
+        result: { url, content, base64Encoded, mimeType: match.mimeType, truncated },
+        id,
+      });
     } finally {
       if (!alreadyAttached) {
         await chrome.debugger.detach({ tabId }).catch(() => {});

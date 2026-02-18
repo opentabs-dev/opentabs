@@ -85,6 +85,9 @@ const mockHandleBrowserExecuteScript = mock(
 const mockHandleBrowserListResources = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
+const mockHandleBrowserGetResourceContent = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
 
 await mock.module('./messaging.js', () => ({
   sendToServer: mockSendToServer,
@@ -121,6 +124,7 @@ await mock.module('./browser-commands.js', () => ({
   handleBrowserClearConsoleLogs: mockHandleBrowserClearConsoleLogs,
   handleBrowserExecuteScript: mockHandleBrowserExecuteScript,
   handleBrowserListResources: mockHandleBrowserListResources,
+  handleBrowserGetResourceContent: mockHandleBrowserGetResourceContent,
 }));
 
 // Chrome API stubs for modules that are NOT mocked (plugin-storage, iife-injection,
@@ -485,6 +489,7 @@ const resetRoutingMocks = (): void => {
   mockHandleBrowserClearConsoleLogs.mockReset();
   mockHandleBrowserExecuteScript.mockReset();
   mockHandleBrowserListResources.mockReset();
+  mockHandleBrowserGetResourceContent.mockReset();
 };
 
 describe('handleServerMessage', () => {
@@ -511,6 +516,7 @@ describe('handleServerMessage', () => {
     mockHandleBrowserEnableNetworkCapture.mockResolvedValue(undefined);
     mockHandleBrowserExecuteScript.mockResolvedValue(undefined);
     mockHandleBrowserListResources.mockResolvedValue(undefined);
+    mockHandleBrowserGetResourceContent.mockResolvedValue(undefined);
   });
 
   describe('sync.full routing', () => {
@@ -907,6 +913,20 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleBrowserListResources).toHaveBeenCalledTimes(1);
       expect(mockHandleBrowserListResources).toHaveBeenCalledWith({ tabId: 25, type: 'Script' }, 43);
+    });
+
+    test('dispatches browser.getResourceContent to handleBrowserGetResourceContent', () => {
+      handleServerMessage({
+        method: 'browser.getResourceContent',
+        id: 44,
+        params: { tabId: 26, url: 'https://example.com/app.js', maxLength: 100000 },
+      });
+
+      expect(mockHandleBrowserGetResourceContent).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserGetResourceContent).toHaveBeenCalledWith(
+        { tabId: 26, url: 'https://example.com/app.js', maxLength: 100000 },
+        44,
+      );
     });
   });
 
