@@ -62,6 +62,31 @@ const ALLOWED_METHODS = new Set([
   'extension.reload',
 ]);
 
+/**
+ * Validate that a WebSocket URL from /ws-info has the expected origin.
+ * Rejects URLs with a different host than the source or non-WebSocket protocols.
+ */
+const isValidWsOrigin = (wsUrl: string, httpBase: string): boolean => {
+  try {
+    const parsed = new URL(wsUrl);
+    if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+      console.warn(`[opentabs:offscreen] Rejected wsUrl with invalid protocol: ${parsed.protocol}`);
+      return false;
+    }
+    const source = new URL(httpBase);
+    if (parsed.host !== source.host) {
+      console.warn(
+        `[opentabs:offscreen] Rejected wsUrl with mismatched host: ${parsed.host} (expected ${source.host})`,
+      );
+      return false;
+    }
+    return true;
+  } catch {
+    console.warn('[opentabs:offscreen] Rejected wsUrl: failed to parse URL');
+    return false;
+  }
+};
+
 let mcpServerUrl = DEFAULT_MCP_SERVER_URL;
 let ws: WebSocket | null = null;
 let backoffMs = INITIAL_BACKOFF_MS;
@@ -184,7 +209,9 @@ const refreshWsUrl = async (): Promise<void> => {
     if (res.ok) {
       const wsInfo = (await res.json()) as { wsUrl?: string };
       if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '' && wsInfo.wsUrl !== mcpServerUrl) {
-        mcpServerUrl = wsInfo.wsUrl;
+        if (isValidWsOrigin(wsInfo.wsUrl, httpBase)) {
+          mcpServerUrl = wsInfo.wsUrl;
+        }
       }
     }
   } catch {
@@ -312,13 +339,22 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
           if (res.ok) {
             const wsInfo = (await res.json()) as { wsUrl?: string };
             if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '') {
-              resolvedUrl = wsInfo.wsUrl;
+              if (isValidWsOrigin(wsInfo.wsUrl, httpBase)) {
+                resolvedUrl = wsInfo.wsUrl;
+              } else {
+                sendResponse({ ok: true });
+                return;
+              }
             } else if (typeof wsInfo.wsUrl === 'string') {
               console.warn('[opentabs:offscreen] /ws-info returned empty wsUrl, using fallback URL');
             }
           }
         } catch {
           // Server may not be running yet — use raw URL as fallback
+        }
+        if (!isValidWsOrigin(resolvedUrl, httpBase)) {
+          sendResponse({ ok: true });
+          return;
         }
         if (resolvedUrl !== mcpServerUrl) {
           console.log(`[opentabs:offscreen] MCP server URL changed to ${resolvedUrl}`);
