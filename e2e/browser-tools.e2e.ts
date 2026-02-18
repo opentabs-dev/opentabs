@@ -15,7 +15,7 @@
  */
 
 import { test, expect } from './fixtures.js';
-import { waitForExtensionConnected, waitForLog, parseToolResult, waitFor } from './helpers.js';
+import { waitForExtensionConnected, waitForLog, parseToolResult, waitFor, BROWSER_TOOL_NAMES } from './helpers.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { McpClient, McpServer, TestServer } from './fixtures.js';
@@ -81,12 +81,9 @@ test.describe('Browser tools — tool listing', () => {
     const tools = await initAndListTools(mcpServer, mcpClient);
     const toolNames = tools.map(t => t.name);
 
-    expect(toolNames).toContain('browser_list_tabs');
-    expect(toolNames).toContain('browser_open_tab');
-    expect(toolNames).toContain('browser_close_tab');
-    expect(toolNames).toContain('browser_navigate_tab');
-    expect(toolNames).toContain('browser_execute_script');
-    expect(toolNames).toContain('extension_reload');
+    for (const name of BROWSER_TOOL_NAMES) {
+      expect(toolNames).toContain(name);
+    }
   });
 });
 
@@ -830,5 +827,222 @@ test.describe('Browser tools — URL validation', () => {
 
     // Clean up
     await mcpClient.callTool('browser_close_tab', { tabId: tabInfo.id });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// browser_focus_tab
+// ---------------------------------------------------------------------------
+
+test.describe('browser_focus_tab', () => {
+  test('focuses a tab and verifies it becomes active', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    // Open two tabs — the second one will be active after creation
+    const open1 = await mcpClient.callTool('browser_open_tab', { url: 'https://example.com' });
+    expect(open1.isError).toBe(false);
+    const tabId1 = parseToolResult(open1.content).id as number;
+
+    const open2 = await mcpClient.callTool('browser_open_tab', { url: 'https://example.org' });
+    expect(open2.isError).toBe(false);
+    const tabId2 = parseToolResult(open2.content).id as number;
+
+    // Focus the first tab
+    const focusResult = await mcpClient.callTool('browser_focus_tab', { tabId: tabId1 });
+    expect(focusResult.isError).toBe(false);
+
+    const focusData = parseToolResult(focusResult.content);
+    expect(focusData.id).toBe(tabId1);
+    expect(focusData.active).toBe(true);
+
+    // Verify via browser_list_tabs that the focused tab is active
+    const listResult = await mcpClient.callTool('browser_list_tabs');
+    expect(listResult.isError).toBe(false);
+    const tabs = JSON.parse(listResult.content) as Array<Record<string, unknown>>;
+    const focusedTab = tabs.find(t => t.id === tabId1);
+    expect(focusedTab).toBeDefined();
+    if (!focusedTab) throw new Error('Focused tab not found');
+    expect(focusedTab.active).toBe(true);
+
+    // Clean up
+    await mcpClient.callTool('browser_close_tab', { tabId: tabId1 });
+    await mcpClient.callTool('browser_close_tab', { tabId: tabId2 });
+  });
+
+  test('returns error for invalid tabId', async ({ mcpServer, extensionContext: _extensionContext, mcpClient }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    const result = await mcpClient.callTool('browser_focus_tab', { tabId: 999999 });
+    expect(result.isError).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// browser_get_tab_info
+// ---------------------------------------------------------------------------
+
+test.describe('browser_get_tab_info', () => {
+  test('returns correct fields for an open tab', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    // Open a tab (no need to wait for full page load — just need a valid tab ID)
+    const openResult = await mcpClient.callTool('browser_open_tab', { url: 'https://example.com' });
+    expect(openResult.isError).toBe(false);
+    const tabId = parseToolResult(openResult.content).id as number;
+
+    const result = await mcpClient.callTool('browser_get_tab_info', { tabId });
+    expect(result.isError).toBe(false);
+
+    const info = parseToolResult(result.content);
+    expect(info.id).toBe(tabId);
+    expect(typeof info.title).toBe('string');
+    expect(typeof info.url).toBe('string');
+    expect(typeof info.status).toBe('string');
+    expect(typeof info.active).toBe('boolean');
+    expect(typeof info.windowId).toBe('number');
+    expect(typeof info.incognito).toBe('boolean');
+
+    // Clean up
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('returns error for invalid tabId', async ({ mcpServer, extensionContext: _extensionContext, mcpClient }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    const result = await mcpClient.callTool('browser_get_tab_info', { tabId: 999999 });
+    expect(result.isError).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// browser_screenshot_tab
+// ---------------------------------------------------------------------------
+
+test.describe('browser_screenshot_tab', () => {
+  test('captures a base64 PNG screenshot', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    // Small delay for the page to render fully
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const result = await mcpClient.callTool('browser_screenshot_tab', { tabId });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    expect(typeof data.image).toBe('string');
+    // PNG files encoded in base64 start with 'iVBOR' (the base64 encoding of the PNG header)
+    expect((data.image as string).startsWith('iVBOR')).toBe(true);
+
+    // Clean up
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// browser_get_tab_content
+// ---------------------------------------------------------------------------
+
+test.describe('browser_get_tab_content', () => {
+  test('returns title and content from test server page', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_get_tab_content', { tabId });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    expect(data.title).toBe('E2E Test App');
+    expect(typeof data.url).toBe('string');
+    expect(typeof data.content).toBe('string');
+    expect((data.content as string).length).toBeGreaterThan(0);
+
+    // Clean up
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('CSS selector scopes extraction', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+
+    // Open the interactive page which has a known h1
+    const openResult = await mcpClient.callTool('browser_open_tab', {
+      url: testServer.url + '/interactive',
+    });
+    expect(openResult.isError).toBe(false);
+    const tabInfo = parseToolResult(openResult.content);
+    const tabId = tabInfo.id as number;
+
+    // Wait for page load
+    await waitFor(
+      async () => {
+        try {
+          const r = await mcpClient.callTool('browser_execute_script', {
+            tabId,
+            code: 'return document.readyState',
+          });
+          if (r.isError) return false;
+          const d = parseToolResult(r.content);
+          const v = d.value as Record<string, unknown> | undefined;
+          return v?.value === 'complete';
+        } catch {
+          return false;
+        }
+      },
+      10_000,
+      300,
+      `tab ${tabId} readyState === complete`,
+    );
+
+    const result = await mcpClient.callTool('browser_get_tab_content', { tabId, selector: 'h1' });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    expect(data.title).toBe('Interactive Test Page');
+    expect(data.content).toBe('Interactive Test Page');
+
+    // Clean up
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('non-existent selector returns error', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_get_tab_content', {
+      tabId,
+      selector: '#nonexistent-element-xyz',
+    });
+    expect(result.isError).toBe(true);
+
+    // Clean up
+    await mcpClient.callTool('browser_close_tab', { tabId });
   });
 });
