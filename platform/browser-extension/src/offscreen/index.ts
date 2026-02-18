@@ -87,6 +87,10 @@ const isValidWsOrigin = (wsUrl: string, httpBase: string): boolean => {
       );
       return false;
     }
+    if (parsed.pathname !== '/ws') {
+      console.warn(`[opentabs:offscreen] Rejected wsUrl with invalid path: ${parsed.pathname}`);
+      return false;
+    }
     return true;
   } catch {
     console.warn('[opentabs:offscreen] Rejected wsUrl: failed to parse URL');
