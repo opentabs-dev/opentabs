@@ -79,6 +79,27 @@ describe('matchPattern', () => {
     test('pattern without port matches URL with explicit port', () => {
       expect(matchPattern('https://example.com:8080/path', '*://example.com/*')).toBe(true);
     });
+
+    test('localhost with explicit port matches', () => {
+      expect(matchPattern('http://localhost:3000/', 'http://localhost:3000/*')).toBe(true);
+    });
+
+    test('default port in pattern does not match URL without explicit port', () => {
+      // URL.port is '' for default ports (443 for https), so pattern port '443' !== ''
+      expect(matchPattern('https://example.com/path', 'https://example.com:443/*')).toBe(false);
+    });
+
+    test('port-only difference between URLs is detected', () => {
+      expect(matchPattern('http://localhost:9517/path', '*://localhost:9516/*')).toBe(false);
+    });
+
+    test('pattern without port matches localhost with any port', () => {
+      expect(matchPattern('http://localhost:9516/path', '*://localhost/*')).toBe(true);
+    });
+
+    test('non-default explicit port in URL matches same port in pattern', () => {
+      expect(matchPattern('https://example.com:8443/path', '*://example.com:8443/*')).toBe(true);
+    });
   });
 
   describe('path matching', () => {
