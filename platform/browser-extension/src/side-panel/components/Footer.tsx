@@ -1,11 +1,11 @@
 const Footer = () => (
-  <footer className="flex items-center justify-between border-t border-gray-800 px-4 py-2 text-xs text-gray-500">
+  <footer className="border-border bg-background text-muted-foreground flex items-center justify-between border-t-2 px-4 py-2 text-xs">
     <span>OpenTabs</span>
     <a
       href="https://github.com/opentabs-dev/opentabs"
       target="_blank"
       rel="noopener noreferrer"
-      className="transition-colors hover:text-gray-300">
+      className="hover:text-foreground transition-colors">
       Feedback
     </a>
   </footer>

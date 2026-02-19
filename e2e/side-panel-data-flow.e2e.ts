@@ -68,7 +68,7 @@ test.describe('Side panel data flow — connection status', () => {
       await expect(sidePanelPage.getByText('Disconnected', { exact: true })).toBeVisible({ timeout: 30_000 });
 
       // 8. Verify plugin list is cleared (no plugin cards visible)
-      await expect(sidePanelPage.getByText('MCP server not connected')).toBeVisible({ timeout: 10_000 });
+      await expect(sidePanelPage.getByText('Not Connected')).toBeVisible({ timeout: 10_000 });
 
       // 9. Restart MCP server on the same port
       const server2 = await startMcpServer(configDir, true, serverPort);
@@ -129,8 +129,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
       // 5. Verify the red dot (closed state) — no matching tab is open
-      const pluginCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(pluginCard.locator('.bg-red-400')).toBeVisible({ timeout: 5_000 });
+      await expect(sidePanelPage.getByText('closed', { exact: true })).toBeVisible({ timeout: 5_000 });
 
       // 6. Open a new tab to the test server URL (matches http://localhost/*)
       const appTab = await context.newPage();
@@ -161,8 +160,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
       // Verify the green dot (ready state)
-      const refreshedCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(refreshedCard.locator('.bg-emerald-400')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('ready', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       // 8. Close the matching tab
       await appTab.close();
@@ -185,8 +183,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
       // Verify the red dot (closed state) reappears
-      const closedCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(closedCard.locator('.bg-red-400')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('closed', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       await sidePanelPage.close();
     } finally {
@@ -247,8 +244,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       // Reload side panel and verify green dot (ready)
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
-      const readyCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(readyCard.locator('.bg-emerald-400')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('ready', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       // 7. Toggle auth OFF on the test server
       await testServer.setAuth(false);
@@ -278,9 +274,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       // also matches getByText('E2E Test'), so use the plugin card button
       // locator directly instead of a text search.
       await sidePanelPage.reload({ waitUntil: 'load' });
-      const unavailableCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(unavailableCard).toBeVisible({ timeout: 15_000 });
-      await expect(unavailableCard.locator('.bg-amber-400')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('unavailable', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       // 10. Toggle auth back ON and verify transition back to ready
       await testServer.setAuth(true);
@@ -305,8 +299,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       // Reload side panel and verify green dot (ready) again
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
-      const restoredCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(restoredCard.locator('.bg-emerald-400')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('ready', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       await sidePanelPage.close();
       await appTab.close();
@@ -386,7 +379,7 @@ test.describe('Side panel data flow — tool invocation animation', () => {
 
       // 7. Start tool call and check for spinner in parallel
       const spinnerLocator = sidePanelPage.locator('.animate-spin');
-      const pulseLocator = sidePanelPage.locator('.animate-tool-pulse');
+      const activeBorderLocator = sidePanelPage.locator('.border-primary.border-l-2');
 
       // Verify no spinner before tool call
       await expect(spinnerLocator).toBeHidden({ timeout: 2_000 });
@@ -396,7 +389,7 @@ test.describe('Side panel data flow — tool invocation animation', () => {
 
       // 8. Verify the spinner appears during tool execution
       await expect(spinnerLocator).toBeVisible({ timeout: 10_000 });
-      await expect(pulseLocator).toBeVisible({ timeout: 2_000 });
+      await expect(activeBorderLocator).toBeVisible({ timeout: 2_000 });
 
       // 9. Wait for tool to complete
       const result = await toolCallPromise;
@@ -404,7 +397,7 @@ test.describe('Side panel data flow — tool invocation animation', () => {
 
       // 10. Verify spinner disappears after completion
       await expect(spinnerLocator).toBeHidden({ timeout: 10_000 });
-      await expect(pulseLocator).toBeHidden({ timeout: 2_000 });
+      await expect(activeBorderLocator).toBeHidden({ timeout: 2_000 });
 
       // Reset slow mode
       await testServer.setSlow(0);

@@ -28,6 +28,10 @@ const config: KnipConfig = {
         'src/side-panel/styles.css',
         'src/**/*.test.ts',
       ],
+      ignoreDependencies: [
+        // CSS-only dependency imported via @import in styles.css (knip cannot trace CSS imports)
+        'tw-animate-css',
+      ],
     },
     'platform/create-plugin': {},
   },

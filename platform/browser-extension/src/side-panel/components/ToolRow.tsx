@@ -1,4 +1,6 @@
-import { ToggleSwitch } from './ToggleSwitch.js';
+import { Switch } from './retro/Switch.js';
+import { Tooltip } from './retro/Tooltip.js';
+import { ToolIcon } from './ToolIcon.js';
 
 const ToolRow = ({
   name,
@@ -14,26 +16,28 @@ const ToolRow = ({
   onToggle: () => void;
 }) => (
   <div
-    className={`flex items-center justify-between px-3 py-2 pl-10 transition-colors hover:bg-gray-800/20 ${active ? 'animate-tool-pulse bg-amber-500/5' : ''}`}>
-    <div className="flex min-w-0 items-center gap-2 pr-3">
-      {active && (
-        <div className="h-3 w-3 shrink-0">
-          <div className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-gray-600 border-t-amber-400" />
-        </div>
-      )}
-      <div className="min-w-0">
-        <div className="truncate text-xs font-medium text-gray-300">{name}</div>
-        <div className="truncate text-[11px] text-gray-500">{description}</div>
-      </div>
+    className={`border-border hover:bg-muted/10 flex items-center gap-2 border-b px-3 py-2 transition-colors last:border-b-0 ${active ? 'border-primary border-l-2' : ''}`}>
+    <ToolIcon toolName={name} />
+    <div className="min-w-0 flex-1">
+      <div className="text-foreground truncate text-xs font-medium">{name}</div>
+      <Tooltip.Provider>
+        <Tooltip>
+          <Tooltip.Trigger asChild>
+            <div className="text-muted-foreground truncate text-[11px]">{description}</div>
+          </Tooltip.Trigger>
+          <Tooltip.Content>{description}</Tooltip.Content>
+        </Tooltip>
+      </Tooltip.Provider>
     </div>
-    <ToggleSwitch
-      enabled={enabled}
-      ariaLabel={`Toggle ${name} tool`}
-      onClick={e => {
-        e.stopPropagation();
-        onToggle();
-      }}
-    />
+    <div className="flex shrink-0 items-center gap-2">
+      {active && <div className="border-muted border-t-primary h-3 w-3 animate-spin rounded-full border-2" />}
+      <Switch
+        checked={enabled}
+        onCheckedChange={() => onToggle()}
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        aria-label={`Toggle ${name} tool`}
+      />
+    </div>
   </div>
 );
 

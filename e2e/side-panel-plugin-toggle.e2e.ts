@@ -82,8 +82,7 @@ test.describe('Side panel — plugin list rendering', () => {
       await expect(sidePanelPage.getByText(`v${expectedVersion}`)).toBeVisible({ timeout: 5_000 });
 
       // With no matching tab open, tab state should be 'closed' (red dot)
-      const pluginCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(pluginCard.locator('.bg-red-400')).toBeVisible({ timeout: 5_000 });
+      await expect(sidePanelPage.getByText('closed', { exact: true })).toBeVisible({ timeout: 5_000 });
 
       // Open a matching tab → tab state transitions to 'ready' (green dot)
       const appTab = await context.newPage();
@@ -108,8 +107,7 @@ test.describe('Side panel — plugin list rendering', () => {
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
       // Verify the green dot (ready state)
-      const refreshedCard = sidePanelPage.locator('button[aria-expanded]').first();
-      await expect(refreshedCard.locator('.bg-emerald-400')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('ready', { exact: true })).toBeVisible({ timeout: 15_000 });
 
       await sidePanelPage.close();
       await appTab.close();

@@ -1,4 +1,5 @@
-import { AlertTriangle } from 'lucide-react';
+import { Alert } from './retro/Alert.js';
+import { Button } from './retro/Button.js';
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 
@@ -31,16 +32,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   override render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16 text-center text-gray-200">
-          <AlertTriangle className="mb-4 h-12 w-12 text-amber-400" />
-          <h2 className="mb-2 text-lg font-medium text-gray-300">Something went wrong</h2>
-          <p className="mb-6 max-w-[240px] text-sm text-gray-500">The side panel encountered an unexpected error.</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-amber-400">
-            Reload
-          </button>
+        <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16 text-center">
+          <Alert status="error" className="max-w-xs">
+            <Alert.Title>Something went wrong</Alert.Title>
+            <Alert.Description>The side panel encountered an unexpected error.</Alert.Description>
+            <Button variant="default" size="sm" className="mt-4" onClick={() => window.location.reload()}>
+              Reload
+            </Button>
+          </Alert>
         </div>
       );
     }

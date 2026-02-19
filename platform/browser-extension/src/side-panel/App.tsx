@@ -3,9 +3,11 @@ import { DisconnectedState, EmptyState, LoadingState } from './components/EmptyS
 import { Footer } from './components/Footer.js';
 import { Header } from './components/Header.js';
 import { PluginList } from './components/PluginList.js';
+import { Input } from './components/retro/Input.js';
 import { VersionMismatchBanner } from './components/VersionMismatchBanner.js';
 import { VALID_PLUGIN_NAME } from '../constants.js';
 import { SIDE_PANEL_PROTOCOL_VERSION } from '@opentabs-dev/shared';
+import { Search, X } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { PluginState } from './bridge.js';
 import type { InternalMessage } from '../types.js';
@@ -19,12 +21,11 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [activeTools, setActiveTools] = useState<Set<string>>(new Set());
   const [versionMismatch, setVersionMismatch] = useState(false);
+  const [toolFilter, setToolFilter] = useState('');
 
   const lastFetchRef = useRef(0);
-  /** Buffer tab.stateChanged notifications that arrive before fetchConfigState resolves. */
   const pendingTabStates = useRef<Map<string, TabState>>(new Map());
 
-  /** Refs for sp:getState handler — reads latest values without adding useEffect dependencies */
   const connectedRef = useRef(connected);
   const loadingRef = useRef(loading);
   const pluginsRef = useRef(plugins);
@@ -70,9 +71,7 @@ const App = () => {
       setLoading(false);
     });
 
-    /** Process tab state and tool invocation notifications from the server. */
     const handleNotification = (data: Record<string, unknown>): void => {
-      // tab.stateChanged notification
       if (data.method === 'tab.stateChanged' && data.params) {
         const params = data.params as Record<string, unknown>;
         if (
@@ -93,7 +92,6 @@ const App = () => {
         }
       }
 
-      // tool.invocationStart notification
       if (data.method === 'tool.invocationStart' && data.params) {
         const params = data.params as Record<string, unknown>;
         if (
@@ -106,7 +104,6 @@ const App = () => {
         }
       }
 
-      // tool.invocationEnd notification
       if (data.method === 'tool.invocationEnd' && data.params) {
         const params = data.params as Record<string, unknown>;
         if (
@@ -163,13 +160,11 @@ const App = () => {
       if (message.type === 'sp:serverMessage') {
         const data = message.data;
 
-        // Route responses to the bridge's pending-request map (matched by ID)
         if (handleServerResponse(data)) {
           sendResponse({ ok: true });
           return true;
         }
 
-        // plugins.changed notification — refetch the full plugin list
         if (data.method === 'plugins.changed') {
           loadPlugins();
           sendResponse({ ok: true });
@@ -181,22 +176,14 @@ const App = () => {
         return true;
       }
 
-      // Fallback: ws:message is broadcast by the offscreen document to all
-      // extension contexts. When the side panel is opened as a regular
-      // extension page (not via chrome.sidePanel.open), the background's
-      // forwardToSidePanel may not reliably deliver sp:serverMessage.
-      // Handling ws:message directly ensures notifications always arrive.
       if (message.type === 'ws:message') {
         const wsData = message.data as Record<string, unknown> | undefined;
         if (wsData?.method === 'sync.full') {
-          // The MCP server already has plugin data when it sends sync.full,
-          // so config.getState can be called immediately — no delay needed.
           loadPlugins();
         }
         return false;
       }
 
-      // Not a side-panel message — don't call sendResponse, return false
       return false;
     };
 
@@ -204,10 +191,31 @@ const App = () => {
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, [loadPlugins]);
 
+  const totalTools = plugins.reduce((sum, p) => sum + p.tools.length, 0);
+
   return (
-    <div className="flex min-h-screen flex-col text-gray-200">
+    <div className="text-foreground flex min-h-screen flex-col">
       <Header connected={connected} />
       {versionMismatch && <VersionMismatchBanner />}
+      {connected && !loading && totalTools > 5 && (
+        <div className="relative px-3 pt-2">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-5 h-4 w-4 -translate-y-1/2 translate-y-[4px]" />
+          <Input
+            value={toolFilter}
+            onChange={e => setToolFilter(e.target.value)}
+            placeholder="Filter tools..."
+            className="pr-8 pl-9"
+          />
+          {toolFilter && (
+            <button
+              type="button"
+              onClick={() => setToolFilter('')}
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-5 -translate-y-1/2 translate-y-[4px]">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
       <main className="flex-1 px-3 py-2">
         {loading ? (
           <LoadingState />
@@ -216,7 +224,7 @@ const App = () => {
         ) : plugins.length === 0 ? (
           <EmptyState />
         ) : (
-          <PluginList plugins={plugins} activeTools={activeTools} setPlugins={setPlugins} />
+          <PluginList plugins={plugins} activeTools={activeTools} setPlugins={setPlugins} toolFilter={toolFilter} />
         )}
       </main>
       <Footer />

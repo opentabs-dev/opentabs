@@ -53,7 +53,7 @@ test.describe('Side panel live-update — plugins.changed notification', () => {
       const sidePanelPage = await openSidePanel(context);
 
       // 3. Verify side panel initially shows empty state
-      await expect(sidePanelPage.locator('text=No plugins installed')).toBeVisible({ timeout: 10_000 });
+      await expect(sidePanelPage.locator('text=No Plugins')).toBeVisible({ timeout: 10_000 });
 
       // 4. Add a plugin by modifying config.json
       const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
@@ -67,7 +67,7 @@ test.describe('Side panel live-update — plugins.changed notification', () => {
       // 5. Verify the side panel DOM updates to show the new plugin.
       //    The App.tsx listener detects ws:message with sync.full (broadcast by
       //    the offscreen document) and triggers a config.getState refetch.
-      await expect(sidePanelPage.locator('text=No plugins installed')).toBeHidden({ timeout: 30_000 });
+      await expect(sidePanelPage.locator('text=No Plugins')).toBeHidden({ timeout: 30_000 });
       await expect(sidePanelPage.locator('button[aria-expanded]')).toBeVisible({ timeout: 10_000 });
       await expect(sidePanelPage.locator('text=E2E Test')).toBeVisible({ timeout: 5_000 });
 
@@ -108,7 +108,7 @@ test.describe('Side panel live-update — plugins.changed notification', () => {
       writeTestConfig(configDir, { plugins: [], tools: {} });
 
       // Verify the side panel updates to show empty state
-      await expect(sidePanelPage.locator('text=No plugins installed')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage.locator('text=No Plugins')).toBeVisible({ timeout: 30_000 });
 
       await sidePanelPage.close();
     } finally {

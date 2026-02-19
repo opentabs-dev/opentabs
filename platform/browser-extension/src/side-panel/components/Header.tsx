@@ -1,21 +1,21 @@
+import { Badge } from './retro/Badge.js';
 import { Zap } from 'lucide-react';
 
 const Header = ({ connected }: { connected: boolean }) => (
-  <header className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+  <header className="border-border bg-background flex items-center justify-between border-b-2 px-4 py-3 shadow-[0_3px_0_0_var(--border)]">
     <div className="flex items-center gap-2">
-      <Zap className="h-5 w-5 text-amber-400" />
-      <h1 className="text-base font-semibold tracking-tight text-white">OpenTabs</h1>
+      <Zap className="text-foreground h-5 w-5" />
+      <h1 className="font-head text-foreground text-base tracking-tight">OpenTabs</h1>
     </div>
-    <div className="flex items-center gap-2">
-      <div
-        className={`h-2.5 w-2.5 rounded-full ${
-          connected
-            ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]'
-            : 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]'
-        } animate-pulse-dot`}
-      />
-      <span className="text-xs text-gray-400">{connected ? 'Connected' : 'Disconnected'}</span>
-    </div>
+    {connected ? (
+      <Badge variant="surface" size="sm">
+        Connected
+      </Badge>
+    ) : (
+      <Badge variant="outline" size="sm" className="text-destructive outline-destructive">
+        Disconnected
+      </Badge>
+    )}
   </header>
 );
 
