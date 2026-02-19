@@ -107,3 +107,17 @@
 body {
   font-family: var(--font-sans);
 }
+
+/* RetroUI prose link styling — applies to all links in docs content */
+.prose a,
+.nd-prose a {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  text-decoration-color: var(--primary);
+  text-underline-offset: 2px;
+}
+
+.prose a:hover,
+.nd-prose a:hover {
+  text-decoration: underline;
+}
