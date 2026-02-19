@@ -120,6 +120,28 @@ describe('validateUrlPattern', () => {
     });
   });
 
+  describe('path wildcard limit', () => {
+    test('accepts pattern with 3 wildcards in path', () => {
+      expect(validateUrlPattern('*://example.com/a/*/b/*/c/*')).toBeNull();
+    });
+
+    test('accepts pattern with 5 wildcards in path', () => {
+      expect(validateUrlPattern('*://example.com/a/*/b/*/c/*/d/*/e/*')).toBeNull();
+    });
+
+    test('rejects pattern with 7 wildcards in path', () => {
+      const error = validateUrlPattern('*://example.com/*/*/*/*/*/*/*');
+      expect(error).not.toBeNull();
+      expect(error).toContain('too many wildcards in path (max 5)');
+    });
+
+    test('rejects pattern with 6 wildcards in path', () => {
+      const error = validateUrlPattern('*://example.com/a/*/b/*/c/*/d/*/e/*/f/*');
+      expect(error).not.toBeNull();
+      expect(error).toContain('too many wildcards in path (max 5)');
+    });
+  });
+
   describe('invalid patterns', () => {
     test('rejects missing scheme', () => {
       const error = validateUrlPattern('example.com/*');

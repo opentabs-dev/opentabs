@@ -301,6 +301,12 @@ export const validateUrlPattern = (pattern: string): string | null => {
     return `URL pattern "${pattern}" is not a valid Chrome match pattern (expected: <scheme>://<host>/<path>, scheme must be *, http, or https)`;
   }
 
+  const path = match[3] ?? '/';
+  const wildcardCount = path.split('*').length - 1;
+  if (wildcardCount > 5) {
+    return 'URL pattern has too many wildcards in path (max 5)';
+  }
+
   const host = match[2] ?? '';
 
   // Reject bare TLD wildcards (e.g., *.com, *.org) — these match nearly every website.
