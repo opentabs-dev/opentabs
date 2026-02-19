@@ -288,6 +288,11 @@ site-search button[data-open-modal]:hover {
   transform: translateY(1px);
 }
 
+site-search button[data-open-modal]:active {
+  box-shadow: none;
+  transform: translate(1px, 2px);
+}
+
 site-search button[data-open-modal] kbd {
   border: 1px solid var(--border);
   border-radius: 0 !important;
@@ -328,6 +333,11 @@ starlight-menu-button button:hover {
   transform: translateY(1px);
 }
 
+starlight-menu-button button:active {
+  box-shadow: none;
+  transform: translate(1px, 2px);
+}
+
 /* Social icon links — RetroUI border-2, hard offset shadow, press effect */
 .social-icons a {
   border: 2px solid var(--border);
@@ -342,6 +352,11 @@ starlight-menu-button button:hover {
   box-shadow: none;
   transform: translateY(1px);
   background: var(--muted);
+}
+
+.social-icons a:active {
+  box-shadow: none;
+  transform: translate(1px, 2px);
 }
 
 /* Asides/callouts — RetroUI border-2 and hard offset shadow */
