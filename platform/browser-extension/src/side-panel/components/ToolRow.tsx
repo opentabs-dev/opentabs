@@ -21,7 +21,7 @@ const ToolRow = ({
   onToggle: () => void;
 }) => (
   <div
-    className={`border-border hover:bg-muted/50 flex items-center gap-2 border-b px-3 py-1.5 transition-colors last:border-b-0 ${active ? 'bg-accent/20' : ''}`}>
+    className={`border-border hover:bg-muted/50 flex items-center gap-2 border-b px-3 py-2 transition-colors last:border-b-0 ${active ? 'bg-accent/20' : ''}`}>
     <ToolIcon icon={icon} />
     <Tooltip.Provider>
       <Tooltip>

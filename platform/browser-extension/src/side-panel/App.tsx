@@ -198,7 +198,7 @@ const App = () => {
       <Header connected={connected} />
       {versionMismatch && <VersionMismatchBanner />}
       {connected && !loading && totalTools > 5 && (
-        <div className="px-3 pt-2">
+        <div className="px-3 py-2">
           <div className="relative">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
             <Input
