@@ -122,7 +122,20 @@ body {
   text-decoration: underline;
 }
 
-/* RetroUI Steps component — CSS counter-based step numbering */
+/* ===== RetroUI Navbar / Sidebar Overrides ===== */
+
+/* Desktop sidebar: 2px right border, solid bg-background (override fd-card) */
+#nd-sidebar aside {
+  border-right-width: 2px;
+  background-color: var(--background);
+}
+
+/* Sidebar collapse panel button: 2px border to match RetroUI */
+[data-sidebar-panel] {
+  border-width: 2px;
+}
+
+/* ===== RetroUI Steps component — CSS counter-based step numbering */
 .retro-steps {
   counter-reset: retro-step;
 }
