@@ -205,6 +205,46 @@ nav.sidebar a[aria-current='page'],
   color: var(--muted-foreground);
 }
 
+/* Search button — RetroUI border-2, hard offset shadow, press effect */
+site-search button[data-open-modal] {
+  border: 2px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 0 var(--border);
+  background: var(--background) !important;
+  transition: all 0.2s ease;
+}
+
+site-search button[data-open-modal]:hover {
+  box-shadow: none;
+  transform: translateY(1px);
+}
+
+site-search button[data-open-modal] kbd {
+  border: 1px solid var(--border);
+  border-radius: 0 !important;
+  background-color: var(--card) !important;
+}
+
+/* Search modal — RetroUI border-2 and shadow-lg */
+site-search dialog {
+  border: 2px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: 6px 6px 0 0 var(--border) !important;
+}
+
+/* Search input inside modal — RetroUI Input styling */
+#starlight__search .pagefind-ui__search-input {
+  border: 2px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: 4px 4px 0 0 var(--border);
+  padding: 0.5rem 1rem !important;
+  transition: box-shadow 0.2s ease;
+}
+
+#starlight__search .pagefind-ui__search-input:focus {
+  box-shadow: 1px 1px 0 0 var(--border);
+}
+
 /* Asides/callouts — RetroUI border-2 and hard offset shadow */
 .starlight-aside {
   border: 2px solid var(--border);
