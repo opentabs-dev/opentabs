@@ -290,7 +290,7 @@ test.describe('Tool call during reconnect window', () => {
 
     // Steal the extension's WebSocket slot with a fake client to disconnect the real extension
     mcpServer.logs.length = 0;
-    const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const fakeWs = wsSecret ? new WebSocket(wsUrl, ['opentabs', wsSecret]) : new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
       fakeWs.onopen = () => resolve();
@@ -333,7 +333,7 @@ test.describe('Tool call during reconnect window', () => {
 
     // Disconnect the extension by stealing the WS slot
     mcpServer.logs.length = 0;
-    const { wsUrl: fakeUrl, wsSecret: fakeSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl: fakeUrl, wsSecret: fakeSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const fakeWs = fakeSecret ? new WebSocket(fakeUrl, ['opentabs', fakeSecret]) : new WebSocket(fakeUrl);
     await new Promise<void>((resolve, reject) => {
       fakeWs.onopen = () => resolve();
@@ -497,7 +497,7 @@ test.describe('Server-side dispatch timeout', () => {
     await timeoutClient.initialize();
 
     // Get the authenticated WS URL and secret
-    const { wsUrl, wsSecret: timeoutWsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl, wsSecret: timeoutWsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
 
     // Set the test server to a 60s delay so the adapter is blocked waiting for
     // the HTTP response when we replace the WebSocket. Without this, the echo
@@ -709,7 +709,7 @@ test.describe('Malformed WebSocket messages', () => {
     // The extension will reconnect and replace the raw WS in turn, so we must
     // send all malformed messages and verify the ping/pong quickly before the
     // extension's reconnect timer fires.
-    const { wsUrl: rawWsUrl, wsSecret: rawWsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl: rawWsUrl, wsSecret: rawWsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const rawWs = rawWsSecret ? new WebSocket(rawWsUrl, ['opentabs', rawWsSecret]) : new WebSocket(rawWsUrl);
     await new Promise<void>((resolve, reject) => {
       rawWs.onopen = () => resolve();

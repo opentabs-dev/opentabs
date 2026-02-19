@@ -292,13 +292,72 @@ describe('/ws-info endpoint', () => {
     expect(body).not.toHaveProperty('wsSecret');
   });
 
-  test('returns wsUrl with secret when auth is configured', async () => {
+  test('returns wsUrl with secret when auth is configured and Bearer token matches', async () => {
     const { handlers, state } = createTestHandlers();
     state.wsSecret = 'my-test-secret';
 
-    const body = await fetchJson<WsInfoResponse>(handlers, 'http://localhost:9876/ws-info');
+    const req = new Request('http://localhost:9876/ws-info', {
+      headers: { Authorization: 'Bearer my-test-secret' },
+    });
+    const res = await handlers.fetch(req, mockBunServer);
+    expect(res).toBeInstanceOf(Response);
+    const body = (await (res as Response).json()) as WsInfoResponse;
 
     expect(body.wsUrl).toBe('ws://localhost:9876/ws');
+    expect(body.wsSecret).toBe('my-test-secret');
+  });
+
+  test('allows unauthenticated requests within rate limit when auth is configured', async () => {
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = 'my-test-secret';
+
+    const req = new Request('http://localhost:9876/ws-info');
+    const res = await handlers.fetch(req, mockBunServer);
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(200);
+    const body = (await (res as Response).json()) as WsInfoResponse;
+    expect(body.wsSecret).toBe('my-test-secret');
+  });
+
+  test('returns 429 when unauthenticated requests exceed rate limit', async () => {
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = 'my-test-secret';
+
+    // Send enough unauthenticated requests to exhaust the 10 req/min rate limit.
+    // Earlier tests in this describe block may have already consumed some slots
+    // (endpointCallTimestamps is module-level), so we send extra to guarantee
+    // the limit is hit.
+    for (let i = 0; i < 12; i++) {
+      const req = new Request('http://localhost:9876/ws-info');
+      await handlers.fetch(req, mockBunServer);
+    }
+
+    // Next request should be rate-limited
+    const req = new Request('http://localhost:9876/ws-info');
+    const res = await handlers.fetch(req, mockBunServer);
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(429);
+  });
+
+  test('authenticated requests bypass rate limit', async () => {
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = 'my-test-secret';
+
+    // Rate limit was already exhausted by the previous test (shared module state).
+    // Send additional requests to make sure it's exhausted.
+    for (let i = 0; i < 12; i++) {
+      const req = new Request('http://localhost:9876/ws-info');
+      await handlers.fetch(req, mockBunServer);
+    }
+
+    // Authenticated request should still succeed
+    const req = new Request('http://localhost:9876/ws-info', {
+      headers: { Authorization: 'Bearer my-test-secret' },
+    });
+    const res = await handlers.fetch(req, mockBunServer);
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(200);
+    const body = (await (res as Response).json()) as WsInfoResponse;
     expect(body.wsSecret).toBe('my-test-secret');
   });
 });

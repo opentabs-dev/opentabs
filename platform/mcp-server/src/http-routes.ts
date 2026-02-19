@@ -144,7 +144,20 @@ const createHandleFetch =
     // Returns the WebSocket URL and secret as separate fields. The secret
     // is sent via the Sec-WebSocket-Protocol header during the upgrade,
     // keeping it out of URLs, logs, and browser history.
+    //
+    // Protected by Bearer auth when possible, with rate limiting as a fallback.
+    // The extension needs /ws-info to bootstrap (get the secret for the first
+    // time before it can provide Bearer auth). Rate limiting (10 req/min)
+    // prevents brute-force polling by other local processes while allowing
+    // normal extension reconnection with exponential backoff. The existing
+    // CORS check (above) already blocks all non-extension browser origins.
     if (url.pathname === '/ws-info' && req.method === 'GET') {
+      const authError = checkBearerAuth(req, state.wsSecret);
+      if (authError) {
+        if (!checkEndpointRateLimit('/ws-info', 10)) {
+          return new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '60' } });
+        }
+      }
       const wsUrl = `ws://${url.host}/ws`;
       return Response.json({
         wsUrl,

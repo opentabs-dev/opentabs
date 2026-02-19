@@ -242,7 +242,7 @@ test.describe('WebSocket connection management', () => {
     mcpServer.logs.length = 0;
 
     // 2. Open a second WebSocket — this should replace the extension's slot.
-    const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const ws = wsSecret ? new WebSocket(wsUrl, ['opentabs', wsSecret]) : new WebSocket(wsUrl);
     await new Promise<void>((resolve, reject) => {
       ws.onopen = () => resolve();
@@ -276,7 +276,7 @@ test.describe('WebSocket connection management', () => {
   }) => {
     await waitForExtensionConnected(mcpServer);
 
-    const { wsUrl: pingWsUrl, wsSecret: pingWsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl: pingWsUrl, wsSecret: pingWsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const ws = pingWsSecret ? new WebSocket(pingWsUrl, ['opentabs', pingWsSecret]) : new WebSocket(pingWsUrl);
     await new Promise<void>((resolve, reject) => {
       ws.onopen = () => resolve();
@@ -324,7 +324,7 @@ test.describe('Pong watchdog (zombie detection)', () => {
     //    The real extension received a close event and should reconnect.
     mcpServer.logs.length = 0;
 
-    const { wsUrl: zombieWsUrl, wsSecret: zombieWsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl: zombieWsUrl, wsSecret: zombieWsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const ws = zombieWsSecret ? new WebSocket(zombieWsUrl, ['opentabs', zombieWsSecret]) : new WebSocket(zombieWsUrl);
     await new Promise<void>((resolve, reject) => {
       ws.onopen = () => resolve();
@@ -380,7 +380,10 @@ test.describe('WebSocket authentication', () => {
   });
 
   test('/ws-info returns URL and secret as separate fields', async ({ mcpServer }) => {
+    const headers: Record<string, string> = {};
+    if (mcpServer.secret) headers['Authorization'] = `Bearer ${mcpServer.secret}`;
     const res = await fetch(`http://localhost:${mcpServer.port}/ws-info`, {
+      headers,
       signal: AbortSignal.timeout(3_000),
     });
 
@@ -397,7 +400,7 @@ test.describe('WebSocket authentication', () => {
     mcpServer,
   }) => {
     // Fetch the WebSocket URL and secret from /ws-info
-    const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     expect(wsSecret).not.toBeNull();
 
     // Connect using the secret via Sec-WebSocket-Protocol header
@@ -472,7 +475,7 @@ test.describe('Secret rotation during hot reload', () => {
     // the TCP socket). Force a disconnect by stealing the WS slot using the
     // new secret's token, so the extension has to reconnect.
     mcpServer.logs.length = 0;
-    const { wsUrl: newWsUrl, wsSecret: newSecret } = await fetchWsInfo(mcpServer.port);
+    const { wsUrl: newWsUrl, wsSecret: newSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
     const fakeWs = newSecret ? new WebSocket(newWsUrl, ['opentabs', newSecret]) : new WebSocket(newWsUrl);
     await new Promise<void>((resolve, reject) => {
       fakeWs.onopen = () => resolve();

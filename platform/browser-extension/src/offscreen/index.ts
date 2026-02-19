@@ -188,7 +188,11 @@ const scheduleReconnect = (): void => {
 const refreshWsUrl = async (): Promise<void> => {
   try {
     const httpBase = mcpServerUrl.replace(/^ws/, 'http').replace(/\/ws$/, '');
-    const res = await fetch(`${httpBase}/ws-info`, { signal: AbortSignal.timeout(3_000) });
+    const headers: Record<string, string> = {};
+    if (wsSecret) {
+      headers['Authorization'] = `Bearer ${wsSecret}`;
+    }
+    const res = await fetch(`${httpBase}/ws-info`, { headers, signal: AbortSignal.timeout(3_000) });
     if (res.ok) {
       const wsInfo = (await res.json()) as { wsUrl?: string; wsSecret?: string };
       if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '' && wsInfo.wsUrl !== mcpServerUrl) {
@@ -327,7 +331,14 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
         const httpBase = rawUrl.replace(/^ws/, 'http').replace(/\/ws$/, '');
         let resolvedUrl = rawUrl;
         try {
-          const res = await fetch(`${httpBase}/ws-info`, { signal: AbortSignal.timeout(3_000) });
+          const setUrlHeaders: Record<string, string> = {};
+          if (wsSecret) {
+            setUrlHeaders['Authorization'] = `Bearer ${wsSecret}`;
+          }
+          const res = await fetch(`${httpBase}/ws-info`, {
+            headers: setUrlHeaders,
+            signal: AbortSignal.timeout(3_000),
+          });
           if (res.ok) {
             const wsInfo = (await res.json()) as { wsUrl?: string; wsSecret?: string };
             if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '') {

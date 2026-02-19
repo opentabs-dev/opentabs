@@ -1004,10 +1004,14 @@ const test = base.extend<TestFixtures>({
 /**
  * Fetch the WebSocket URL and auth secret from the MCP server's /ws-info endpoint.
  * Falls back to unauthenticated URL if the endpoint is unavailable.
+ * Includes Bearer authentication when a secret is provided.
  */
-const fetchWsUrl = async (port: number): Promise<string> => {
+const fetchWsUrl = async (port: number, secret?: string): Promise<string> => {
   try {
+    const headers: Record<string, string> = {};
+    if (secret) headers['Authorization'] = `Bearer ${secret}`;
     const res = await fetch(`http://localhost:${port}/ws-info`, {
+      headers,
       signal: AbortSignal.timeout(3_000),
     });
     if (res.ok) {
@@ -1023,10 +1027,14 @@ const fetchWsUrl = async (port: number): Promise<string> => {
 /**
  * Fetch the WebSocket URL and auth secret as separate values from /ws-info.
  * Used by tests that need to connect with the secret via Sec-WebSocket-Protocol.
+ * Includes Bearer authentication when a secret is provided.
  */
-const fetchWsInfo = async (port: number): Promise<{ wsUrl: string; wsSecret: string | null }> => {
+const fetchWsInfo = async (port: number, secret?: string): Promise<{ wsUrl: string; wsSecret: string | null }> => {
   try {
+    const headers: Record<string, string> = {};
+    if (secret) headers['Authorization'] = `Bearer ${secret}`;
     const res = await fetch(`http://localhost:${port}/ws-info`, {
+      headers,
       signal: AbortSignal.timeout(3_000),
     });
     if (res.ok) {
