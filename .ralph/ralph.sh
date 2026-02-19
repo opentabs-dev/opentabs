@@ -20,6 +20,7 @@ set -e
 # --- Argument Parsing ---
 
 TOOL="claude"
+MODEL=""
 ONCE=false
 POLL_INTERVAL=5
 
@@ -31,6 +32,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tool=*)
       TOOL="${1#*=}"
+      shift
+      ;;
+    --model)
+      MODEL="$2"
+      shift 2
+      ;;
+    --model=*)
+      MODEL="${1#*=}"
       shift
       ;;
     --once)
@@ -295,10 +304,9 @@ execute_prd() {
       OUTPUT=$(cat "$SCRIPT_DIR/RALPH.md" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
       echo "$OUTPUT" > "$RESULT_FILE"
     else
-      claude --dangerously-skip-permissions \
-        --print \
-        --output-format stream-json \
-        --verbose \
+      CLAUDE_ARGS=(--dangerously-skip-permissions --print --output-format stream-json --verbose)
+      [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
+      claude "${CLAUDE_ARGS[@]}" \
         < "$SCRIPT_DIR/RALPH.md" 2>"$STDERR_FILE" \
         | stream_filter "$RESULT_FILE" || true
     fi
@@ -347,6 +355,7 @@ echo -e "${BOLD}║  Ralph — Continuous PRD Consumer                         �
 echo -e "${BOLD}╚═══════════════════════════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "  Tool:     ${CYAN}${TOOL}${RESET}"
+[ -n "$MODEL" ] && echo -e "  Model:    ${CYAN}${MODEL}${RESET}"
 echo -e "  Mode:     ${CYAN}$([ "$ONCE" = true ] && echo "single PRD" || echo "daemon (poll every ${POLL_INTERVAL}s)")${RESET}"
 echo -e "  Watching: ${CYAN}${SCRIPT_DIR}${RESET}"
 echo ""

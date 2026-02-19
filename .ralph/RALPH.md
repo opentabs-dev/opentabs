@@ -10,7 +10,7 @@ You are an autonomous coding agent working on the OpenTabs Platform project.
 4. Work on the current branch (do NOT create or switch branches)
 5. Pick the **highest priority** user story where `passes: false`
 6. Implement that single user story
-7. Run ALL quality checks: `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`
+7. Run ALL quality checks. If the PRD has a top-level `"qualityChecks"` field (a string containing the shell command), use that instead of the default. Otherwise use the default: `bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e`
 8. **If ANY check fails, fix it before proceeding** — even pre-existing failures. See "Own the Codebase" below.
 9. Update CLAUDE.md files if you discover reusable patterns (see below)
 10. **Only if ALL checks exit 0**, commit code changes (see Git Rules below)
@@ -120,7 +120,7 @@ If quality checks fail — even on code you did not write — you MUST fix them 
 
 If you cannot fix the failing check within your iteration, do NOT commit your story. Leave it as `passes: false` and document what's blocking in the progress file. A committed story with failing checks is worse than an uncommitted story — it poisons the codebase for all future iterations.
 
-**The verification command must exit 0 end-to-end:**
+**The verification command must exit 0 end-to-end.** If the PRD has a top-level `"qualityChecks"` field, use that command. Otherwise use the default:
 
 ```bash
 bun run build && bun run type-check && bun run lint && bun run knip && bun run test && bun run test:e2e
