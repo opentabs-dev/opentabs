@@ -154,7 +154,7 @@ const getAuthFromBootData = (): SlackAuth | null => {
  */
 const extractAuthFromScriptText = (text: string): SlackAuth | null => {
   // Match xoxc- tokens in any JSON-like context (handles both quoted keys and unquoted)
-  const tokenMatch = /["']?api_token["']?\s*:\s*["'](xoxc-[a-zA-Z0-9-]+)["']/.exec(text);
+  const tokenMatch = /["']?api_token["']?\s*:\s*["'](xoxc-[a-zA-Z0-9_-]+)["']/.exec(text);
   if (!tokenMatch?.[1]) return null;
 
   const token = tokenMatch[1];
