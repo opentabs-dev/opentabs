@@ -46,6 +46,7 @@ export const DISPATCH_METHODS = [
   'extension.getState',
   'extension.getLogs',
   'extension.getSidePanel',
+  'extension.checkAdapter',
 ] as const;
 
 /**

@@ -1,5 +1,5 @@
 import { bgLogCollector } from './bg-log-state.js';
-import { SCRIPT_TIMEOUT_MS, WS_CONNECTED_KEY } from './constants.js';
+import { IS_READY_TIMEOUT_MS, SCRIPT_TIMEOUT_MS, WS_CONNECTED_KEY } from './constants.js';
 import { sendToServer } from './messaging.js';
 import {
   isCapturing,
@@ -10,8 +10,9 @@ import {
   clearConsoleLogs,
   getActiveCapturesSummary,
 } from './network-capture.js';
-import { getAllPluginMeta } from './plugin-storage.js';
+import { getAllPluginMeta, getPluginMeta } from './plugin-storage.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
+import { findAllMatchingTabs } from './tab-matching.js';
 import { getLastKnownStates } from './tab-state.js';
 import { isBlockedUrlScheme } from '@opentabs-dev/shared';
 import type { LogEntry, LogFilterOptions, LogStats } from './log-collector.js';
@@ -1944,5 +1945,165 @@ export const handleExtensionGetSidePanel = async (id: string | number): Promise<
   } catch {
     // Side panel not open or message failed — return { open: false }
     sendToServer({ jsonrpc: '2.0', result: { open: false }, id });
+  }
+};
+
+export const handleExtensionCheckAdapter = async (
+  params: Record<string, unknown>,
+  id: string | number,
+): Promise<void> => {
+  try {
+    const pluginName = params.plugin;
+    if (typeof pluginName !== 'string' || pluginName.length === 0) {
+      sendToServer({
+        jsonrpc: '2.0',
+        error: { code: -32602, message: 'Missing or invalid plugin parameter' },
+        id,
+      });
+      return;
+    }
+
+    const meta = await getPluginMeta(pluginName);
+    if (!meta) {
+      sendToServer({
+        jsonrpc: '2.0',
+        error: { code: -32602, message: `Plugin not found: "${pluginName}"` },
+        id,
+      });
+      return;
+    }
+
+    const matchingTabs = await findAllMatchingTabs(meta);
+
+    const tabResults = await Promise.allSettled(
+      matchingTabs.map(async tab => {
+        const tabId = tab.id;
+        if (tabId === undefined) return null;
+
+        // Inspect the adapter in the tab's MAIN world
+        const inspectResults = await chrome.scripting.executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: (pName: string) => {
+            const ot = (globalThis as Record<string, unknown>).__openTabs as
+              | { adapters?: Record<string, Record<string, unknown>> }
+              | undefined;
+            const adapter = ot?.adapters?.[pName];
+            if (!adapter || typeof adapter !== 'object') {
+              return { adapterPresent: false };
+            }
+            const toolNames: string[] = [];
+            if (typeof adapter.tools === 'object' && adapter.tools !== null) {
+              for (const key of Object.keys(adapter.tools as Record<string, unknown>)) {
+                toolNames.push(key);
+              }
+            }
+            return {
+              adapterPresent: true,
+              adapterHash: typeof adapter.__hash === 'string' ? adapter.__hash : null,
+              toolCount: toolNames.length,
+              toolNames,
+            };
+          },
+          args: [pluginName],
+        });
+
+        const inspectResult = inspectResults[0]?.result as
+          | {
+              adapterPresent: boolean;
+              adapterHash?: string | null;
+              toolCount?: number;
+              toolNames?: string[];
+            }
+          | undefined;
+
+        if (!inspectResult) {
+          return {
+            tabId,
+            tabUrl: tab.url ?? '',
+            adapterPresent: false,
+            adapterHash: null,
+            hashMatch: false,
+            isReady: false,
+            toolCount: 0,
+            toolNames: [],
+          };
+        }
+
+        if (!inspectResult.adapterPresent) {
+          return {
+            tabId,
+            tabUrl: tab.url ?? '',
+            adapterPresent: false,
+            adapterHash: null,
+            hashMatch: false,
+            isReady: false,
+            toolCount: 0,
+            toolNames: [],
+          };
+        }
+
+        // Probe isReady() with timeout
+        let isReady = false;
+        try {
+          const readyResults = await Promise.race([
+            chrome.scripting.executeScript({
+              target: { tabId },
+              world: 'MAIN',
+              func: async (pName: string) => {
+                const ot = (globalThis as Record<string, unknown>).__openTabs as
+                  | { adapters?: Record<string, { isReady?: unknown }> }
+                  | undefined;
+                const adapter = ot?.adapters?.[pName];
+                if (!adapter || typeof adapter.isReady !== 'function') return false;
+                return await (adapter.isReady as () => Promise<boolean>)();
+              },
+              args: [pluginName],
+            }),
+            new Promise<null>(resolve => setTimeout(() => resolve(null), IS_READY_TIMEOUT_MS)),
+          ]);
+          if (readyResults !== null) {
+            const readyResult = (readyResults as Array<{ result?: unknown }>)[0];
+            isReady = readyResult?.result === true;
+          }
+        } catch {
+          // isReady probe failed — leave as false
+        }
+
+        return {
+          tabId,
+          tabUrl: tab.url ?? '',
+          adapterPresent: true,
+          adapterHash: inspectResult.adapterHash ?? null,
+          hashMatch: meta.adapterHash ? inspectResult.adapterHash === meta.adapterHash : false,
+          isReady,
+          toolCount: inspectResult.toolCount ?? 0,
+          toolNames: inspectResult.toolNames ?? [],
+        };
+      }),
+    );
+
+    const matchingTabResults: unknown[] = [];
+    for (const result of tabResults) {
+      if (result.status === 'fulfilled' && result.value !== null) {
+        matchingTabResults.push(result.value);
+      }
+    }
+
+    sendToServer({
+      jsonrpc: '2.0',
+      result: {
+        plugin: pluginName,
+        expectedHash: meta.adapterHash ?? null,
+        matchingTabs: matchingTabResults,
+      },
+      id,
+    });
+  } catch (err) {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: -32603, message: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) },
+      id,
+    });
   }
 };

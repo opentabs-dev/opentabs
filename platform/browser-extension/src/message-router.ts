@@ -29,6 +29,7 @@ import {
   handleBrowserSetCookie,
   handleBrowserTypeText,
   handleBrowserWaitForElement,
+  handleExtensionCheckAdapter,
   handleExtensionGetLogs,
   handleExtensionGetSidePanel,
   handleExtensionGetState,
@@ -524,6 +525,16 @@ const methodHandlers = new Map<string, MessageHandler>([
       if (id !== undefined) {
         handleExtensionGetSidePanel(id).catch((err: unknown) =>
           console.warn('[opentabs] extension.getSidePanel handler failed:', err),
+        );
+      }
+    },
+  ],
+  [
+    'extension.checkAdapter',
+    (params, id) => {
+      if (id !== undefined) {
+        handleExtensionCheckAdapter(params, id).catch((err: unknown) =>
+          console.warn('[opentabs] extension.checkAdapter handler failed:', err),
         );
       }
     },

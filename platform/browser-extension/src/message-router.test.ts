@@ -105,6 +105,9 @@ const mockHandleExtensionGetLogs = mock(
   asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
 );
 const mockHandleExtensionGetSidePanel = mock(asyncNoop as (id: string | number) => Promise<void>);
+const mockHandleExtensionCheckAdapter = mock(
+  asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+);
 
 await mock.module('./messaging.js', () => ({
   sendToServer: mockSendToServer,
@@ -146,6 +149,7 @@ await mock.module('./browser-commands.js', () => ({
   handleBrowserScroll: mockHandleBrowserScroll,
   handleBrowserHoverElement: mockHandleBrowserHoverElement,
   handleBrowserHandleDialog: mockHandleBrowserHandleDialog,
+  handleExtensionCheckAdapter: mockHandleExtensionCheckAdapter,
   handleExtensionGetState: mockHandleExtensionGetState,
   handleExtensionGetLogs: mockHandleExtensionGetLogs,
   handleExtensionGetSidePanel: mockHandleExtensionGetSidePanel,
@@ -520,6 +524,7 @@ const resetRoutingMocks = (): void => {
   mockHandleExtensionGetState.mockReset();
   mockHandleExtensionGetLogs.mockReset();
   mockHandleExtensionGetSidePanel.mockReset();
+  mockHandleExtensionCheckAdapter.mockReset();
 };
 
 describe('handleServerMessage', () => {
@@ -553,6 +558,7 @@ describe('handleServerMessage', () => {
     mockHandleExtensionGetState.mockResolvedValue(undefined);
     mockHandleExtensionGetLogs.mockResolvedValue(undefined);
     mockHandleExtensionGetSidePanel.mockResolvedValue(undefined);
+    mockHandleExtensionCheckAdapter.mockResolvedValue(undefined);
   });
 
   describe('sync.full routing', () => {
@@ -1028,6 +1034,13 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleExtensionGetSidePanel).toHaveBeenCalledTimes(1);
       expect(mockHandleExtensionGetSidePanel).toHaveBeenCalledWith(51);
+    });
+
+    test('dispatches extension.checkAdapter to handleExtensionCheckAdapter', () => {
+      handleServerMessage({ method: 'extension.checkAdapter', id: 52, params: { plugin: 'slack' } });
+
+      expect(mockHandleExtensionCheckAdapter).toHaveBeenCalledTimes(1);
+      expect(mockHandleExtensionCheckAdapter).toHaveBeenCalledWith({ plugin: 'slack' }, 52);
     });
   });
 

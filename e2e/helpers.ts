@@ -236,6 +236,7 @@ export const BROWSER_TOOL_NAMES = [
   'extension_get_state',
   'extension_get_logs',
   'extension_get_side_panel',
+  'extension_check_adapter',
 ];
 
 // ---------------------------------------------------------------------------

@@ -48,6 +48,7 @@ await mock.module('./browser-commands.js', () => ({
   handleBrowserScroll: mock(asyncNoop),
   handleBrowserHoverElement: mock(asyncNoop),
   handleBrowserHandleDialog: mock(asyncNoop),
+  handleExtensionCheckAdapter: mock(asyncNoop),
   handleExtensionGetState: mock(asyncNoop),
   handleExtensionGetLogs: mock(asyncNoop),
   handleExtensionGetSidePanel: mock(asyncNoop),
