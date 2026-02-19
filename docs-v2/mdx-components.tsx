@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { RetroCodeBlock, Pre } from '@/components/retroui-codeblock';
 import type { CodeBlockProps } from 'fumadocs-ui/components/codeblock';
 import { RetroTabs, RetroTab } from '@/components/retro-tabs';
+import { RetroAccordions, RetroAccordion } from '@/components/retro-accordion';
 
 // Mapping from Fumadocs callout type to RetroUI Alert status color classes
 const calloutStatusClasses: Record<string, string> = {
@@ -160,6 +161,9 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     // Tabs — Radix UI root + RetroUI visual classes matching RetroUI Tab.tsx
     Tabs: RetroTabs,
     Tab: RetroTab,
+    // Accordion — Radix UI primitives + RetroUI visual classes matching RetroUI Accordion.tsx
+    Accordions: RetroAccordions,
+    Accordion: RetroAccordion,
     ...components,
   };
 }

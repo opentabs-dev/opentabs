@@ -97,6 +97,47 @@ This page demonstrates Fumadocs MDX components styled with the RetroUI neobrutal
   </Tab>
 </Tabs>
 
+## Accordion
+
+<Accordions type="multiple">
+  <Accordion title="What is OpenTabs?">
+    OpenTabs is a Chrome extension and MCP server that lets AI agents interact with web applications
+    through your authenticated browser session. It uses a plugin-based architecture so anyone can
+    extend its capabilities.
+  </Accordion>
+  <Accordion title="How does the plugin system work?">
+    Each plugin extends the `OpenTabsPlugin` base class and defines tools with Zod schemas. The
+    Plugin SDK bundles the adapter into an IIFE and generates an `opentabs-plugin.json` manifest.
+    The MCP server discovers plugins at runtime and registers their tools.
+  </Accordion>
+  <Accordion title="Is it secure?">
+    Yes. All traffic goes through your own browser session — no third-party proxies. The extension
+    only injects adapters into tabs that match the plugin's URL patterns.
+  </Accordion>
+</Accordions>
+
+### Single-Select Accordion
+
+<Accordions type="single" collapsible>
+  <Accordion title="Installation" value="install">
+    Install OpenTabs using Bun:
+
+    ```bash
+    bun install @opentabs/sdk
+    ```
+  </Accordion>
+  <Accordion title="Configuration" value="config">
+    Create a configuration file at `~/.opentabs/config.json` with the paths to your local plugins.
+  </Accordion>
+  <Accordion title="Running the MCP Server" value="run">
+    Start the MCP server with hot reload enabled:
+
+    ```bash
+    bun --hot platform/mcp-server/dist/index.js
+    ```
+  </Accordion>
+</Accordions>
+
 ### Tabs with Custom Values
 
 <Tabs items={['Installation', 'Configuration', 'Usage']}>
