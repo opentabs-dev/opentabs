@@ -49,7 +49,7 @@ export default function HomePage() {
       }}>
       {/* Hero */}
       <section className="border-border bg-background border-b-2 px-6 py-16 md:py-24">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl">
           <div className="border-border bg-primary mb-4 inline-flex items-center gap-2 border-2 px-3 py-1 font-sans text-sm font-semibold">
             Now in beta
           </div>
@@ -94,7 +94,7 @@ export default function HomePage() {
 
       {/* How it works */}
       <section className="border-border bg-muted/30 border-b-2 px-6 py-16">
-        <div className="mx-auto max-w-4xl">
+        <div className="mx-auto max-w-5xl">
           <h2 className="font-head mb-10 text-3xl font-semibold">How it works</h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {[
@@ -128,7 +128,7 @@ export default function HomePage() {
 
       {/* CTA */}
       <section className="px-6 py-16">
-        <div className="mx-auto max-w-2xl text-center">
+        <div className="mx-auto max-w-5xl text-center">
           <h2 className="font-head mb-4 text-3xl font-semibold">Ready to get started?</h2>
           <p className="text-muted-foreground mb-8 font-sans">
             Set up OpenTabs in minutes and start building AI-powered automations today.
