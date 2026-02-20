@@ -148,10 +148,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
       <tbody className={cn('[&_tr:last-child]:border-0', className)} {...props} />
     ),
     tr: ({ className, ...props }: ComponentPropsWithoutRef<'tr'>) => (
-      <tr
-        className={cn('hover:bg-primary/50 hover:text-primary-foreground border-b transition-colors', className)}
-        {...props}
-      />
+      <tr className={cn('hover:bg-primary/15 border-b transition-colors', className)} {...props} />
     ),
     th: ({ className, ...props }: ComponentPropsWithoutRef<'th'>) => (
       <th
