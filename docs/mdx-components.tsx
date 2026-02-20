@@ -149,7 +149,7 @@ export const getMDXComponents = (components?: MDXComponents): MDXComponents => (
     ) : (
       <code
         className={cn(
-          'bg-muted border-border border px-1.5 py-0.5 font-mono text-sm font-semibold break-words sm:border-2',
+          'bg-muted border-border border px-1.5 py-px font-mono text-sm font-semibold break-words sm:border-2',
           className,
         )}
         {...props}
