@@ -1,7 +1,6 @@
 import { getConnectionState, fetchConfigState, handleServerResponse, rejectAllPending } from './bridge.js';
 import { DisconnectedState, EmptyState, LoadingState } from './components/EmptyStates.js';
 import { Footer } from './components/Footer.js';
-import { Header } from './components/Header.js';
 import { PluginList } from './components/PluginList.js';
 import { Input } from './components/retro/Input.js';
 import { VersionMismatchBanner } from './components/VersionMismatchBanner.js';
@@ -195,7 +194,6 @@ const App = () => {
 
   return (
     <div className="text-foreground flex min-h-screen flex-col">
-      <Header connected={connected} />
       {versionMismatch && <VersionMismatchBanner />}
       {connected && !loading && totalTools > 5 && (
         <div className="px-3 py-2">
@@ -229,7 +227,7 @@ const App = () => {
           <PluginList plugins={plugins} activeTools={activeTools} setPlugins={setPlugins} toolFilter={toolFilter} />
         )}
       </main>
-      <Footer />
+      <Footer connected={connected} />
     </div>
   );
 };

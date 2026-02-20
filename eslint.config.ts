@@ -40,6 +40,7 @@ const config: Linter.Config[] = [
       'test-results/**',
       'plugins/**',
       'docs/**',
+      'platform/browser-extension/side-panel/**/*.{js,css}',
     ],
   },
   // Main TypeScript/TSX rules

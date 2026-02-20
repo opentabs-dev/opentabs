@@ -1,6 +1,6 @@
 import { Empty } from './retro/Empty.js';
 import { Loader } from './retro/Loader.js';
-import { Unplug, Zap } from 'lucide-react';
+import { Unplug } from 'lucide-react';
 
 const DisconnectedState = () => (
   <Empty>
@@ -27,9 +27,6 @@ const LoadingState = () => (
 const EmptyState = () => (
   <Empty>
     <Empty.Content>
-      <Empty.Icon>
-        <Zap className="text-muted-foreground h-12 w-12" />
-      </Empty.Icon>
       <Empty.Title>No Plugins</Empty.Title>
       <Empty.Separator />
       <Empty.Description>Add a plugin path to ~/.opentabs/config.json or install one from npm.</Empty.Description>

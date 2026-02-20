@@ -13,7 +13,8 @@
   ],
   "scripts": {
     "dev": "bun scripts/dev.ts",
-    "build": "tsc --build --force && bun run --cwd platform/browser-extension build:bundle && bun run --cwd platform/browser-extension build:side-panel && bun run build:install-extension",
+    "build": "tsc --build --force && bun run --cwd platform/browser-extension build:bundle && bun run --cwd platform/browser-extension build:side-panel && bun run build:icons && bun run build:install-extension",
+    "build:icons": "bun scripts/generate-icons.ts",
     "build:install-extension": "bun scripts/install-extension.ts",
     "type-check": "tsc --build",
     "type-check:e2e": "tsc --noEmit -p e2e/tsconfig.json",
@@ -31,6 +32,7 @@
     "@eslint/eslintrc": "^3.3.3",
     "@eslint/js": "^9.39.2",
     "@playwright/test": "^1.58.2",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/cli": "^4.1.18",
     "@types/chrome": "^0.1.36",
     "@types/eslint-plugin-jsx-a11y": "^6.10.1",

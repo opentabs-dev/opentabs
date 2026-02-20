@@ -3,7 +3,7 @@ import type { KnipConfig } from 'knip';
 const config: KnipConfig = {
   workspaces: {
     '.': {
-      entry: ['e2e/*.ts'],
+      entry: ['e2e/*.ts', 'scripts/*.ts'],
       ignoreDependencies: [
         // Peer dependencies required by ESLint plugins at runtime
         '@typescript-eslint/parser',
@@ -36,7 +36,7 @@ const config: KnipConfig = {
     'platform/create-plugin': {},
   },
   tags: ['+@public'],
-  ignore: ['**/dist/**', 'plugins/**', 'docs/**'],
+  ignore: ['**/dist/**', 'plugins/**', 'docs/**', 'platform/browser-extension/side-panel/**/*.{js,css}'],
   ignoreExportsUsedInFile: true,
 };
 
