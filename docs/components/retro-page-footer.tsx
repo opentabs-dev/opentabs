@@ -28,7 +28,7 @@ export const RetroPageFooter = () => {
 
   return (
     <div
-      className={cn('border-border mt-8 grid gap-4 border-t-2 pt-8', previous && next ? 'grid-cols-2' : 'grid-cols-1')}>
+      className={cn('border-border mt-8 grid gap-4 border-t-2 pt-6', previous && next ? 'grid-cols-2' : 'grid-cols-1')}>
       {previous && (
         <Link
           href={previous.url}
