@@ -20,7 +20,7 @@ interface NpmRegistryResponse {
  * Query the npm registry for the latest version of a package.
  * Returns null if the fetch fails or the response is unexpected.
  */
-const fetchLatestVersion = async (packageName: string): Promise<string | null> => {
+export const fetchLatestVersion = async (packageName: string): Promise<string | null> => {
   try {
     // Scoped packages use @scope%2Fpkg-name format in the registry URL.
     // Encode each segment separately to preserve the @ prefix.
