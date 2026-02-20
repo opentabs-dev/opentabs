@@ -1,9 +1,43 @@
 ---
 title: Introduction
 description: OpenTabs gives AI agents access to any web application through your authenticated browser session.
-lastUpdated: 20 Feb, 2026
+lastUpdated: 2026-02-20
 ---
 
-OpenTabs is an MCP server and Chrome extension platform that bridges AI agents and web applications. No API integrations or OAuth tokens needed — agents use your existing browser sessions.
+OpenTabs is an open-source platform that bridges AI agents and web applications. It combines an MCP server, a Chrome extension, and a plugin SDK to give AI agents access to any web app through your existing browser sessions — no API integrations or OAuth tokens required.
 
-Follow the [Installation Guide](/docs/install) to get started.
+Point your MCP client at `http://localhost:9515/mcp`, open a web app in Chrome, and your AI agent can interact with it using your authenticated session.
+
+## How It Works
+
+OpenTabs has three core components that work together:
+
+| Component | Role |
+| --- | --- |
+| **MCP Server** | Discovers plugins, registers their tools as MCP tools, and dispatches tool calls to the Chrome extension via WebSocket. Runs on `localhost:9515` by default. |
+| **Chrome Extension** | Receives plugin definitions from the server, injects adapter scripts into matching tabs, and executes tool calls in the page's MAIN world context with full access to DOM, cookies, and localStorage. Manifest V3. |
+| **Plugin SDK** | Provides the `OpenTabsPlugin` base class and `defineTool` factory for building plugins. Plugins define tools with Zod schemas; the CLI bundles them into injectable adapters. |
+
+The data flow for a tool call:
+
+1. AI agent sends a tool call via MCP Streamable HTTP to `/mcp`
+2. MCP server validates input against JSON Schema and dispatches via WebSocket to the extension
+3. Extension finds the best matching tab by URL pattern and tab ranking
+4. Extension executes the adapter's `handle()` function in the page's MAIN world
+5. Result flows back through the same chain to the AI agent
+
+## Key Features
+
+- **Zero-configuration access** — uses your existing browser sessions. No API keys, no OAuth, no service accounts.
+- **Plugin-based architecture** — anyone can create and publish OpenTabs plugins as standalone npm packages.
+- **Live tab state machine** — each plugin tracks three states: `closed` (no matching tab), `unavailable` (tab exists but not ready), and `ready` (tab exists and authenticated).
+- **Hot reload** — the MCP server runs under `bun --hot` and file watchers auto-detect plugin changes. Zero-restart development.
+- **36 built-in browser tools** — tab management, screenshots, DOM interaction, network capture, cookie access, console logs, and more — available without any plugins.
+- **AI agent compatible** — works with Claude Code, Cursor, and any MCP-compatible client via Streamable HTTP.
+
+## Next Steps
+
+- [Installation Guide](/docs/install) — set up OpenTabs from scratch
+- [Architecture](/docs/concepts/architecture) — understand how the three components connect
+- [Plugin System](/docs/concepts/plugin-system) — learn how plugins are discovered and loaded
+- [Creating a Plugin](/docs/plugins/creating-a-plugin) — build your first plugin
