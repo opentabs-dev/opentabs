@@ -2,27 +2,17 @@ import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
   entry: [
-    'app/layout.tsx',
-    'app/page.tsx',
-    'app/docs/layout.tsx',
-    'app/docs/[[...slug]]/page.tsx',
-    'app/api/search/route.ts',
     'source.config.ts',
     'mdx-components.tsx',
-    'next.config.mjs',
-    'postcss.config.mjs',
+    // RetroUI component library barrel — all re-exported components are part of the public API
+    'components/retroui/index.ts',
   ],
   ignoreDependencies: [
-    // PostCSS plugin referenced in postcss.config.mjs — Knip cannot trace config-based plugin references
-    '@tailwindcss/postcss',
-    // Tailwind CSS is consumed via @import "tailwindcss" in CSS files — Knip cannot trace CSS imports
-    'tailwindcss',
-    // Peer dependency required by ESLint plugins at runtime
+    // Peer dependency required by ESLint's typescript-eslint at runtime
     '@typescript-eslint/parser',
-    // CSS-only dependency imported via @import in global CSS — Knip cannot trace CSS imports
-    'tw-animate-css',
+    // Consumed via FlatCompat string reference in eslint.config.ts — Knip cannot trace string-based plugin references
+    'eslint-plugin-react-hooks',
   ],
-  ignore: ['.next/**', '.source/**', 'out/**'],
   ignoreExportsUsedInFile: true,
 };
 
