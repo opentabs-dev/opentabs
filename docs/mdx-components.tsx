@@ -28,7 +28,7 @@ interface CalloutProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
 const RetroCallout = ({ className, type = 'info', title, icon: _icon, children, ...props }: CalloutProps) => {
   const statusClasses = calloutStatusClasses[type] ?? calloutStatusClasses.info;
   return (
-    <div role="alert" className={cn('relative my-6 w-full rounded border-2 p-5', statusClasses, className)} {...props}>
+    <div role="alert" className={cn('relative my-6 w-full border-2 p-5', statusClasses, className)} {...props}>
       {title && <p className="font-head mb-2 text-lg font-semibold">{title}</p>}
       <div className="font-sans text-sm">{children}</div>
     </div>
@@ -60,7 +60,7 @@ const RetroCard = ({ className, title, description, icon, href, external, childr
         target={external ? '_blank' : undefined}
         rel={external ? 'noopener noreferrer' : undefined}
         className={cn(
-          'bg-card block rounded border-2 p-4 shadow-md transition-all hover:translate-y-0.5 hover:shadow-none',
+          'bg-card block border-2 p-4 shadow-md transition-all hover:translate-y-0.5 hover:shadow-none',
           className,
         )}>
         {content}
@@ -69,9 +69,7 @@ const RetroCard = ({ className, title, description, icon, href, external, childr
   }
 
   return (
-    <div
-      className={cn('bg-card rounded border-2 p-4 shadow-md transition-all hover:shadow-none', className)}
-      {...props}>
+    <div className={cn('bg-card border-2 p-4 shadow-md transition-all hover:shadow-none', className)} {...props}>
       {content}
     </div>
   );
