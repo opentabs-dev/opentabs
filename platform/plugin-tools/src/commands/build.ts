@@ -394,7 +394,8 @@ const flushLogs = () => {
   const entries = logBatch;
   logBatch = [];
   try {
-    window.postMessage({ type: 'opentabs:plugin-logs', plugin: ${name}, entries }, '*');
+    const nonce = ((globalThis as any).__openTabs as any)?._logNonce as string | undefined;
+    window.postMessage({ type: 'opentabs:plugin-logs', plugin: ${name}, entries, nonce: nonce ?? '' }, '*');
   } catch {
     // Extension not available — drop silently
   }
