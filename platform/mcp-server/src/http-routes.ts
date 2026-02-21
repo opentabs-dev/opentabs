@@ -97,6 +97,29 @@ const checkBearerAuth = (req: Request, wsSecret: string | null): Response | null
   return null;
 };
 
+/** Allowed hostnames for the Host header (DNS rebinding protection) */
+const ALLOWED_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
+
+/**
+ * Check whether a Host header value refers to a localhost address.
+ * Strips the optional port suffix before comparing against the allowed set.
+ * Handles IPv6 bracket notation (e.g., `[::1]:9515`).
+ */
+const isLocalhostHost = (hostHeader: string): boolean => {
+  let hostname: string;
+  if (hostHeader.startsWith('[')) {
+    // IPv6 bracket notation: [::1] or [::1]:9515
+    const closeBracket = hostHeader.indexOf(']');
+    if (closeBracket === -1) return false;
+    hostname = hostHeader.slice(1, closeBracket);
+  } else {
+    // IPv4 or hostname: localhost, localhost:9515, 127.0.0.1:9515
+    const colonIdx = hostHeader.lastIndexOf(':');
+    hostname = colonIdx === -1 ? hostHeader : hostHeader.slice(0, colonIdx);
+  }
+  return ALLOWED_HOSTS.has(hostname);
+};
+
 // --- Rate limiting for administrative endpoints ---
 const endpointCallTimestamps = new Map<string, number[]>();
 
@@ -167,6 +190,16 @@ const createHandleFetch =
     },
   ): Promise<Response | undefined> => {
     const url = new URL(req.url);
+
+    // --- Host header validation (DNS rebinding protection) ---
+    // Reject requests with a non-localhost Host header. A DNS rebinding
+    // attack re-maps a malicious domain to 127.0.0.1, so the browser sends
+    // requests to our loopback server with Host: evil.com. Checking the Host
+    // header is the standard mitigation (CVE-2025-66414 class).
+    const hostHeader = req.headers.get('Host');
+    if (!hostHeader || !isLocalhostHost(hostHeader)) {
+      return new Response('Forbidden: invalid Host header', { status: 403 });
+    }
 
     // --- CORS protection ---
     // MCP clients (Claude Code, etc.) don't run in browsers, so legitimate
@@ -580,4 +613,4 @@ const sweepStaleSessions = (
 };
 
 export type { HotHandlers };
-export { checkBearerAuth, constantTimeEqual, createHandlers, sweepStaleSessions };
+export { checkBearerAuth, constantTimeEqual, createHandlers, isLocalhostHost, sweepStaleSessions };

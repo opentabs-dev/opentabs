@@ -1,4 +1,4 @@
-import { checkBearerAuth, createHandlers, sweepStaleSessions } from './http-routes.js';
+import { checkBearerAuth, createHandlers, isLocalhostHost, sweepStaleSessions } from './http-routes.js';
 import { buildRegistry } from './registry.js';
 import { createState, STATE_SCHEMA_VERSION } from './state.js';
 import { version } from './version.js';
@@ -68,6 +68,48 @@ describe('checkBearerAuth', () => {
     const res = checkBearerAuth(req, 'my-secret');
     expect(res).toBeInstanceOf(Response);
     expect((res as Response).status).toBe(401);
+  });
+});
+
+describe('isLocalhostHost', () => {
+  test('allows "localhost"', () => {
+    expect(isLocalhostHost('localhost')).toBe(true);
+  });
+
+  test('allows "localhost:9515"', () => {
+    expect(isLocalhostHost('localhost:9515')).toBe(true);
+  });
+
+  test('allows "127.0.0.1"', () => {
+    expect(isLocalhostHost('127.0.0.1')).toBe(true);
+  });
+
+  test('allows "127.0.0.1:9515"', () => {
+    expect(isLocalhostHost('127.0.0.1:9515')).toBe(true);
+  });
+
+  test('allows "[::1]"', () => {
+    expect(isLocalhostHost('[::1]')).toBe(true);
+  });
+
+  test('allows "[::1]:9515"', () => {
+    expect(isLocalhostHost('[::1]:9515')).toBe(true);
+  });
+
+  test('rejects "evil.com"', () => {
+    expect(isLocalhostHost('evil.com')).toBe(false);
+  });
+
+  test('rejects "evil.com:9515"', () => {
+    expect(isLocalhostHost('evil.com:9515')).toBe(false);
+  });
+
+  test('rejects "localhost.evil.com"', () => {
+    expect(isLocalhostHost('localhost.evil.com')).toBe(false);
+  });
+
+  test('rejects empty string', () => {
+    expect(isLocalhostHost('')).toBe(false);
   });
 });
 
@@ -212,8 +254,8 @@ interface WsInfoResponse {
 }
 
 /** Fetch a route and parse the JSON response with a typed shape */
-const fetchJson = async <T>(handlers: HotHandlers, url: string): Promise<T> => {
-  const req = new Request(url);
+const fetchJson = async <T>(handlers: HotHandlers, url: string, headers?: Record<string, string>): Promise<T> => {
+  const req = new Request(url, { headers: { Host: new URL(url).host, ...headers } });
   const res = await handlers.fetch(req, mockBunServer);
   expect(res).toBeInstanceOf(Response);
   return (res as Response).json() as Promise<T>;
@@ -306,7 +348,7 @@ describe('/health endpoint', () => {
     const secret = 'super-secret-token-12345';
     state.wsSecret = secret;
 
-    const req = new Request('http://localhost:9876/health');
+    const req = new Request('http://localhost:9876/health', { headers: { Host: 'localhost:9876' } });
     const res = await handlers.fetch(req, mockBunServer);
     expect(res).toBeInstanceOf(Response);
     const text = await (res as Response).text();
@@ -343,7 +385,7 @@ describe('/ws-info endpoint', () => {
     state.wsSecret = 'my-test-secret';
 
     const req = new Request('http://localhost:9876/ws-info', {
-      headers: { Authorization: 'Bearer my-test-secret' },
+      headers: { Host: 'localhost:9876', Authorization: 'Bearer my-test-secret' },
     });
     const res = await handlers.fetch(req, mockBunServer);
     expect(res).toBeInstanceOf(Response);
@@ -357,7 +399,7 @@ describe('/ws-info endpoint', () => {
     const { handlers, state } = createTestHandlers();
     state.wsSecret = 'my-test-secret';
 
-    const req = new Request('http://localhost:9876/ws-info');
+    const req = new Request('http://localhost:9876/ws-info', { headers: { Host: 'localhost:9876' } });
     const res = await handlers.fetch(req, mockBunServer);
     expect(res).toBeInstanceOf(Response);
     expect((res as Response).status).toBe(200);
@@ -374,12 +416,12 @@ describe('/ws-info endpoint', () => {
     // (endpointCallTimestamps is module-level), so we send extra to guarantee
     // the limit is hit.
     for (let i = 0; i < 12; i++) {
-      const req = new Request('http://localhost:9876/ws-info');
+      const req = new Request('http://localhost:9876/ws-info', { headers: { Host: 'localhost:9876' } });
       await handlers.fetch(req, mockBunServer);
     }
 
     // Next request should be rate-limited
-    const req = new Request('http://localhost:9876/ws-info');
+    const req = new Request('http://localhost:9876/ws-info', { headers: { Host: 'localhost:9876' } });
     const res = await handlers.fetch(req, mockBunServer);
     expect(res).toBeInstanceOf(Response);
     expect((res as Response).status).toBe(429);
@@ -392,13 +434,13 @@ describe('/ws-info endpoint', () => {
     // Rate limit was already exhausted by the previous test (shared module state).
     // Send additional requests to make sure it's exhausted.
     for (let i = 0; i < 12; i++) {
-      const req = new Request('http://localhost:9876/ws-info');
+      const req = new Request('http://localhost:9876/ws-info', { headers: { Host: 'localhost:9876' } });
       await handlers.fetch(req, mockBunServer);
     }
 
     // Authenticated request should still succeed
     const req = new Request('http://localhost:9876/ws-info', {
-      headers: { Authorization: 'Bearer my-test-secret' },
+      headers: { Host: 'localhost:9876', Authorization: 'Bearer my-test-secret' },
     });
     const res = await handlers.fetch(req, mockBunServer);
     expect(res).toBeInstanceOf(Response);
@@ -413,7 +455,7 @@ describe('POST /reload endpoint', () => {
     const { handlers, state } = createTestHandlers();
     state.wsSecret = 'test-secret';
 
-    const req = new Request('http://localhost:9876/reload', { method: 'POST' });
+    const req = new Request('http://localhost:9876/reload', { method: 'POST', headers: { Host: 'localhost:9876' } });
     const res = await handlers.fetch(req, mockBunServer);
 
     expect(res).toBeInstanceOf(Response);
@@ -603,7 +645,7 @@ describe('CORS protection', () => {
   test('request with Origin: http://evil.com returns 403 Forbidden', async () => {
     const { handlers } = createTestHandlers();
     const req = new Request('http://localhost:9876/health', {
-      headers: { Origin: 'http://evil.com' },
+      headers: { Host: 'localhost:9876', Origin: 'http://evil.com' },
     });
 
     const res = await handlers.fetch(req, mockBunServer);
@@ -615,7 +657,7 @@ describe('CORS protection', () => {
   test('request with Origin: https://attacker.io returns 403 Forbidden', async () => {
     const { handlers } = createTestHandlers();
     const req = new Request('http://localhost:9876/health', {
-      headers: { Origin: 'https://attacker.io' },
+      headers: { Host: 'localhost:9876', Origin: 'https://attacker.io' },
     });
 
     const res = await handlers.fetch(req, mockBunServer);
@@ -627,7 +669,7 @@ describe('CORS protection', () => {
   test('request with Origin: chrome-extension://abc123 passes through (200)', async () => {
     const { handlers } = createTestHandlers();
     const req = new Request('http://localhost:9876/health', {
-      headers: { Origin: 'chrome-extension://abc123' },
+      headers: { Host: 'localhost:9876', Origin: 'chrome-extension://abc123' },
     });
 
     const res = await handlers.fetch(req, mockBunServer);
@@ -638,12 +680,86 @@ describe('CORS protection', () => {
 
   test('request with no Origin header passes through (200)', async () => {
     const { handlers } = createTestHandlers();
-    const req = new Request('http://localhost:9876/health');
+    const req = new Request('http://localhost:9876/health', { headers: { Host: 'localhost:9876' } });
 
     const res = await handlers.fetch(req, mockBunServer);
 
     expect(res).toBeInstanceOf(Response);
     expect((res as Response).status).toBe(200);
+  });
+});
+
+describe('Host header validation (DNS rebinding protection)', () => {
+  test('request with Host: evil.com returns 403', async () => {
+    const { handlers } = createTestHandlers();
+    const req = new Request('http://localhost:9876/health', {
+      headers: { Host: 'evil.com' },
+    });
+
+    const res = await handlers.fetch(req, mockBunServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(403);
+    expect(await (res as Response).text()).toBe('Forbidden: invalid Host header');
+  });
+
+  test('request with Host: localhost passes through', async () => {
+    const { handlers } = createTestHandlers();
+    const req = new Request('http://localhost:9876/health', {
+      headers: { Host: 'localhost' },
+    });
+
+    const res = await handlers.fetch(req, mockBunServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(200);
+  });
+
+  test('request with Host: localhost:9515 passes through', async () => {
+    const { handlers } = createTestHandlers();
+    const req = new Request('http://localhost:9876/health', {
+      headers: { Host: 'localhost:9515' },
+    });
+
+    const res = await handlers.fetch(req, mockBunServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(200);
+  });
+
+  test('request with Host: 127.0.0.1 passes through', async () => {
+    const { handlers } = createTestHandlers();
+    const req = new Request('http://localhost:9876/health', {
+      headers: { Host: '127.0.0.1' },
+    });
+
+    const res = await handlers.fetch(req, mockBunServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(200);
+  });
+
+  test('request with Host: [::1] passes through', async () => {
+    const { handlers } = createTestHandlers();
+    const req = new Request('http://localhost:9876/health', {
+      headers: { Host: '[::1]' },
+    });
+
+    const res = await handlers.fetch(req, mockBunServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(200);
+  });
+
+  test('request with missing Host header returns 403', async () => {
+    const { handlers } = createTestHandlers();
+    const req = new Request('http://localhost:9876/health');
+
+    const res = await handlers.fetch(req, mockBunServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(403);
+    expect(await (res as Response).text()).toBe('Forbidden: invalid Host header');
   });
 });
 
@@ -658,6 +774,7 @@ describe('WebSocket upgrade origin check', () => {
     const { handlers } = createTestHandlers();
     const req = new Request('http://localhost:9876/ws', {
       headers: {
+        Host: 'localhost:9876',
         Origin: 'http://evil.com',
         Upgrade: 'websocket',
       },
@@ -673,7 +790,7 @@ describe('WebSocket upgrade origin check', () => {
     const { handlers } = createTestHandlers();
     // No wsSecret configured, so no auth is needed — upgrade should succeed
     const req = new Request('http://localhost:9876/ws', {
-      headers: { Upgrade: 'websocket' },
+      headers: { Host: 'localhost:9876', Upgrade: 'websocket' },
     });
 
     const res = await handlers.fetch(req, upgradingBunServer);
@@ -687,6 +804,7 @@ describe('WebSocket upgrade origin check', () => {
     // No wsSecret configured, so no auth is needed — upgrade should succeed
     const req = new Request('http://localhost:9876/ws', {
       headers: {
+        Host: 'localhost:9876',
         Origin: 'chrome-extension://abc',
         Upgrade: 'websocket',
       },
