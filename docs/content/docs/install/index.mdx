@@ -1,88 +1,44 @@
 ---
 title: Installation
-description: Set up OpenTabs from scratch — clone the repo, load the Chrome extension, start the MCP server, and connect your AI agent.
-lastUpdated: 2026-02-20
+description: Install OpenTabs for your role — user, plugin developer, or platform contributor.
+lastUpdated: 2026-02-21
 ---
 
-## Prerequisites
+Choose the installation path that matches your role. Each section is self-contained — follow only the one that applies to you.
 
-Before you begin, make sure you have:
+## For Users
 
-- **Bun** (v1.0+) — [install Bun](https://bun.sh)
-- **Google Chrome** — the extension requires Chrome or a Chromium-based browser
-- **An MCP-compatible AI agent** — Claude Code, Cursor, or any client that supports MCP Streamable HTTP
+Use OpenTabs with existing plugins and the built-in browser tools. You need **Node.js 18+** and **Google Chrome** (or any Chromium-based browser).
 
-## Step 1: Clone and Build
+### Install the CLI
 
-Clone the repository and install dependencies:
+<CliCommand npmCommand="npm install -g @opentabs-dev/cli" />
+
+### Start the server
 
 ```bash
-git clone https://github.com/opentabs-dev/opentabs.git
-cd opentabs
-bun install
-bun run build
+opentabs start
 ```
 
-The build step compiles all platform packages (MCP server, Chrome extension, Plugin SDK) and copies the extension files to `~/.opentabs/extension/`.
+On first run, this creates the `~/.opentabs/` directory, generates an auth secret, and installs the Chrome extension files.
 
-## Step 2: Load the Chrome Extension
+### Load the Chrome extension
 
 1. Open `chrome://extensions/` in Chrome
-2. Enable **Developer mode** (toggle in the top-right corner)
-3. Click **Load unpacked**
-4. Select the `~/.opentabs/extension/` folder
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** and select `~/.opentabs/extension`
 
-The extension installs a service worker, side panel, and offscreen document. You should see "OpenTabs" appear in your extensions list.
+The extension connects to the server automatically.
 
-## Step 3: Start the MCP Server
+### Configure your MCP client
 
-For everyday use, start the server in **production mode** (the default):
-
-```bash
-bun platform/mcp-server/dist/index.js
-```
-
-The server discovers plugins once at startup and serves them with no background file watchers. Restart the server after installing or removing plugins.
-
-If you are **developing plugins**, start in **dev mode** for automatic reload on plugin changes:
-
-```bash
-bun --hot platform/mcp-server/dist/index.js --dev
-```
-
-Dev mode enables file watchers for local plugins, config watching, and the `POST /reload` endpoint. The `--hot` flag enables hot reload — when you rebuild the server, Bun re-evaluates modules without restarting the process.
-
-The server starts on `http://localhost:9515` by default. You can change the port with the `PORT` environment variable:
-
-```bash
-PORT=8080 bun platform/mcp-server/dist/index.js
-```
-
-Alternatively, use the CLI:
-
-```bash
-opentabs dev
-```
-
-See the [Configuration reference](/docs/reference/configuration#dev-vs-production-mode) for details on dev vs production mode.
-
-## Step 4: Connect Your AI Agent
-
-OpenTabs exposes an MCP Streamable HTTP endpoint at `/mcp`. Configure your AI agent to connect to it.
-
-### Authentication
-
-On first run, the MCP server generates a shared secret and stores it in `~/.opentabs/config.json`. You need this secret as a Bearer token.
-
-Find your secret:
+Get your auth secret:
 
 ```bash
 opentabs config show --json | jq -r .secret
 ```
 
-### Claude Code
-
-Add to your `.mcp.json` or `~/.claude.json`:
+Add the server to your MCP client. For Claude Code (`~/.claude/settings/mcp.json`):
 
 ```json
 {
@@ -98,71 +54,127 @@ Add to your `.mcp.json` or `~/.claude.json`:
 }
 ```
 
-Replace `YOUR_SECRET_HERE` with the `secret` value from `~/.opentabs/config.json`.
+Replace `YOUR_SECRET_HERE` with the secret from the previous command.
 
-### Other MCP Clients
+### Install plugins
 
-Any MCP client that supports Streamable HTTP transport can connect to OpenTabs. The endpoint is:
+```bash
+opentabs plugin search
+npm install -g opentabs-plugin-slack
+opentabs start
+```
 
-- **URL**: `http://localhost:9515/mcp`
-- **Method**: POST
-- **Auth**: `Authorization: Bearer <secret>`
+Restart the server after installing new plugins so it discovers them.
 
-## Step 5: Verify
-
-Check that everything is working:
+### Verify
 
 ```bash
 opentabs status
-```
-
-This shows the server status, connected plugins, and tool counts. For a full diagnostic:
-
-```bash
 opentabs doctor
 ```
 
-The doctor command checks your Bun version, config file, server reachability, extension connection, and plugin status.
+You're ready. Your AI agent can now use all registered plugin tools and the 36 built-in browser tools.
 
-You can also check the health endpoint directly:
+---
+
+## For Plugin Developers
+
+Build your own OpenTabs plugins. You need everything in **For Users** above, plus **Bun** (v1.0+) — [install Bun](https://bun.sh).
+
+### Set up the user environment
+
+Follow the [For Users](#for-users) section above first. You need a working OpenTabs installation to test your plugins.
+
+### Scaffold a new plugin
+
+<CliCommand npmCommand="npx create-opentabs-plugin my-plugin" />
 
 ```bash
-curl http://localhost:9515/health
+cd my-plugin
+bun install
 ```
 
-## Configuration
+### Build and register
 
-The config file at `~/.opentabs/config.json` is auto-created on first server run. See the [Configuration reference](/docs/reference/configuration) for all available options.
+```bash
+bun run build
+```
 
-<Table>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>Field</Table.Head>
-      <Table.Head>Type</Table.Head>
-      <Table.Head>Description</Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    <Table.Row>
-      <Table.Cell className="font-medium">`plugins`</Table.Cell>
-      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
-      <Table.Cell>Plugin specifiers — local directory paths or npm package names</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`tools`</Table.Cell>
-      <Table.Cell className="*:text-xs">`object`</Table.Cell>
-      <Table.Cell>Per-tool enable/disable overrides</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`secret`</Table.Cell>
-      <Table.Cell className="*:text-xs">`string`</Table.Cell>
-      <Table.Cell>64-char hex auth secret (auto-generated)</Table.Cell>
-    </Table.Row>
-  </Table.Body>
-</Table>
+This compiles your plugin, generates `dist/adapter.iife.js` and `dist/tools.json`, registers the plugin in `~/.opentabs/config.json` under `localPlugins`, and notifies the running server via `POST /reload`.
+
+### Start the server in dev mode
+
+For automatic reload when you rebuild your plugin:
+
+```bash
+opentabs start --dev
+```
+
+Dev mode watches your local plugin's `dist/` directory and automatically reloads when files change. You can also rebuild manually:
+
+```bash
+bun run build   # The build command notifies the server via POST /reload
+```
+
+See the [Plugin Development guide](/docs/guides/plugin-development) for a complete walkthrough of building your first plugin.
+
+---
+
+## For Contributors
+
+Work on the OpenTabs platform itself. You need **Bun** (v1.0+) — [install Bun](https://bun.sh) — and **Google Chrome**.
+
+### Clone and build
+
+```bash
+git clone https://github.com/AnomalyCo/opentabs.git
+cd opentabs
+bun install
+bun run build
+```
+
+### Load the Chrome extension
+
+1. Open `chrome://extensions/` in Chrome
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** and select `~/.opentabs/extension`
+
+### Start the dev server
+
+```bash
+bun --hot platform/mcp-server/dist/index.js --dev
+```
+
+This starts the MCP server with hot reload enabled. When you rebuild platform packages (`bun run build`), Bun re-evaluates modules without restarting the process.
+
+### Configure your MCP client
+
+Get the auth secret from the auto-generated config:
+
+```bash
+cat ~/.opentabs/config.json | jq -r .secret
+```
+
+Add it to your MCP client as shown in the [For Users](#configure-your-mcp-client) section.
+
+### Run the checks
+
+```bash
+bun run build         # Build all packages
+bun run type-check    # TypeScript check
+bun run lint          # ESLint
+bun run knip          # Unused code detection
+bun run test          # Unit tests
+bun run test:e2e      # E2E tests (Playwright)
+```
+
+All commands must exit 0 before committing. See the [Development Setup guide](/docs/contributing/dev-setup) for the full contributor workflow.
+
+---
 
 ## Next Steps
 
-- [Architecture](/docs/concepts/architecture) — understand how MCP server, extension, and plugins connect
-- [Creating a Plugin](/docs/plugins/creating-a-plugin) — build your first OpenTabs plugin
-- [Browser Tools](/docs/concepts/browser-tools) — explore the 36 built-in browser tools
+- [Quick Start](/docs/quick-start) — make your first tool call in 5 minutes
+- [Plugin Development](/docs/guides/plugin-development) — build your own plugin
+- [CLI Commands](/docs/reference/cli) — all available CLI commands
+- [Configuration](/docs/reference/configuration) — config file format and options
