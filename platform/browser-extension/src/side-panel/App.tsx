@@ -4,6 +4,7 @@ import { Footer } from './components/Footer.js';
 import { OnboardingState } from './components/OnboardingState.js';
 import { PluginList } from './components/PluginList.js';
 import { Input } from './components/retro/Input.js';
+import { ReturningUserEmptyState } from './components/ReturningUserEmptyState.js';
 import { VersionMismatchBanner } from './components/VersionMismatchBanner.js';
 import { VALID_PLUGIN_NAME } from '../constants.js';
 import { SIDE_PANEL_PROTOCOL_VERSION } from '@opentabs-dev/shared';
@@ -12,6 +13,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FailedPluginState, PluginState } from './bridge.js';
 import type { InternalMessage } from '../types.js';
 import type { TabState } from '@opentabs-dev/shared';
+
+const STORAGE_KEY_HAS_EVER_HAD_PLUGINS = 'hasEverHadPlugins';
 
 const validTabStates: ReadonlySet<string> = new Set<TabState>(['closed', 'unavailable', 'ready']);
 
@@ -23,6 +26,7 @@ const App = () => {
   const [activeTools, setActiveTools] = useState<Set<string>>(new Set());
   const [versionMismatch, setVersionMismatch] = useState(false);
   const [toolFilter, setToolFilter] = useState('');
+  const [hasEverHadPlugins, setHasEverHadPlugins] = useState<boolean | null>(null);
 
   const lastFetchRef = useRef(0);
   const pendingTabStates = useRef<Map<string, TabState>>(new Map());
@@ -30,11 +34,13 @@ const App = () => {
   const connectedRef = useRef(connected);
   const loadingRef = useRef(loading);
   const pluginsRef = useRef(plugins);
+  const hasEverHadPluginsRef = useRef(hasEverHadPlugins);
 
   useEffect(() => {
     connectedRef.current = connected;
     loadingRef.current = loading;
     pluginsRef.current = plugins;
+    hasEverHadPluginsRef.current = hasEverHadPlugins;
   });
 
   const loadPlugins = useCallback(() => {
@@ -53,6 +59,10 @@ const App = () => {
         }
         setPlugins(updatedPlugins);
         setFailedPlugins(result.failedPlugins);
+        if (updatedPlugins.length > 0 && hasEverHadPluginsRef.current !== true) {
+          setHasEverHadPlugins(true);
+          void chrome.storage.local.set({ [STORAGE_KEY_HAS_EVER_HAD_PLUGINS]: true });
+        }
         if (result.protocolVersion !== undefined && result.protocolVersion !== SIDE_PANEL_PROTOCOL_VERSION) {
           setVersionMismatch(true);
         } else if (result.protocolVersion !== undefined) {
@@ -62,6 +72,12 @@ const App = () => {
       .catch(() => {
         // Server may not be ready yet
       });
+  }, []);
+
+  useEffect(() => {
+    void chrome.storage.local.get(STORAGE_KEY_HAS_EVER_HAD_PLUGINS).then(result => {
+      setHasEverHadPlugins(result[STORAGE_KEY_HAS_EVER_HAD_PLUGINS] === true);
+    });
   }, []);
 
   useEffect(() => {
@@ -138,6 +154,7 @@ const App = () => {
             loading: loadingRef.current,
             pluginCount: currentPlugins.length,
             plugins: currentPlugins.map(p => ({ name: p.name, tabState: p.tabState })),
+            hasEverHadPlugins: hasEverHadPluginsRef.current,
           },
           html,
         });
@@ -223,12 +240,16 @@ const App = () => {
         </div>
       )}
       <main className={`flex-1 px-3 py-2 ${showPlugins ? '' : 'flex items-center justify-center'}`}>
-        {loading ? (
+        {loading || hasEverHadPlugins === null ? (
           <LoadingState />
         ) : !connected ? (
           <DisconnectedState />
         ) : !hasContent ? (
-          <OnboardingState connected={connected} pluginCount={plugins.length} />
+          hasEverHadPlugins ? (
+            <ReturningUserEmptyState />
+          ) : (
+            <OnboardingState connected={connected} pluginCount={plugins.length} />
+          )
         ) : (
           <PluginList
             plugins={plugins}
