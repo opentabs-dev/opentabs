@@ -16,10 +16,10 @@ export { LUCIDE_ICON_NAMES } from './lucide-icon-names.js';
 
 /** Options for reporting incremental progress during long-running tool operations. */
 export interface ProgressOptions {
-  /** Current progress value (e.g., 3 of 10 items processed). */
-  progress: number;
-  /** Total expected value (e.g., 10 items total). */
-  total: number;
+  /** Current progress value (e.g., 3 of 10 items processed). Omit for indeterminate progress. */
+  progress?: number;
+  /** Total expected value (e.g., 10 items total). Omit for indeterminate progress. */
+  total?: number;
   /** Optional human-readable message describing the current step. */
   message?: string;
 }

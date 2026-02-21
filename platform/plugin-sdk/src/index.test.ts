@@ -324,6 +324,45 @@ describe('ToolHandlerContext', () => {
     expect(opts.total).toBe(10);
     expect(opts.message).toBe('Processing...');
   });
+
+  test('ProgressOptions supports indeterminate progress (message only)', () => {
+    const opts: ProgressOptions = { message: 'Loading...' };
+    expect(opts.progress).toBeUndefined();
+    expect(opts.total).toBeUndefined();
+    expect(opts.message).toBe('Loading...');
+  });
+
+  test('ProgressOptions supports empty object for indeterminate progress', () => {
+    const opts: ProgressOptions = {};
+    expect(opts.progress).toBeUndefined();
+    expect(opts.total).toBeUndefined();
+    expect(opts.message).toBeUndefined();
+  });
+
+  test('handle can report indeterminate progress (message only)', async () => {
+    const progressCalls: ProgressOptions[] = [];
+    const ctx: ToolHandlerContext = {
+      reportProgress: opts => {
+        progressCalls.push(opts);
+      },
+    };
+
+    const tool = defineTool({
+      name: 'indeterminate_tool',
+      description: 'Tool with indeterminate progress',
+      input: z.object({ value: z.number() }),
+      output: z.object({ result: z.number() }),
+      handle: (params, context?) => {
+        context?.reportProgress({ message: 'Processing...' });
+        context?.reportProgress({ message: 'Almost done...' });
+        return Promise.resolve({ result: params.value });
+      },
+    });
+
+    const result = await tool.handle({ value: 10 }, ctx);
+    expect(result).toEqual({ result: 10 });
+    expect(progressCalls).toEqual([{ message: 'Processing...' }, { message: 'Almost done...' }]);
+  });
 });
 
 describe('LucideIconName and LUCIDE_ICON_NAMES', () => {

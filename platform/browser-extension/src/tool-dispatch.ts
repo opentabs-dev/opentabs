@@ -214,16 +214,17 @@ const executeToolOnTab = async (
 
       // Create ToolHandlerContext with reportProgress that fires a CustomEvent
       // on the document. The ISOLATED world content script listens for this event
-      // and relays it to the background service worker.
+      // and relays it to the background service worker. Missing progress/total
+      // default to 0 for indeterminate progress reporting.
       const context = {
-        reportProgress(opts: { progress: number; total: number; message?: string }) {
+        reportProgress(opts: { progress?: number; total?: number; message?: string }) {
           try {
             document.dispatchEvent(
               new CustomEvent(`opentabs:progress:${dId}`, {
                 detail: {
                   dispatchId: dId,
-                  progress: opts.progress,
-                  total: opts.total,
+                  progress: opts.progress ?? 0,
+                  total: opts.total ?? 0,
                   message: opts.message,
                 },
               }),
