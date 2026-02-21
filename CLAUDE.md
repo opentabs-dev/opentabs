@@ -29,7 +29,7 @@
 
 **Chrome Extension** (`platform/browser-extension`): Receives plugin definitions from the MCP server via `sync.full`, dynamically registers content scripts for URL patterns, injects adapter IIFEs into matching tabs, and dispatches tool calls to the correct tab's adapter. The `debugger` permission in the manifest is required for network capture via the Chrome DevTools Protocol (`chrome.debugger.attach`, `Network.enable`, `Runtime.enable`) in `network-capture.ts`.
 
-**Plugin SDK** (`platform/plugin-sdk`): Provides the `OpenTabsPlugin` base class, `defineTool` factory, and `opentabs build` CLI. Plugins extend `OpenTabsPlugin` and define tools with Zod schemas; the CLI bundles the adapter into an IIFE and generates `opentabs-plugin.json`.
+**Plugin SDK** (`platform/plugin-sdk`): Provides the `OpenTabsPlugin` base class, `defineTool` factory, and `opentabs build` CLI. Plugins extend `OpenTabsPlugin` and define tools with Zod schemas; the CLI bundles the adapter into an IIFE and generates `dist/tools.json`.
 
 **create-plugin** (`platform/create-plugin`): Scaffolding CLI (`create-opentabs-plugin`) for new plugin projects.
 
@@ -51,11 +51,14 @@ opentabs/
 │   │   └── src/
 │   │       ├── index.ts           # Entry point (HTTP + WebSocket server, hot reload)
 │   │       ├── config.ts          # ~/.opentabs/config.json management
-│   │       ├── discovery.ts       # Plugin discovery (npm + local paths)
+│   │       ├── discovery.ts       # Discovery orchestrator (resolve → load → register)
+│   │       ├── resolver.ts        # Plugin specifier resolution (npm + local paths)
+│   │       ├── loader.ts          # Plugin artifact loading (package.json, IIFE, tools.json)
+│   │       ├── registry.ts        # Immutable PluginRegistry with O(1) tool lookup
 │   │       ├── extension-protocol.ts  # JSON-RPC protocol with Chrome extension
 │   │       ├── mcp-setup.ts       # MCP tool registration from discovered plugins
-│   │       ├── state.ts           # In-memory server state
-│   │       ├── file-watcher.ts    # Watches local plugins for changes
+│   │       ├── state.ts           # In-memory server state (PluginRegistry)
+│   │       ├── file-watcher.ts    # Watches local plugin dist/ directories for changes
 │   │       └── version-check.ts   # npm update checks for installed plugins
 │   ├── browser-extension/         # Chrome extension (MV3)
 │   │   ├── src/
@@ -76,7 +79,7 @@ opentabs/
 │   │   ├── src/
 │   │   │   ├── index.ts           # Plugin class extending OpenTabsPlugin
 │   │   │   └── tools/             # One file per tool
-│   │   └── opentabs-plugin.json   # Generated manifest
+│   │   └── dist/                  # Build output (adapter.iife.js, tools.json)
 │   └── e2e-test/                  # Test plugin for E2E tests
 ├── e2e/                           # Playwright E2E tests
 │   ├── fixtures.ts                # Test fixtures (MCP server, extension, test server)
@@ -91,7 +94,7 @@ opentabs/
 
 ### Key Concepts
 
-**Plugin discovery**: The MCP server reads `~/.opentabs/config.json` for local plugin paths and scans `node_modules` for packages matching `opentabs-plugin-*` or with the `opentabs-plugin` keyword. Each plugin must have an `opentabs-plugin.json` manifest and a `dist/adapter.iife.js` bundle.
+**Plugin discovery**: The MCP server reads `~/.opentabs/config.json` for a unified `plugins` array containing both npm package names and local filesystem paths. Each specifier is resolved (via `Bun.resolveSync` for npm, filesystem resolution for local paths), then loaded by reading `package.json` (with an `opentabs` field for metadata), `dist/adapter.iife.js` (the adapter bundle), and `dist/tools.json` (tool schemas). Discovery is a four-phase pipeline: resolve → load → determine trust tier → build an immutable registry.
 
 **Tool prefixing**: Plugin tools are exposed to MCP clients with a `<plugin>_<tool>` prefix (e.g., `slack_send_message`). This prevents name collisions across plugins.
 
@@ -143,9 +146,10 @@ bun --hot platform/mcp-server/dist/index.js
 Each plugin follows the same pattern:
 
 1. **Create the plugin** (`plugins/<name>/`): Extend `OpenTabsPlugin` from `@opentabs-dev/plugin-sdk`
-2. **Define tools** (`plugins/<name>/src/tools/`): One file per tool using `defineTool()` with Zod schemas
-3. **Build**: `cd plugins/<name> && bun install && bun run build` (runs `tsc` then `opentabs build`)
-4. **Register**: Add the plugin path to `~/.opentabs/config.json` plugins array
+2. **Configure `package.json`**: Add an `opentabs` field with `displayName`, `description`, and `urlPatterns`; set `main` to `dist/adapter.iife.js`
+3. **Define tools** (`plugins/<name>/src/tools/`): One file per tool using `defineTool()` with Zod schemas
+4. **Build**: `cd plugins/<name> && bun install && bun run build` (runs `tsc` then `opentabs build`, which produces `dist/adapter.iife.js` and `dist/tools.json`)
+5. **Register**: Add the plugin path or npm package name to the `plugins` array in `~/.opentabs/config.json`
 
 ### Plugin Isolation
 
@@ -217,7 +221,7 @@ bun run build
 
 ### Plugin Changes (File Watcher)
 
-The MCP server watches local plugin directories for changes to `opentabs-plugin.json` and `dist/adapter.iife.js`. On change, it re-reads the files and sends a `plugin.update` notification to the extension.
+The MCP server watches local plugin `dist/` directories for changes to `tools.json` and `adapter.iife.js`. On change, it re-reads the files and sends a `plugin.update` notification to the extension.
 
 ```bash
 # 1. Edit plugin source
