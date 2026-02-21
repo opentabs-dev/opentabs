@@ -1,0 +1,215 @@
+---
+title: Development Setup
+description: Clone the repo, install dependencies, and run the full OpenTabs platform locally with hot reload.
+lastUpdated: 2026-02-21
+---
+
+This guide walks you through setting up the OpenTabs monorepo for local development. By the end, you'll have the MCP server, Chrome extension, and a test plugin running with hot reload.
+
+## Prerequisites
+
+- **[Bun](https://bun.sh)** v1.1+ (runtime, package manager, bundler, test runner)
+- **[Node.js](https://nodejs.org)** 18+ (required by Playwright for E2E tests)
+- **Google Chrome** (for loading the extension)
+- **Git**
+
+## Clone and Install
+
+```bash
+git clone https://github.com/AnomalyCo/opentabs.git
+cd opentabs
+bun install
+```
+
+`bun install` resolves all platform packages via the `workspaces` field in the root `package.json`. Plugins in `plugins/` are standalone projects — they have their own `node_modules` and are not part of the workspace.
+
+## Build Everything
+
+```bash
+bun run build
+```
+
+This runs the full build pipeline:
+
+1. `tsc --build --force` — compiles all platform packages via project references
+2. Extension bundle — bundles the background script and offscreen document
+3. Side panel — builds the React side panel with Tailwind CSS
+4. Icon generation — creates extension icons from the SVG source
+5. Extension install — copies the built extension to `~/.opentabs/extension/`
+
+## Load the Chrome Extension
+
+1. Open `chrome://extensions/`
+2. Enable **Developer mode** (toggle in the top right)
+3. Click **Load unpacked**
+4. Select the `~/.opentabs/extension/` folder
+
+The extension is now installed. It will connect to the MCP server automatically when the server starts.
+
+## Start the Dev Server
+
+```bash
+bun run dev
+```
+
+This starts the dev orchestrator (`scripts/dev.ts`), which runs three processes in parallel:
+
+- **`[tsc]`** — `tsc --build --watch` for incremental TypeScript compilation across all platform packages
+- **`[mcp]`** — the MCP server via `bun --hot`, which hot-reloads when compiled files change
+- **`[ext]`** — extension rebuild pipeline, triggered on each tsc recompilation
+
+All output is labeled with prefixes so you can see which process is speaking:
+
+```
+[tsc] Found 0 errors. Watching for file changes.
+[ext] Rebuilding extension...
+[ext] Extension built and installed.
+[mcp] MCP server running on http://localhost:9515
+```
+
+### How Hot Reload Works
+
+When you edit a source file:
+
+1. `tsc --build --watch` detects the change and recompiles
+2. `bun --hot` re-evaluates the MCP server modules (the process stays alive, `globalThis` is preserved)
+3. The dev orchestrator rebuilds the extension and sends a reload signal via `POST /extension/reload`
+
+MCP server changes take effect immediately after tsc finishes. Chrome extension changes require the extension to receive the reload signal — the side panel reconnects automatically, but you may need to close and reopen it if it was open during the reload.
+
+### Dev Mode vs Production Mode
+
+The MCP server has two modes:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Feature</Table.Head>
+      <Table.Head>Production (default)</Table.Head>
+      <Table.Head>Dev mode</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Plugin discovery</Table.Cell>
+      <Table.Cell>Once at startup</Table.Cell>
+      <Table.Cell>Once at startup + file watchers</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">File watchers</Table.Cell>
+      <Table.Cell>None</Table.Cell>
+      <Table.Cell>Watches local plugin `dist/` directories and `config.json`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`POST /reload`</Table.Cell>
+      <Table.Cell>Available</Table.Cell>
+      <Table.Cell>Available</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Hot reload</Table.Cell>
+      <Table.Cell>Not used</Table.Cell>
+      <Table.Cell>Via `bun --hot`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+`bun run dev` uses `bun --hot` for server hot reload. To enable dev mode file watchers, set `OPENTABS_DEV=1` or pass `--dev` to the server:
+
+```bash
+OPENTABS_DEV=1 bun run dev
+```
+
+## Build a Test Plugin
+
+Plugins are standalone projects outside the workspace. To test changes to the platform SDK or plugin tools:
+
+```bash
+cd plugins/e2e-test
+bun install
+bun run build
+```
+
+The `opentabs-plugin build` command auto-registers the plugin in `~/.opentabs/config.json` (under `localPlugins`) and calls `POST /reload` to notify the running MCP server. No restart needed.
+
+For a real plugin with more tools, try the Slack plugin:
+
+```bash
+cd plugins/slack
+bun install
+bun run build
+```
+
+## Quality Checks
+
+Run all checks before committing:
+
+```bash
+bun run build         # Full production build
+bun run type-check    # TypeScript (tsc --build)
+bun run lint          # ESLint
+bun run knip          # Unused code detection
+bun run test          # Unit tests (bun test platform/)
+bun run test:e2e      # E2E tests (Playwright)
+```
+
+Every command must exit 0. The pre-commit hook runs Prettier and ESLint on staged files via `lint-staged`.
+
+### E2E Tests
+
+E2E tests use Playwright with Chromium. Each test gets its own MCP server instance, test web server, and isolated config directory — so tests run fully in parallel.
+
+```bash
+bun run test:e2e                          # Run all E2E tests
+bunx playwright test tool-dispatch        # Run a specific test file
+bunx playwright test --headed             # Run with visible browser
+```
+
+Test files live in `e2e/` and follow the `*.e2e.ts` naming convention. Fixtures in `e2e/fixtures.ts` handle server lifecycle, extension loading, and test server setup.
+
+### Unit Tests
+
+Unit tests use Bun's built-in test runner:
+
+```bash
+bun run test                              # Run all unit tests
+bun test platform/mcp-server/             # Run tests for a specific package
+```
+
+## Project Structure
+
+```
+opentabs/
+├── platform/                  # Core platform packages (bun workspaces)
+│   ├── mcp-server/            # MCP server
+│   ├── browser-extension/     # Chrome extension (MV3)
+│   ├── plugin-sdk/            # Plugin authoring SDK
+│   ├── plugin-tools/          # Plugin developer CLI (opentabs-plugin)
+│   ├── cli/                   # User-facing CLI (opentabs)
+│   ├── shared/                # Shared types and utilities
+│   └── create-plugin/         # Plugin scaffolding CLI
+├── plugins/                   # Example plugins (standalone, NOT in workspaces)
+│   ├── slack/                 # Slack plugin
+│   └── e2e-test/              # Test plugin for E2E tests
+├── e2e/                       # Playwright E2E tests
+├── scripts/                   # Dev orchestrator, publish, install scripts
+└── docs/                      # Documentation site (Next.js)
+```
+
+The `platform/` packages are linked via Bun workspaces. Changes to any platform package are immediately visible to other packages after tsc recompiles.
+
+Plugins in `plugins/` are fully standalone — they depend on published `@opentabs-dev/*` npm packages, not workspace links. When you change the SDK or plugin tools, you need to publish new versions and update plugin dependencies (see [Publishing](/docs/contributing/publishing)).
+
+## Reloading the Extension After Code Changes
+
+The Chrome extension does **not** auto-reload from `chrome://extensions/`. After `bun run build` (or after the dev orchestrator's `[ext]` rebuild), the dev orchestrator sends a reload signal via `POST /extension/reload`. If you're not using `bun run dev`, reload manually:
+
+1. Open `chrome://extensions/`
+2. Find the "OpenTabs" extension card
+3. Click the refresh icon on the card
+4. Close and reopen the side panel if it was open
+
+## Next Steps
+
+- [Architecture](/docs/contributing/architecture) — understand how the MCP server, extension, and plugins fit together
+- [Publishing](/docs/contributing/publishing) — publish platform packages to npm
+- [Plugin Development](/docs/guides/plugin-development) — build a plugin using the SDK

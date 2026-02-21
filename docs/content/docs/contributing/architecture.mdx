@@ -1,0 +1,386 @@
+---
+title: Architecture
+description: How the MCP server, Chrome extension, and plugins work together to give AI agents access to web applications.
+lastUpdated: 2026-02-21
+---
+
+OpenTabs has three main components: the **MCP server** (discovers plugins and dispatches requests), the **Chrome extension** (injects plugin adapters into browser tabs), and **plugins** (define tools, resources, and prompts that run in the page context). All communication uses JSON-RPC 2.0.
+
+```
+┌─────────────┐  Streamable HTTP  ┌─────────────┐  WebSocket  ┌──────────────────┐
+│ AI Agent    │ ←───────────────→ │ MCP Server  │ ←─────────→ │ Chrome Extension │
+│ (Claude)    │  /mcp             │ (localhost)  │             │   (Background)   │
+└─────────────┘                   └──────┬──────┘             └────────┬─────────┘
+                                         │                             │
+                                  ┌──────▼──────┐            ┌────────▼─────────┐
+                                  │   Plugin    │            │  Adapter IIFEs   │
+                                  │  Discovery  │            │  (injected into  │
+                                  │ (npm + local│            │   matching tabs) │
+                                  │  paths)     │            └────────┬─────────┘
+                                  └─────────────┘                     │
+                                                             ┌────────▼─────────┐
+                                                             │   Web APIs       │
+                                                             │ (user's session) │
+                                                             └──────────────────┘
+```
+
+## MCP Server
+
+The MCP server runs on `localhost:9515` (configurable via `PORT` or `OPENTABS_PORT` env var). It is a `Bun.serve()` HTTP + WebSocket server with two responsibilities:
+
+1. **Plugin discovery** — resolves plugins from npm and local paths, loads their metadata and adapter bundles, and builds an immutable registry
+2. **Request dispatch** — registers plugin tools, resources, and prompts as MCP capabilities, dispatches calls to the Chrome extension via WebSocket, and relays results back to MCP clients
+
+### HTTP Endpoints
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Endpoint</Table.Head>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>Auth</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/mcp`</Table.Cell>
+      <Table.Cell>POST/GET/DELETE</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>MCP Streamable HTTP transport. AI agents connect here.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/ws`</Table.Cell>
+      <Table.Cell>WebSocket</Table.Cell>
+      <Table.Cell>Sec-WebSocket-Protocol</Table.Cell>
+      <Table.Cell>Chrome extension connection.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/ws-info`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Returns WebSocket URL and auth secret for extension bootstrap.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/health`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>None</Table.Cell>
+      <Table.Cell>Server status: plugins, tools, uptime, reload count, audit summary.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/audit`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Last 500 tool invocations with timing, status, and error metadata.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/reload`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Trigger config and plugin rediscovery (rate limited).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/extension/reload`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Send reload signal to the Chrome extension.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+### Discovery Pipeline
+
+Plugin discovery is a five-phase pipeline in `platform/mcp-server/src/discovery.ts`:
+
+1. **Resolve npm plugins** — scans global `node_modules` for packages matching `opentabs-plugin-*` and `@*/opentabs-plugin-*`
+2. **Resolve local plugins** — reads filesystem paths from `config.localPlugins`
+3. **Load plugins** — reads `package.json` (with `opentabs` metadata field), `dist/adapter.iife.js`, and `dist/tools.json` for each plugin, in parallel
+4. **Merge** — local plugins override npm plugins of the same name
+5. **Build registry** — constructs an immutable `PluginRegistry` with O(1) lookup maps for tools, resources, and prompts
+
+Errors in any phase are collected but non-fatal — other plugins still load. Failed plugins are tracked in the registry for diagnostic purposes (visible in `/health`).
+
+### Plugin Registry
+
+The `PluginRegistry` (`platform/mcp-server/src/registry.ts`) is immutable (`Object.freeze()`). It maintains four internal `Map`s:
+
+- `plugins` — name → `RegisteredPlugin`
+- `toolLookup` — prefixed tool name → `ToolLookupEntry` (with pre-compiled Ajv validators)
+- `resourceLookup` — prefixed URI → `ResourceLookupEntry`
+- `promptLookup` — prefixed prompt name → `PromptLookupEntry`
+
+When plugins change, a new registry is built and atomically swapped on the server state. Ajv validators are compiled during registry construction, so tool dispatch has O(1) lookup with no schema compilation at call time.
+
+### Trust Tiers
+
+Each plugin is assigned a trust tier based on its source:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tier</Table.Head>
+      <Table.Head>Source</Table.Head>
+      <Table.Head>Description prefix</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Official</Table.Cell>
+      <Table.Cell>`@opentabs-dev/*` npm scope</Table.Cell>
+      <Table.Cell>`[Official]`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Community</Table.Cell>
+      <Table.Cell>Any other npm package</Table.Cell>
+      <Table.Cell>`[Community plugin — unverified]`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Local</Table.Cell>
+      <Table.Cell>Filesystem path in `localPlugins`</Table.Cell>
+      <Table.Cell>`[Local plugin]`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Trust tier prefixes are added to tool descriptions so AI agents can see the provenance of each tool.
+
+### Hot Reload Architecture
+
+In dev mode, the MCP server runs under `bun --hot`. The `Bun.serve()` instance is created once and never recreated — its handlers are "pure delegate shells" that read the latest handler functions from a `globalThis`-based hot state at call time. This makes all handler logic hot-reloadable without touching the server or losing open connections.
+
+On each hot reload cycle:
+
+1. Bun re-evaluates all modules (but `globalThis` is preserved)
+2. The server re-reads config, re-discovers plugins, and builds a new registry
+3. MCP handlers are re-registered on all active sessions
+4. File watchers are restarted
+5. A `sync.full` is sent to the extension with the updated plugin list
+6. MCP clients are notified via `tools/list_changed`
+
+A `_schemaVersion` in the hot state detects structural changes that require a full process restart.
+
+## Chrome Extension
+
+The Chrome extension is a Manifest V3 extension with three main parts: a **background service worker**, an **offscreen document**, and a **side panel**.
+
+### Persistent WebSocket
+
+MV3 service workers can be suspended at any time. To maintain a persistent WebSocket, the extension uses an offscreen document — a hidden HTML page with a stable execution context. The offscreen document:
+
+- Connects to `ws://localhost:9515/ws`
+- Authenticates via the `Sec-WebSocket-Protocol` header (keeps the secret out of URLs and logs)
+- Runs ping/pong keepalive every 15 seconds with a 5-second timeout
+- Reconnects with exponential backoff (1s → 2s → 4s → ... → 30s cap)
+
+A Chrome alarm re-ensures the offscreen document exists under memory pressure.
+
+### Adapter Injection
+
+Plugin adapters are injected into matching tabs as IIFE bundles using `chrome.scripting.executeScript()` with `files` and `world: 'MAIN'`:
+
+1. A tab loads and reaches `status === 'complete'`
+2. The background script queries matching tabs by URL pattern
+3. For each matching tab without an adapter, it injects the plugin's IIFE from `~/.opentabs/extension/adapters/<plugin>.js`
+4. The adapter registers itself at `globalThis.__openTabs.adapters[pluginName]`
+
+File-based injection bypasses page Content Security Policy (CSP). Because adapter files are bundled with the extension, Chrome treats them as extension resources exempt from page CSP.
+
+### Dispatch Flow
+
+When an AI agent calls a tool:
+
+1. The MCP server validates the input against the pre-compiled JSON Schema
+2. The server sends a `tool.dispatch` JSON-RPC request over WebSocket
+3. The extension finds matching tabs using the plugin's URL patterns
+4. Tabs are ranked: active tab in focused window > active tab in any window > any tab in focused window > other tabs
+5. The extension calls `adapter.handle(toolName, input)` in the MAIN world via `chrome.scripting.executeScript()`
+6. The result flows back through WebSocket to the MCP server, which returns it to the AI agent
+
+Resource reads (`resource.read`) and prompt gets (`prompt.get`) follow the same pipeline. They do not support progress reporting or lifecycle hooks.
+
+### Tab State Machine
+
+Each plugin has three tab states:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>State</Table.Head>
+      <Table.Head>Meaning</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`closed`</Table.Cell>
+      <Table.Cell>No tab matches the plugin's URL patterns</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`unavailable`</Table.Cell>
+      <Table.Cell>A matching tab exists but `isReady()` returns `false` (e.g., user not logged in)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ready`</Table.Cell>
+      <Table.Cell>A matching tab exists and `isReady()` returns `true`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+The extension reports state changes to the MCP server via `tab.stateChanged` messages. Tool dispatch only attempts tabs in the `ready` state.
+
+## Wire Protocol
+
+All server ↔ extension communication uses JSON-RPC 2.0 over WebSocket with a 10 MB message size limit.
+
+**Server → Extension:**
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>Purpose</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`sync.full`</Table.Cell>
+      <Table.Cell>Full plugin list (sent on connect and after rediscovery)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.update`</Table.Cell>
+      <Table.Cell>Single plugin changed (file watcher detected changes)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.uninstall`</Table.Cell>
+      <Table.Cell>Plugin removed from discovery</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool.dispatch`</Table.Cell>
+      <Table.Cell>Execute a plugin tool on a matching tab</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`resource.read`</Table.Cell>
+      <Table.Cell>Read a plugin resource on a matching tab</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`prompt.get`</Table.Cell>
+      <Table.Cell>Render a plugin prompt on a matching tab</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser.*`</Table.Cell>
+      <Table.Cell>Built-in browser tool commands</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`pong`</Table.Cell>
+      <Table.Cell>Keepalive response</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+**Extension → Server:**
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Method</Table.Head>
+      <Table.Head>Purpose</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tab.syncAll`</Table.Cell>
+      <Table.Cell>Full tab state for all plugins (sent on connect/reconnect)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tab.stateChanged`</Table.Cell>
+      <Table.Cell>Single plugin's tab state changed</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool.progress`</Table.Cell>
+      <Table.Cell>Progress notification from a running tool</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.log`</Table.Cell>
+      <Table.Cell>Log entry from a plugin adapter</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.getState`</Table.Cell>
+      <Table.Cell>Fetch config state for the side panel</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.setToolEnabled`</Table.Cell>
+      <Table.Cell>Enable/disable a single tool</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`ping`</Table.Cell>
+      <Table.Cell>Keepalive probe</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+### Timeouts
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Operation</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Maximum</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Tool dispatch</Table.Cell>
+      <Table.Cell>30 seconds</Table.Cell>
+      <Table.Cell>5 minutes (with progress)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Extension script execution</Table.Cell>
+      <Table.Cell>295 seconds</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Readiness probe (`isReady()`)</Table.Cell>
+      <Table.Cell>5 seconds</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Keepalive ping/pong</Table.Cell>
+      <Table.Cell>15s interval, 5s timeout</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Tool dispatch timeout resets on each progress notification. The extension's script timeout (295s) is 5 seconds shorter than the server's absolute maximum (300s) to ensure the extension always responds before the server times out.
+
+## Security
+
+### Authentication
+
+- **`/mcp`**: Bearer token in the `Authorization` header — the 64-character hex `secret` from `~/.opentabs/config.json`
+- **`/ws`**: Auth via `Sec-WebSocket-Protocol` — the client sends `['opentabs', '<secret>']`, server echoes `'opentabs'` as the accepted subprotocol
+- **Admin endpoints** (`/reload`, `/extension/reload`, `/ws-info`, `/audit`): Bearer token required, plus rate limiting (10 requests/minute)
+
+### CORS Protection
+
+The server rejects any HTTP request with an `Origin` header unless it matches `chrome-extension://`. Legitimate MCP clients do not send Origin headers, so this prevents DNS rebinding attacks without affecting normal usage.
+
+### Adapter Integrity
+
+The `opentabs-plugin build` CLI computes a SHA-256 hash of the adapter IIFE and embeds it as `__adapterHash`. The extension verifies this hash after injection to detect partial file writes or tampering.
+
+### Output Sanitization
+
+Tool outputs are sanitized to remove keys that could cause prototype pollution. Error messages have internal file paths, IP addresses, and URLs stripped before being returned to clients.
+
+## Key Source Files
+
+For deeper understanding, start with these files:
+
+- `platform/mcp-server/src/index.ts` — server entry point, HTTP routes, WebSocket handling
+- `platform/mcp-server/src/discovery.ts` — five-phase plugin discovery pipeline
+- `platform/mcp-server/src/registry.ts` — immutable plugin registry with O(1) lookups
+- `platform/mcp-server/src/extension-protocol.ts` — JSON-RPC dispatch to the extension
+- `platform/browser-extension/src/background.ts` — extension service worker, adapter injection, message routing
+- `platform/browser-extension/src/offscreen/index.ts` — persistent WebSocket via offscreen document
+- `platform/plugin-sdk/src/index.ts` — `OpenTabsPlugin` base class, `defineTool`, `defineResource`, `definePrompt`

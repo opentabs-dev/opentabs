@@ -1,0 +1,114 @@
+---
+title: Publishing
+description: How to publish platform packages to npm, manage versions, and update plugin dependencies.
+lastUpdated: 2026-02-21
+---
+
+The platform packages are published as private packages to the npm registry under the `@opentabs-dev` org. This guide covers authentication setup, the publish workflow, and updating plugins after a release.
+
+## Packages
+
+Four platform packages are published. They must be published in dependency order:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Order</Table.Head>
+      <Table.Head>Package</Table.Head>
+      <Table.Head>Depends on</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">1</Table.Cell>
+      <Table.Cell>`@opentabs-dev/shared`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">2</Table.Cell>
+      <Table.Cell>`@opentabs-dev/plugin-sdk`</Table.Cell>
+      <Table.Cell>`shared`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">3</Table.Cell>
+      <Table.Cell>`@opentabs-dev/plugin-tools`</Table.Cell>
+      <Table.Cell>`plugin-sdk`, `shared`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">4</Table.Cell>
+      <Table.Cell>`@opentabs-dev/cli`</Table.Cell>
+      <Table.Cell>`plugin-sdk`, `plugin-tools`, `shared`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+The MCP server and browser extension are **not published** — they are internal platform runtimes that ship via the CLI's `opentabs start` command.
+
+## npm Authentication (One-Time Setup)
+
+Create a granular access token at [npmjs.com/settings/tokens/create](https://www.npmjs.com/settings/tokens/create):
+
+- **Permissions**: Read and Write
+- **Packages**: `@opentabs-dev/*`
+- **Bypass 2FA**: Enabled
+
+Save the token to `~/.npmrc`:
+
+```bash
+echo '//registry.npmjs.org/:_authToken=<YOUR_TOKEN>' > ~/.npmrc
+```
+
+Verify it works:
+
+```bash
+npm whoami
+```
+
+## Publishing a Release
+
+The `scripts/publish.sh` script handles the entire publish workflow:
+
+```bash
+./scripts/publish.sh 0.0.17
+```
+
+The script:
+
+1. Verifies npm authentication via `npm whoami`
+2. Runs `bun run build` to compile all packages
+3. Bumps `"version"` in all four `platform/*/package.json` files
+4. Updates cross-references between packages (e.g., `plugin-sdk` depends on `shared`)
+5. Runs `bun run build` again with the new versions
+6. Publishes in dependency order: `shared` → `plugin-sdk` → `plugin-tools` → `cli`
+
+All packages use `"publishConfig": { "access": "restricted" }` — only `@opentabs-dev` org members can install them.
+
+## After Publishing
+
+After publishing new platform package versions, update plugin dependencies:
+
+```bash
+cd plugins/slack
+# Update @opentabs-dev/* versions in package.json
+bun install
+bun run build
+```
+
+The `opentabs-plugin build` command embeds the installed SDK version as `sdkVersion` in `dist/tools.json`. The MCP server checks this at discovery time — if a plugin was built with a newer SDK than the server, it is rejected with a clear rebuild message.
+
+## Version Compatibility
+
+The MCP server uses major.minor comparison for SDK version checks:
+
+- A plugin's major.minor must be **less than or equal to** the server's major.minor
+- Patch differences are always fine
+- Plugins without `sdkVersion` in `tools.json` (predating this feature) load with a warning
+
+This means you can publish a patch release (e.g., `0.0.16` → `0.0.17`) and existing plugins continue to work without rebuilding. A minor or major bump (e.g., `0.0.x` → `0.1.0`) requires plugins to be rebuilt with the new SDK.
+
+## What NOT to Publish
+
+- **`platform/mcp-server`** — ships as a bundled runtime via the CLI
+- **`platform/browser-extension`** — installed to `~/.opentabs/extension/` by the CLI
+- **`platform/create-plugin`** — published separately as `create-opentabs-plugin` (not part of the `@opentabs-dev` scope)
+- **`plugins/*`** — example plugins are standalone projects that publish independently to npm under `opentabs-plugin-*` names
