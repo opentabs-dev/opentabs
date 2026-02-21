@@ -4,12 +4,17 @@
  * Resolves plugin specifiers (npm package names or filesystem paths) into
  * absolute directory paths containing a plugin's package.json. Decouples
  * path resolution from plugin loading so each phase can be tested independently.
+ *
+ * Also provides global npm plugin auto-discovery: scans global node_modules
+ * directories (from both npm and bun) for packages matching the opentabs-plugin-*
+ * naming convention.
  */
 
+import { log } from './logger.js';
 import { ok, err } from '@opentabs-dev/shared';
-import { realpath, stat } from 'node:fs/promises';
+import { readdir, realpath, stat } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import type { Result } from '@opentabs-dev/shared';
 
 /**
@@ -120,4 +125,166 @@ const resolvePluginPath = async (specifier: string, configDir: string): Promise<
   return resolveNpmPackage(specifier);
 };
 
-export { isAllowedPluginPath, isLocalPath, resolvePluginPath };
+/** Cached global node_modules paths (computed once at startup). */
+let cachedGlobalPaths: string[] | null = null;
+
+/**
+ * Get global node_modules directories from both npm and bun.
+ * Results are cached in a module-level variable so the shell commands
+ * run at most once per process lifetime.
+ */
+const getGlobalNodeModulesPaths = (): string[] => {
+  if (cachedGlobalPaths !== null) return cachedGlobalPaths;
+
+  const paths: string[] = [];
+
+  // npm global node_modules
+  try {
+    const result = Bun.spawnSync(['npm', 'root', '-g']);
+    if (result.exitCode === 0) {
+      const npmPath = result.stdout.toString().trim();
+      if (npmPath.length > 0) paths.push(npmPath);
+    }
+  } catch {
+    // npm not installed or not in PATH
+  }
+
+  // bun global node_modules (derive from bin path: .../bin → .../node_modules)
+  try {
+    const result = Bun.spawnSync(['bun', 'pm', '-g', 'bin']);
+    if (result.exitCode === 0) {
+      const bunBinPath = result.stdout.toString().trim();
+      if (bunBinPath.length > 0) {
+        const bunNodeModules = join(dirname(bunBinPath), 'node_modules');
+        // Avoid duplicates if npm and bun share the same global directory
+        if (!paths.includes(bunNodeModules)) paths.push(bunNodeModules);
+      }
+    }
+  } catch {
+    // bun not installed or not in PATH
+  }
+
+  cachedGlobalPaths = paths;
+  return paths;
+};
+
+/**
+ * Check if a directory contains a valid opentabs plugin package.json
+ * (has an `opentabs` field that is an object).
+ */
+const hasOpentabsField = async (dir: string): Promise<boolean> => {
+  try {
+    const raw = (await Bun.file(join(dir, 'package.json')).json()) as Record<string, unknown>;
+    return typeof raw.opentabs === 'object' && raw.opentabs !== null && !Array.isArray(raw.opentabs);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Scan a single global node_modules directory for opentabs plugin packages.
+ * Matches unscoped opentabs-plugin-* and scoped @scope/opentabs-plugin-* entries.
+ * Returns absolute paths of directories that contain a valid plugin package.json.
+ */
+const scanGlobalDir = async (globalDir: string): Promise<string[]> => {
+  const found: string[] = [];
+
+  let entries: string[];
+  try {
+    entries = await readdir(globalDir);
+  } catch {
+    return found;
+  }
+
+  // Collect unscoped matches and scoped directories to inspect
+  const unscopedChecks: Promise<void>[] = [];
+  const scopeDirScans: Promise<void>[] = [];
+
+  for (const entry of entries) {
+    if (entry.startsWith('opentabs-plugin-')) {
+      const fullPath = join(globalDir, entry);
+      unscopedChecks.push(
+        hasOpentabsField(fullPath).then(valid => {
+          if (valid) found.push(fullPath);
+        }),
+      );
+    } else if (entry.startsWith('@')) {
+      // Scoped package directory — scan for opentabs-plugin-* within it
+      const scopeDir = join(globalDir, entry);
+      scopeDirScans.push(
+        readdir(scopeDir)
+          .then(async scopeEntries => {
+            const scopeChecks: Promise<void>[] = [];
+            for (const scopeEntry of scopeEntries) {
+              if (scopeEntry.startsWith('opentabs-plugin-')) {
+                const fullPath = join(scopeDir, scopeEntry);
+                scopeChecks.push(
+                  hasOpentabsField(fullPath).then(valid => {
+                    if (valid) found.push(fullPath);
+                  }),
+                );
+              }
+            }
+            await Promise.all(scopeChecks);
+          })
+          .catch(() => {
+            // Scope directory unreadable — skip it
+          }),
+      );
+    }
+  }
+
+  await Promise.all([...unscopedChecks, ...scopeDirScans]);
+  return found;
+};
+
+/**
+ * Discover globally installed npm plugin packages.
+ *
+ * Scans global node_modules directories (from both npm and bun) for packages
+ * matching the opentabs-plugin-* naming convention. Each match is validated
+ * by checking for a package.json with an `opentabs` field.
+ *
+ * Returns an array of absolute directory paths for discovered plugins,
+ * plus any non-fatal errors encountered during scanning.
+ */
+const discoverGlobalNpmPlugins = async (): Promise<{ dirs: string[]; errors: string[] }> => {
+  const globalPaths = getGlobalNodeModulesPaths();
+  const errors: string[] = [];
+
+  if (globalPaths.length === 0) {
+    log.info('No global node_modules paths found — skipping npm auto-discovery');
+    return { dirs: [], errors };
+  }
+
+  log.info(`Scanning global node_modules for plugins: ${globalPaths.join(', ')}`);
+
+  const allDirs: string[] = [];
+  const seen = new Set<string>();
+
+  for (const globalDir of globalPaths) {
+    try {
+      const dirs = await scanGlobalDir(globalDir);
+      for (const dir of dirs) {
+        // Deduplicate across npm/bun global paths (same package may appear in both)
+        if (!seen.has(dir)) {
+          seen.add(dir);
+          allDirs.push(dir);
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      errors.push(`Error scanning ${globalDir}: ${msg}`);
+    }
+  }
+
+  log.info(`Auto-discovered ${allDirs.length} npm plugin(s) globally`);
+  return { dirs: allDirs, errors };
+};
+
+/** Reset the cached global paths (for testing). */
+const resetGlobalPathsCache = (): void => {
+  cachedGlobalPaths = null;
+};
+
+export { discoverGlobalNpmPlugins, isAllowedPluginPath, isLocalPath, resetGlobalPathsCache, resolvePluginPath };

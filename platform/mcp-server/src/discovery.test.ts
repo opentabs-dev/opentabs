@@ -1,7 +1,8 @@
 import { determineTrustTier } from './discovery.js';
 import { checkBrowserToolReferences, pluginNameFromPackage } from './loader.js';
-import { isAllowedPluginPath } from './resolver.js';
-import { describe, expect, test } from 'bun:test';
+import { discoverGlobalNpmPlugins, isAllowedPluginPath, resetGlobalPathsCache } from './resolver.js';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -149,5 +150,177 @@ describe('isAllowedPluginPath', () => {
     const home = homedir();
     const fakePrefix = home + 'bar';
     expect(await isAllowedPluginPath(fakePrefix)).toBe(false);
+  });
+});
+
+describe('discoverGlobalNpmPlugins', () => {
+  /** Helper to write a valid opentabs plugin package.json */
+  const writePluginPkgJson = (dir: string, name: string): void => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'package.json'),
+      JSON.stringify({
+        name,
+        version: '1.0.0',
+        main: 'dist/adapter.iife.js',
+        opentabs: { displayName: name, description: 'Test plugin', urlPatterns: ['*://*.example.com/*'] },
+      }),
+    );
+  };
+
+  /** Helper to write a package.json without the opentabs field */
+  const writeNonPluginPkgJson = (dir: string, name: string): void => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version: '1.0.0' }));
+  };
+
+  /** Mock result matching the shape returned by Bun.spawnSync */
+  const spawnResult = (exitCode: number, stdout: string) =>
+    ({ exitCode, stdout: Buffer.from(stdout), stderr: Buffer.from('') }) as ReturnType<typeof Bun.spawnSync>;
+
+  /**
+   * Create a mock for Bun.spawnSync that intercepts string[] calls.
+   * The mock extracts the command array from either the string[] overload
+   * or the { cmd: string[] } overload, then delegates to the provided handler.
+   */
+  const mockSpawnSync = (handler: (cmd: string[]) => ReturnType<typeof Bun.spawnSync>): void => {
+    Bun.spawnSync = ((...args: unknown[]) => {
+      const first = args[0];
+      const cmd = Array.isArray(first) ? (first as string[]) : (first as { cmd: string[] }).cmd;
+      return handler(cmd);
+    }) as typeof Bun.spawnSync;
+  };
+
+  let tempDir: string;
+  let originalSpawnSync: typeof Bun.spawnSync;
+
+  beforeEach(() => {
+    tempDir = mkdtempSync(join(tmpdir(), 'opentabs-resolver-test-'));
+    originalSpawnSync = Bun.spawnSync;
+    resetGlobalPathsCache();
+  });
+
+  afterEach(() => {
+    Bun.spawnSync = originalSpawnSync;
+    resetGlobalPathsCache();
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  test('discovers unscoped opentabs-plugin-* packages', async () => {
+    const globalDir = join(tempDir, 'node_modules');
+    writePluginPkgJson(join(globalDir, 'opentabs-plugin-slack'), 'opentabs-plugin-slack');
+    writePluginPkgJson(join(globalDir, 'opentabs-plugin-jira'), 'opentabs-plugin-jira');
+
+    mockSpawnSync(cmd => {
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, globalDir);
+      return spawnResult(1, '');
+    });
+
+    const { dirs, errors } = await discoverGlobalNpmPlugins();
+    expect(errors).toHaveLength(0);
+    expect(dirs).toHaveLength(2);
+    expect(dirs).toContain(join(globalDir, 'opentabs-plugin-slack'));
+    expect(dirs).toContain(join(globalDir, 'opentabs-plugin-jira'));
+  });
+
+  test('discovers scoped @org/opentabs-plugin-* packages', async () => {
+    const globalDir = join(tempDir, 'node_modules');
+    writePluginPkgJson(join(globalDir, '@myorg', 'opentabs-plugin-foo'), '@myorg/opentabs-plugin-foo');
+
+    mockSpawnSync(cmd => {
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, globalDir);
+      return spawnResult(1, '');
+    });
+
+    const { dirs, errors } = await discoverGlobalNpmPlugins();
+    expect(errors).toHaveLength(0);
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0]).toBe(join(globalDir, '@myorg', 'opentabs-plugin-foo'));
+  });
+
+  test('skips packages without opentabs field', async () => {
+    const globalDir = join(tempDir, 'node_modules');
+    writePluginPkgJson(join(globalDir, 'opentabs-plugin-valid'), 'opentabs-plugin-valid');
+    writeNonPluginPkgJson(join(globalDir, 'opentabs-plugin-invalid'), 'opentabs-plugin-invalid');
+
+    mockSpawnSync(cmd => {
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, globalDir);
+      return spawnResult(1, '');
+    });
+
+    const { dirs } = await discoverGlobalNpmPlugins();
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0]).toBe(join(globalDir, 'opentabs-plugin-valid'));
+  });
+
+  test('ignores non-plugin packages', async () => {
+    const globalDir = join(tempDir, 'node_modules');
+    writeNonPluginPkgJson(join(globalDir, 'express'), 'express');
+    writeNonPluginPkgJson(join(globalDir, 'lodash'), 'lodash');
+    writePluginPkgJson(join(globalDir, 'opentabs-plugin-only'), 'opentabs-plugin-only');
+
+    mockSpawnSync(cmd => {
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, globalDir);
+      return spawnResult(1, '');
+    });
+
+    const { dirs } = await discoverGlobalNpmPlugins();
+    expect(dirs).toHaveLength(1);
+    expect(dirs[0]).toBe(join(globalDir, 'opentabs-plugin-only'));
+  });
+
+  test('returns empty when no global paths found', async () => {
+    mockSpawnSync(() => spawnResult(1, ''));
+
+    const { dirs, errors } = await discoverGlobalNpmPlugins();
+    expect(dirs).toHaveLength(0);
+    expect(errors).toHaveLength(0);
+  });
+
+  test('returns empty when global directory does not exist', async () => {
+    const nonExistent = join(tempDir, 'does-not-exist');
+
+    mockSpawnSync(cmd => {
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, nonExistent);
+      return spawnResult(1, '');
+    });
+
+    const { dirs, errors } = await discoverGlobalNpmPlugins();
+    expect(dirs).toHaveLength(0);
+    expect(errors).toHaveLength(0);
+  });
+
+  test('deduplicates plugins found in both npm and bun global paths', async () => {
+    const globalDir = join(tempDir, 'node_modules');
+    writePluginPkgJson(join(globalDir, 'opentabs-plugin-slack'), 'opentabs-plugin-slack');
+
+    mockSpawnSync(cmd => {
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, globalDir);
+      if (cmd[0] === 'bun' && cmd[1] === 'pm') return spawnResult(0, join(tempDir, 'bin'));
+      return spawnResult(1, '');
+    });
+
+    const { dirs } = await discoverGlobalNpmPlugins();
+    expect(dirs).toHaveLength(1);
+  });
+
+  test('caches global paths across calls', async () => {
+    const globalDir = join(tempDir, 'node_modules');
+    mkdirSync(globalDir, { recursive: true });
+
+    let callCount = 0;
+    Bun.spawnSync = ((...args: unknown[]) => {
+      callCount++;
+      const first = args[0];
+      const cmd = Array.isArray(first) ? (first as string[]) : (first as { cmd: string[] }).cmd;
+      if (cmd[0] === 'npm' && cmd[1] === 'root') return spawnResult(0, globalDir);
+      return spawnResult(1, '');
+    }) as typeof Bun.spawnSync;
+
+    await discoverGlobalNpmPlugins();
+    const firstCallCount = callCount;
+
+    await discoverGlobalNpmPlugins();
+    expect(callCount).toBe(firstCallCount);
   });
 });
