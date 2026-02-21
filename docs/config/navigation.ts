@@ -3,46 +3,74 @@ import type { INavigationConfig } from '@/types';
 export const navConfig: INavigationConfig = {
   topNavItems: [
     { title: 'Docs', href: '/docs' },
-    { title: 'Plugins', href: '/docs/plugins/slack' },
+    { title: 'SDK', href: '/docs/sdk/plugin-class' },
   ],
   sideNavItems: [
     {
       title: 'Getting Started',
       children: [
         { title: 'Introduction', href: '/docs' },
+        { title: 'Quick Start', href: '/docs/quick-start' },
         { title: 'Installation', href: '/docs/install' },
+        { title: 'Your First Plugin', href: '/docs/first-plugin' },
       ],
     },
     {
-      title: 'Concepts',
+      title: 'Guides',
       children: [
-        { title: 'Architecture', href: '/docs/concepts/architecture' },
-        { title: 'Plugin System', href: '/docs/concepts/plugin-system' },
         {
-          title: 'Tab State Machine',
-          href: '/docs/concepts/tab-state-machine',
+          title: 'Plugin Development',
+          href: '/docs/guides/plugin-development',
         },
-        { title: 'Browser Tools', href: '/docs/concepts/browser-tools' },
-      ],
-    },
-    {
-      title: 'Plugins',
-      children: [
-        { title: 'Plugin SDK', href: '/docs/plugins/plugin-sdk' },
+        { title: 'Error Handling', href: '/docs/guides/error-handling' },
         {
-          title: 'Creating a Plugin',
-          href: '/docs/plugins/creating-a-plugin',
+          title: 'Logging & Debugging',
+          href: '/docs/guides/logging-debugging',
         },
-        { title: 'Slack', href: '/docs/plugins/slack' },
+        {
+          title: 'Resources & Prompts',
+          href: '/docs/guides/resources-prompts',
+        },
+        {
+          title: 'Streaming & Progress',
+          href: '/docs/guides/streaming-progress',
+        },
       ],
     },
     {
-      title: 'Reference',
+      title: 'SDK Reference',
       children: [
-        { title: 'Configuration', href: '/docs/reference/configuration' },
+        { title: 'Plugin Class', href: '/docs/sdk/plugin-class' },
+        { title: 'Tools', href: '/docs/sdk/tools' },
+        { title: 'Resources', href: '/docs/sdk/resources' },
+        { title: 'Prompts', href: '/docs/sdk/prompts' },
+        { title: 'Utilities', href: '/docs/sdk/utilities' },
+        { title: 'Lifecycle Hooks', href: '/docs/sdk/lifecycle-hooks' },
+        { title: 'Error Types', href: '/docs/sdk/error-types' },
+      ],
+    },
+    {
+      title: 'Server Reference',
+      children: [
         { title: 'CLI Commands', href: '/docs/reference/cli' },
+        { title: 'Configuration', href: '/docs/reference/configuration' },
         { title: 'MCP Server', href: '/docs/reference/mcp-server' },
-        { title: 'Troubleshooting', href: '/docs/reference/troubleshooting' },
+        { title: 'Browser Tools', href: '/docs/reference/browser-tools' },
+        {
+          title: 'Troubleshooting',
+          href: '/docs/reference/troubleshooting',
+        },
+      ],
+    },
+    {
+      title: 'Contributing',
+      children: [
+        {
+          title: 'Development Setup',
+          href: '/docs/contributing/dev-setup',
+        },
+        { title: 'Architecture', href: '/docs/contributing/architecture' },
+        { title: 'Publishing', href: '/docs/contributing/publishing' },
       ],
     },
   ],
