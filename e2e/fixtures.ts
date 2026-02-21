@@ -47,6 +47,7 @@ const E2E_TEST_PLUGIN_DIR = path.join(ROOT, 'plugins/e2e-test');
 interface HealthResponse {
   status: string;
   version: string;
+  mode: 'dev' | 'production';
   extensionConnected: boolean;
   mcpClients: number;
   plugins: number;
@@ -362,7 +363,8 @@ const createServerWrapper = (): {
 const startMcpServer = (configDir: string, hot: boolean = true, explicitPort?: number): Promise<McpServer> =>
   new Promise<McpServer>((resolve, reject) => {
     const { wrapperDir, entryFile, rewriteWrapper } = createServerWrapper();
-    const args = hot ? ['--hot', entryFile] : [entryFile];
+    // E2E tests require dev mode (file watchers, hot reload, config watching).
+    const args = hot ? ['--hot', entryFile, '--dev'] : [entryFile, '--dev'];
 
     // PORT=0 → Bun.serve() picks a free ephemeral port, no EADDRINUSE.
     // If explicitPort is provided (e.g., kill/restart test reusing the same
