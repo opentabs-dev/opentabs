@@ -18,6 +18,7 @@
  *   /trpc-app/          — tRPC-style API with /api/trpc/<procedure> endpoints
  *   /mixed-auth/        — Mixed auth: cookie session + CSRF meta/hidden + Bearer token from window global
  *   /websocket-app/     — WebSocket real-time connection with auth token in URL
+ *   /spa-app/           — SPA with client-side pushState routing and simulated React globals
  *
  * Start: `bun e2e/analyze-site-test-server.ts`
  * Default port: 0 (dynamic, override with PORT env var)
@@ -691,6 +692,83 @@ const WEBSOCKET_HTML = `<!DOCTYPE html>
 </html>`;
 
 // ---------------------------------------------------------------------------
+// SPA with client-side routing scenario HTML
+// ---------------------------------------------------------------------------
+
+/**
+ * Simulates a React-like SPA with client-side routing:
+ * - Simulated __REACT_DEVTOOLS_GLOBAL_HOOK__ global (triggers React framework detection)
+ * - Single div#root element (triggers SPA container detection)
+ * - Client-side pushState navigation between "routes"
+ * - No actual React — just the globals and DOM structure the detector looks for
+ */
+const SPA_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPA React Test App</title>
+</head>
+<body>
+  <div id="root">
+    <nav>
+      <a href="/spa-app/home" data-route="home">Home</a>
+      <a href="/spa-app/about" data-route="about">About</a>
+      <a href="/spa-app/settings" data-route="settings">Settings</a>
+    </nav>
+    <main id="content">
+      <h1>Home Page</h1>
+      <p>Welcome to the SPA.</p>
+    </main>
+  </div>
+
+  <script>
+    // Simulate React DevTools global hook (detected by the framework probe script)
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+      renderers: new Map([[1, { version: '18.2.0', bundleType: 1 }]]),
+      supportsFiber: true,
+      inject: function() {},
+      onCommitFiberRoot: function() {},
+      onCommitFiberUnmount: function() {}
+    };
+
+    // Client-side router using pushState
+    var routes = {
+      home: '<h1>Home Page</h1><p>Welcome to the SPA.</p>',
+      about: '<h1>About Page</h1><p>This is a single-page application.</p>',
+      settings: '<h1>Settings Page</h1><p>Manage your preferences.</p>'
+    };
+
+    function navigate(route) {
+      var content = routes[route] || routes.home;
+      document.getElementById('content').innerHTML = content;
+      history.pushState({ route: route }, '', '/spa-app/' + route);
+    }
+
+    // Handle link clicks with pushState instead of full page navigation
+    document.addEventListener('click', function(e) {
+      var link = e.target.closest('[data-route]');
+      if (link) {
+        e.preventDefault();
+        navigate(link.getAttribute('data-route'));
+      }
+    });
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', function(e) {
+      if (e.state && e.state.route) {
+        var content = routes[e.state.route] || routes.home;
+        document.getElementById('content').innerHTML = content;
+      }
+    });
+
+    // Do an initial pushState to mark SPA routing as active
+    history.replaceState({ route: 'home' }, '', '/spa-app/home');
+  </script>
+</body>
+</html>`;
+
+// ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
 
@@ -1301,6 +1379,17 @@ const server = Bun.serve({
         }),
         { headers: { 'Content-Type': 'application/json' } },
       );
+    }
+
+    // ===================================================================
+    // SPA with client-side routing scenario
+    // ===================================================================
+
+    // Page — serves SPA HTML for any /spa-app/ path (simulates catch-all route)
+    if (path.startsWith('/spa-app')) {
+      return new Response(SPA_HTML, {
+        headers: { 'Content-Type': 'text/html' },
+      });
     }
 
     // --- 404 ---

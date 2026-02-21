@@ -541,3 +541,30 @@ test.describe('plugin_analyze_site — mixed auth (cookie + CSRF + Bearer)', () 
     expect(analysis.title).toBe('Mixed Auth Test App');
   });
 });
+
+test.describe('plugin_analyze_site — SPA with client-side routing', () => {
+  test('detects SPA with React framework and client-side routing', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const siteUrl = `${analyzeSiteServer.url}/spa-app/`;
+    const analysis = await analyzeSite(mcpClient, siteUrl);
+
+    // --- Framework detection ---
+    // The page sets window.__REACT_DEVTOOLS_GLOBAL_HOOK__ with renderers
+    const reactFramework = analysis.framework.frameworks.find(f => f.name === 'react');
+    expect(reactFramework).toBeDefined();
+    expect(reactFramework?.version).toBe('18.2.0');
+
+    // --- SPA detection ---
+    // React is in the known SPA frameworks list, and the page has a div#root
+    expect(analysis.framework.isSPA).toBe(true);
+
+    // --- Title ---
+    expect(analysis.title).toBe('SPA React Test App');
+  });
+});
