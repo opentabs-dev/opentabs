@@ -81,10 +81,12 @@ export abstract class OpenTabsPlugin {
   teardown?(): void;
 }
 
-/**
- * Typed error for tool handlers — the platform catches these
- * and returns structured MCP error responses.
- */
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
+export { ToolError } from './errors.js';
+
 // ---------------------------------------------------------------------------
 // SDK utilities — DOM
 // ---------------------------------------------------------------------------
@@ -93,16 +95,8 @@ export { waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextConte
 export type { WaitForSelectorOptions, ObserveDOMOptions } from './dom.js';
 
 // ---------------------------------------------------------------------------
-// Errors
+// SDK utilities — Fetch
 // ---------------------------------------------------------------------------
 
-export class ToolError extends Error {
-  constructor(
-    message: string,
-    /** Machine-readable error code (e.g., 'CHANNEL_NOT_FOUND') */
-    public readonly code: string,
-  ) {
-    super(message);
-    this.name = 'ToolError';
-  }
-}
+export { fetchFromPage, fetchJSON, postJSON } from './fetch.js';
+export type { FetchFromPageOptions } from './fetch.js';
