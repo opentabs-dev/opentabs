@@ -84,7 +84,7 @@ const handleStatus = async (options: StatusOptions): Promise<void> => {
       console.log(`${pad('MCP clients')}${mcpClients > 0 ? pc.green(String(mcpClients)) : pc.dim('0')}`);
       console.log(`${pad('Plugins')}${plugins > 0 ? pc.green(String(plugins)) : pc.yellow('0')}`);
       console.log(`${pad('Tools')}${toolCount > 0 ? pc.green(String(toolCount)) : pc.dim('0')}`);
-      console.log(`${pad('Reloads')}${String(data.reloadCount)}`);
+      console.log(`${pad('Plugin reloads')}${String(data.reloadCount)}`);
 
       if (pluginDetails.length > 0) {
         console.log('');
