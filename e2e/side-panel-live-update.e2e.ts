@@ -52,8 +52,9 @@ test.describe('Side panel live-update — plugins.changed notification', () => {
       // 2. Open the side panel
       const sidePanelPage = await openSidePanel(context);
 
-      // 3. Verify side panel initially shows empty state
-      await expect(sidePanelPage.locator('text=No Plugins')).toBeVisible({ timeout: 10_000 });
+      // 3. Verify side panel initially shows onboarding state (fresh extension,
+      //    no hasEverHadPlugins flag in chrome.storage.local)
+      await expect(sidePanelPage.locator('text=Welcome to OpenTabs')).toBeVisible({ timeout: 10_000 });
 
       // 4. Add a plugin by modifying config.json
       const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
@@ -67,7 +68,7 @@ test.describe('Side panel live-update — plugins.changed notification', () => {
       // 5. Verify the side panel DOM updates to show the new plugin.
       //    The App.tsx listener detects ws:message with sync.full (broadcast by
       //    the offscreen document) and triggers a config.getState refetch.
-      await expect(sidePanelPage.locator('text=No Plugins')).toBeHidden({ timeout: 30_000 });
+      await expect(sidePanelPage.locator('text=Welcome to OpenTabs')).toBeHidden({ timeout: 30_000 });
       await expect(sidePanelPage.locator('button[aria-expanded]')).toBeVisible({ timeout: 10_000 });
       await expect(sidePanelPage.locator('text=E2E Test')).toBeVisible({ timeout: 5_000 });
 
