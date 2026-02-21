@@ -1,488 +1,110 @@
 /**
- * Plugin discovery module.
+ * Plugin discovery orchestrator.
  *
- * Discovers plugins from:
- * 1. node_modules (packages matching opentabs-plugin-* or @* /opentabs-plugin-*)
- * 2. Packages with 'opentabs-plugin' keyword in package.json
- * 3. Local filesystem paths from ~/.opentabs/config.json
- *
- * For each plugin: reads opentabs-plugin.json manifest and dist/adapter.iife.js,
- * determines trust tier, validates, and registers in server state.
- *
- * Returns a new Map of plugins — the caller swaps it onto state atomically
- * to avoid a window where state.plugins is empty during async discovery.
+ * Composes the resolve → load → register pipeline into a single function.
+ * Each specifier from config.plugins is resolved to an absolute path,
+ * loaded into a LoadedPlugin, and assembled into an immutable PluginRegistry.
+ * Errors at any phase are collected and returned alongside successful results.
  */
 
-import { browserTools } from './browser-tools/index.js';
+import { loadPlugin } from './loader.js';
 import { log } from './logger.js';
-import { parseManifest } from './manifest-schema.js';
-import { isAllowedPluginPath } from './resolver.js';
-import { validatePluginName, validateUrlPattern } from '@opentabs-dev/shared';
-import { readdir, stat } from 'node:fs/promises';
-import { join, resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { FailedPlugin, RegisteredPlugin } from './state.js';
+import { buildRegistry } from './registry.js';
+import { isLocalPath, resolvePluginPath } from './resolver.js';
+import { isErr } from '@opentabs-dev/shared';
+import type { LoadedPlugin } from './loader.js';
+import type { PluginRegistry } from './registry.js';
+import type { FailedPlugin } from './state.js';
 import type { TrustTier } from '@opentabs-dev/shared';
 
-/**
- * The mcp-server package root directory, resolved from this module's URL.
- * Used as the default rootDir for npm plugin discovery so that `node_modules`
- * scanning works regardless of the process's working directory.
- */
-const PACKAGE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-
-/** Result of attempting to load a single plugin */
+/** Result of full plugin discovery */
 interface DiscoveryResult {
-  plugin: RegisteredPlugin;
-  source: string;
+  readonly registry: PluginRegistry;
+  readonly errors: readonly DiscoveryError[];
+}
+
+/** A single discovery failure, tied to the specifier that caused it */
+interface DiscoveryError {
+  readonly specifier: string;
+  readonly error: string;
 }
 
 /**
- * Extract the plugin name from an npm package name.
- * opentabs-plugin-slack → slack
- * @myorg/opentabs-plugin-jira → myorg-jira
+ * Determine trust tier from a plugin specifier.
+ * Local paths are 'local', @opentabs-dev/ packages are 'official',
+ * all other npm packages are 'community'.
  */
-const pluginNameFromPackage = (pkgName: string): string => {
-  if (pkgName.startsWith('@')) {
-    // Scoped: @scope/opentabs-plugin-name → scope-name
-    const parts = pkgName.split('/');
-    const scopePart = parts[0] ?? '';
-    const namePart = parts[1] ?? '';
-    const scope = scopePart.slice(1); // remove @
-    const pluginSuffix = namePart.replace(/^opentabs-plugin-/, '');
-    return `${scope}-${pluginSuffix}`;
-  }
-  return pkgName.replace(/^opentabs-plugin-/, '');
-};
-
-/**
- * Determine trust tier from how the plugin was discovered.
- */
-const determineTrustTier = (pkgName: string | null, isLocal: boolean): TrustTier => {
-  if (isLocal) return 'local';
-  if (pkgName && pkgName.startsWith('@opentabs-dev/')) return 'official';
+const determineTrustTier = (specifier: string): TrustTier => {
+  if (isLocalPath(specifier)) return 'local';
+  if (specifier.startsWith('@opentabs-dev/')) return 'official';
   return 'community';
 };
 
 /**
- * Load a single plugin from a directory.
- * Reads opentabs-plugin.json and dist/adapter.iife.js.
- */
-const loadPluginFromDir = async (
-  dir: string,
-  trustTier: TrustTier,
-  npmPkgName: string | null,
-  sourcePath?: string,
-): Promise<RegisteredPlugin> => {
-  const manifestPath = join(dir, 'opentabs-plugin.json');
-  const iifePath = join(dir, 'dist', 'adapter.iife.js');
-
-  // Read and validate manifest
-  const manifestRaw = await Bun.file(manifestPath).text();
-  const manifest = parseManifest(manifestRaw, manifestPath);
-
-  // Derive the internal plugin name.
-  // Handles both bare names ("slack") and legacy prefixed names ("opentabs-plugin-slack").
-  let pluginName: string;
-  if (npmPkgName) {
-    pluginName = pluginNameFromPackage(npmPkgName);
-    const manifestBare = manifest.name.replace(/^opentabs-plugin-/, '');
-    if (manifestBare !== pluginName) {
-      log.warn(
-        `Plugin manifest name "${manifest.name}" doesn't match package name "${npmPkgName}" (expected plugin name: ${pluginName}, got: ${manifestBare})`,
-      );
-    }
-  } else {
-    // Local plugin — strip legacy prefix if present
-    pluginName = manifest.name.replace(/^opentabs-plugin-/, '');
-  }
-
-  // Validate plugin name
-  const nameError = validatePluginName(pluginName);
-  if (nameError) {
-    throw new Error(nameError);
-  }
-
-  // Validate URL patterns
-  for (const pattern of manifest.url_patterns) {
-    const patternError = validateUrlPattern(pattern);
-    if (patternError) throw new Error(patternError);
-  }
-
-  // Warn if any tool description references browser tool names (possible prompt injection)
-  for (const match of checkBrowserToolReferences(manifest.tools)) {
-    log.warn(
-      `Plugin "${pluginName}" tool "${match.toolName}" description references browser tool "${match.browserToolName}" — possible prompt injection attempt`,
-    );
-  }
-
-  // Read IIFE — reject missing, empty, or oversized files
-  const MAX_IIFE_SIZE = 5 * 1024 * 1024;
-  const iifeFile = Bun.file(iifePath);
-  if (!(await iifeFile.exists())) {
-    throw new Error(`Adapter IIFE not found at ${iifePath}`);
-  }
-  const iifeSize = iifeFile.size;
-  if (iifeSize > MAX_IIFE_SIZE) {
-    throw new Error(
-      `Adapter IIFE for "${pluginName}" is ${(iifeSize / 1024 / 1024).toFixed(1)}MB, exceeding the 5MB limit`,
-    );
-  }
-  const iife = await iifeFile.text();
-  if (iife.length === 0) {
-    throw new Error(`Adapter IIFE at ${iifePath} is empty — rebuild the plugin`);
-  }
-
-  return {
-    name: pluginName,
-    version: manifest.version,
-    displayName: manifest.displayName,
-    urlPatterns: manifest.url_patterns,
-    trustTier,
-    iife,
-    tools: manifest.tools.map(t => ({
-      name: t.name,
-      displayName: t.displayName,
-      description: t.description,
-      icon: t.icon,
-      input_schema: t.input_schema,
-      output_schema: t.output_schema,
-    })),
-    adapterHash: manifest.adapterHash,
-    sourcePath,
-    npmPackageName: npmPkgName ?? undefined,
-  };
-};
-
-/**
- * Check if a directory exists and is accessible.
- */
-const dirExists = async (path: string): Promise<boolean> => {
-  try {
-    const s = await stat(path);
-    return s.isDirectory();
-  } catch {
-    return false;
-  }
-};
-
-/**
- * Check if a file exists and is accessible.
- */
-const fileExists = async (path: string): Promise<boolean> => Bun.file(path).exists();
-
-/**
- * Scan node_modules for opentabs plugins.
- * Looks for:
- * 1. node_modules/opentabs-plugin-* directories
- * 2. node_modules/@* /opentabs-plugin-* directories (scoped packages)
- * 3. Any package with 'opentabs-plugin' keyword in package.json
+ * Discover plugins from an array of specifiers (npm package names or local paths).
  *
- * Only packages listed in allowedPackages are loaded. Discovered packages
- * not in the allow list are logged as skipped with instructions to add them.
- */
-const discoverFromNodeModules = async (rootDir: string, allowedPackages: string[]): Promise<DiscoveryResult[]> => {
-  const allowedSet = new Set(allowedPackages);
-  const results: DiscoveryResult[] = [];
-  const nodeModulesDir = join(rootDir, 'node_modules');
-
-  if (!(await dirExists(nodeModulesDir))) {
-    return results;
-  }
-
-  let entries: string[];
-  try {
-    entries = await readdir(nodeModulesDir);
-  } catch {
-    return results;
-  }
-
-  // Track already-discovered package dirs to avoid duplicate keyword scan
-  const discoveredDirs = new Set<string>();
-
-  // 1. Direct matches: opentabs-plugin-*
-  for (const entry of entries) {
-    if (!entry.startsWith('opentabs-plugin-')) continue;
-    const pkgDir = join(nodeModulesDir, entry);
-    if (!(await dirExists(pkgDir))) continue;
-    if (!(await fileExists(join(pkgDir, 'opentabs-plugin.json')))) continue;
-
-    if (!allowedSet.has(entry)) {
-      log.info(
-        `Skipping npm plugin "${entry}" — not listed in config.npmPlugins. Add it to ~/.opentabs/config.json to enable.`,
-      );
-      discoveredDirs.add(pkgDir);
-      continue;
-    }
-
-    const trustTier = determineTrustTier(entry, false);
-    try {
-      const plugin = await loadPluginFromDir(pkgDir, trustTier, entry);
-      results.push({ plugin, source: `node_modules/${entry}` });
-      discoveredDirs.add(pkgDir);
-    } catch (err) {
-      log.error(`Failed to load plugin from node_modules/${entry}:`, err);
-    }
-  }
-
-  // 2. Scoped packages: @scope/opentabs-plugin-*
-  for (const entry of entries) {
-    if (!entry.startsWith('@')) continue;
-    const scopeDir = join(nodeModulesDir, entry);
-    if (!(await dirExists(scopeDir))) continue;
-
-    let scopeEntries: string[];
-    try {
-      scopeEntries = await readdir(scopeDir);
-    } catch {
-      continue;
-    }
-
-    for (const scopeEntry of scopeEntries) {
-      if (!scopeEntry.startsWith('opentabs-plugin-')) continue;
-      const pkgDir = join(scopeDir, scopeEntry);
-      if (!(await dirExists(pkgDir))) continue;
-      if (!(await fileExists(join(pkgDir, 'opentabs-plugin.json')))) continue;
-
-      const fullPkgName = `${entry}/${scopeEntry}`;
-
-      if (!allowedSet.has(fullPkgName)) {
-        log.info(
-          `Skipping npm plugin "${fullPkgName}" — not listed in config.npmPlugins. Add it to ~/.opentabs/config.json to enable.`,
-        );
-        discoveredDirs.add(pkgDir);
-        continue;
-      }
-
-      const trustTier = determineTrustTier(fullPkgName, false);
-      try {
-        const plugin = await loadPluginFromDir(pkgDir, trustTier, fullPkgName);
-        results.push({
-          plugin,
-          source: `node_modules/${fullPkgName}`,
-        });
-        discoveredDirs.add(pkgDir);
-      } catch (err) {
-        log.error(`Failed to load plugin from node_modules/${fullPkgName}:`, err);
-      }
-    }
-  }
-
-  // 3. Keyword fallback: scan remaining packages for 'opentabs-plugin' keyword.
-  // Check for opentabs-plugin.json first (cheap stat) before reading package.json (expensive parse).
-  for (const entry of entries) {
-    if (entry.startsWith('.') || entry.startsWith('@')) continue;
-    if (entry.startsWith('opentabs-plugin-')) continue; // Already checked
-
-    const pkgDir = join(nodeModulesDir, entry);
-    if (discoveredDirs.has(pkgDir)) continue;
-    if (!(await dirExists(pkgDir))) continue;
-    if (!(await fileExists(join(pkgDir, 'opentabs-plugin.json')))) continue;
-
-    const pkgJsonPath = join(pkgDir, 'package.json');
-    if (!(await fileExists(pkgJsonPath))) continue;
-
-    try {
-      const pkgJson = JSON.parse(await Bun.file(pkgJsonPath).text()) as Record<string, unknown>;
-      const keywords = pkgJson.keywords as string[] | undefined;
-      if (!Array.isArray(keywords) || !keywords.includes('opentabs-plugin')) continue;
-
-      if (!allowedSet.has(entry)) {
-        log.info(
-          `Skipping npm plugin "${entry}" — not listed in config.npmPlugins. Add it to ~/.opentabs/config.json to enable.`,
-        );
-        discoveredDirs.add(pkgDir);
-        continue;
-      }
-
-      const trustTier = determineTrustTier(entry, false);
-      const plugin = await loadPluginFromDir(pkgDir, trustTier, entry);
-      results.push({ plugin, source: `node_modules/${entry} (keyword)` });
-      discoveredDirs.add(pkgDir);
-    } catch (err) {
-      log.error(`Failed to load plugin from node_modules/${entry} (keyword):`, err);
-    }
-  }
-
-  // Keyword scan for scoped packages too
-  for (const entry of entries) {
-    if (!entry.startsWith('@')) continue;
-    const scopeDir = join(nodeModulesDir, entry);
-    if (!(await dirExists(scopeDir))) continue;
-
-    let scopeEntries: string[];
-    try {
-      scopeEntries = await readdir(scopeDir);
-    } catch {
-      continue;
-    }
-
-    for (const scopeEntry of scopeEntries) {
-      if (scopeEntry.startsWith('opentabs-plugin-')) continue; // Already checked
-      const pkgDir = join(scopeDir, scopeEntry);
-      if (discoveredDirs.has(pkgDir)) continue;
-      if (!(await dirExists(pkgDir))) continue;
-      if (!(await fileExists(join(pkgDir, 'opentabs-plugin.json')))) continue;
-
-      const pkgJsonPath = join(pkgDir, 'package.json');
-      if (!(await fileExists(pkgJsonPath))) continue;
-
-      try {
-        const pkgJson = JSON.parse(await Bun.file(pkgJsonPath).text()) as Record<string, unknown>;
-        const keywords = pkgJson.keywords as string[] | undefined;
-        if (!Array.isArray(keywords) || !keywords.includes('opentabs-plugin')) continue;
-
-        const fullPkgName = `${entry}/${scopeEntry}`;
-
-        if (!allowedSet.has(fullPkgName)) {
-          log.info(
-            `Skipping npm plugin "${fullPkgName}" — not listed in config.npmPlugins. Add it to ~/.opentabs/config.json to enable.`,
-          );
-          discoveredDirs.add(pkgDir);
-          continue;
-        }
-
-        const trustTier = determineTrustTier(fullPkgName, false);
-        const plugin = await loadPluginFromDir(pkgDir, trustTier, fullPkgName);
-        results.push({
-          plugin,
-          source: `node_modules/${fullPkgName} (keyword)`,
-        });
-        discoveredDirs.add(pkgDir);
-      } catch (err) {
-        log.error(`Failed to load plugin from node_modules/${entry}/${scopeEntry} (keyword):`, err);
-      }
-    }
-  }
-
-  return results;
-};
-
-const discoverFromLocalPaths = async (
-  paths: string[],
-): Promise<{ results: DiscoveryResult[]; failures: FailedPlugin[] }> => {
-  const results: DiscoveryResult[] = [];
-  const failures: FailedPlugin[] = [];
-
-  for (const pluginPath of paths) {
-    const resolvedPath = resolve(pluginPath);
-
-    if (!(await isAllowedPluginPath(resolvedPath))) {
-      const msg = `Rejected plugin path outside allowed directories: ${resolvedPath}`;
-      log.warn(msg);
-      failures.push({ path: resolvedPath, error: 'Path is outside allowed directories' });
-      continue;
-    }
-
-    if (!(await dirExists(resolvedPath))) {
-      const msg = `Local plugin path does not exist: ${resolvedPath}`;
-      log.warn(msg);
-      failures.push({ path: resolvedPath, error: 'Directory does not exist' });
-      continue;
-    }
-
-    if (!(await fileExists(join(resolvedPath, 'opentabs-plugin.json')))) {
-      const msg = `No opentabs-plugin.json found at: ${resolvedPath}`;
-      log.warn(msg);
-      failures.push({ path: resolvedPath, error: 'No opentabs-plugin.json found' });
-      continue;
-    }
-
-    try {
-      const plugin = await loadPluginFromDir(resolvedPath, 'local', null, resolvedPath);
-      results.push({ plugin, source: resolvedPath });
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      log.error(`Failed to load local plugin from ${resolvedPath}:`, err);
-      failures.push({ path: resolvedPath, error: errorMsg });
-    }
-  }
-
-  return { results, failures };
-};
-
-/**
- * Run full plugin discovery: node_modules + local paths.
- * Returns a new Map of discovered plugins — the caller swaps it onto
- * state.plugins atomically to avoid a window where plugins is empty.
+ * Phase 1: Resolve all specifiers to absolute directory paths in parallel.
+ * Phase 2: Load all resolved directories in parallel.
+ * Phase 3: Determine trust tier for each from the original specifier.
+ * Phase 4: Build an immutable PluginRegistry from loaded plugins.
  *
- * @param allowedNpmPackages - npm package names explicitly allowed for loading.
- *   Only packages in this list are loaded from node_modules. Empty array means
- *   no npm plugins are loaded.
+ * Errors from any phase are collected and returned — successful plugins
+ * continue even if some fail.
  */
-/** Result of full plugin discovery: successfully loaded plugins and failed paths */
-interface DiscoveryOutcome {
-  plugins: Map<string, RegisteredPlugin>;
-  failures: FailedPlugin[];
-}
-
-const discoverPlugins = async (
-  localPaths: string[],
-  allowedNpmPackages: string[],
-  rootDir?: string,
-): Promise<DiscoveryOutcome> => {
-  const resolvedRoot = rootDir ?? PACKAGE_DIR;
-
+const discoverPlugins = async (specifiers: string[], configDir: string): Promise<DiscoveryResult> => {
   log.info('Starting plugin discovery...');
 
-  // Discover from both sources in parallel
-  const [npmResults, localDiscovery] = await Promise.all([
-    discoverFromNodeModules(resolvedRoot, allowedNpmPackages),
-    discoverFromLocalPaths(localPaths),
-  ]);
+  const errors: DiscoveryError[] = [];
+  const failures: FailedPlugin[] = [];
 
-  // Local results first so local plugins take precedence over npm in dedup
-  const allResults = [...localDiscovery.results, ...npmResults];
-  const failures = [...localDiscovery.failures];
+  // Phase 1 + 2 + 3: Resolve, load, and tag each specifier in parallel
+  const settled = await Promise.allSettled(
+    specifiers.map(async (specifier): Promise<LoadedPlugin | null> => {
+      const resolveResult = await resolvePluginPath(specifier, configDir);
+      if (isErr(resolveResult)) {
+        errors.push({ specifier, error: resolveResult.error });
+        failures.push({ path: specifier, error: resolveResult.error });
+        return null;
+      }
 
-  // Build new plugin Map, checking for duplicates
-  const plugins = new Map<string, RegisteredPlugin>();
-  let loaded = 0;
-  for (const { plugin, source } of allResults) {
-    if (plugins.has(plugin.name)) {
-      log.warn(`Duplicate plugin "${plugin.name}" from ${source} — skipping (already loaded)`);
-      continue;
+      const dir = resolveResult.value;
+      const trustTier = determineTrustTier(specifier);
+      const loadResult = await loadPlugin(dir, trustTier);
+      if (isErr(loadResult)) {
+        errors.push({ specifier, error: loadResult.error });
+        failures.push({ path: dir, error: loadResult.error });
+        return null;
+      }
+
+      return loadResult.value;
+    }),
+  );
+
+  // Collect successfully loaded plugins, skipping nulls and rejections
+  const loaded: LoadedPlugin[] = [];
+  for (const result of settled) {
+    if (result.status === 'fulfilled' && result.value !== null) {
+      loaded.push(result.value);
+    } else if (result.status === 'rejected') {
+      const errorMsg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      errors.push({ specifier: '(unknown)', error: errorMsg });
     }
+  }
 
-    plugins.set(plugin.name, plugin);
-    loaded++;
+  // Phase 4: Build immutable registry
+  const registry = buildRegistry(loaded, failures);
 
+  for (const plugin of registry.plugins.values()) {
     const toolNames = plugin.tools.map(t => t.name).join(', ');
     log.info(
-      `Discovered plugin: ${plugin.name} v${plugin.version} (${plugin.trustTier}) from ${source} — tools: [${toolNames}]`,
+      `Discovered plugin: ${plugin.name} v${plugin.version} (${plugin.trustTier}) from ${plugin.sourcePath} — tools: [${toolNames}]`,
     );
   }
 
-  log.info(`Plugin discovery complete: ${loaded} plugin(s) loaded`);
+  log.info(`Plugin discovery complete: ${registry.plugins.size} plugin(s) loaded, ${errors.length} error(s)`);
 
-  return { plugins, failures };
+  return { registry, errors };
 };
 
-/**
- * Browser tool names that should not appear in plugin tool descriptions.
- * Presence of these names may indicate a prompt injection attempt where
- * a plugin tries to instruct the AI agent to invoke browser-level tools.
- * Derived from the browserTools array so the list stays in sync automatically.
- */
-const BROWSER_TOOL_NAMES = browserTools.map(t => t.name);
-
-/**
- * Check plugin tool descriptions for references to browser tool names.
- * Returns an array of { toolName, browserToolName } for each match found.
- */
-const checkBrowserToolReferences = (
-  tools: ReadonlyArray<{ name: string; description: string }>,
-): Array<{ toolName: string; browserToolName: string }> => {
-  const matches: Array<{ toolName: string; browserToolName: string }> = [];
-  for (const tool of tools) {
-    const descLower = tool.description.toLowerCase();
-    for (const btName of BROWSER_TOOL_NAMES) {
-      if (descLower.includes(btName)) {
-        matches.push({ toolName: tool.name, browserToolName: btName });
-      }
-    }
-  }
-  return matches;
-};
-
-export { checkBrowserToolReferences, determineTrustTier, discoverPlugins, loadPluginFromDir, pluginNameFromPackage };
+export { determineTrustTier, discoverPlugins };
+export type { DiscoveryError, DiscoveryResult };

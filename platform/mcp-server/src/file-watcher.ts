@@ -21,7 +21,7 @@
  */
 
 import { getConfigDir } from './config.js';
-import { loadPluginFromDir } from './discovery.js';
+import { loadPluginFromDir } from './discovery-legacy.js';
 import { log } from './logger.js';
 import { parseManifest } from './manifest-schema.js';
 import { validateUrlPattern } from '@opentabs-dev/shared';

@@ -1,4 +1,5 @@
-import { checkBrowserToolReferences, determineTrustTier, pluginNameFromPackage } from './discovery.js';
+import { determineTrustTier } from './discovery.js';
+import { checkBrowserToolReferences, pluginNameFromPackage } from './loader.js';
 import { isAllowedPluginPath } from './resolver.js';
 import { describe, expect, test } from 'bun:test';
 import { homedir, tmpdir } from 'node:os';
@@ -39,28 +40,28 @@ describe('pluginNameFromPackage', () => {
 });
 
 describe('determineTrustTier', () => {
-  test('returns local when isLocal is true with a package name', () => {
-    expect(determineTrustTier('some-package', true)).toBe('local');
+  test('returns local for relative path specifier', () => {
+    expect(determineTrustTier('./my-plugin')).toBe('local');
   });
 
-  test('returns local when isLocal is true with null package name', () => {
-    expect(determineTrustTier(null, true)).toBe('local');
+  test('returns local for absolute path specifier', () => {
+    expect(determineTrustTier('/home/user/plugins/my-plugin')).toBe('local');
+  });
+
+  test('returns local for home-relative path specifier', () => {
+    expect(determineTrustTier('~/plugins/my-plugin')).toBe('local');
   });
 
   test('returns official for @opentabs-dev scoped package', () => {
-    expect(determineTrustTier('@opentabs-dev/plugin-name', false)).toBe('official');
+    expect(determineTrustTier('@opentabs-dev/opentabs-plugin-slack')).toBe('official');
   });
 
-  test('returns community for unscoped package', () => {
-    expect(determineTrustTier('some-random-package', false)).toBe('community');
-  });
-
-  test('returns community for null package name when not local', () => {
-    expect(determineTrustTier(null, false)).toBe('community');
+  test('returns community for unscoped npm package', () => {
+    expect(determineTrustTier('opentabs-plugin-slack')).toBe('community');
   });
 
   test('returns community for non-opentabs-dev scoped package', () => {
-    expect(determineTrustTier('@other-scope/plugin', false)).toBe('community');
+    expect(determineTrustTier('@other-scope/opentabs-plugin-foo')).toBe('community');
   });
 });
 

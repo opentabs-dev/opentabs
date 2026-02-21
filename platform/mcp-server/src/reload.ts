@@ -13,7 +13,7 @@
 
 import { browserTools } from './browser-tools/index.js';
 import { loadConfig, getConfigDir } from './config.js';
-import { discoverPlugins } from './discovery.js';
+import { discoverPluginsLegacy } from './discovery-legacy.js';
 import { ensureExtensionInstalled } from './extension-install.js';
 import { sendSyncFull, sendPluginUpdate, cleanupStaleExecFiles } from './extension-protocol.js';
 import { startConfigWatching, startFileWatching, stopFileWatching } from './file-watcher.js';
@@ -131,7 +131,7 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     // directory before passing to discoverPlugins, which expects absolute paths.
     const configDir = getConfigDir();
     resolvedPaths = config.plugins.map(p => (isAbsolute(p) ? p : resolve(configDir, p)));
-    const { plugins: newPlugins, failures } = await discoverPlugins(resolvedPaths, config.npmPlugins ?? []);
+    const { plugins: newPlugins, failures } = await discoverPluginsLegacy(resolvedPaths, config.npmPlugins ?? []);
 
     // Atomic swap
     state.plugins = newPlugins;

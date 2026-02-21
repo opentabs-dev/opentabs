@@ -1,4 +1,4 @@
-import { loadPluginFromDir } from './discovery.js';
+import { loadPluginFromDir } from './discovery-legacy.js';
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
