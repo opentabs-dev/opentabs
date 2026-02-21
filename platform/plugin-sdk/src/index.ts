@@ -85,6 +85,17 @@ export abstract class OpenTabsPlugin {
  * Typed error for tool handlers — the platform catches these
  * and returns structured MCP error responses.
  */
+// ---------------------------------------------------------------------------
+// SDK utilities — DOM
+// ---------------------------------------------------------------------------
+
+export { waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextContent, observeDOM } from './dom.js';
+export type { WaitForSelectorOptions, ObserveDOMOptions } from './dom.js';
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
+
 export class ToolError extends Error {
   constructor(
     message: string,
