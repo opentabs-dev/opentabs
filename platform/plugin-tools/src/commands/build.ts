@@ -13,7 +13,13 @@ import { mkdirSync, watch } from 'node:fs';
 import { chmod, rename, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve, join, relative, dirname } from 'node:path';
-import type { ManifestTool, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type {
+  ManifestTool,
+  OpenTabsPlugin,
+  PromptDefinition,
+  ResourceDefinition,
+  ToolDefinition,
+} from '@opentabs-dev/plugin-sdk';
 import type { PluginPackageJson } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import type { FSWatcher } from 'node:fs';
@@ -200,6 +206,49 @@ const validatePlugin = (plugin: OpenTabsPlugin): string[] => {
     }
   }
 
+  // Resources (optional)
+  if (plugin.resources && plugin.resources.length > 0) {
+    const resourceUris = new Set<string>();
+    for (const resource of plugin.resources) {
+      if (resource.uri.length === 0) {
+        errors.push('Resource URI is required');
+      }
+      if (resource.name.length === 0) {
+        errors.push(`Resource "${resource.uri || '(unnamed)'}" is missing a name`);
+      }
+      if (resource.uri.length > 0 && resourceUris.has(resource.uri)) {
+        errors.push(`Duplicate resource URI "${resource.uri}"`);
+      }
+      if (resource.uri.length > 0) resourceUris.add(resource.uri);
+    }
+  }
+
+  // Prompts (optional)
+  if (plugin.prompts && plugin.prompts.length > 0) {
+    const PROMPT_NAME_REGEX = /^[a-z0-9][a-z0-9_-]*$/;
+    const promptNames = new Set<string>();
+    for (const prompt of plugin.prompts) {
+      if (prompt.name.length === 0) {
+        errors.push('Prompt name is required');
+      } else if (!PROMPT_NAME_REGEX.test(prompt.name)) {
+        errors.push(
+          `Prompt name "${prompt.name}" must match [a-z0-9_-]+ pattern (lowercase alphanumeric with underscores and hyphens)`,
+        );
+      }
+      if (prompt.arguments) {
+        for (const arg of prompt.arguments) {
+          if (arg.name.length === 0) {
+            errors.push(`Prompt "${prompt.name || '(unnamed)'}" has an argument with an empty name`);
+          }
+        }
+      }
+      if (prompt.name.length > 0 && promptNames.has(prompt.name)) {
+        errors.push(`Duplicate prompt name "${prompt.name}"`);
+      }
+      if (prompt.name.length > 0) promptNames.add(prompt.name);
+    }
+  }
+
   return errors;
 };
 
@@ -232,8 +281,37 @@ const convertToolSchemas = (tool: ToolDefinition) => {
   return { inputSchema, outputSchema };
 };
 
-/** Serialize plugin tools to ManifestTool[] for dist/tools.json */
-const generateToolsJson = (plugin: OpenTabsPlugin): ManifestTool[] =>
+/** Manifest resource entry — serializable data, no runtime functions */
+interface ManifestResource {
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+}
+
+/** Manifest prompt argument entry */
+interface ManifestPromptArgument {
+  name: string;
+  description?: string;
+  required?: boolean;
+}
+
+/** Manifest prompt entry — serializable data, no runtime functions */
+interface ManifestPrompt {
+  name: string;
+  description?: string;
+  arguments?: ManifestPromptArgument[];
+}
+
+/** Full manifest shape written to dist/tools.json */
+interface PluginManifestOutput {
+  tools: ManifestTool[];
+  resources: ManifestResource[];
+  prompts: ManifestPrompt[];
+}
+
+/** Serialize plugin tools to ManifestTool[] */
+const generateToolsManifest = (plugin: OpenTabsPlugin): ManifestTool[] =>
   plugin.tools.map(tool => {
     const { inputSchema, outputSchema } = convertToolSchemas(tool);
     return {
@@ -245,6 +323,38 @@ const generateToolsJson = (plugin: OpenTabsPlugin): ManifestTool[] =>
       output_schema: outputSchema,
     };
   });
+
+/** Extract serializable resource metadata from plugin resource definitions */
+const generateResourcesManifest = (resources: ResourceDefinition[]): ManifestResource[] =>
+  resources.map(r => {
+    const entry: ManifestResource = { uri: r.uri, name: r.name };
+    if (r.description !== undefined) entry.description = r.description;
+    if (r.mimeType !== undefined) entry.mimeType = r.mimeType;
+    return entry;
+  });
+
+/** Extract serializable prompt metadata from plugin prompt definitions */
+const generatePromptsManifest = (prompts: PromptDefinition[]): ManifestPrompt[] =>
+  prompts.map(p => {
+    const entry: ManifestPrompt = { name: p.name };
+    if (p.description !== undefined) entry.description = p.description;
+    if (p.arguments !== undefined) {
+      entry.arguments = p.arguments.map(a => {
+        const arg: ManifestPromptArgument = { name: a.name };
+        if (a.description !== undefined) arg.description = a.description;
+        if (a.required !== undefined) arg.required = a.required;
+        return arg;
+      });
+    }
+    return entry;
+  });
+
+/** Generate the full manifest (tools + resources + prompts) for dist/tools.json */
+const generateManifest = (plugin: OpenTabsPlugin): PluginManifestOutput => ({
+  tools: generateToolsManifest(plugin),
+  resources: generateResourcesManifest(plugin.resources ?? []),
+  prompts: generatePromptsManifest(plugin.prompts ?? []),
+});
 
 const bundleIIFE = async (sourceEntry: string, outDir: string, pluginName: string): Promise<void> => {
   // Create a temporary wrapper entry that imports the plugin and registers it
@@ -512,12 +622,18 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const iifeSize = (await Bun.file(iifePath).stat()).size;
   console.log(`  Written: ${pc.bold('dist/adapter.iife.js')} (${formatBytes(iifeSize)})`);
 
-  // Step 5: Generate dist/tools.json (tool schemas serialized from the plugin module)
+  // Step 5: Generate dist/tools.json (tool schemas + resource/prompt metadata)
   console.log(pc.dim('Generating tools.json...'));
-  const tools = generateToolsJson(plugin);
+  const manifest = generateManifest(plugin);
   const toolsJsonPath = join(distDir, 'tools.json');
-  await Bun.write(toolsJsonPath, JSON.stringify(tools, null, 2) + '\n');
-  console.log(`  Written: ${pc.bold('dist/tools.json')} (${tools.length} tool${tools.length === 1 ? '' : 's'})`);
+  await Bun.write(toolsJsonPath, JSON.stringify(manifest, null, 2) + '\n');
+  const toolCount = manifest.tools.length;
+  const resourceCount = manifest.resources.length;
+  const promptCount = manifest.prompts.length;
+  const parts = [`${toolCount} tool${toolCount === 1 ? '' : 's'}`];
+  if (resourceCount > 0) parts.push(`${resourceCount} resource${resourceCount === 1 ? '' : 's'}`);
+  if (promptCount > 0) parts.push(`${promptCount} prompt${promptCount === 1 ? '' : 's'}`);
+  console.log(`  Written: ${pc.bold('dist/tools.json')} (${parts.join(', ')})`);
 
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
   console.log('');
@@ -646,7 +762,10 @@ export {
   convertToolSchemas,
   formatBytes,
   formatTimestamp,
-  generateToolsJson,
+  generateManifest,
+  generatePromptsManifest,
+  generateResourcesManifest,
+  generateToolsManifest,
   notifyServer,
   registerBuildCommand,
   registerInConfig,

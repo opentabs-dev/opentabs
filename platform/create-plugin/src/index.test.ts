@@ -257,17 +257,25 @@ describe('create-opentabs-plugin CLI', () => {
         const toolsJsonPath = join(projectDir, 'dist', 'tools.json');
         expect(existsSync(toolsJsonPath)).toBe(true);
 
-        const tools = (await Bun.file(toolsJsonPath).json()) as Array<{
-          name: string;
-          description: string;
-          input_schema: Record<string, unknown>;
-          output_schema: Record<string, unknown>;
-        }>;
+        const manifest = (await Bun.file(toolsJsonPath).json()) as {
+          tools: Array<{
+            name: string;
+            description: string;
+            input_schema: Record<string, unknown>;
+            output_schema: Record<string, unknown>;
+          }>;
+          resources: unknown[];
+          prompts: unknown[];
+        };
+
+        // Verify manifest has top-level structure
+        expect(Array.isArray(manifest.tools)).toBe(true);
+        expect(Array.isArray(manifest.resources)).toBe(true);
+        expect(Array.isArray(manifest.prompts)).toBe(true);
 
         // Verify tools array has at least one tool with required fields
-        expect(Array.isArray(tools)).toBe(true);
-        expect(tools.length).toBeGreaterThan(0);
-        const tool = tools[0];
+        expect(manifest.tools.length).toBeGreaterThan(0);
+        const tool = manifest.tools[0];
         expect(tool).toBeDefined();
         expect(typeof tool?.name).toBe('string');
         expect(typeof tool?.description).toBe('string');

@@ -130,7 +130,9 @@ interface OpentabsConfig {
  */
 const readPluginToolNames = (): string[] => {
   const toolsPath = path.join(E2E_TEST_PLUGIN_DIR, 'dist', 'tools.json');
-  const tools = JSON.parse(fs.readFileSync(toolsPath, 'utf-8')) as Array<{ name: string }>;
+  const raw: unknown = JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
+  // Support both legacy array format and current { tools: [...] } format
+  const tools = (Array.isArray(raw) ? raw : (raw as { tools: unknown[] }).tools) as Array<{ name: string }>;
   return tools.map(t => `e2e-test_${t.name}`);
 };
 
@@ -221,7 +223,7 @@ const createMinimalPlugin = (
 
   fs.writeFileSync(path.join(pluginDir, 'package.json'), JSON.stringify(packageJson, null, 2), 'utf-8');
 
-  // dist/tools.json — tool definitions
+  // dist/tools.json — tool definitions (new manifest format with resources/prompts)
   const toolDefs = tools.map(t => ({
     name: t.name,
     displayName: t.name
@@ -239,7 +241,8 @@ const createMinimalPlugin = (
     },
   }));
 
-  fs.writeFileSync(path.join(pluginDir, 'dist', 'tools.json'), JSON.stringify(toolDefs, null, 2), 'utf-8');
+  const manifest = { tools: toolDefs, resources: [], prompts: [] };
+  fs.writeFileSync(path.join(pluginDir, 'dist', 'tools.json'), JSON.stringify(manifest, null, 2), 'utf-8');
 
   const iife = [
     '(function() {',

@@ -202,6 +202,7 @@ const handleIifeChange = async (
 
 /**
  * Parse a tools.json file contents into validated ManifestTool[].
+ * Supports both legacy array format and current { tools: [...] } format.
  * Returns null if parsing fails.
  */
 const parseToolsJson = (raw: string, filePath: string): ManifestTool[] | null => {
@@ -213,13 +214,24 @@ const parseToolsJson = (raw: string, filePath: string): ManifestTool[] | null =>
     return null;
   }
 
-  if (!Array.isArray(parsed)) {
-    log.error(`File watcher: ${filePath} is not an array`);
+  // Extract the tools array from either format
+  let toolsArray: unknown[];
+  if (Array.isArray(parsed)) {
+    toolsArray = parsed;
+  } else if (typeof parsed === 'object' && parsed !== null && 'tools' in parsed) {
+    const candidate = (parsed as Record<string, unknown>).tools;
+    if (!Array.isArray(candidate)) {
+      log.error(`File watcher: ${filePath} .tools is not an array`);
+      return null;
+    }
+    toolsArray = candidate;
+  } else {
+    log.error(`File watcher: ${filePath} is not a valid manifest`);
     return null;
   }
 
   const tools: ManifestTool[] = [];
-  for (const t of parsed) {
+  for (const t of toolsArray) {
     if (typeof t !== 'object' || t === null) continue;
     const obj = t as Record<string, unknown>;
     if (typeof obj.name !== 'string' || typeof obj.description !== 'string') continue;

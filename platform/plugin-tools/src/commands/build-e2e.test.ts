@@ -65,18 +65,27 @@ describe('opentabs-plugin build E2E', () => {
       const toolsFile = Bun.file(join(pluginDir, 'dist', 'tools.json'));
       expect(await toolsFile.exists()).toBe(true);
 
-      const tools = (await toolsFile.json()) as Array<{
-        name: string;
-        displayName: string;
-        description: string;
-        icon: string;
-        input_schema: Record<string, unknown>;
-        output_schema: Record<string, unknown>;
-      }>;
+      const manifest = (await toolsFile.json()) as {
+        tools: Array<{
+          name: string;
+          displayName: string;
+          description: string;
+          icon: string;
+          input_schema: Record<string, unknown>;
+          output_schema: Record<string, unknown>;
+        }>;
+        resources: unknown[];
+        prompts: unknown[];
+      };
+
+      // Verify manifest has top-level structure
+      expect(Array.isArray(manifest.tools)).toBe(true);
+      expect(Array.isArray(manifest.resources)).toBe(true);
+      expect(Array.isArray(manifest.prompts)).toBe(true);
 
       // Verify tools array has expected structure
-      expect(tools.length).toBeGreaterThanOrEqual(1);
-      for (const tool of tools) {
+      expect(manifest.tools.length).toBeGreaterThanOrEqual(1);
+      for (const tool of manifest.tools) {
         expect(typeof tool.name).toBe('string');
         expect(tool.name.length).toBeGreaterThan(0);
         expect(typeof tool.displayName).toBe('string');

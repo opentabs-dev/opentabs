@@ -214,15 +214,25 @@ const loadPlugin = async (
   }
 
   // Read and validate tools.json
+  // Supports two formats:
+  //   - Legacy: a plain array of tool definitions (pre-resources/prompts)
+  //   - Current: { tools: [...], resources: [...], prompts: [...] }
   const toolsJsonPath = join(dir, 'dist', 'tools.json');
-  let toolsRaw: unknown;
+  let manifestRaw: unknown;
   try {
-    toolsRaw = await Bun.file(toolsJsonPath).json();
+    manifestRaw = await Bun.file(toolsJsonPath).json();
   } catch {
     return err(`Failed to read dist/tools.json at ${dir}: file missing or invalid JSON`);
   }
 
-  const toolsResult = validateTools(toolsRaw, dir);
+  // Extract the tools array from either format
+  const toolsArray = Array.isArray(manifestRaw)
+    ? manifestRaw
+    : typeof manifestRaw === 'object' && manifestRaw !== null && 'tools' in manifestRaw
+      ? (manifestRaw as Record<string, unknown>).tools
+      : manifestRaw;
+
+  const toolsResult = validateTools(toolsArray, dir);
   if (!toolsResult.ok) {
     return err(toolsResult.error);
   }
