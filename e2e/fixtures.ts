@@ -50,12 +50,14 @@ interface PluginDetail {
   toolCount: number;
   tabState: string;
   source: string;
+  sdkVersion: string | null;
   logBufferSize: number;
 }
 
 interface HealthResponse {
   status: string;
   version: string;
+  sdkVersion: string;
   mode: 'dev' | 'production';
   extensionConnected: boolean;
   mcpClients: number;
@@ -1320,6 +1322,7 @@ export {
 };
 export type {
   HealthResponse,
+  PluginDetail,
   McpServer,
   TestServer,
   McpClient,
