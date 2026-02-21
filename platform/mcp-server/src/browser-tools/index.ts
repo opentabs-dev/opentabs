@@ -2,6 +2,7 @@
  * Browser tools barrel — collects all browser tool definitions into a single array.
  */
 
+import { analyzeSiteTool } from './analyze-site.js';
 import { clearConsoleLogs } from './clear-console-logs.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
@@ -77,6 +78,7 @@ const browserTools: BrowserToolDefinition[] = [
   extensionGetSidePanel,
   extensionCheckAdapter,
   extensionForceReconnect,
+  analyzeSiteTool,
 ];
 
 export { browserTools };
