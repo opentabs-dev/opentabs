@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/plugin-sdk",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "type": "module",
   "exports": {
     ".": {
@@ -20,7 +20,7 @@
     "generate:icons": "bun scripts/generate-icon-names.ts"
   },
   "dependencies": {
-    "@opentabs-dev/shared": "^0.0.10"
+    "@opentabs-dev/shared": "^0.0.11"
   },
   "peerDependencies": {
     "zod": "^4.0.0"

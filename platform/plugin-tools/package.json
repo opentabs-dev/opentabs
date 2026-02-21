@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/plugin-tools",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "type": "module",
   "bin": {
     "opentabs-plugin": "./dist/cli.js"
@@ -15,8 +15,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.10",
-    "@opentabs-dev/shared": "^0.0.10",
+    "@opentabs-dev/plugin-sdk": "^0.0.11",
+    "@opentabs-dev/shared": "^0.0.11",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1",
     "zod": "^4.3.6"
