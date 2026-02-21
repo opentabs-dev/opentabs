@@ -102,6 +102,26 @@ export abstract class OpenTabsPlugin {
    * @param url — the new URL after the navigation (window.location.href)
    */
   onNavigate?(url: string): void;
+  /**
+   * Called before each `tool.handle()` execution. Runs in the page context.
+   * Receives the tool name (unprefixed, e.g. "send_message" not
+   * "slack_send_message"). Errors thrown here are caught and logged — they
+   * do not prevent tool execution.
+   *
+   * @param toolName — the unprefixed tool name
+   */
+  onToolInvocationStart?(toolName: string): void;
+  /**
+   * Called after each `tool.handle()` completes, whether it succeeded or
+   * threw. Receives the tool name, a boolean indicating success, and the
+   * wall-clock duration in milliseconds. Errors thrown here are caught and
+   * logged.
+   *
+   * @param toolName — the unprefixed tool name
+   * @param success — true if handle() resolved, false if it threw
+   * @param durationMs — wall-clock time of tool.handle() in milliseconds
+   */
+  onToolInvocationEnd?(toolName: string, success: boolean, durationMs: number): void;
 }
 
 // ---------------------------------------------------------------------------
