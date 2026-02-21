@@ -4,7 +4,7 @@
  *
  * - Navigate away from matching URL → state transitions to 'closed'
  * - Multi-tab resilience → plugin stays ready when one matching tab is closed
- * - Rapid close/reopen → state recovers correctly
+ * - Rapid close/reopen → state recovers correctly (US-005)
  * - Server restart reconnect → tab state re-synced via tab.syncAll
  */
 
@@ -144,5 +144,69 @@ test.describe('Tab state sync — multi-tab resilience', () => {
         },
       )
       .toBe('closed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-005: Rapid close-and-reopen — state recovers correctly
+// ---------------------------------------------------------------------------
+
+test.describe('Tab state sync — rapid close and reopen', () => {
+  test('tab state recovers after rapid close-and-reopen cycle', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    // 1. Open a matching tab and wait for ready state
+    const page1 = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // 2. Verify the server reports 'ready' state
+    await expect
+      .poll(
+        async () => {
+          const res = await fetch(`http://localhost:${mcpServer.port}/health`);
+          const body = (await res.json()) as {
+            pluginDetails?: Array<{ name: string; tabState: string }>;
+          };
+          return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+        },
+        { timeout: 15_000, message: 'Server tab state for e2e-test should be ready' },
+      )
+      .toBe('ready');
+
+    // 3. Close the tab and immediately open a new one — do NOT wait for
+    // the state to settle. This exercises the pluginLocks serialization in
+    // tab-state.ts: the close triggers checkTabStateChanges with removed=true,
+    // and the new tab's onUpdated status=complete fires shortly after. Both
+    // events must be serialized correctly per-plugin.
+    await page1.close();
+    const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
+
+    // 4. Wait for the plugin to reach 'ready' state on the new tab
+    await expect
+      .poll(
+        async () => {
+          const res = await fetch(`http://localhost:${mcpServer.port}/health`);
+          const body = (await res.json()) as {
+            pluginDetails?: Array<{ name: string; tabState: string }>;
+          };
+          return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+        },
+        {
+          timeout: 30_000,
+          message: 'Server tab state for e2e-test did not recover to ready after rapid close/reopen',
+        },
+      )
+      .toBe('ready');
+
+    // 5. Verify tool dispatch succeeds on the new tab
+    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'recovered' }, { isError: false }, 15_000);
+
+    const result = await mcpClient.callTool('e2e-test_echo', { message: 'hello from new tab' });
+    expect(result.isError).toBe(false);
+    expect(result.content).toContain('hello from new tab');
+
+    await page2.close();
   });
 });
