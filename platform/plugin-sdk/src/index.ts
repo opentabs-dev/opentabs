@@ -31,6 +31,76 @@ export interface ToolHandlerContext {
 }
 
 // ---------------------------------------------------------------------------
+// Resource definitions
+// ---------------------------------------------------------------------------
+
+/** Content returned from reading a resource. Aligns with MCP ReadResourceResult.contents[n]. */
+export interface ResourceContent {
+  /** URI identifying this resource. */
+  uri: string;
+  /** Text content (mutually exclusive with blob for a given resource). */
+  text?: string;
+  /** Base64-encoded binary content (mutually exclusive with text for a given resource). */
+  blob?: string;
+  /** MIME type of the content (e.g., 'application/json', 'text/plain'). */
+  mimeType?: string;
+}
+
+/** A plugin resource definition. The read() handler executes in the browser page context. */
+export interface ResourceDefinition {
+  /** Resource URI (e.g., 'slack://channels'). Must be non-empty. */
+  uri: string;
+  /** Human-readable name for the resource. */
+  name: string;
+  /** Human-readable description of the resource. */
+  description?: string;
+  /** MIME type of the resource content (e.g., 'application/json'). */
+  mimeType?: string;
+  /** Read the resource content. Runs in the browser page context. */
+  read(uri: string): Promise<ResourceContent>;
+}
+
+/** Type-safe factory — identity function that provides type checking for resource definitions. */
+export const defineResource = (config: ResourceDefinition): ResourceDefinition => config;
+
+// ---------------------------------------------------------------------------
+// Prompt definitions
+// ---------------------------------------------------------------------------
+
+/** A single argument for a prompt. Aligns with MCP PromptArgument. */
+export interface PromptArgument {
+  /** Argument name. */
+  name: string;
+  /** Human-readable description of the argument. */
+  description?: string;
+  /** Whether this argument is required. */
+  required?: boolean;
+}
+
+/** A single message in a prompt result. Aligns with MCP GetPromptResult.messages[n]. */
+export interface PromptMessage {
+  /** Message role. */
+  role: 'user' | 'assistant';
+  /** Message content. */
+  content: { type: 'text'; text: string };
+}
+
+/** A plugin prompt definition. The render() handler executes in the browser page context. */
+export interface PromptDefinition {
+  /** Prompt name (e.g., 'compose_message'). Must be non-empty. */
+  name: string;
+  /** Human-readable description of the prompt. */
+  description?: string;
+  /** Arguments the prompt accepts. */
+  arguments?: PromptArgument[];
+  /** Render the prompt messages. Runs in the browser page context. */
+  render(args: Record<string, string>): Promise<PromptMessage[]>;
+}
+
+/** Type-safe factory — identity function that provides type checking for prompt definitions. */
+export const definePrompt = (config: PromptDefinition): PromptDefinition => config;
+
+// ---------------------------------------------------------------------------
 // Tool definitions
 // ---------------------------------------------------------------------------
 
@@ -77,6 +147,10 @@ export abstract class OpenTabsPlugin {
   abstract readonly urlPatterns: string[];
   /** All tool definitions for this plugin */
   abstract readonly tools: ToolDefinition[];
+  /** Resource definitions for this plugin (optional). */
+  readonly resources?: ResourceDefinition[];
+  /** Prompt definitions for this plugin (optional). */
+  readonly prompts?: PromptDefinition[];
   /**
    * Readiness probe (Kubernetes convention).
    * Called by the extension to determine if the service in the current

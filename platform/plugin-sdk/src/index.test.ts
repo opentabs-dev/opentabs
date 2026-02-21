@@ -1,6 +1,8 @@
 import {
   ToolError,
   defineTool,
+  defineResource,
+  definePrompt,
   validatePluginName,
   validateUrlPattern,
   NAME_REGEX,
@@ -9,7 +11,17 @@ import {
 } from './index.js';
 import { describe, expect, test } from 'bun:test';
 import { z } from 'zod';
-import type { ErrorCategory, LucideIconName, ToolHandlerContext, ProgressOptions } from './index.js';
+import type {
+  ErrorCategory,
+  LucideIconName,
+  ToolHandlerContext,
+  ProgressOptions,
+  ResourceContent,
+  ResourceDefinition,
+  PromptArgument,
+  PromptMessage,
+  PromptDefinition,
+} from './index.js';
 
 describe('ToolError', () => {
   test('constructor sets message, code, and name', () => {
@@ -348,5 +360,155 @@ describe('re-exports from @opentabs-dev/shared', () => {
 
   test('RESERVED_NAMES is a Set', () => {
     expect(RESERVED_NAMES).toBeInstanceOf(Set);
+  });
+});
+
+describe('defineResource', () => {
+  test('returns the same config object passed in (identity function)', () => {
+    const config: ResourceDefinition = {
+      uri: 'test://items',
+      name: 'Items',
+      description: 'List of items',
+      mimeType: 'application/json',
+      read: () => Promise.resolve({ uri: 'test://items', text: '[]' }),
+    };
+    expect(defineResource(config)).toBe(config);
+  });
+
+  test('returned object has uri, name, description, mimeType, read properties', () => {
+    const resource = defineResource({
+      uri: 'test://data',
+      name: 'Data',
+      description: 'Test data',
+      mimeType: 'text/plain',
+      read: () => Promise.resolve({ uri: 'test://data', text: 'hello' }),
+    });
+    expect(resource.uri).toBe('test://data');
+    expect(resource.name).toBe('Data');
+    expect(resource.description).toBe('Test data');
+    expect(resource.mimeType).toBe('text/plain');
+    expect(typeof resource.read).toBe('function');
+  });
+
+  test('description and mimeType are optional', () => {
+    const resource = defineResource({
+      uri: 'test://minimal',
+      name: 'Minimal',
+      read: () => Promise.resolve({ uri: 'test://minimal', text: '' }),
+    });
+    expect(resource.description).toBeUndefined();
+    expect(resource.mimeType).toBeUndefined();
+  });
+
+  test('read() returns ResourceContent with text', async () => {
+    const resource = defineResource({
+      uri: 'test://text',
+      name: 'Text Resource',
+      read: uri => Promise.resolve({ uri, text: 'content here', mimeType: 'text/plain' }),
+    });
+    const result = await resource.read('test://text');
+    expect(result).toEqual({ uri: 'test://text', text: 'content here', mimeType: 'text/plain' });
+  });
+
+  test('read() returns ResourceContent with blob', async () => {
+    const resource = defineResource({
+      uri: 'test://binary',
+      name: 'Binary Resource',
+      mimeType: 'image/png',
+      read: uri => Promise.resolve({ uri, blob: 'iVBORw0KGgo=', mimeType: 'image/png' }),
+    });
+    const result = await resource.read('test://binary');
+    expect(result.blob).toBe('iVBORw0KGgo=');
+    expect(result.text).toBeUndefined();
+  });
+});
+
+describe('definePrompt', () => {
+  test('returns the same config object passed in (identity function)', () => {
+    const config: PromptDefinition = {
+      name: 'greet',
+      description: 'Generate a greeting',
+      arguments: [{ name: 'name', description: 'Name to greet', required: true }],
+      render: args =>
+        Promise.resolve([{ role: 'user', content: { type: 'text', text: `Hello, ${String(args['name'])}!` } }]),
+    };
+    expect(definePrompt(config)).toBe(config);
+  });
+
+  test('returned object has name, description, arguments, render properties', () => {
+    const prompt = definePrompt({
+      name: 'test_prompt',
+      description: 'A test prompt',
+      arguments: [{ name: 'input' }],
+      render: () => Promise.resolve([{ role: 'user', content: { type: 'text', text: 'test' } }]),
+    });
+    expect(prompt.name).toBe('test_prompt');
+    expect(prompt.description).toBe('A test prompt');
+    expect(prompt.arguments).toHaveLength(1);
+    expect(prompt.arguments?.[0]?.name).toBe('input');
+    expect(typeof prompt.render).toBe('function');
+  });
+
+  test('description and arguments are optional', () => {
+    const prompt = definePrompt({
+      name: 'minimal',
+      render: () => Promise.resolve([{ role: 'user', content: { type: 'text', text: 'hi' } }]),
+    });
+    expect(prompt.description).toBeUndefined();
+    expect(prompt.arguments).toBeUndefined();
+  });
+
+  test('render() returns PromptMessage array', async () => {
+    const prompt = definePrompt({
+      name: 'greet',
+      arguments: [{ name: 'name', required: true }],
+      render: args =>
+        Promise.resolve([
+          { role: 'user', content: { type: 'text', text: `Hello, ${String(args['name'])}!` } },
+          { role: 'assistant', content: { type: 'text', text: 'Hi there! How can I help you?' } },
+        ]),
+    });
+    const messages = await prompt.render({ name: 'World' });
+    expect(messages).toHaveLength(2);
+    expect(messages[0]).toEqual({ role: 'user', content: { type: 'text', text: 'Hello, World!' } });
+    expect(messages[1]?.role).toBe('assistant');
+  });
+
+  test('PromptArgument supports optional fields', () => {
+    const arg: PromptArgument = { name: 'query' };
+    expect(arg.description).toBeUndefined();
+    expect(arg.required).toBeUndefined();
+
+    const fullArg: PromptArgument = { name: 'query', description: 'Search query', required: true };
+    expect(fullArg.description).toBe('Search query');
+    expect(fullArg.required).toBe(true);
+  });
+
+  test('PromptMessage supports user and assistant roles', () => {
+    const userMsg: PromptMessage = { role: 'user', content: { type: 'text', text: 'hi' } };
+    const assistantMsg: PromptMessage = { role: 'assistant', content: { type: 'text', text: 'hello' } };
+    expect(userMsg.role).toBe('user');
+    expect(assistantMsg.role).toBe('assistant');
+    expect(userMsg.content.type).toBe('text');
+  });
+});
+
+describe('ResourceContent type', () => {
+  test('supports text content', () => {
+    const content: ResourceContent = { uri: 'test://a', text: 'hello' };
+    expect(content.uri).toBe('test://a');
+    expect(content.text).toBe('hello');
+    expect(content.blob).toBeUndefined();
+  });
+
+  test('supports blob content', () => {
+    const content: ResourceContent = { uri: 'test://b', blob: 'base64data' };
+    expect(content.blob).toBe('base64data');
+    expect(content.text).toBeUndefined();
+  });
+
+  test('supports mimeType', () => {
+    const content: ResourceContent = { uri: 'test://c', text: '{}', mimeType: 'application/json' };
+    expect(content.mimeType).toBe('application/json');
   });
 });
