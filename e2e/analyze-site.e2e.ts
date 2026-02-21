@@ -228,3 +228,49 @@ test.describe('plugin_analyze_site — JWT localStorage auth', () => {
     expect(analysis.title).toBe('JWT LocalStorage Test App');
   });
 });
+
+test.describe('plugin_analyze_site — GraphQL API', () => {
+  test('detects GraphQL protocol and generates GraphQL-specific suggestions', async ({
+    mcpServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    // The GraphQL page is served at /graphql-app/ (distinct from the /graphql API endpoint)
+    const siteUrl = `${analyzeSiteServer.url}/graphql-app/`;
+    const analysis = await analyzeSite(mcpClient, siteUrl);
+
+    // --- API detection ---
+    // The page makes POST requests to /graphql — should be classified as graphql
+    const graphqlEndpoints = analysis.apis.endpoints.filter(e => e.protocol === 'graphql');
+    expect(graphqlEndpoints.length).toBeGreaterThanOrEqual(1);
+
+    // The endpoint URL should contain /graphql
+    const gqlEndpoint = graphqlEndpoints.find(e => e.url.includes('/graphql'));
+    expect(gqlEndpoint).toBeDefined();
+    expect(gqlEndpoint?.method).toBe('POST');
+
+    // Should have captured the request body with a query field
+    if (gqlEndpoint?.requestBodySample) {
+      expect(gqlEndpoint.requestBodySample).toContain('query');
+    }
+
+    // --- Suggestions ---
+    // Should include GraphQL-specific tool suggestions
+    expect(analysis.suggestions.length).toBeGreaterThanOrEqual(1);
+
+    // The generic graphql_query suggestion should be present
+    const graphqlQuerySuggestion = analysis.suggestions.find(s => s.toolName === 'graphql_query');
+    expect(graphqlQuerySuggestion).toBeDefined();
+    expect(graphqlQuerySuggestion?.approach).toContain('/graphql');
+
+    // Named operation suggestions (gql_get_users, gql_get_items, gql_create_item)
+    const gqlSuggestions = analysis.suggestions.filter(s => s.toolName.startsWith('gql_'));
+    expect(gqlSuggestions.length).toBeGreaterThanOrEqual(1);
+
+    // --- Title ---
+    expect(analysis.title).toBe('GraphQL Test App');
+  });
+});

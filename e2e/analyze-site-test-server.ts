@@ -11,6 +11,7 @@
  * Scenarios:
  *   /cookie-session/    — Cookie-based session auth with CSRF meta tag and REST APIs
  *   /jwt-localstorage/  — JWT token in localStorage with Bearer header API calls
+ *   /graphql/           — GraphQL API endpoint with queries and a mutation
  *
  * Start: `bun e2e/analyze-site-test-server.ts`
  * Default port: 0 (dynamic, override with PORT env var)
@@ -172,6 +173,80 @@ const JWT_LOCALSTORAGE_HTML = `<!DOCTYPE html>
             },
             body: JSON.stringify({ title: 'New Task', done: false })
           });
+        } catch (e) {
+          document.getElementById('status').textContent = 'Error: ' + e.message;
+        }
+      })();
+    }, 1500);
+  </script>
+</body>
+</html>`;
+
+// ---------------------------------------------------------------------------
+// GraphQL scenario HTML
+// ---------------------------------------------------------------------------
+
+/**
+ * Simulates a web app backed by a GraphQL API:
+ * - POST /graphql endpoint accepting { query, variables }
+ * - Client-side JS fires 2 queries and 1 mutation on load
+ * - Queries: GetUsers, GetItems; Mutation: CreateItem
+ */
+const GRAPHQL_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphQL Test App</title>
+</head>
+<body>
+  <div id="app">
+    <h1>GraphQL Dashboard</h1>
+    <p id="status">Loading...</p>
+  </div>
+
+  <script>
+    // Delay API calls so the orchestrator's network capture is active
+    setTimeout(function() {
+      (async function() {
+        try {
+          // Query 1: GetUsers
+          var usersRes = await fetch('/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: 'query GetUsers { users { id name email } }',
+              variables: {}
+            })
+          });
+          var usersData = await usersRes.json();
+
+          // Query 2: GetItems
+          var itemsRes = await fetch('/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: 'query GetItems { items { id title price } }',
+              variables: {}
+            })
+          });
+          var itemsData = await itemsRes.json();
+
+          // Mutation: CreateItem
+          var createRes = await fetch('/graphql', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: 'mutation CreateItem($title: String!, $price: Float!) { createItem(title: $title, price: $price) { id title price } }',
+              variables: { title: 'New Widget', price: 29.99 }
+            })
+          });
+          var createData = await createRes.json();
+
+          document.getElementById('status').textContent =
+            'Loaded: ' + usersData.data.users.length + ' users, ' +
+            itemsData.data.items.length + ' items, created: ' +
+            createData.data.createItem.title;
         } catch (e) {
           document.getElementById('status').textContent = 'Error: ' + e.message;
         }
@@ -362,6 +437,87 @@ const server = Bun.serve({
             title: body.title ?? 'Untitled',
             done: body.done ?? false,
           },
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // ===================================================================
+    // GraphQL scenario
+    // ===================================================================
+
+    // Page — serves HTML
+    if (path === '/graphql/' || path === '/graphql-app' || path === '/graphql-app/') {
+      return new Response(GRAPHQL_HTML, {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
+    // GraphQL API — POST /graphql
+    if (path === '/graphql' && req.method === 'POST') {
+      let body: Record<string, unknown> = {};
+      try {
+        body = (await req.json()) as Record<string, unknown>;
+      } catch {
+        return new Response(JSON.stringify({ errors: [{ message: 'Invalid JSON' }] }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const query = typeof body.query === 'string' ? body.query : '';
+      const variables = (body.variables ?? {}) as Record<string, unknown>;
+
+      // Minimal GraphQL resolver
+      if (query.includes('GetUsers') || query.includes('users')) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              users: [
+                { id: 'user-1', name: 'Alice', email: 'alice@example.com' },
+                { id: 'user-2', name: 'Bob', email: 'bob@example.com' },
+              ],
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+
+      if (query.includes('GetItems') || (query.includes('items') && !query.includes('createItem'))) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              items: [
+                { id: 'item-1', title: 'Widget A', price: 9.99 },
+                { id: 'item-2', title: 'Widget B', price: 19.99 },
+                { id: 'item-3', title: 'Widget C', price: 29.99 },
+              ],
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+
+      if (query.includes('createItem') || query.includes('CreateItem')) {
+        return new Response(
+          JSON.stringify({
+            data: {
+              createItem: {
+                id: 'item-new',
+                title: variables.title ?? 'Unnamed',
+                price: variables.price ?? 0,
+              },
+            },
+          }),
+          { headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+
+      // Fallback for unknown queries
+      return new Response(
+        JSON.stringify({
+          data: null,
+          errors: [{ message: `Unknown query: ${query.slice(0, 100)}` }],
         }),
         { headers: { 'Content-Type': 'application/json' } },
       );
