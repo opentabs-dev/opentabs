@@ -267,7 +267,7 @@ opentabs logs --plugin slack
 
 ## opentabs plugin
 
-Manage plugins. Has two subcommands: `search` and `create`.
+Manage plugins. Has five subcommands: `search`, `list`, `install`, `remove`, and `create`.
 
 ### opentabs plugin search
 
@@ -353,6 +353,116 @@ The standalone `create-opentabs-plugin` package provides the same functionality:
 
 ```bash
 bunx create-opentabs-plugin my-plugin --domain .example.com --display "My App"
+```
+
+### opentabs plugin list
+
+List installed plugins. Works in online mode (fetches from the running server) and offline mode (reads from config and global npm packages).
+
+```bash
+opentabs plugin list [options]
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--json`</Table.Cell>
+      <Table.Cell>Output machine-readable JSON.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--port <number>`</Table.Cell>
+      <Table.Cell>Server port (default: `9515`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+When the server is running, displays each plugin's name, display name, tab state (color-coded), tool count, source (npm or local), and SDK version. When the server is not running, falls back to scanning `~/.opentabs/config.json` and global npm packages.
+
+```bash
+# List all installed plugins
+opentabs plugin list
+
+# Machine-readable output
+opentabs plugin list --json
+```
+
+### opentabs plugin install
+
+Install a plugin from npm.
+
+```bash
+opentabs plugin install <name>
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Argument</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`<name>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Plugin name — shorthand (`slack`), full package name (`opentabs-plugin-slack`), or scoped package (`@my-org/opentabs-plugin-custom`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Shorthand names are automatically expanded: `slack` becomes `opentabs-plugin-slack`. Runs `npm install -g` under the hood. If the MCP server is running, it is notified via `POST /reload` to pick up the new plugin immediately.
+
+```bash
+# Install using shorthand
+opentabs plugin install slack
+
+# Install using full package name
+opentabs plugin install opentabs-plugin-slack
+
+# Install a scoped community plugin
+opentabs plugin install @my-org/opentabs-plugin-custom
+```
+
+### opentabs plugin remove
+
+Remove a globally installed plugin.
+
+```bash
+opentabs plugin remove <name>
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Argument</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`<name>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Plugin name — shorthand (`slack`), full package name, or scoped package.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Runs `npm uninstall -g` and also removes matching entries from the `localPlugins` array in `~/.opentabs/config.json`. If the MCP server is running, it is notified via `POST /reload`.
+
+```bash
+# Remove using shorthand
+opentabs plugin remove slack
+
+# Remove using full package name
+opentabs plugin remove opentabs-plugin-slack
 ```
 
 ---
