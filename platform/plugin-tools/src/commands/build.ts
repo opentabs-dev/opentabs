@@ -784,12 +784,22 @@ const runBuild = async (projectDir: string): Promise<void> => {
 (function(){var o=(globalThis).__openTabs;if(o&&o.adapters&&o.adapters[${JSON.stringify(plugin.name)}]){var a=o.adapters[${JSON.stringify(plugin.name)}];a.__adapterHash=${JSON.stringify(adapterHash)};if(a.tools&&Array.isArray(a.tools)){for(var i=0;i<a.tools.length;i++){Object.freeze(a.tools[i]);}Object.freeze(a.tools);}Object.freeze(a);Object.defineProperty(o.adapters,${JSON.stringify(plugin.name)},{value:a,writable:false,configurable:false,enumerable:true});Object.defineProperty(o,"adapters",{value:o.adapters,writable:false,configurable:false});}})();
 `;
   await Bun.write(iifePath, iifeContent + hashAndFreeze);
-  const iifeSize = (await Bun.file(iifePath).stat()).size;
-  console.log(`  Written: ${pc.bold('dist/adapter.iife.js')} (${formatBytes(iifeSize)})`);
+  const iifeFile = Bun.file(iifePath);
+  if (await iifeFile.exists()) {
+    const iifeSize = (await iifeFile.stat()).size;
+    console.log(`  Written: ${pc.bold('dist/adapter.iife.js')} (${formatBytes(iifeSize)})`);
+  } else {
+    console.log(pc.dim('  dist/adapter.iife.js not generated'));
+  }
 
   const sourceMapPath = join(distDir, 'adapter.iife.js.map');
-  const sourceMapSize = (await Bun.file(sourceMapPath).stat()).size;
-  console.log(`  Written: ${pc.bold('dist/adapter.iife.js.map')} (${formatBytes(sourceMapSize)})`);
+  const sourceMapFile = Bun.file(sourceMapPath);
+  if (await sourceMapFile.exists()) {
+    const sourceMapSize = (await sourceMapFile.stat()).size;
+    console.log(`  Written: ${pc.bold('dist/adapter.iife.js.map')} (${formatBytes(sourceMapSize)})`);
+  } else {
+    console.log(pc.dim('  Source map not generated'));
+  }
 
   // Step 5: Resolve installed SDK version
   console.log(pc.dim('Resolving SDK version...'));
