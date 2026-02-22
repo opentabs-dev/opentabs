@@ -79,8 +79,97 @@ echo ""
 echo "==> Published all packages at v$VERSION"
 
 echo ""
+echo "==> Generating changelog..."
+
+PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+if [ -n "$PREV_TAG" ]; then
+  RANGE="$PREV_TAG..HEAD"
+else
+  RANGE=""
+fi
+
+# Collect commit subjects (hash stripped) since last tag
+COMMITS=$(git log ${RANGE:+"$RANGE"} --no-merges --pretty=format:"%s")
+
+if [ -z "$COMMITS" ]; then
+  echo "  No commits found — skipping changelog."
+else
+  # Group commits by conventional commit type prefix (feat, fix, etc.)
+  # Uses separate variables per group (compatible with bash 3.2 on macOS)
+  GRP_FEAT="" GRP_FIX="" GRP_PERF="" GRP_REFACTOR="" GRP_BUILD="" GRP_CI=""
+  GRP_TEST="" GRP_DOCS="" GRP_STYLE="" GRP_CHORE="" GRP_OTHER="" UNGROUPED=""
+
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^([a-z]+)(\(.+\))?:\ (.+)$ ]]; then
+      TYPE="${BASH_REMATCH[1]}"
+      MSG="${BASH_REMATCH[3]}"
+      case "$TYPE" in
+        feat)     GRP_FEAT="${GRP_FEAT}- ${MSG}"$'\n' ;;
+        fix)      GRP_FIX="${GRP_FIX}- ${MSG}"$'\n' ;;
+        refactor) GRP_REFACTOR="${GRP_REFACTOR}- ${MSG}"$'\n' ;;
+        docs)     GRP_DOCS="${GRP_DOCS}- ${MSG}"$'\n' ;;
+        test)     GRP_TEST="${GRP_TEST}- ${MSG}"$'\n' ;;
+        chore)    GRP_CHORE="${GRP_CHORE}- ${MSG}"$'\n' ;;
+        perf)     GRP_PERF="${GRP_PERF}- ${MSG}"$'\n' ;;
+        ci)       GRP_CI="${GRP_CI}- ${MSG}"$'\n' ;;
+        style)    GRP_STYLE="${GRP_STYLE}- ${MSG}"$'\n' ;;
+        build)    GRP_BUILD="${GRP_BUILD}- ${MSG}"$'\n' ;;
+        release)  ;; # Skip release commits
+        *)        GRP_OTHER="${GRP_OTHER}- ${MSG}"$'\n' ;;
+      esac
+    else
+      UNGROUPED="${UNGROUPED}- ${line}"$'\n'
+    fi
+  done <<< "$COMMITS"
+
+  # Build the changelog entry by appending each non-empty group
+  ENTRY="## v${VERSION}"$'\n'$'\n'
+  HAS_GROUPS=false
+
+  append_group() {
+    local label="$1" items="$2"
+    if [ -n "$items" ]; then
+      HAS_GROUPS=true
+      ENTRY+="### ${label}"$'\n'$'\n'"${items}"$'\n'
+    fi
+  }
+
+  append_group "Features" "$GRP_FEAT"
+  append_group "Bug Fixes" "$GRP_FIX"
+  append_group "Performance" "$GRP_PERF"
+  append_group "Refactoring" "$GRP_REFACTOR"
+  append_group "Build" "$GRP_BUILD"
+  append_group "CI" "$GRP_CI"
+  append_group "Tests" "$GRP_TEST"
+  append_group "Documentation" "$GRP_DOCS"
+  append_group "Style" "$GRP_STYLE"
+  append_group "Chores" "$GRP_CHORE"
+  append_group "Other" "$GRP_OTHER"
+
+  if [ -n "$UNGROUPED" ]; then
+    if [ "$HAS_GROUPS" = true ]; then
+      ENTRY+="### Other"$'\n'$'\n'
+    fi
+    ENTRY+="${UNGROUPED}"$'\n'
+  fi
+
+  # Prepend to CHANGELOG.md
+  if [ -f CHANGELOG.md ]; then
+    EXISTING=$(cat CHANGELOG.md)
+    printf '%s\n%s\n' "$ENTRY" "$EXISTING" > CHANGELOG.md
+  else
+    printf '# Changelog\n\n%s\n' "$ENTRY" > CHANGELOG.md
+  fi
+
+  echo "  Generated changelog for v$VERSION"
+fi
+
+echo ""
 echo "==> Creating release commit and tag..."
 git add platform/shared/package.json platform/plugin-sdk/package.json platform/plugin-tools/package.json platform/cli/package.json
+if [ -f CHANGELOG.md ]; then
+  git add CHANGELOG.md
+fi
 git commit -m "release: v$VERSION"
 git tag "v$VERSION"
 
