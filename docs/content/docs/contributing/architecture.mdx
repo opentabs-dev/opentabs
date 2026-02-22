@@ -397,6 +397,90 @@ The `opentabs-plugin build` CLI computes a SHA-256 hash of the adapter IIFE and 
 
 Tool outputs are sanitized to remove keys that could cause prototype pollution. Error messages have internal file paths, IP addresses, and URLs stripped before being returned to clients.
 
+### Browser Tool Security Tiers
+
+Every browser tool is classified into one of three security tiers based on its risk level:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tier</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+      <Table.Head>Examples</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`observe`</Table.Cell>
+      <Table.Cell>`allow`</Table.Cell>
+      <Table.Cell>Read-only tools that list or inspect without accessing sensitive data</Table.Cell>
+      <Table.Cell>`browser_list_tabs`, `browser_query_elements`, `extension_get_state`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`interact`</Table.Cell>
+      <Table.Cell>`ask`</Table.Cell>
+      <Table.Cell>Tools that modify page state, capture content, or navigate</Table.Cell>
+      <Table.Cell>`browser_click_element`, `browser_type_text`, `browser_screenshot_tab`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`sensitive`</Table.Cell>
+      <Table.Cell>`ask`</Table.Cell>
+      <Table.Cell>Tools that access credentials, execute arbitrary code, or modify auth state</Table.Cell>
+      <Table.Cell>`browser_execute_script`, `browser_get_cookies`, `browser_get_storage`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Tools not in the tier map default to `interact` as a safe middle ground.
+
+**Permission evaluation order** — first match wins:
+
+1. **`domainToolPolicy[domain][tool]`** — per-domain per-tool override (most specific)
+2. **`sensitiveDomains` match** → forces `ask`
+3. **`toolPolicy[tool]`** — global per-tool override
+4. **Tool tier default** — `observe` → `allow`, `interact` → `ask`, `sensitive` → `ask`
+5. **`trustedDomains` match** — upgrades `ask` to `allow` (does **not** override `deny`)
+
+Session permission rules (created by "Allow Always" actions) are checked before the evaluation chain. If a matching session rule exists, the tool is auto-allowed without running the chain. The `skipConfirmation` config flag bypasses the entire evaluation — all tools are auto-allowed.
+
+### Confirmation System
+
+When a browser tool evaluates to `ask`, the server requests human approval through the Chrome extension's side panel:
+
+1. Server sends `confirmation.request` to the extension with a UUID, tool name, domain, tab ID, truncated parameter preview, and timeout
+2. The side panel displays an approval dialog
+3. The user chooses one of three decisions: `allow_once`, `allow_always` (with a scope), or `deny`
+4. The extension sends `confirmation.response` back with the decision
+5. Server proceeds with the tool call or returns a denial error
+
+For `allow_always`, the user selects a scope that determines how broad the session rule is:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Scope</Table.Head>
+      <Table.Head>Effect</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool_domain`</Table.Cell>
+      <Table.Cell>Auto-allow this tool on this domain for the rest of the session</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`tool_all`</Table.Cell>
+      <Table.Cell>Auto-allow this tool on all domains for the rest of the session</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`domain_all`</Table.Cell>
+      <Table.Cell>Auto-allow all tools on this domain for the rest of the session</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Session permission rules are stored in memory and reset when the server restarts. Pending confirmations are rejected if the extension disconnects.
+
 ## Key Source Files
 
 For deeper understanding, start with these files:
@@ -404,7 +488,8 @@ For deeper understanding, start with these files:
 - `platform/mcp-server/src/index.ts` — server entry point, HTTP routes, WebSocket handling
 - `platform/mcp-server/src/discovery.ts` — five-phase plugin discovery pipeline
 - `platform/mcp-server/src/registry.ts` — immutable plugin registry with O(1) lookups
-- `platform/mcp-server/src/extension-protocol.ts` — JSON-RPC dispatch to the extension
+- `platform/mcp-server/src/extension-protocol.ts` — JSON-RPC dispatch to the extension, confirmation handling
+- `platform/mcp-server/src/permissions.ts` — browser tool security tiers and permission evaluation
 - `platform/browser-extension/src/background.ts` — extension service worker, adapter injection, message routing
 - `platform/browser-extension/src/offscreen/index.ts` — persistent WebSocket via offscreen document
 - `platform/plugin-sdk/src/index.ts` — `OpenTabsPlugin` base class, `defineTool`, `defineResource`, `definePrompt`
