@@ -1,0 +1,125 @@
+<svg viewBox="0 0 880 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: 'Courier New', Courier, monospace; }
+  </style>
+
+  <!-- ── Step 1: AI sends tool call ────────────────────── -->
+  <!-- Shadow -->
+  <rect x="7" y="7" width="240" height="170" fill="#000" />
+  <!-- Card -->
+  <rect x="3" y="3" width="240" height="170" fill="#fff" stroke="#000" stroke-width="3" />
+  <!-- Header bar -->
+  <rect x="3" y="3" width="240" height="36" fill="#000" />
+  <!-- Step number badge -->
+  <rect x="14" y="10" width="24" height="22" fill="#ffdb33" stroke="#ffdb33" stroke-width="1" />
+  <text x="26" y="26" font-size="13" fill="#000" font-weight="bold" text-anchor="middle">1</text>
+  <!-- Title -->
+  <text x="48" y="26" font-size="11" fill="#ffdb33" font-weight="bold">Agent calls a tool</text>
+
+  <!-- Terminal illustration -->
+  <rect x="18" y="52" width="210" height="70" fill="#1a1a1a" stroke="#000" stroke-width="2" />
+  <text x="28" y="70" font-size="9" fill="#555">&gt;</text>
+  <text x="40" y="70" font-size="9" fill="#a0a0a0">slack_send_message</text>
+  <text x="28" y="86" font-size="9" fill="#555">&gt;</text>
+  <text x="40" y="86" font-size="9" fill="#ffdb33">channel: #general</text>
+  <text x="28" y="102" font-size="9" fill="#555">&gt;</text>
+  <text x="40" y="102" font-size="9" fill="#ffdb33">text: "hello team"</text>
+
+  <!-- Label -->
+  <text x="123" y="148" font-size="9" fill="#000" opacity="0.5" text-anchor="middle">Claude, Cursor, any MCP client</text>
+  <!-- Blinking cursor decoration -->
+  <rect x="18" y="108" width="6" height="10" fill="#ffdb33" opacity="0.6" />
+
+  <!-- ── Arrow 1 → 2 ──────────────────────────────────── -->
+  <line x1="253" y1="88" x2="310" y2="88" stroke="#000" stroke-width="2.5" />
+  <polygon points="310,82 322,88 310,94" fill="#000" />
+  <!-- Small label -->
+  <text x="287" y="78" font-size="8" fill="#000" opacity="0.4" text-anchor="middle">MCP</text>
+
+  <!-- ── Step 2: Server routes to browser ──────────────── -->
+  <!-- Shadow -->
+  <rect x="327" y="7" width="240" height="170" fill="#000" />
+  <!-- Card -->
+  <rect x="323" y="3" width="240" height="170" fill="#ffdb33" stroke="#000" stroke-width="3" />
+  <!-- Header bar -->
+  <rect x="323" y="3" width="240" height="36" fill="#000" />
+  <!-- Step number badge -->
+  <rect x="334" y="10" width="24" height="22" fill="#ffdb33" stroke="#ffdb33" stroke-width="1" />
+  <text x="346" y="26" font-size="13" fill="#000" font-weight="bold" text-anchor="middle">2</text>
+  <!-- Title -->
+  <text x="368" y="26" font-size="11" fill="#ffdb33" font-weight="bold">Server routes it</text>
+
+  <!-- Server routing illustration -->
+  <!-- Incoming request dot -->
+  <circle cx="348" cy="72" r="6" fill="#000" />
+  <!-- Routing lines fanning out -->
+  <line x1="354" y1="72" x2="420" y2="56" stroke="#000" stroke-width="2" opacity="0.2" />
+  <line x1="354" y1="72" x2="420" y2="72" stroke="#000" stroke-width="2.5" />
+  <line x1="354" y1="72" x2="420" y2="88" stroke="#000" stroke-width="2" opacity="0.2" />
+  <line x1="354" y1="72" x2="420" y2="104" stroke="#000" stroke-width="2" opacity="0.2" />
+
+  <!-- Target boxes (tab representations) -->
+  <rect x="420" y="48" width="120" height="16" fill="#000" opacity="0.1" stroke="#000" stroke-width="1" />
+  <text x="480" y="60" font-size="8" fill="#000" opacity="0.35" text-anchor="middle">Linear</text>
+
+  <rect x="420" y="66" width="120" height="16" fill="#000" stroke="#000" stroke-width="2" />
+  <text x="480" y="78" font-size="8" fill="#ffdb33" font-weight="bold" text-anchor="middle">Slack</text>
+  <polygon points="417,74 424,70 424,78" fill="#000" />
+
+  <rect x="420" y="84" width="120" height="16" fill="#000" opacity="0.1" stroke="#000" stroke-width="1" />
+  <text x="480" y="96" font-size="8" fill="#000" opacity="0.35" text-anchor="middle">GitHub</text>
+
+  <rect x="420" y="102" width="120" height="16" fill="#000" opacity="0.1" stroke="#000" stroke-width="1" />
+  <text x="480" y="114" font-size="8" fill="#000" opacity="0.35" text-anchor="middle">Jira</text>
+
+  <!-- Label -->
+  <text x="443" y="148" font-size="9" fill="#000" opacity="0.6" text-anchor="middle">Finds the right tab, dispatches</text>
+
+  <!-- ── Arrow 2 → 3 ──────────────────────────────────── -->
+  <line x1="573" y1="88" x2="630" y2="88" stroke="#000" stroke-width="2.5" />
+  <polygon points="630,82 642,88 630,94" fill="#000" />
+  <!-- Small label -->
+  <text x="607" y="78" font-size="8" fill="#000" opacity="0.4" text-anchor="middle">inject</text>
+
+  <!-- ── Step 3: Runs in the page ──────────────────────── -->
+  <!-- Shadow -->
+  <rect x="647" y="7" width="240" height="170" fill="#000" />
+  <!-- Card -->
+  <rect x="643" y="3" width="240" height="170" fill="#fff" stroke="#000" stroke-width="3" />
+  <!-- Header bar -->
+  <rect x="643" y="3" width="240" height="36" fill="#000" />
+  <!-- Step number badge -->
+  <rect x="654" y="10" width="24" height="22" fill="#ffdb33" stroke="#ffdb33" stroke-width="1" />
+  <text x="666" y="26" font-size="13" fill="#000" font-weight="bold" text-anchor="middle">3</text>
+  <!-- Title -->
+  <text x="688" y="26" font-size="11" fill="#ffdb33" font-weight="bold">Runs in the page</text>
+
+  <!-- Browser page illustration -->
+  <!-- Mini browser window -->
+  <rect x="658" y="48" width="210" height="80" fill="#fff" stroke="#000" stroke-width="2" />
+  <!-- Mini browser chrome -->
+  <rect x="658" y="48" width="210" height="18" fill="#f0f0f0" stroke="#000" stroke-width="1" />
+  <circle cx="670" cy="57" r="3" fill="#ffdb33" />
+  <circle cx="680" cy="57" r="3" fill="#ddd" />
+  <circle cx="690" cy="57" r="3" fill="#ddd" />
+  <!-- URL bar -->
+  <rect x="700" y="52" width="156" height="10" fill="#fff" stroke="#000" stroke-width="1" />
+  <text x="710" y="60" font-size="6" fill="#000" opacity="0.4">app.slack.com</text>
+
+  <!-- Page content hint lines -->
+  <rect x="668" y="74" width="60" height="6" fill="#f0f0f0" />
+  <rect x="668" y="84" width="120" height="6" fill="#f0f0f0" />
+  <rect x="668" y="94" width="90" height="6" fill="#f0f0f0" />
+
+  <!-- Adapter overlay badge -->
+  <rect x="790" y="100" width="72" height="22" fill="#ffdb33" stroke="#000" stroke-width="2" />
+  <text x="826" y="115" font-size="8" fill="#000" font-weight="bold" text-anchor="middle">adapter.js</text>
+
+  <!-- Checkmark result -->
+  <rect x="658" y="134" width="210" height="24" fill="#000" />
+  <text x="673" y="150" font-size="10" fill="#ffdb33">&#x2713;</text>
+  <text x="690" y="150" font-size="9" fill="#ffdb33">result sent back to agent</text>
+
+  <!-- Label -->
+  <text x="763" y="183" font-size="9" fill="#000" opacity="0.5" text-anchor="middle">Your session, full page access</text>
+</svg>

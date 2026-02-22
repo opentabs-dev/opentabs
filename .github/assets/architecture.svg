@@ -1,0 +1,136 @@
+<svg viewBox="0 0 880 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: 'Courier New', Courier, monospace; }
+  </style>
+
+  <!-- ── Box 1: AI Agent ──────────────────────────────── -->
+  <!-- Shadow -->
+  <rect x="8" y="28" width="200" height="260" fill="#000" />
+  <!-- Body -->
+  <rect x="4" y="24" width="200" height="260" fill="#fff" stroke="#000" stroke-width="3" />
+  <!-- Header -->
+  <rect x="4" y="24" width="200" height="40" fill="#000" />
+  <text x="104" y="50" font-size="13" fill="#ffdb33" font-weight="bold" text-anchor="middle">AI Agent</text>
+
+  <!-- Terminal content -->
+  <text x="20" y="92" font-size="10" fill="#000" opacity="0.5">&gt; thinking...</text>
+  <text x="20" y="112" font-size="10" fill="#000" opacity="0.5">&gt; calling tool</text>
+
+  <!-- Tool call chip -->
+  <rect x="16" y="128" width="176" height="30" fill="#000" />
+  <text x="104" y="148" font-size="10" fill="#ffdb33" text-anchor="middle">slack_send_message()</text>
+
+  <!-- Result chip -->
+  <rect x="16" y="172" width="176" height="30" fill="#fff" stroke="#000" stroke-width="2" />
+  <text x="104" y="192" font-size="10" fill="#000" opacity="0.7" text-anchor="middle">result: message sent</text>
+
+  <!-- Agent labels -->
+  <rect x="16" y="220" width="56" height="22" fill="#ffdb33" stroke="#000" stroke-width="1.5" />
+  <text x="44" y="235" font-size="8" fill="#000" font-weight="bold" text-anchor="middle">Claude</text>
+  <rect x="80" y="220" width="56" height="22" fill="#fff" stroke="#000" stroke-width="1.5" />
+  <text x="108" y="235" font-size="8" fill="#000" text-anchor="middle">Cursor</text>
+  <rect x="144" y="220" width="48" height="22" fill="#fff" stroke="#000" stroke-width="1.5" />
+  <text x="168" y="235" font-size="8" fill="#000" text-anchor="middle">any</text>
+
+  <!-- ── Arrow 1: Agent -> MCP Server ─────────────────── -->
+  <!-- Forward arrow (solid) -->
+  <line x1="214" y1="138" x2="316" y2="138" stroke="#000" stroke-width="2" />
+  <polygon points="316,133 326,138 316,143" fill="#000" />
+  <!-- Return arrow (dashed) -->
+  <line x1="214" y1="158" x2="316" y2="158" stroke="#000" stroke-width="2" stroke-dasharray="6 4" />
+  <polygon points="218,153 208,158 218,163" fill="#000" />
+  <!-- Label -->
+  <rect x="245" y="118" width="40" height="16" fill="#ffdb33" stroke="#000" stroke-width="1.5" />
+  <text x="265" y="130" font-size="9" fill="#000" font-weight="bold" text-anchor="middle">MCP</text>
+
+  <!-- ── Box 2: OpenTabs Server ────────────────────────── -->
+  <!-- Shadow -->
+  <rect x="336" y="28" width="200" height="260" fill="#000" />
+  <!-- Body -->
+  <rect x="332" y="24" width="200" height="260" fill="#ffdb33" stroke="#000" stroke-width="3" />
+  <!-- Header -->
+  <rect x="332" y="24" width="200" height="40" fill="#000" />
+  <text x="432" y="50" font-size="13" fill="#ffdb33" font-weight="bold" text-anchor="middle">OpenTabs Server</text>
+
+  <!-- Server internals -->
+  <rect x="348" y="80" width="168" height="28" fill="#000" opacity="0.12" stroke="#000" stroke-width="1.5" />
+  <text x="432" y="99" font-size="10" fill="#000" text-anchor="middle">Plugin Discovery</text>
+
+  <rect x="348" y="118" width="168" height="28" fill="#000" opacity="0.12" stroke="#000" stroke-width="1.5" />
+  <text x="432" y="137" font-size="10" fill="#000" text-anchor="middle">Tool Registry</text>
+
+  <rect x="348" y="156" width="168" height="28" fill="#000" opacity="0.12" stroke="#000" stroke-width="1.5" />
+  <text x="432" y="175" font-size="10" fill="#000" text-anchor="middle">Tool Dispatch</text>
+
+  <!-- Port label -->
+  <rect x="386" y="200" width="92" height="20" fill="#000" />
+  <text x="432" y="214" font-size="9" fill="#ffdb33" text-anchor="middle">localhost:9515</text>
+
+  <!-- Decorative gear/cog icon -->
+  <circle cx="432" cy="248" r="12" fill="none" stroke="#000" stroke-width="1.5" opacity="0.3" />
+  <circle cx="432" cy="248" r="5" fill="#000" opacity="0.3" />
+  <line x1="432" y1="233" x2="432" y2="237" stroke="#000" stroke-width="2" opacity="0.3" />
+  <line x1="432" y1="259" x2="432" y2="263" stroke="#000" stroke-width="2" opacity="0.3" />
+  <line x1="417" y1="248" x2="421" y2="248" stroke="#000" stroke-width="2" opacity="0.3" />
+  <line x1="443" y1="248" x2="447" y2="248" stroke="#000" stroke-width="2" opacity="0.3" />
+
+  <!-- ── Arrow 2: MCP Server -> Extension ─────────────── -->
+  <!-- Forward arrow (solid) -->
+  <line x1="542" y1="138" x2="644" y2="138" stroke="#000" stroke-width="2" />
+  <polygon points="644,133 654,138 644,143" fill="#000" />
+  <!-- Return arrow (dashed) -->
+  <line x1="542" y1="158" x2="644" y2="158" stroke="#000" stroke-width="2" stroke-dasharray="6 4" />
+  <polygon points="546,153 536,158 546,163" fill="#000" />
+  <!-- Label -->
+  <rect x="556" y="118" width="72" height="16" fill="#ffdb33" stroke="#000" stroke-width="1.5" />
+  <text x="592" y="130" font-size="9" fill="#000" font-weight="bold" text-anchor="middle">WebSocket</text>
+
+  <!-- ── Box 3: Your Browser ───────────────────────────── -->
+  <!-- Shadow -->
+  <rect x="664" y="28" width="212" height="260" fill="#000" />
+  <!-- Body -->
+  <rect x="660" y="24" width="212" height="260" fill="#fff" stroke="#000" stroke-width="3" />
+  <!-- Browser chrome header -->
+  <rect x="660" y="24" width="212" height="40" fill="#000" />
+  <!-- Traffic lights -->
+  <circle cx="680" cy="44" r="5" fill="#ffdb33" />
+  <circle cx="696" cy="44" r="5" fill="#555" />
+  <circle cx="712" cy="44" r="5" fill="#555" />
+  <text x="790" y="49" font-size="11" fill="#ffdb33" opacity="0.9" text-anchor="middle">Your Browser</text>
+
+  <!-- Tab rows -->
+  <!-- Slack (highlighted) -->
+  <rect x="676" y="80" width="180" height="32" fill="#ffdb33" stroke="#000" stroke-width="2" />
+  <text x="692" y="101" font-size="10" fill="#000" font-weight="bold">Slack</text>
+  <rect x="780" y="88" width="64" height="16" fill="#000" />
+  <text x="812" y="100" font-size="7" fill="#ffdb33" text-anchor="middle">adapter.js</text>
+
+  <!-- Linear -->
+  <rect x="676" y="120" width="180" height="32" fill="#fff" stroke="#000" stroke-width="2" />
+  <text x="692" y="141" font-size="10" fill="#000">Linear</text>
+  <rect x="780" y="128" width="64" height="16" fill="#000" />
+  <text x="812" y="140" font-size="7" fill="#ffdb33" text-anchor="middle">adapter.js</text>
+
+  <!-- GitHub -->
+  <rect x="676" y="160" width="180" height="32" fill="#fff" stroke="#000" stroke-width="2" />
+  <text x="692" y="181" font-size="10" fill="#000">GitHub</text>
+  <rect x="780" y="168" width="64" height="16" fill="#000" />
+  <text x="812" y="180" font-size="7" fill="#ffdb33" text-anchor="middle">adapter.js</text>
+
+  <!-- "any web app..." (dashed) -->
+  <rect x="676" y="200" width="180" height="32" fill="#fff" stroke="#000" stroke-width="1.5" stroke-dasharray="4 3" />
+  <text x="766" y="221" font-size="10" fill="#000" opacity="0.35" text-anchor="middle">any web app...</text>
+
+  <!-- Plugin icon decoration -->
+  <rect x="696" y="248" width="12" height="12" fill="#ffdb33" stroke="#000" stroke-width="1" />
+  <rect x="714" y="248" width="12" height="12" fill="#ffdb33" stroke="#000" stroke-width="1" />
+  <rect x="732" y="248" width="12" height="12" fill="#ffdb33" stroke="#000" stroke-width="1" />
+  <rect x="750" y="252" width="4" height="4" fill="#000" opacity="0.3" />
+  <rect x="758" y="252" width="4" height="4" fill="#000" opacity="0.3" />
+  <rect x="766" y="252" width="4" height="4" fill="#000" opacity="0.3" />
+
+  <!-- ── Bottom labels ─────────────────────────────────── -->
+  <text x="104" y="310" font-size="10" fill="#000" opacity="0.45" text-anchor="middle">Any MCP client</text>
+  <text x="432" y="310" font-size="10" fill="#000" opacity="0.45" text-anchor="middle">Discovers plugins, routes calls</text>
+  <text x="766" y="310" font-size="10" fill="#000" opacity="0.45" text-anchor="middle">Your session, your tabs</text>
+</svg>
