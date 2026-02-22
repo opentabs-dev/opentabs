@@ -20,6 +20,7 @@ import { slowWithProgress } from './tools/slow-with-progress.js';
 import { sdkWaitForSelector } from './tools/sdk-wait-for-selector.js';
 import { sdkFetchErrorCategories } from './tools/sdk-fetch-error-categories.js';
 import { indeterminateProgress } from './tools/indeterminate-progress.js';
+import { noDisplayName } from './tools/no-display-name.js';
 import { OpenTabsPlugin, defineResource, definePrompt } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition, ResourceDefinition, PromptDefinition } from '@opentabs-dev/plugin-sdk';
 
@@ -80,6 +81,7 @@ class E2eTestPlugin extends OpenTabsPlugin {
     slowWithProgress,
     sdkFetchErrorCategories,
     indeterminateProgress,
+    noDisplayName,
   ];
   override readonly resources: ResourceDefinition[] = [testResource];
   override readonly prompts: PromptDefinition[] = [testPrompt];
