@@ -206,14 +206,11 @@ const refreshWsUrl = async (): Promise<void> => {
       });
     }
     if (res.ok) {
-      const wsInfo = (await res.json()) as { wsUrl?: string; wsSecret?: string };
+      const wsInfo = (await res.json()) as { wsUrl?: string };
       if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '' && wsInfo.wsUrl !== mcpServerUrl) {
         if (isValidWsOrigin(wsInfo.wsUrl, httpBase)) {
           mcpServerUrl = wsInfo.wsUrl;
         }
-      }
-      if (typeof wsInfo.wsSecret === 'string' && wsInfo.wsSecret !== '') {
-        wsSecret = wsInfo.wsSecret;
       }
     }
   } catch {
@@ -381,7 +378,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
             });
           }
           if (infoRes.ok) {
-            const wsInfo = (await infoRes.json()) as { wsUrl?: string; wsSecret?: string };
+            const wsInfo = (await infoRes.json()) as { wsUrl?: string };
             if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '') {
               if (isValidWsOrigin(wsInfo.wsUrl, httpBase)) {
                 resolvedUrl = wsInfo.wsUrl;
@@ -391,9 +388,6 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
               }
             } else if (typeof wsInfo.wsUrl === 'string') {
               console.warn('[opentabs:offscreen] /ws-info returned empty wsUrl, using fallback URL');
-            }
-            if (typeof wsInfo.wsSecret === 'string' && wsInfo.wsSecret !== '') {
-              wsSecret = wsInfo.wsSecret;
             }
           }
         } catch {

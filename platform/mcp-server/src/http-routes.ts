@@ -267,10 +267,7 @@ const createHandleFetch =
       const authError = checkBearerAuth(req, state.wsSecret);
       if (authError) return authError;
       const wsUrl = `ws://${url.host}/ws`;
-      return Response.json({
-        wsUrl,
-        ...(state.wsSecret ? { wsSecret: state.wsSecret } : {}),
-      });
+      return Response.json({ wsUrl });
     }
 
     // --- Health endpoint ---

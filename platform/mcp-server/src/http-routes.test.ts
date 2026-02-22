@@ -252,7 +252,6 @@ interface HealthResponse {
 /** Shape returned by the /ws-info endpoint */
 interface WsInfoResponse {
   wsUrl: string;
-  wsSecret?: string;
 }
 
 /** Fetch a route and parse the JSON response with a typed shape */
@@ -465,7 +464,7 @@ describe('/ws-info endpoint', () => {
     expect(body).not.toHaveProperty('wsSecret');
   });
 
-  test('returns wsUrl with secret when auth is configured and Bearer token matches', async () => {
+  test('returns wsUrl without secret when auth is configured and Bearer token matches', async () => {
     const { handlers, state } = createTestHandlers();
     state.wsSecret = 'my-test-secret';
 
@@ -477,7 +476,7 @@ describe('/ws-info endpoint', () => {
     const body = (await (res as Response).json()) as WsInfoResponse;
 
     expect(body.wsUrl).toBe('ws://localhost:9876/ws');
-    expect(body.wsSecret).toBe('my-test-secret');
+    expect(body).not.toHaveProperty('wsSecret');
   });
 
   test('returns 401 for unauthenticated requests when auth is configured', async () => {
