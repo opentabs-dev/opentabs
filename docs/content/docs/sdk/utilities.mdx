@@ -9,8 +9,11 @@ The plugin SDK ships utility functions that run in the browser page context, red
 ```typescript
 import {
   waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextContent, observeDOM,
-  fetchFromPage, fetchJSON, postJSON,
-  getLocalStorage, setLocalStorage, getSessionStorage, getCookie,
+  fetchFromPage, fetchJSON, postJSON, putJSON, patchJSON, deleteJSON,
+  httpStatusToToolError, parseRetryAfterMs,
+  getLocalStorage, setLocalStorage, removeLocalStorage,
+  getSessionStorage, setSessionStorage, removeSessionStorage,
+  getCookie,
   getPageGlobal, getCurrentUrl, getPageTitle,
   retry, sleep, waitUntil,
   log,
@@ -243,6 +246,87 @@ const result = await postJSON<{ ok: boolean }>('/api/messages', {
 });
 ```
 
+### `putJSON(url, body, init?, schema?)`
+
+Convenience wrapper for PUT requests with a JSON body. Sets `Content-Type: application/json`, stringifies the body, and parses the JSON response. When a Zod schema is provided as the fourth argument, the parsed JSON is validated against it.
+
+```typescript
+function putJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+function putJSON<T extends z.ZodType>(
+  url: string, body: unknown, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
+```
+
+```typescript
+const updated = await putJSON<{ ok: boolean }>('/api/users/123', {
+  name: 'New Name',
+  role: 'admin',
+});
+```
+
+### `patchJSON(url, body, init?, schema?)`
+
+Convenience wrapper for PATCH requests with a JSON body. Sets `Content-Type: application/json`, stringifies the body, and parses the JSON response. When a Zod schema is provided as the fourth argument, the parsed JSON is validated against it.
+
+```typescript
+function patchJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+function patchJSON<T extends z.ZodType>(
+  url: string, body: unknown, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
+```
+
+```typescript
+const patched = await patchJSON<{ ok: boolean }>('/api/users/123', {
+  status: 'active',
+});
+```
+
+### `deleteJSON(url, init?, schema?)`
+
+Convenience wrapper for DELETE requests. Parses the JSON response. Unlike `postJSON`/`putJSON`/`patchJSON`, there is no `body` parameter. When a Zod schema is provided as the third argument, the parsed JSON is validated against it.
+
+```typescript
+function deleteJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T>;
+function deleteJSON<T extends z.ZodType>(
+  url: string, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
+```
+
+```typescript
+const result = await deleteJSON<{ ok: boolean }>('/api/users/123');
+```
+
+### `httpStatusToToolError(response, message)`
+
+Maps an HTTP error response to a `ToolError` with the appropriate category. Automatically classifies status codes: 401/403 → `auth`, 404 → `not_found`, 429 → `rate_limit` (with `Retry-After` header parsing), everything else → `internal`.
+
+```typescript
+function httpStatusToToolError(response: Response, message: string): ToolError;
+```
+
+```typescript
+const response = await fetch('/api/data', { credentials: 'include' });
+if (!response.ok) {
+  throw httpStatusToToolError(response, `Failed to fetch data: HTTP ${response.status}`);
+}
+```
+
+### `parseRetryAfterMs(value)`
+
+Parses a `Retry-After` header value into milliseconds. Accepts both seconds (e.g., `"120"`) and HTTP-date formats. Returns `undefined` if the value cannot be parsed or represents a time in the past.
+
+```typescript
+function parseRetryAfterMs(value: string): number | undefined;
+```
+
+```typescript
+const retryAfter = response.headers.get('Retry-After');
+if (retryAfter) {
+  const ms = parseRetryAfterMs(retryAfter);
+  if (ms) await sleep(ms);
+}
+```
+
 ---
 
 ## Storage Utilities
@@ -265,12 +349,36 @@ Writes a value to `localStorage`. Silently fails if storage access throws (Secur
 function setLocalStorage(key: string, value: string): void;
 ```
 
+### `removeLocalStorage(key)`
+
+Removes a key from `localStorage`. Silently fails if storage access throws (e.g., SecurityError in sandboxed iframes).
+
+```typescript
+function removeLocalStorage(key: string): void;
+```
+
 ### `getSessionStorage(key)`
 
 Reads a value from `sessionStorage`. Returns `null` if the key is not found or if storage access throws.
 
 ```typescript
 function getSessionStorage(key: string): string | null;
+```
+
+### `setSessionStorage(key, value)`
+
+Writes a value to `sessionStorage`. Silently fails if storage access throws (SecurityError or QuotaExceededError).
+
+```typescript
+function setSessionStorage(key: string, value: string): void;
+```
+
+### `removeSessionStorage(key)`
+
+Removes a key from `sessionStorage`. Silently fails if storage access throws (e.g., SecurityError in sandboxed iframes).
+
+```typescript
+function removeSessionStorage(key: string): void;
 ```
 
 ### `getCookie(name)`
