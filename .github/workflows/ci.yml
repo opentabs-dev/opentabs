@@ -25,9 +25,21 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
       - run: bun run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            platform/*/dist/
+            platform/*/*.tsbuildinfo
+            platform/browser-extension/icons/
+            tsconfig.configs.tsbuildinfo
+            tsconfig.scripts.tsbuildinfo
+            e2e/tsconfig.tsbuildinfo
+          retention-days: 1
 
   type-check:
     name: Type Check
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,12 +52,15 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
       - run: bun run type-check
       - run: bun run check:tsconfig-coverage
 
   lint:
     name: Lint
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,7 +73,9 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
       - run: bun run lint
 
   format:
@@ -79,6 +96,7 @@ jobs:
 
   knip:
     name: Unused Code
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,11 +109,14 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
       - run: bun run knip
 
   unit-tests:
     name: Unit Tests
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -108,11 +129,14 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
       - run: bun run test
 
   e2e-tests:
     name: E2E Tests
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +149,9 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
       - run: bunx playwright install chromium --with-deps
       - run: bun run test:e2e
       - uses: actions/upload-artifact@v4
