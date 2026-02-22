@@ -4,8 +4,6 @@ import { loadPlugin } from './loader.js';
 import { log } from './logger.js';
 import { buildRegistry } from './registry.js';
 import { discoverGlobalNpmPlugins, resolvePluginPath } from './resolver.js';
-import { isSkipPluginVerification } from './skip-verification.js';
-import { verifyOfficialPlugin } from './verify-plugin.js';
 import { isErr } from '@opentabs-dev/shared';
 import type { LoadedPlugin } from './loader.js';
 import type { FailedPlugin, PluginRegistry } from './state.js';
@@ -99,12 +97,6 @@ const discoverPlugins = async (localPlugins: string[], configDir: string): Promi
   const npmLoaded = collectLoaded(npmSettled);
   const localLoaded = collectLoaded(localSettled);
 
-  // Phase 3.5: Verify official plugins against the npm registry.
-  // Plugins that fail verification are downgraded from 'official' to 'community'.
-  if (!isSkipPluginVerification()) {
-    await verifyOfficialPlugins(npmLoaded);
-  }
-
   // Phase 4: Merge — local plugins override npm plugins of the same name
   const merged = new Map<string, LoadedPlugin>();
   for (const plugin of npmLoaded) {
@@ -130,40 +122,6 @@ const discoverPlugins = async (localPlugins: string[], configDir: string): Promi
   log.info(`Plugin discovery complete: ${registry.plugins.size} plugin(s) loaded, ${errors.length} error(s)`);
 
   return { registry, errors };
-};
-
-/**
- * Verify official-tier npm plugins against the npm registry.
- * Plugins that fail verification are downgraded to 'community' tier.
- * Runs in parallel for all official plugins in a single discovery cycle.
- */
-const verifyOfficialPlugins = async (plugins: LoadedPlugin[]): Promise<void> => {
-  const officialPlugins = plugins.filter(
-    (p): p is LoadedPlugin & { readonly npmPackageName: string } => p.trustTier === 'official' && !!p.npmPackageName,
-  );
-  if (officialPlugins.length === 0) return;
-
-  const results = await Promise.allSettled(
-    officialPlugins.map(async plugin => {
-      const result = await verifyOfficialPlugin(plugin.sourcePath, plugin.npmPackageName);
-      return { plugin, result };
-    }),
-  );
-
-  for (const settled of results) {
-    if (settled.status !== 'fulfilled') continue;
-    const { plugin, result } = settled.value;
-    if (!result.verified) {
-      log.warn(
-        `Official plugin "${plugin.name}" failed registry verification: ${result.reason ?? 'unknown'} — downgrading to community tier`,
-      );
-      // Downgrade trust tier — the LoadedPlugin was just created by loadPlugin
-      // and has not been frozen yet, so this mutation is safe within discovery
-      (plugin as { trustTier: TrustTier }).trustTier = 'community';
-    } else if (result.reason) {
-      log.info(`Plugin "${plugin.name}" verification: ${result.reason}`);
-    }
-  }
 };
 
 export { discoverPlugins, npmTrustTier };
