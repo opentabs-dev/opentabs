@@ -1,7 +1,11 @@
 import type { PluginMeta } from './extension-messages.js';
 
 /**
- * Check if a URL matches any of the plugin's Chrome match patterns.
+ * Checks if a URL matches any of the given Chrome match patterns.
+ *
+ * @param url - The full URL to test (e.g., `https://app.slack.com/client`)
+ * @param patterns - Chrome extension match patterns to test against
+ * @returns `true` if the URL matches at least one pattern
  */
 export const urlMatchesPatterns = (url: string, patterns: string[]): boolean => {
   for (const pattern of patterns) {
@@ -11,13 +15,20 @@ export const urlMatchesPatterns = (url: string, patterns: string[]): boolean => 
 };
 
 /**
- * Simple Chrome match pattern matcher.
- * Pattern format: <scheme>://<host>[:<port>]/<path>
+ * Tests a single URL against a Chrome extension match pattern.
  *
- * Chrome match patterns support an optional port in the host portion:
- *   *://localhost:9516/*   → matches http://localhost:9516/anything
- *   *://*.slack.com/*      → matches https://app.slack.com/anything
- *   http://example.com/*   → matches http://example.com/anything (default port)
+ * Pattern format: `<scheme>://<host>[:<port>]/<path>` where scheme is
+ * `*`, `http`, `https`, or `ftp`; host supports `*` (any host) and
+ * `*.domain` (subdomain wildcard); path supports `*` as a glob.
+ *
+ * Examples:
+ * - `*://localhost:9516/*` matches `http://localhost:9516/anything`
+ * - `*://*.slack.com/*` matches `https://app.slack.com/anything`
+ * - `http://example.com/*` matches `http://example.com/anything`
+ *
+ * @param url - The full URL to test
+ * @param pattern - A Chrome extension match pattern string
+ * @returns `true` if the URL matches the pattern
  */
 export const matchPattern = (url: string, pattern: string): boolean => {
   const matchResult = pattern.match(/^(\*|https?|ftp):\/\/(.+?)(\/.*)$/);
@@ -79,7 +90,7 @@ export const matchPattern = (url: string, pattern: string): boolean => {
 };
 
 /**
- * Find all matching tabs for a plugin's URL patterns, sorted by rank (best first).
+ * Finds all open tabs matching a plugin's URL patterns, sorted by rank (best first).
  *
  * Ranking prefers (in order):
  *   1. Active tab in the focused window
@@ -89,6 +100,9 @@ export const matchPattern = (url: string, pattern: string): boolean => {
  *
  * This enables fallback: when the best-ranked tab is not ready, callers can
  * try subsequent tabs in order.
+ *
+ * @param plugin - Plugin metadata containing `urlPatterns` to match against
+ * @returns Matching tabs sorted by rank (highest-priority first), deduplicated by tab ID
  */
 export const findAllMatchingTabs = async (plugin: PluginMeta): Promise<chrome.tabs.Tab[]> => {
   // Collect all matching tabs across all URL patterns, deduplicating by tab ID
@@ -134,10 +148,11 @@ export const findAllMatchingTabs = async (plugin: PluginMeta): Promise<chrome.ta
 };
 
 /**
- * Find the best matching tab for a plugin's URL patterns.
+ * Finds the best matching tab for a plugin's URL patterns.
  *
- * Returns the highest-ranked tab, or null if no matching tabs exist.
- * See findAllMatchingTabs for ranking details.
+ * @param plugin - Plugin metadata containing `urlPatterns` to match against
+ * @returns The highest-ranked matching tab, or `null` if no matching tabs exist.
+ *   See {@link findAllMatchingTabs} for ranking details.
  */
 export const findMatchingTab = async (plugin: PluginMeta): Promise<chrome.tabs.Tab | null> => {
   const tabs = await findAllMatchingTabs(plugin);

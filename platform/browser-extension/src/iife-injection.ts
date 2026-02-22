@@ -258,12 +258,16 @@ const injectAdapterFile = async (
 };
 
 /**
- * Inject a plugin's adapter into all tabs matching its URL patterns.
+ * Injects a plugin's adapter IIFE into all tabs matching its URL patterns.
  *
- * @param forceReinject - When true, re-inject even if the adapter is already
- *   present. Used by plugin.update to overwrite stale adapter code in existing
- *   tabs. When false (default), tabs that already have the adapter are skipped
- *   (used by sync.full and tabs.onUpdated to avoid redundant injection).
+ * @param pluginName - The plugin's unique name (validated against reserved names)
+ * @param urlPatterns - Chrome match patterns identifying which tabs to inject into
+ * @param forceReinject - When `true`, re-inject even if the adapter is already
+ *   present (used by plugin.update to overwrite stale adapter code). When `false`
+ *   (default), tabs that already have the adapter are skipped.
+ * @param version - Expected adapter version string for post-injection verification
+ * @param adapterHash - Expected content hash for post-injection integrity check
+ * @returns Tab IDs where injection succeeded
  */
 export const injectPluginIntoMatchingTabs = async (
   pluginName: string,
@@ -344,9 +348,12 @@ export const injectPluginIntoMatchingTabs = async (
 };
 
 /**
- * Inject all stored plugins whose URL patterns match the given tab.
- * Called on chrome.tabs.onUpdated (status=complete) so that tabs opened
- * AFTER sync.full still get their adapter files.
+ * Injects all stored plugins whose URL patterns match the given tab.
+ * Called on `chrome.tabs.onUpdated` (status=complete) so that tabs opened
+ * after `sync.full` still get their adapter files.
+ *
+ * @param tabId - The Chrome tab ID to inject adapters into
+ * @param tabUrl - The tab's current URL, used to filter plugins by URL pattern match
  */
 export const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promise<void> => {
   const index = await getAllPluginMeta();
@@ -388,8 +395,11 @@ export const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promi
 };
 
 /**
- * Remove injected adapter from all tabs matching the plugin's URL patterns.
- * Called on plugin.uninstall to clean up __openTabs.adapters[pluginName].
+ * Removes an injected adapter from all tabs matching the plugin's URL patterns.
+ * Calls the adapter's `teardown()` function and deletes it from `__openTabs.adapters`.
+ *
+ * @param pluginName - The plugin whose adapter should be removed
+ * @param urlPatterns - Chrome match patterns identifying which tabs to clean up
  */
 export const cleanupAdaptersInMatchingTabs = async (pluginName: string, urlPatterns: string[]): Promise<void> => {
   if (!isSafePluginName(pluginName)) {
@@ -461,7 +471,10 @@ export const cleanupAdaptersInMatchingTabs = async (pluginName: string, urlPatte
   );
 };
 
-/** Re-inject stored plugins into matching tabs on startup (parallel) */
+/**
+ * Re-injects all stored plugins into their matching tabs on extension startup.
+ * Runs all plugin injections in parallel, logging warnings for any failures.
+ */
 export const reinjectStoredPlugins = async (): Promise<void> => {
   const index = await getAllPluginMeta();
   const plugins = Object.values(index);
