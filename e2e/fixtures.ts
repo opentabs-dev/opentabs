@@ -329,6 +329,20 @@ const copyE2eTestPlugin = (): { pluginDir: string; tmpDir: string } => {
  */
 const killProcess = (proc: ChildProcess, graceMs = 5_000): Promise<void> => {
   if (proc.exitCode !== null) return Promise.resolve();
+
+  // On Windows, SIGTERM is unreliable — proc.kill() calls TerminateProcess
+  // which is immediate (equivalent to SIGKILL). No grace period needed.
+  if (process.platform === 'win32') {
+    return new Promise<void>(resolve => {
+      proc.once('exit', () => resolve());
+      try {
+        proc.kill();
+      } catch {
+        resolve();
+      }
+    });
+  }
+
   return new Promise<void>(resolve => {
     const onExit = () => {
       clearTimeout(fallback);
