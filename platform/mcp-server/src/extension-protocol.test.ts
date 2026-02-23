@@ -25,7 +25,12 @@ const createMockWs = (): WsHandle & { sent: string[] } => ({
 });
 
 /** No-op MCP callbacks for tests that don't exercise config changes */
-const noopCallbacks = { onToolConfigChanged: () => {}, onToolConfigPersist: () => {}, onPluginLog: () => {} };
+const noopCallbacks = {
+  onToolConfigChanged: () => {},
+  onToolConfigPersist: () => {},
+  onPluginLog: () => {},
+  onReload: () => Promise.resolve({ plugins: 0, durationMs: 0 }),
+};
 
 /** Type-safe JSON parse returning a typed record */
 const parseJson = (
@@ -1319,6 +1324,7 @@ describe('handleExtensionMessage — config.setToolEnabled', () => {
         configPersistCalled = true;
       },
       onPluginLog: () => {},
+      onReload: () => Promise.resolve({ plugins: 0, durationMs: 0 }),
     };
 
     handleExtensionMessage(
@@ -1477,6 +1483,7 @@ describe('handleExtensionMessage — config.setToolEnabled', () => {
         configPersistCalled = true;
       },
       onPluginLog: () => {},
+      onReload: () => Promise.resolve({ plugins: 0, durationMs: 0 }),
     };
 
     handleExtensionMessage(
@@ -1590,6 +1597,7 @@ describe('handleExtensionMessage — config.setToolEnabled', () => {
         configPersistCalled = true;
       },
       onPluginLog: () => {},
+      onReload: () => Promise.resolve({ plugins: 0, durationMs: 0 }),
     };
 
     handleExtensionMessage(
@@ -1806,6 +1814,7 @@ describe('handleExtensionMessage — config.setAllToolsEnabled', () => {
         configPersistCalled = true;
       },
       onPluginLog: () => {},
+      onReload: () => Promise.resolve({ plugins: 0, durationMs: 0 }),
     };
 
     handleExtensionMessage(
@@ -1838,6 +1847,7 @@ describe('handleExtensionMessage — config.setAllToolsEnabled', () => {
         configPersistCalled = true;
       },
       onPluginLog: () => {},
+      onReload: () => Promise.resolve({ plugins: 0, durationMs: 0 }),
     };
 
     handleExtensionMessage(

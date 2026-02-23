@@ -49,7 +49,11 @@ interface RouteDeps {
 }
 
 /** Callbacks for extension protocol → MCP server integration */
-const createMcpCallbacks = (state: ServerState, sessionServers: McpServerInstance[]): McpCallbacks => ({
+const createMcpCallbacks = (
+  state: ServerState,
+  sessionServers: McpServerInstance[],
+  transports: Map<string, WebStandardStreamableHTTPServerTransport>,
+): McpCallbacks => ({
   onToolConfigChanged: () => {
     for (const srv of sessionServers) {
       notifyToolListChanged(srv);
@@ -76,6 +80,7 @@ const createMcpCallbacks = (state: ServerState, sessionServers: McpServerInstanc
       });
     }
   },
+  onReload: () => performConfigReload(state, sessionServers, transports),
 });
 
 /**
@@ -597,7 +602,7 @@ interface HotHandlers {
  * fresh closures over the latest module imports.
  */
 const createHandlers = (deps: RouteDeps): HotHandlers => {
-  const mcpCallbacks = createMcpCallbacks(deps.state, deps.sessionServers);
+  const mcpCallbacks = createMcpCallbacks(deps.state, deps.sessionServers, deps.transports);
   return {
     fetch: createHandleFetch(deps),
     wsOpen: createHandleWsOpen(deps.state),
