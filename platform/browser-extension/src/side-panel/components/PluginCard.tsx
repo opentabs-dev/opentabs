@@ -12,16 +12,6 @@ import { useState, useEffect, useRef } from 'react';
 import type { PluginState } from '../bridge.js';
 import type { Dispatch, SetStateAction } from 'react';
 
-const extractDomain = (urlPatterns: string[]): string | null => {
-  for (const pattern of urlPatterns) {
-    const m = pattern.match(/^(?:\*|https?|ftp):\/\/(\*\.)?(.+?)(?:\/|$)/);
-    if (m?.[2] && m[2] !== '*') {
-      return m[2];
-    }
-  }
-  return null;
-};
-
 const PluginCard = ({
   plugin,
   activeTools,
@@ -78,8 +68,6 @@ const PluginCard = ({
     });
   };
 
-  const domain = plugin.tabState !== 'ready' ? extractDomain(plugin.urlPatterns) : null;
-
   const filterLower = toolFilter?.toLowerCase() ?? '';
   const visibleTools = filterLower
     ? plugin.tools.filter(
@@ -115,34 +103,24 @@ const PluginCard = ({
               </Tooltip.Content>
             </Tooltip>
           </Tooltip.Provider>
-          <div className="min-w-0 flex-1">
-            <div className="font-head text-foreground flex items-center gap-1.5 truncate text-sm">
-              {plugin.displayName}
-              {plugin.source === 'local' && (
-                <span className="text-muted-foreground bg-muted inline-block rounded px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
-                  DEV
-                </span>
-              )}
-              {!plugin.sdkVersion && (
-                <Tooltip.Provider>
-                  <Tooltip>
-                    <Tooltip.Trigger asChild>
-                      <span className="border-accent bg-accent/10 text-accent-foreground inline-block rounded border px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
-                        SDK
-                      </span>
-                    </Tooltip.Trigger>
-                    <Tooltip.Content>SDK version mismatch — rebuild plugin</Tooltip.Content>
-                  </Tooltip>
-                </Tooltip.Provider>
-              )}
-            </div>
-            {plugin.tabState !== 'ready' && (
-              <div
-                className={`truncate text-[10px] leading-tight ${
-                  plugin.tabState === 'closed' ? 'text-destructive' : 'text-muted-foreground'
-                }`}>
-                {plugin.tabState === 'closed' ? (domain ? `Open ${domain}` : 'No tab') : 'Waiting\u2026'}
-              </div>
+          <div className="font-head text-foreground flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm">
+            {plugin.displayName}
+            {plugin.source === 'local' && (
+              <span className="text-muted-foreground bg-muted inline-block rounded px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
+                DEV
+              </span>
+            )}
+            {!plugin.sdkVersion && (
+              <Tooltip.Provider>
+                <Tooltip>
+                  <Tooltip.Trigger asChild>
+                    <span className="border-accent bg-accent/10 text-accent-foreground inline-block rounded border px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
+                      SDK
+                    </span>
+                  </Tooltip.Trigger>
+                  <Tooltip.Content>SDK version mismatch — rebuild plugin</Tooltip.Content>
+                </Tooltip>
+              </Tooltip.Provider>
             )}
           </div>
           <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />

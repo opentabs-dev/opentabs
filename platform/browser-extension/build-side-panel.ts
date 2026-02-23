@@ -6,10 +6,16 @@
 import { join } from 'node:path';
 
 const base = import.meta.dirname;
+const outdir = join(base, 'dist/side-panel');
+
+// Remove previous bundle to guarantee no stale output survives
+await Bun.file(join(outdir, 'side-panel.js'))
+  .delete()
+  .catch(() => {});
 
 const result = await Bun.build({
   entrypoints: [join(base, 'src/side-panel/index.tsx')],
-  outdir: join(base, 'dist/side-panel'),
+  outdir,
   naming: 'side-panel.js',
   target: 'browser',
   format: 'esm',
