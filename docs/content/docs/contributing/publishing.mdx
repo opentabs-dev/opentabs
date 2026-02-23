@@ -8,7 +8,7 @@ The platform packages are published as private packages to the npm registry unde
 
 ## Packages
 
-Four platform packages are published. They must be published in dependency order:
+Five platform packages are published. They must be published in dependency order:
 
 <Table>
   <Table.Header>
@@ -39,6 +39,11 @@ Four platform packages are published. They must be published in dependency order
       <Table.Cell>`@opentabs-dev/cli`</Table.Cell>
       <Table.Cell>`plugin-sdk`, `plugin-tools`, `shared`</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">5</Table.Cell>
+      <Table.Cell>`@opentabs-dev/create-plugin`</Table.Cell>
+      <Table.Cell>`plugin-sdk`, `shared`</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -66,20 +71,20 @@ npm whoami
 
 ## Publishing a Release
 
-The `scripts/publish.sh` script handles the entire publish workflow:
+The `scripts/publish.ts` script handles the entire publish workflow:
 
 ```bash
-./scripts/publish.sh 0.0.17
+bun scripts/publish.ts 0.0.17
 ```
 
 The script:
 
 1. Verifies npm authentication via `npm whoami`
 2. Runs `bun run build` to compile all packages
-3. Bumps `"version"` in all four `platform/*/package.json` files
+3. Bumps `"version"` in all five `platform/*/package.json` files
 4. Updates cross-references between packages (e.g., `plugin-sdk` depends on `shared`)
 5. Runs `bun run build` again with the new versions
-6. Publishes in dependency order: `shared` → `plugin-sdk` → `plugin-tools` → `cli`
+6. Publishes in dependency order: `shared` → `plugin-sdk` → `plugin-tools` → `cli` → `create-plugin`
 
 All packages use `"publishConfig": { "access": "restricted" }` — only `@opentabs-dev` org members can install them.
 
@@ -110,5 +115,4 @@ This means you can publish a patch release (e.g., `0.0.16` → `0.0.17`) and exi
 
 - **`platform/mcp-server`** — ships as a bundled runtime via the CLI
 - **`platform/browser-extension`** — installed to `~/.opentabs/extension/` by the CLI
-- **`platform/create-plugin`** — published separately as `create-opentabs-plugin` (not part of the `@opentabs-dev` scope)
 - **`plugins/*`** — example plugins are standalone projects that publish independently to npm under `opentabs-plugin-*` names
