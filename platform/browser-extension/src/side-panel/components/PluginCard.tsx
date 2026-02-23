@@ -22,24 +22,6 @@ const extractDomain = (urlPatterns: string[]): string | null => {
   return null;
 };
 
-const TabStateHint = ({ plugin }: { plugin: PluginState }) => {
-  if (plugin.tabState === 'ready') return null;
-
-  const domain = extractDomain(plugin.urlPatterns);
-
-  if (plugin.tabState === 'closed') {
-    return (
-      <div className="text-destructive px-3 py-2 text-[11px]">
-        {domain ? `Open ${domain} in your browser` : 'Open a matching tab in your browser'}
-      </div>
-    );
-  }
-
-  return (
-    <div className="text-muted-foreground px-3 py-2 text-[11px]">Waiting for {plugin.displayName} to be ready</div>
-  );
-};
-
 const PluginCard = ({
   plugin,
   activeTools,
@@ -96,6 +78,8 @@ const PluginCard = ({
     });
   };
 
+  const domain = plugin.tabState !== 'ready' ? extractDomain(plugin.urlPatterns) : null;
+
   const filterLower = toolFilter?.toLowerCase() ?? '';
   const visibleTools = filterLower
     ? plugin.tools.filter(
@@ -117,7 +101,7 @@ const PluginCard = ({
                   <PluginIcon
                     pluginName={plugin.name}
                     displayName={plugin.displayName}
-                    ready={plugin.tabState === 'ready'}
+                    tabState={plugin.tabState}
                     size={32}
                     iconSvg={plugin.iconSvg}
                     iconInactiveSvg={plugin.iconInactiveSvg}
@@ -129,24 +113,34 @@ const PluginCard = ({
               </Tooltip.Content>
             </Tooltip>
           </Tooltip.Provider>
-          <div className="font-head text-foreground min-w-0 flex-1 truncate text-sm">
-            {plugin.displayName}
-            {plugin.source === 'local' && (
-              <span className="text-muted-foreground bg-muted ml-1.5 inline-block rounded px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
-                DEV
-              </span>
-            )}
-            {!plugin.sdkVersion && (
-              <Tooltip.Provider>
-                <Tooltip>
-                  <Tooltip.Trigger asChild>
-                    <span className="border-accent bg-accent/10 text-accent-foreground ml-1.5 inline-block rounded border px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
-                      SDK
-                    </span>
-                  </Tooltip.Trigger>
-                  <Tooltip.Content>SDK version mismatch — rebuild plugin</Tooltip.Content>
-                </Tooltip>
-              </Tooltip.Provider>
+          <div className="min-w-0 flex-1">
+            <div className="font-head text-foreground flex items-center gap-1.5 truncate text-sm">
+              {plugin.displayName}
+              {plugin.source === 'local' && (
+                <span className="text-muted-foreground bg-muted inline-block rounded px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
+                  DEV
+                </span>
+              )}
+              {!plugin.sdkVersion && (
+                <Tooltip.Provider>
+                  <Tooltip>
+                    <Tooltip.Trigger asChild>
+                      <span className="border-accent bg-accent/10 text-accent-foreground inline-block rounded border px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
+                        SDK
+                      </span>
+                    </Tooltip.Trigger>
+                    <Tooltip.Content>SDK version mismatch — rebuild plugin</Tooltip.Content>
+                  </Tooltip>
+                </Tooltip.Provider>
+              )}
+            </div>
+            {plugin.tabState !== 'ready' && (
+              <div
+                className={`truncate text-[10px] leading-tight ${
+                  plugin.tabState === 'closed' ? 'text-destructive' : 'text-muted-foreground'
+                }`}>
+                {plugin.tabState === 'closed' ? (domain ? `Open ${domain}` : 'No tab') : 'Waiting\u2026'}
+              </div>
             )}
           </div>
           <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
@@ -173,7 +167,6 @@ const PluginCard = ({
       )}
 
       <Accordion.Content className="border-border border-t">
-        <TabStateHint plugin={plugin} />
         {toolFilter && (
           <div className="text-muted-foreground mb-1 px-3 pt-2 text-xs">
             {visibleTools.length} of {plugin.tools.length} tools

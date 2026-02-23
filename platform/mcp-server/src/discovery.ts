@@ -64,13 +64,6 @@ const discoverPlugins = async (localPlugins: string[], configDir: string): Promi
   const loadLocal = localPlugins.map(async (specifier): Promise<LoadedPlugin | null> => {
     const resolveResult = await resolvePluginPath(specifier, configDir);
     if (isErr(resolveResult)) {
-      // "Path not found" means the directory no longer exists (stale config entry).
-      // Log it but don't surface it as a failed plugin in the side panel — the user
-      // can't fix a directory that doesn't exist, and showing it is just noise.
-      if (resolveResult.error.startsWith('Path not found:')) {
-        log.warn(`Skipping stale local plugin path: ${specifier} — directory no longer exists`);
-        return null;
-      }
       errors.push({ specifier, error: resolveResult.error });
       failures.push({ path: specifier, error: resolveResult.error });
       return null;

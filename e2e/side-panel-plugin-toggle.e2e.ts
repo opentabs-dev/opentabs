@@ -68,11 +68,12 @@ test.describe('Side panel — plugin list rendering', () => {
       // Verify plugin card shows display name
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // With no matching tab open, the PluginIcon shows an inactive (not-ready) state
-      // with opacity-50 class. The e2e-test plugin has a custom SVG icon.
-      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({
+      // With no matching tab open, the PluginIcon shows a closed state (no status dot)
+      // and the inline hint "Open localhost" is visible
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeHidden({
         timeout: 5_000,
       });
+      await expect(sidePanelPage.getByText('Open localhost')).toBeVisible({ timeout: 5_000 });
 
       // Open a matching tab → tab state transitions to 'ready'
       const appTab = await context.newPage();
@@ -98,10 +99,12 @@ test.describe('Side panel — plugin list rendering', () => {
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
-      // The PluginIcon now shows a filled (ready) state (no opacity-50 on container)
-      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
+      // The PluginIcon now shows a ready state (green status dot visible)
+      // and the hint text is hidden
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeVisible({
         timeout: 15_000,
       });
+      await expect(sidePanelPage.getByText('Open localhost')).toBeHidden({ timeout: 5_000 });
 
       await sidePanelPage.close();
       await appTab.close();

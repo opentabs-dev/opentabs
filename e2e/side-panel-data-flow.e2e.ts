@@ -120,8 +120,9 @@ test.describe('Side panel data flow — tab state changes', () => {
       // 4. Verify plugin card is visible with 'E2E Test'
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // 5. Verify the PluginIcon shows not-ready state (opacity-50 on container)
-      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({ timeout: 5_000 });
+      // 5. Verify the PluginIcon shows closed state (no status dot) and inline hint
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeHidden({ timeout: 5_000 });
+      await expect(sidePanelPage.getByText('Open localhost')).toBeVisible({ timeout: 5_000 });
 
       // 6. Open a new tab to the test server URL (matches http://localhost/*)
       const appTab = await context.newPage();
@@ -153,10 +154,11 @@ test.describe('Side panel data flow — tab state changes', () => {
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
-      // Verify the PluginIcon shows ready state (no opacity-50 on container)
-      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
+      // Verify the PluginIcon shows ready state (green status dot) and no hint text
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeVisible({
         timeout: 15_000,
       });
+      await expect(sidePanelPage.getByText('Open localhost')).toBeHidden({ timeout: 5_000 });
 
       // 8. Close the matching tab
       await appTab.close();
@@ -180,10 +182,11 @@ test.describe('Side panel data flow — tab state changes', () => {
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
 
-      // Verify the PluginIcon shows not-ready state again (opacity-50 on container)
-      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({
+      // Verify the PluginIcon shows closed state again (no status dot) and hint reappears
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeHidden({
         timeout: 15_000,
       });
+      await expect(sidePanelPage.getByText('Open localhost')).toBeVisible({ timeout: 5_000 });
 
       await sidePanelPage.close();
     } finally {
@@ -243,10 +246,10 @@ test.describe('Side panel data flow — tab state changes', () => {
         )
         .toBe('ready');
 
-      // Reload side panel and verify PluginIcon shows ready state (filled)
+      // Reload side panel and verify PluginIcon shows ready state (green dot)
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
-      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeVisible({
         timeout: 15_000,
       });
 
@@ -275,13 +278,13 @@ test.describe('Side panel data flow — tab state changes', () => {
         )
         .toBe('unavailable');
 
-      // Reload side panel and verify PluginIcon shows not-ready state (outlined).
-      // When unavailable, TabStateHint renders "Log in to E2E Test" — the
-      // PluginIcon shows fill="none" for both unavailable and closed states.
+      // Reload side panel and verify PluginIcon shows unavailable state (amber dot)
+      // with "Waiting…" hint text.
       await sidePanelPage.reload({ waitUntil: 'load' });
-      await expect(sidePanelPage.locator('.border-border.opacity-50 svg').first()).toBeVisible({
+      await expect(sidePanelPage.locator('.bg-primary.rounded-full').first()).toBeVisible({
         timeout: 15_000,
       });
+      await expect(sidePanelPage.getByText('Waiting\u2026')).toBeVisible({ timeout: 5_000 });
 
       // 10. Toggle auth back ON and verify transition back to ready
       await testServer.setAuth(true);
@@ -305,12 +308,14 @@ test.describe('Side panel data flow — tab state changes', () => {
         )
         .toBe('ready');
 
-      // Reload side panel and verify PluginIcon shows ready state (filled) again
+      // Reload side panel and verify PluginIcon shows ready state (green dot) again
+      // with no hint text visible.
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
-      await expect(sidePanelPage.locator('.border-border:not(.opacity-50) svg').first()).toBeVisible({
+      await expect(sidePanelPage.locator('.bg-success').first()).toBeVisible({
         timeout: 15_000,
       });
+      await expect(sidePanelPage.getByText('Waiting\u2026')).toBeHidden({ timeout: 5_000 });
 
       await sidePanelPage.close();
       await appTab.close();
