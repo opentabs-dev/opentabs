@@ -43,6 +43,8 @@ const config: Linter.Config[] = [
       'docs-v2/**',
       'platform/browser-extension/side-panel/**/*.{js,css}',
       '**/storybook-static/**',
+      '.ralph/worktrees/**',
+      '.claude/worktrees/**',
     ],
   },
   // Main TypeScript/TSX rules

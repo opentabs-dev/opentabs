@@ -5,3 +5,5 @@ bun.lock
 playwright-report
 test-results
 plugins
+.ralph/worktrees
+.claude/worktrees
