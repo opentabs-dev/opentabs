@@ -1736,6 +1736,335 @@ export const ProgressFlow = () => (
 );
 
 /**
+ * LifecycleSequence — vertical timeline showing the adapter lifecycle hooks
+ * and when each fires. One-time hooks (onActivate, onDeactivate) use solid boxes;
+ * repeating hooks (onNavigate, onToolInvocation*) use dashed borders with a repeat indicator.
+ * Used on the Lifecycle Hooks SDK reference page.
+ */
+export const LifecycleSequence = () => (
+  <div className="my-8">
+    <svg
+      viewBox="0 0 480 400"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full max-w-lg"
+      aria-hidden="true">
+      <defs>
+        <marker id="lc-arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="var(--color-foreground)" />
+        </marker>
+      </defs>
+
+      {/* ── Central timeline line ──────────────────────── */}
+      <line x1="60" y1="24" x2="60" y2="376" stroke="var(--color-foreground)" strokeWidth="2" opacity="0.2" />
+
+      {/* ── Phase 1: Registration (once) ──────────────── */}
+      {/* Timeline dot */}
+      <circle cx="60" cy="30" r="6" fill="var(--color-foreground)" />
+      {/* Shadow */}
+      <rect x="88" y="12" width="372" height="40" fill="var(--color-foreground)" />
+      {/* Body — solid box for one-time hook */}
+      <rect
+        x="84"
+        y="8"
+        width="372"
+        height="40"
+        fill="var(--color-primary)"
+        opacity="0.12"
+        stroke="var(--color-foreground)"
+        strokeWidth="3"
+      />
+      <text
+        x="100"
+        y="28"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        fontWeight="bold">
+        onActivate()
+      </text>
+      <text
+        x="100"
+        y="42"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.5">
+        Once, after adapter registration
+      </text>
+      {/* "once" badge */}
+      <rect x="388" y="18" width="52" height="18" fill="var(--color-foreground)" />
+      <text
+        x="414"
+        y="31"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-primary)"
+        fontWeight="bold"
+        textAnchor="middle">
+        once
+      </text>
+
+      {/* ── Arrow 1→2 ──────────────────────────────────── */}
+      <line
+        x1="60"
+        y1="52"
+        x2="60"
+        y2="88"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        markerEnd="url(#lc-arrow)"
+      />
+
+      {/* ── Phase 2: Navigation (repeating) ───────────── */}
+      {/* Timeline dot */}
+      <circle cx="60" cy="116" r="6" fill="var(--color-foreground)" />
+      {/* Shadow */}
+      <rect x="88" y="98" width="372" height="40" fill="var(--color-foreground)" />
+      {/* Body — dashed border for repeating hook */}
+      <rect
+        x="84"
+        y="94"
+        width="372"
+        height="40"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+      />
+      <text
+        x="100"
+        y="114"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        fontWeight="bold">
+        onNavigate(url)
+      </text>
+      <text
+        x="100"
+        y="128"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.5">
+        pushState, replaceState, popstate, hashchange
+      </text>
+      {/* "repeats" badge */}
+      <rect
+        x="374"
+        y="104"
+        width="66"
+        height="18"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="407"
+        y="117"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.6"
+        textAnchor="middle">
+        repeats
+      </text>
+
+      {/* ── Arrow 2→3 ──────────────────────────────────── */}
+      <line
+        x1="60"
+        y1="138"
+        x2="60"
+        y2="174"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        markerEnd="url(#lc-arrow)"
+      />
+
+      {/* ── Phase 3: Tool Invocation Start (repeating) ── */}
+      {/* Timeline dot */}
+      <circle cx="60" cy="202" r="6" fill="var(--color-foreground)" />
+      {/* Shadow */}
+      <rect x="88" y="184" width="372" height="40" fill="var(--color-foreground)" />
+      {/* Body — dashed border for repeating hook */}
+      <rect
+        x="84"
+        y="180"
+        width="372"
+        height="40"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+      />
+      <text
+        x="100"
+        y="200"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        fontWeight="bold">
+        onToolInvocationStart(toolName)
+      </text>
+      <text
+        x="100"
+        y="214"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.5">
+        {'Before each tool.handle()'}
+      </text>
+      {/* "repeats" badge */}
+      <rect
+        x="374"
+        y="190"
+        width="66"
+        height="18"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="407"
+        y="203"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.6"
+        textAnchor="middle">
+        repeats
+      </text>
+
+      {/* ── Arrow 3→4 ──────────────────────────────────── */}
+      <line
+        x1="60"
+        y1="224"
+        x2="60"
+        y2="260"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        markerEnd="url(#lc-arrow)"
+      />
+
+      {/* ── Phase 4: Tool Invocation End (repeating) ──── */}
+      {/* Timeline dot */}
+      <circle cx="60" cy="288" r="6" fill="var(--color-foreground)" />
+      {/* Shadow */}
+      <rect x="88" y="270" width="372" height="40" fill="var(--color-foreground)" />
+      {/* Body — dashed border for repeating hook */}
+      <rect
+        x="84"
+        y="266"
+        width="372"
+        height="40"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        strokeDasharray="6 4"
+      />
+      <text
+        x="100"
+        y="286"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        fontWeight="bold">
+        onToolInvocationEnd(toolName, success, ms)
+      </text>
+      <text
+        x="100"
+        y="300"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.5">
+        {'After each tool.handle() completes'}
+      </text>
+      {/* "repeats" badge */}
+      <rect
+        x="374"
+        y="276"
+        width="66"
+        height="18"
+        fill="var(--color-background)"
+        stroke="var(--color-foreground)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="407"
+        y="289"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.6"
+        textAnchor="middle">
+        repeats
+      </text>
+
+      {/* ── Arrow 4→5 ──────────────────────────────────── */}
+      <line
+        x1="60"
+        y1="310"
+        x2="60"
+        y2="346"
+        stroke="var(--color-foreground)"
+        strokeWidth="2"
+        markerEnd="url(#lc-arrow)"
+      />
+
+      {/* ── Phase 5: Removal (once) ───────────────────── */}
+      {/* Timeline dot */}
+      <circle cx="60" cy="374" r="6" fill="var(--color-foreground)" />
+      {/* Shadow */}
+      <rect x="88" y="356" width="372" height="40" fill="var(--color-foreground)" />
+      {/* Body — solid box for one-time hook */}
+      <rect
+        x="84"
+        y="352"
+        width="372"
+        height="40"
+        fill="var(--color-primary)"
+        opacity="0.12"
+        stroke="var(--color-foreground)"
+        strokeWidth="3"
+      />
+      <text
+        x="100"
+        y="372"
+        fontSize="12"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        fontWeight="bold">
+        onDeactivate()
+      </text>
+      <text
+        x="100"
+        y="386"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-foreground)"
+        opacity="0.5">
+        Before teardown, on removal or navigation away
+      </text>
+      {/* "once" badge */}
+      <rect x="388" y="362" width="52" height="18" fill="var(--color-foreground)" />
+      <text
+        x="414"
+        y="375"
+        fontSize="9"
+        fontFamily="var(--font-mono), monospace"
+        fill="var(--color-primary)"
+        fontWeight="bold"
+        textAnchor="middle">
+        once
+      </text>
+    </svg>
+  </div>
+);
+
+/**
  * PluginStructure — project structure diagram for the Plugin Development guide.
  * Shows the key files in a scaffolded plugin project as a tree.
  */
