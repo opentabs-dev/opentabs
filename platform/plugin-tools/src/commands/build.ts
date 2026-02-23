@@ -479,7 +479,7 @@ const extractArgsFromSchema = (schema: z.ZodObject<z.ZodRawShape>): ManifestProm
     const arg: ManifestPromptArgument = { name };
     const desc = (fieldSchema as { description?: string }).description;
     if (desc !== undefined) arg.description = desc;
-    arg.required = !(fieldSchema instanceof z.ZodOptional || fieldSchema instanceof z.ZodDefault);
+    arg.required = !fieldSchema.safeParse(undefined).success;
     return arg;
   });
 };

@@ -59,11 +59,8 @@ const handleInspect = async (options: { json?: boolean }, projectDir: string = p
     }
     const obj = parsed as Record<string, unknown>;
 
-    // Support legacy format (plain array) and current format (object with tools key)
     if (Array.isArray(obj.tools)) {
       manifest = obj as unknown as ToolsJsonManifest;
-    } else if (Array.isArray(parsed)) {
-      manifest = { tools: parsed as ManifestTool[] };
     } else {
       throw new Error('unexpected format');
     }
