@@ -725,23 +725,20 @@ describe('sanitizeOutput', () => {
     expect(result['value']).toBe('leaf');
   });
 
-  test('depth limit — raw value returned at depth 51 prevents further sanitization', () => {
-    // Create an object so deep that the leaf is returned verbatim at depth > 50
-    const leaf = { __proto__: 'unsanitized-at-depth-51', safe: 'yes' };
+  test('depth limit — returns safe placeholder at depth 51', () => {
+    // Create an object so deep that the leaf exceeds the depth limit
+    const leaf = { safe: 'yes' };
     let deep: unknown = leaf;
-    // We need a chain of 51 wrappers to push leaf to depth 51:
-    // wrapper[0] → child: wrapper[1] → ... → child: wrapper[50] → child: leaf
-    // sanitizeOutput(wrapper[0], 0) → sanitizeOutput(wrapper[1], 1) → ... → sanitizeOutput(leaf, 51)
-    // At depth 51, depth > 50 → return leaf unchanged
+    // Push leaf to depth 51 where the depth limit kicks in
     for (let i = 0; i < 51; i++) {
       deep = { child: deep };
     }
-    let result = sanitizeOutput(deep) as Record<string, unknown>;
+    let result: unknown = sanitizeOutput(deep);
     for (let i = 0; i < 51; i++) {
-      result = result['child'] as Record<string, unknown>;
+      result = (result as Record<string, unknown>)['child'];
     }
-    // The leaf is returned verbatim at depth 51 — dangerous keys are NOT stripped
-    expect(result).toBe(leaf);
+    // At depth 51, depth > 50 returns a safe placeholder instead of the unsanitized object
+    expect(result).toBe('[Object too deep]');
   });
 
   test('null passes through unchanged', () => {

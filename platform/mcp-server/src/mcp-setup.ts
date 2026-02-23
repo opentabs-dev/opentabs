@@ -59,7 +59,8 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
  * in MCP clients that use naive JSON deserialization.
  */
 const sanitizeOutput = (obj: unknown, depth = 0): unknown => {
-  if (depth > 50 || obj === null || obj === undefined || typeof obj !== 'object') return obj;
+  if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
+  if (depth > 50) return '[Object too deep]';
   if (Array.isArray(obj)) return obj.map(item => sanitizeOutput(item, depth + 1));
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {

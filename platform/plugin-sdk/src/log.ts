@@ -111,9 +111,10 @@ let activeTransport: LogTransport = defaultTransport;
  * Returns a function that restores the default transport.
  */
 const _setLogTransport = (transport: LogTransport): (() => void) => {
+  const previous = activeTransport;
   activeTransport = transport;
   return () => {
-    activeTransport = defaultTransport;
+    if (activeTransport === transport) activeTransport = previous;
   };
 };
 
