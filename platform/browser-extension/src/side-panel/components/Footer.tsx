@@ -6,7 +6,7 @@ const Footer = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <footer className="border-border bg-card sticky bottom-0 flex items-center border-t-2 px-3 py-3 text-sm">
+    <footer className="border-border bg-card sticky bottom-0 flex items-center border-t-2 px-3 pt-3 pb-4 text-sm">
       <div className="flex items-center gap-2">
         <Button variant="outline" size="icon" className="h-9 w-9" asChild>
           <a
