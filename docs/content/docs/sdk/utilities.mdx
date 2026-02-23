@@ -9,7 +9,7 @@ The plugin SDK ships utility functions that run in the browser page context, red
 ```typescript
 import {
   waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextContent, observeDOM,
-  fetchFromPage, fetchJSON, postJSON, putJSON, patchJSON, deleteJSON,
+  fetchFromPage, fetchJSON, postJSON, postForm, postFormData, putJSON, patchJSON, deleteJSON,
   httpStatusToToolError, parseRetryAfterMs,
   getLocalStorage, setLocalStorage, removeLocalStorage,
   getSessionStorage, setSessionStorage, removeSessionStorage,
@@ -216,27 +216,46 @@ const response = await fetchFromPage('/api/export', {
 });
 ```
 
-### `fetchJSON(url, init?)`
+### `fetchJSON(url, init?, schema?)`
 
 Fetches a URL and parses the response as JSON. Uses the page's session cookies and provides timeout + error handling.
 
 ```typescript
+// Unchecked cast (backward compatible)
 function fetchJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T>;
+
+// Zod schema validation — validates the parsed JSON and returns the typed result
+function fetchJSON<T extends z.ZodType>(
+  url: string, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
 ```
 
-Throws a `ToolError` with code `'VALIDATION_ERROR'` if the response is not valid JSON.
+Throws a `ToolError` with code `'VALIDATION_ERROR'` if the response is not valid JSON, or if the response fails Zod schema validation when a schema is provided.
 
 ```typescript
+// Simple usage with type cast
 interface Channel { id: string; name: string }
 const channels = await fetchJSON<Channel[]>('/api/channels');
+
+// Type-safe usage with Zod schema validation
+import { z } from 'zod';
+const channelSchema = z.object({ id: z.string(), name: z.string() });
+const channels = await fetchJSON('/api/channels', undefined, z.array(channelSchema));
+// channels is typed as { id: string; name: string }[] — validated at runtime
 ```
 
-### `postJSON(url, body, init?)`
+### `postJSON(url, body, init?, schema?)`
 
 Convenience wrapper for POST requests with a JSON body. Sets `Content-Type: application/json`, stringifies the body, and parses the JSON response.
 
 ```typescript
+// Unchecked cast (backward compatible)
 function postJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+
+// Zod schema validation — validates the parsed JSON and returns the typed result
+function postJSON<T extends z.ZodType>(
+  url: string, body: unknown, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
 ```
 
 ```typescript
@@ -244,6 +263,58 @@ const result = await postJSON<{ ok: boolean }>('/api/messages', {
   channel: 'general',
   text: 'Hello from OpenTabs!',
 });
+
+// With Zod schema validation
+import { z } from 'zod';
+const responseSchema = z.object({ ok: z.boolean(), ts: z.string() });
+const result = await postJSON('/api/messages', { channel: 'general', text: 'Hi!' }, undefined, responseSchema);
+// result is typed as { ok: boolean; ts: string } — validated at runtime
+```
+
+### `postForm(url, body, init?, schema?)`
+
+Convenience wrapper for POST requests with a URL-encoded form body. Sets `Content-Type: application/x-www-form-urlencoded`, serializes the body using `URLSearchParams`, and parses the JSON response.
+
+```typescript
+// Unchecked cast (backward compatible)
+function postForm<T>(url: string, body: Record<string, string>, init?: FetchFromPageOptions): Promise<T>;
+
+// Zod schema validation — validates the parsed JSON and returns the typed result
+function postForm<T extends z.ZodType>(
+  url: string, body: Record<string, string>, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
+```
+
+```typescript
+// Submit a URL-encoded form
+const result = await postForm<{ ok: boolean }>('/api/auth/token', {
+  grant_type: 'authorization_code',
+  code: authCode,
+  redirect_uri: 'https://example.com/callback',
+});
+```
+
+### `postFormData(url, body, init?, schema?)`
+
+Convenience wrapper for POST requests with a multipart/form-data body. Does **not** set `Content-Type` manually — the browser sets it automatically with the multipart boundary string. Parses the JSON response.
+
+```typescript
+// Unchecked cast (backward compatible)
+function postFormData<T>(url: string, body: FormData, init?: FetchFromPageOptions): Promise<T>;
+
+// Zod schema validation — validates the parsed JSON and returns the typed result
+function postFormData<T extends z.ZodType>(
+  url: string, body: FormData, init: FetchFromPageOptions | undefined, schema: T,
+): Promise<z.infer<T>>;
+```
+
+```typescript
+// Upload a file via multipart form data
+const formData = new FormData();
+formData.append('file', fileBlob, 'report.csv');
+formData.append('channels', 'C12345');
+
+const result = await postFormData<{ ok: boolean; file: { id: string } }>('/api/files.upload', formData);
 ```
 
 ### `putJSON(url, body, init?, schema?)`

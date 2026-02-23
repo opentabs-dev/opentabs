@@ -18,17 +18,22 @@ import type { ResourceDefinition, ResourceContent } from '@opentabs-dev/plugin-s
 Type-safe factory function that returns a `ResourceDefinition`. Identity function — provides type checking with no runtime behavior.
 
 ```typescript
-function defineResource(config: ResourceDefinition): ResourceDefinition;
+function defineResource<TContent extends z.ZodType = z.ZodType>(
+  config: ResourceDefinition<TContent>,
+): ResourceDefinition<TContent>;
 ```
+
+When a `schema` is provided, the generic parameter is inferred automatically — you can then use `ResourceContentType<typeof myResource>` to derive the content type.
 
 ## `ResourceDefinition`
 
 ```typescript
-interface ResourceDefinition {
+interface ResourceDefinition<TContent extends z.ZodType = z.ZodType> {
   uri: string;
   name: string;
   description?: string;
   mimeType?: string;
+  schema?: TContent;
   read(uri: string): Promise<ResourceContent>;
 }
 ```
@@ -68,6 +73,12 @@ interface ResourceDefinition {
       <Table.Cell>`string`</Table.Cell>
       <Table.Cell>No</Table.Cell>
       <Table.Cell>MIME type of the returned content (e.g., `'application/json'`). Helps agents understand the data format.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`schema`</Table.Cell>
+      <Table.Cell>`z.ZodType`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Zod schema describing the shape of the resource content. Provides a type-level contract for documentation and autocomplete — the runtime dispatch path does not validate against this schema. Use `ResourceContentType<typeof myResource>` to derive the content type.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`read`</Table.Cell>
@@ -134,7 +145,29 @@ interface ResourceContent {
 
 Resource URIs are automatically prefixed with `opentabs+<plugin>://` for MCP registration. A resource with URI `slack://channels` in a plugin named `slack` becomes `opentabs+slack://slack://channels` at the MCP level. You define just the local URI.
 
-## Example
+## `ResourceContentType`
+
+Utility type that extracts the content type from a `ResourceDefinition`'s schema:
+
+```typescript
+type ResourceContentType<R extends ResourceDefinition> =
+  R extends ResourceDefinition<infer T> ? z.infer<T> : unknown;
+```
+
+```typescript
+import type { ResourceContentType } from '@opentabs-dev/plugin-sdk';
+
+const myResource = defineResource({
+  schema: z.object({ channels: z.array(z.string()) }),
+  // ...
+});
+
+type Content = ResourceContentType<typeof myResource>; // { channels: string[] }
+```
+
+## Examples
+
+### Basic Resource
 
 ```typescript
 import { defineResource, fetchJSON } from '@opentabs-dev/plugin-sdk';
@@ -159,6 +192,48 @@ export const channelList = defineResource({
   },
 });
 ```
+
+### Typed Resource with Schema
+
+Use the `schema` property to define a type-level contract for your resource's content:
+
+```typescript
+import { defineResource, fetchJSON } from '@opentabs-dev/plugin-sdk';
+import type { ResourceContent, ResourceContentType } from '@opentabs-dev/plugin-sdk';
+import { z } from 'zod';
+
+const channelSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  is_private: z.boolean(),
+});
+
+export const channelList = defineResource({
+  uri: 'slack://channels',
+  name: 'Channel List',
+  description: 'All Slack channels the user has access to.',
+  mimeType: 'application/json',
+  schema: z.object({ channels: z.array(channelSchema) }),
+
+  async read(uri: string): Promise<ResourceContent> {
+    const data = await fetchJSON<{ channels: Array<{ id: string; name: string; is_private: boolean }> }>(
+      '/api/conversations.list?types=public_channel,private_channel',
+    );
+
+    return {
+      uri,
+      text: JSON.stringify(data, null, 2),
+      mimeType: 'application/json',
+    };
+  },
+});
+
+// Derive the content type from the resource definition
+type ChannelListContent = ResourceContentType<typeof channelList>;
+// { channels: { id: string; name: string; is_private: boolean }[] }
+```
+
+The `schema` is a type-level contract only — the runtime dispatch path does not validate resource content against it. It exists for documentation, autocomplete, and deriving types via `ResourceContentType`.
 
 ### Registering on the Plugin Class
 

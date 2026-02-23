@@ -18,8 +18,16 @@ import type { PromptDefinition, PromptArgument, PromptMessage } from '@opentabs-
 Type-safe factory function that returns a `PromptDefinition`. Identity function — provides type checking with no runtime behavior.
 
 ```typescript
+// Plain usage — args are untyped Record<string, string>
 function definePrompt(config: PromptDefinition): PromptDefinition;
+
+// Typed usage — when `args` Zod schema is provided, render() receives typed args
+function definePrompt<TArgs extends z.ZodObject<z.ZodRawShape>>(
+  config: TypedPromptConfig<TArgs>,
+): PromptDefinition;
 ```
+
+When you pass an `args` Zod schema, the `render()` function receives a typed object inferred from the schema instead of a plain `Record<string, string>`. The `arguments` metadata array is auto-generated from the schema during build if not explicitly provided.
 
 ## `PromptDefinition`
 
@@ -27,6 +35,7 @@ function definePrompt(config: PromptDefinition): PromptDefinition;
 interface PromptDefinition {
   name: string;
   description?: string;
+  args?: z.ZodObject<z.ZodRawShape>;
   arguments?: PromptArgument[];
   render(args: Record<string, string>): Promise<PromptMessage[]>;
 }
@@ -57,16 +66,22 @@ interface PromptDefinition {
       <Table.Cell>Human-readable description. Shown to AI agents browsing available prompts.</Table.Cell>
     </Table.Row>
     <Table.Row>
+      <Table.Cell className="font-medium">`args`</Table.Cell>
+      <Table.Cell>`z.ZodObject`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Zod schema for prompt arguments. When provided via `definePrompt`, the `render()` function receives typed args inferred from the schema. Argument metadata is auto-generated during build when the explicit `arguments` array is not provided.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
       <Table.Cell className="font-medium">`arguments`</Table.Cell>
       <Table.Cell>`PromptArgument[]`</Table.Cell>
       <Table.Cell>No</Table.Cell>
-      <Table.Cell>Arguments the prompt accepts. Defines what the agent can pass when rendering.</Table.Cell>
+      <Table.Cell>Arguments the prompt accepts (metadata for MCP registration). Auto-generated from `args` schema during build when not provided.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`render`</Table.Cell>
       <Table.Cell>`(args) => Promise<PromptMessage[]>`</Table.Cell>
       <Table.Cell>Yes</Table.Cell>
-      <Table.Cell>Async handler that renders the prompt. Runs in the browser page context. Receives arguments as a string-keyed record.</Table.Cell>
+      <Table.Cell>Async handler that renders the prompt. Runs in the browser page context. Receives arguments as a string-keyed record (or typed object when `args` schema is used).</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -114,7 +129,7 @@ interface PromptArgument {
   </Table.Body>
 </Table>
 
-All prompt arguments are strings — there are no typed schemas like tools have. Parse or validate in `render()` if needed.
+When using the `arguments` array directly, all prompt arguments are strings. For type-safe arguments, use the `args` Zod schema on `PromptDefinition` instead — see the [typed prompt example](#typed-prompt-with-zod-schema) below.
 
 ## `PromptMessage`
 
@@ -215,6 +230,38 @@ export const summarizeThread = definePrompt({
         content: {
           type: 'text',
           text: `Here is a Slack thread:\n\n${threadText}\n\nSummarize the key points and any action items.`,
+        },
+      },
+    ];
+  },
+});
+```
+
+### Typed Prompt with Zod Schema
+
+Use the `args` field to get type-safe arguments in your `render()` function. The `arguments` metadata array is auto-generated from the schema during build:
+
+```typescript
+import { definePrompt } from '@opentabs-dev/plugin-sdk';
+import { z } from 'zod';
+
+export const composeMessage = definePrompt({
+  name: 'compose_message',
+  description: 'Draft a Slack message for a given topic and tone.',
+  args: z.object({
+    topic: z.string().describe('What the message is about'),
+    tone: z.string().describe('Tone of the message (casual, formal, urgent)').optional(),
+  }),
+
+  // args is typed as { topic: string; tone?: string } — inferred from the schema
+  async render(args) {
+    const tone = args.tone ?? 'casual';
+    return [
+      {
+        role: 'user',
+        content: {
+          type: 'text',
+          text: `Draft a Slack message about: ${args.topic}\nTone: ${tone}\nKeep it concise — 2-3 sentences max.`,
         },
       },
     ];
