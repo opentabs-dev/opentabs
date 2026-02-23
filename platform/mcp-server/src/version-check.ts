@@ -16,6 +16,9 @@ interface NpmRegistryResponse {
   };
 }
 
+/** Result of checking a single plugin for updates */
+type CheckResult = { kind: 'outdated'; entry: OutdatedPlugin } | { kind: 'up-to-date' } | { kind: 'unreachable' };
+
 /**
  * Query the npm registry for the latest published version of a package.
  * Uses the abbreviated install metadata endpoint with a 10s timeout.
@@ -36,11 +39,15 @@ export const fetchLatestVersion = async (packageName: string): Promise<string | 
       signal: AbortSignal.timeout(10_000),
     });
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      log.debug(`npm registry returned ${response.status} for ${packageName}`);
+      return null;
+    }
 
     const registryResponse = (await response.json()) as NpmRegistryResponse;
     return registryResponse['dist-tags']?.latest ?? null;
-  } catch {
+  } catch (e: unknown) {
+    log.debug(`Failed to fetch latest version for ${packageName}: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 };
@@ -94,30 +101,39 @@ export const checkForUpdates = async (state: ServerState): Promise<void> => {
   log.info(`Checking ${npmPlugins.length} npm plugin(s) for updates...`);
 
   const results = await Promise.allSettled(
-    npmPlugins.map(async plugin => {
+    npmPlugins.map(async (plugin): Promise<CheckResult> => {
       const pkgName = plugin.npmPackageName;
-      if (!pkgName) return null;
+      if (!pkgName) return { kind: 'unreachable' };
 
       const latest = await fetchLatestVersion(pkgName);
-      if (!latest) return null;
+      if (!latest) return { kind: 'unreachable' };
 
       if (isNewer(plugin.version, latest)) {
-        const outdated: OutdatedPlugin = {
-          name: pkgName,
-          currentVersion: plugin.version,
-          latestVersion: latest,
-          updateCommand: `npm update -g ${pkgName}`,
+        return {
+          kind: 'outdated',
+          entry: {
+            name: pkgName,
+            currentVersion: plugin.version,
+            latestVersion: latest,
+            updateCommand: `npm update -g ${pkgName}`,
+          },
         };
-        return outdated;
       }
-      return null;
+      return { kind: 'up-to-date' };
     }),
   );
 
   const outdated: OutdatedPlugin[] = [];
+  let unreachableCount = 0;
   for (const result of results) {
-    if (result.status === 'fulfilled' && result.value) {
-      outdated.push(result.value);
+    if (result.status === 'fulfilled') {
+      if (result.value.kind === 'outdated') {
+        outdated.push(result.value.entry);
+      } else if (result.value.kind === 'unreachable') {
+        unreachableCount++;
+      }
+    } else {
+      unreachableCount++;
     }
   }
 
@@ -127,7 +143,14 @@ export const checkForUpdates = async (state: ServerState): Promise<void> => {
     log.info(`${entry.name}: ${entry.currentVersion} → ${entry.latestVersion} (run: ${entry.updateCommand})`);
   }
 
-  if (outdated.length === 0 && npmPlugins.length > 0) {
+  const total = npmPlugins.length;
+  if (unreachableCount === total) {
+    log.warn('Could not check for plugin updates — npm registry unreachable');
+  } else if (unreachableCount > 0 && outdated.length === 0) {
+    log.info(
+      `Checked ${total - unreachableCount} of ${total} npm plugins for updates (${unreachableCount} unreachable)`,
+    );
+  } else if (outdated.length === 0) {
     log.info('All npm plugins are up to date');
   }
 };

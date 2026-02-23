@@ -153,8 +153,8 @@ const getGlobalNodeModulesPaths = (): string[] => {
       const npmPath = result.stdout.toString().trim();
       if (npmPath.length > 0) paths.push(npmPath);
     }
-  } catch {
-    // npm not installed or not in PATH
+  } catch (e) {
+    log.debug(`npm root -g failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   // bun global node_modules (derive from bin path: .../bin → .../node_modules)
@@ -168,8 +168,8 @@ const getGlobalNodeModulesPaths = (): string[] => {
         if (!paths.includes(bunNodeModules)) paths.push(bunNodeModules);
       }
     }
-  } catch {
-    // bun not installed or not in PATH
+  } catch (e) {
+    log.debug(`bun pm -g bin failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   cachedGlobalPaths = paths;
@@ -184,7 +184,10 @@ const hasOpentabsField = async (dir: string): Promise<boolean> => {
   try {
     const raw = (await Bun.file(join(dir, 'package.json')).json()) as Record<string, unknown>;
     return typeof raw.opentabs === 'object' && raw.opentabs !== null && !Array.isArray(raw.opentabs);
-  } catch {
+  } catch (e) {
+    log.debug(
+      `Failed to read package.json at ${join(dir, 'package.json')}: ${e instanceof Error ? e.message : String(e)}`,
+    );
     return false;
   }
 };
@@ -200,7 +203,10 @@ const scanGlobalDir = async (globalDir: string): Promise<string[]> => {
   let entries: string[];
   try {
     entries = await readdir(globalDir);
-  } catch {
+  } catch (e) {
+    log.debug(
+      `Could not read global node_modules directory ${globalDir}: ${e instanceof Error ? e.message : String(e)}`,
+    );
     return found;
   }
 
@@ -235,8 +241,8 @@ const scanGlobalDir = async (globalDir: string): Promise<string[]> => {
             }
             await Promise.all(scopeChecks);
           })
-          .catch(() => {
-            // Scope directory unreadable — skip it
+          .catch((e: unknown) => {
+            log.debug(`Could not read scoped directory ${scopeDir}: ${e instanceof Error ? e.message : String(e)}`);
           }),
       );
     }
@@ -261,7 +267,7 @@ const discoverGlobalNpmPlugins = async (): Promise<{ dirs: string[]; errors: str
   const errors: string[] = [];
 
   if (globalPaths.length === 0) {
-    log.info('No global node_modules paths found — skipping npm auto-discovery');
+    log.warn('No global node_modules paths found — skipping npm auto-discovery');
     return { dirs: [], errors };
   }
 

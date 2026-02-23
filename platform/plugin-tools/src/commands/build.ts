@@ -259,6 +259,44 @@ const validatePlugin = (plugin: OpenTabsPlugin): string[] => {
   return errors;
 };
 
+/**
+ * Print non-fatal warnings for resource and prompt definitions that have
+ * structural issues (e.g., wrong field types). These checks complement
+ * validatePlugin's hard errors — they catch soft issues that should not
+ * block the build but indicate likely developer mistakes.
+ */
+const warnResourcesAndPrompts = (plugin: OpenTabsPlugin): void => {
+  const warnings: string[] = [];
+
+  if (plugin.resources) {
+    for (const resource of plugin.resources) {
+      const label = resource.uri || resource.name || '(unnamed)';
+      if (resource.description !== undefined && typeof resource.description !== 'string') {
+        warnings.push(`Resource "${label}" has invalid description: must be a string`);
+      }
+      if (resource.mimeType !== undefined && typeof resource.mimeType !== 'string') {
+        warnings.push(`Resource "${label}" has invalid mimeType: must be a string`);
+      }
+    }
+  }
+
+  if (plugin.prompts) {
+    for (const prompt of plugin.prompts) {
+      const label = prompt.name || '(unnamed)';
+      if (prompt.description !== undefined && typeof prompt.description !== 'string') {
+        warnings.push(`Prompt "${label}" has invalid description: must be a string`);
+      }
+      if (typeof prompt.render !== 'function') {
+        warnings.push(`Prompt "${label}" is missing a render function`);
+      }
+    }
+  }
+
+  for (const w of warnings) {
+    console.warn(pc.yellow(`Warning: ${w}`));
+  }
+};
+
 const convertToolSchemas = (tool: ToolDefinition) => {
   let inputSchema: Record<string, unknown>;
   try {
@@ -754,6 +792,9 @@ const runBuild = async (projectDir: string): Promise<void> => {
     throw new Error(`Validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`);
   }
 
+  // Warn about non-fatal resource/prompt definition issues
+  warnResourcesAndPrompts(plugin);
+
   // Hint: warn if isReady() unconditionally returns false (default scaffold value)
   try {
     const ready = await plugin.isReady();
@@ -830,7 +871,8 @@ const runBuild = async (projectDir: string): Promise<void> => {
 
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
   console.log('');
-  console.log(pc.green(`Build complete for plugin "${pkgJson.name}" v${pkgJson.version} in ${elapsed}s`));
+  const summary = `Built ${pkgJson.name} v${pkgJson.version} — ${parts.join(', ')} (${elapsed}s)`;
+  console.log(pc.green(summary));
 };
 
 const handleBuild = async (options: { watch?: boolean }): Promise<void> => {
@@ -968,4 +1010,5 @@ export {
   resolveSdkVersion,
   validatePackageJson,
   validatePlugin,
+  warnResourcesAndPrompts,
 };
