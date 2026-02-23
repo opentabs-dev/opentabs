@@ -190,6 +190,16 @@ describe('sanitizeSvg', () => {
       expect(result).not.toContain('<a');
       expect(result).not.toContain('javascript');
     });
+
+    test('preserves allowed elements after a stripped element containing allowed children', () => {
+      const svg = '<svg><script><g></g></script><path d="M0,0"/></svg>';
+      expect(sanitizeSvg(svg)).toBe('<svg><path d="M0,0"/></svg>');
+    });
+
+    test('strips script but preserves rect after it', () => {
+      const svg = '<svg><script>alert(1)</script><rect width="10" height="10"/></svg>';
+      expect(sanitizeSvg(svg)).toBe('<svg><rect width="10" height="10"/></svg>');
+    });
   });
 
   describe('edge cases', () => {

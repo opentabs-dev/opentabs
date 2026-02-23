@@ -276,12 +276,7 @@ const sanitizeSvg = (svg: string): string => {
 
     if (token.type === 'close') {
       if (strippedDepth > 0) {
-        // Check if this closing tag ends a stripped element
-        if (!ALLOWED_ELEMENTS.has(tagNameLower)) {
-          strippedDepth--;
-        } else if (strippedDepth > 0) {
-          // Closing an allowed element inside a stripped subtree
-        }
+        strippedDepth--;
         continue;
       }
       if (ALLOWED_ELEMENTS.has(tagNameLower)) {
