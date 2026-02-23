@@ -62,7 +62,7 @@ describe('opentabs-plugin build E2E', () => {
         expect(stderr).toContain('isReady()');
       }
       expect(exitCode).toBe(0);
-      expect(stdout).toContain('Build complete');
+      expect(stdout).toContain('Built ');
 
       // Verify dist/tools.json was generated
       const toolsFile = Bun.file(join(pluginDir, 'dist', 'tools.json'));

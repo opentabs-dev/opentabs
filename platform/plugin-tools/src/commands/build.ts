@@ -871,7 +871,8 @@ const runBuild = async (projectDir: string): Promise<void> => {
 
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
   console.log('');
-  console.log(pc.green(`Build complete for plugin "${pkgJson.name}" v${pkgJson.version} in ${elapsed}s`));
+  const summary = `Built ${pkgJson.name} v${pkgJson.version} — ${parts.join(', ')} (${elapsed}s)`;
+  console.log(pc.green(summary));
 };
 
 const handleBuild = async (options: { watch?: boolean }): Promise<void> => {
