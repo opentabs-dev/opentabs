@@ -351,6 +351,12 @@ const handleResourceRead = async (params: Record<string, unknown>, id: string | 
       error: { code: firstError.code, message: firstError.message },
       id,
     });
+  } else {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: -32001, message: 'No usable tab found (all matching tabs have undefined IDs)' },
+      id,
+    });
   }
 };
 
@@ -469,6 +475,12 @@ const handlePromptGet = async (params: Record<string, unknown>, id: string | num
     sendToServer({
       jsonrpc: '2.0',
       error: { code: firstError.code, message: firstError.message },
+      id,
+    });
+  } else {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: -32001, message: 'No usable tab found (all matching tabs have undefined IDs)' },
       id,
     });
   }

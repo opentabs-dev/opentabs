@@ -374,7 +374,20 @@ const handleToolDispatch = async (params: Record<string, unknown>, id: string | 
   const input = (rawInput ?? {}) as Record<string, unknown>;
 
   const MAX_INPUT_SIZE = 10 * 1024 * 1024;
-  const inputJson = JSON.stringify(input);
+  let inputJson: string;
+  try {
+    inputJson = JSON.stringify(input);
+  } catch (err) {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: {
+        code: -32602,
+        message: `Failed to serialize tool input: ${err instanceof Error ? err.message : String(err)}`,
+      },
+      id,
+    });
+    return;
+  }
   if (inputJson.length > MAX_INPUT_SIZE) {
     sendToServer({
       jsonrpc: '2.0',
@@ -487,6 +500,12 @@ const handleToolDispatch = async (params: Record<string, unknown>, id: string | 
     sendToServer({
       jsonrpc: '2.0',
       error: { code: firstError.code, message: firstError.message, data: firstError.data },
+      id,
+    });
+  } else {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: -32001, message: 'No usable tab found (all matching tabs have undefined IDs)' },
       id,
     });
   }
