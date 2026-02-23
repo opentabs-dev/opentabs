@@ -771,9 +771,22 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const sourceEntry = resolve(projectDir, 'src', 'index.ts');
 
   if (!(await Bun.file(entryPoint).exists())) {
-    throw new Error(
-      `Compiled entry point not found at ${entryPoint}. Run tsc first, then retry opentabs-plugin build.`,
-    );
+    const sourceExists = await Bun.file(sourceEntry).exists();
+    if (!sourceExists) {
+      throw new Error(
+        `Neither compiled output (${entryPoint}) nor source (${sourceEntry}) found. Is this a plugin directory?`,
+      );
+    }
+    console.log(pc.dim('Compiled output not found, running tsc...'));
+    const tscResult = Bun.spawnSync(['tsc'], { cwd: projectDir, stdio: ['ignore', 'pipe', 'pipe'] });
+    if (tscResult.exitCode !== 0) {
+      const stderr = tscResult.stderr.toString().trim();
+      const stdout = tscResult.stdout.toString().trim();
+      throw new Error(`tsc failed:\n${stderr || stdout || 'Unknown error'}`);
+    }
+    if (!(await Bun.file(entryPoint).exists())) {
+      throw new Error(`tsc succeeded but ${entryPoint} was not created. Check your tsconfig.json outDir setting.`);
+    }
   }
 
   // Step 2: Dynamically import the plugin module (cache-bust for watch mode rebuilds)

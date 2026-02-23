@@ -163,6 +163,56 @@ describe('opentabs-plugin build E2E', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Auto-tsc when dist/index.js is missing
+  // ---------------------------------------------------------------------------
+
+  describe('auto-tsc', () => {
+    test('automatically runs tsc when dist/index.js is missing but src/index.ts exists', async () => {
+      const pluginDir = join(tmpDir, 'auto-tsc');
+      copyPlugin(pluginDir);
+
+      // Remove compiled output so auto-tsc kicks in
+      rmSync(join(pluginDir, 'dist', 'index.js'), { force: true });
+
+      const { exitCode, stdout } = runBuild(pluginDir, configDir);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain('Compiled output not found, running tsc...');
+      expect(stdout).toContain('Built ');
+
+      // Verify dist/index.js was recreated by tsc
+      expect(await Bun.file(join(pluginDir, 'dist', 'index.js')).exists()).toBe(true);
+    });
+
+    test('fails with descriptive error when neither dist/index.js nor src/index.ts exists', () => {
+      const pluginDir = join(tmpDir, 'no-source');
+      copyPlugin(pluginDir);
+
+      // Remove both compiled output and source
+      rmSync(join(pluginDir, 'dist', 'index.js'), { force: true });
+      rmSync(join(pluginDir, 'src', 'index.ts'), { force: true });
+
+      const { exitCode, stderr } = runBuild(pluginDir, configDir);
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Neither compiled output');
+      expect(stderr).toContain('nor source');
+    });
+
+    test('does not run tsc when dist/index.js already exists', () => {
+      const pluginDir = join(tmpDir, 'existing-dist');
+      copyPlugin(pluginDir);
+
+      // dist/index.js exists from the copy — build should succeed without auto-tsc message
+      const { exitCode, stdout } = runBuild(pluginDir, configDir);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).not.toContain('Compiled output not found, running tsc...');
+      expect(stdout).toContain('Built ');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Validation errors
   // ---------------------------------------------------------------------------
 
