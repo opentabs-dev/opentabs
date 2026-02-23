@@ -6,7 +6,13 @@
 import { getAdaptersDir } from './config.js';
 import { appendLog } from './log-buffer.js';
 import { log } from './logger.js';
-import { searchNpmPlugins, installPlugin } from './plugin-management.js';
+import {
+  searchNpmPlugins,
+  installPlugin,
+  updatePlugin,
+  removePlugin,
+  checkPluginUpdates,
+} from './plugin-management.js';
 import {
   prefixedToolName,
   isToolEnabled,
@@ -613,6 +619,21 @@ const handleExtensionMessage = (
     return;
   }
 
+  if (method === 'plugin.updateFromRegistry' && id !== undefined) {
+    void handlePluginUpdateFromRegistry(state, params, id, callbacks);
+    return;
+  }
+
+  if (method === 'plugin.remove' && id !== undefined) {
+    void handlePluginRemove(state, params, id, callbacks);
+    return;
+  }
+
+  if (method === 'plugin.checkUpdates' && id !== undefined) {
+    void handlePluginCheckUpdates(state, id);
+    return;
+  }
+
   if (method === 'tool.progress') {
     handleToolProgress(state, params);
     return;
@@ -994,6 +1015,7 @@ const handlePluginLog = (params: Record<string, unknown> | undefined, callbacks:
 
 // ---------------------------------------------------------------------------
 // Plugin management handlers (plugin.search, plugin.install)
+// See also: plugin.updateFromRegistry, plugin.remove, plugin.checkUpdates below
 // ---------------------------------------------------------------------------
 
 const handlePluginSearch = async (
@@ -1067,6 +1089,115 @@ const handlePluginInstall = async (
     sendToExtension(state, {
       jsonrpc: '2.0',
       error: { code, message, ...(data ? { data } : {}) },
+      id,
+    });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Plugin management handlers (plugin.updateFromRegistry, plugin.remove, plugin.checkUpdates)
+// ---------------------------------------------------------------------------
+
+const handlePluginUpdateFromRegistry = async (
+  state: ServerState,
+  params: Record<string, unknown> | undefined,
+  id: string | number,
+  callbacks: McpCallbacks,
+): Promise<void> => {
+  if (!params || typeof params.name !== 'string' || params.name.length === 0) {
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      error: { code: -32602, message: 'Invalid params: name must be a non-empty string' },
+      id,
+    });
+    return;
+  }
+
+  try {
+    const result = await updatePlugin(params.name, state, callbacks.onReload);
+
+    // Notify the side panel so the UI refreshes
+    sendToExtension(state, { jsonrpc: '2.0', method: 'plugins.changed', params: {} });
+
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      result,
+      id,
+    });
+  } catch (err) {
+    const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const rawData = (err as Record<string, unknown>).data;
+    const data = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : undefined;
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      error: { code, message, ...(data ? { data } : {}) },
+      id,
+    });
+  }
+};
+
+const handlePluginRemove = async (
+  state: ServerState,
+  params: Record<string, unknown> | undefined,
+  id: string | number,
+  callbacks: McpCallbacks,
+): Promise<void> => {
+  if (!params || typeof params.name !== 'string' || params.name.length === 0) {
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      error: { code: -32602, message: 'Invalid params: name must be a non-empty string' },
+      id,
+    });
+    return;
+  }
+
+  try {
+    const pluginName = params.name;
+    const result = await removePlugin(pluginName, state, callbacks.onReload);
+
+    // Send plugin.uninstall to extension to clean up adapters in matching tabs
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      method: 'plugin.uninstall',
+      params: { name: pluginName },
+      id: getNextRequestId(),
+    });
+
+    // Notify the side panel so the UI refreshes
+    sendToExtension(state, { jsonrpc: '2.0', method: 'plugins.changed', params: {} });
+
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      result,
+      id,
+    });
+  } catch (err) {
+    const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const rawData = (err as Record<string, unknown>).data;
+    const data = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : undefined;
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      error: { code, message, ...(data ? { data } : {}) },
+      id,
+    });
+  }
+};
+
+const handlePluginCheckUpdates = async (state: ServerState, id: string | number): Promise<void> => {
+  try {
+    const result = await checkPluginUpdates(state);
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      result,
+      id,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      error: { code: -32603, message },
       id,
     });
   }
