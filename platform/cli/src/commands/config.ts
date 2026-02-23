@@ -6,7 +6,8 @@ import { atomicWriteConfig, getConfigPath, getExtensionDir, isConnectionRefused,
 import { resolvePort } from '../parse-port.js';
 import pc from 'picocolors';
 import { chmod, mkdir, rename, unlink } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import type { Command } from 'commander';
 
 const REDACTED = '***';
@@ -250,6 +251,16 @@ const handleSetPort = async (value: string): Promise<void> => {
   console.log(`port: ${pc.cyan(String(port))}`);
 };
 
+/**
+ * Resolve a stored plugin path to its absolute form for comparison.
+ * Handles both absolute paths and relative paths (resolved against configDir).
+ */
+const resolveStoredPluginPath = (storedPath: string, configDir: string): string => {
+  if (storedPath.startsWith('/')) return storedPath;
+  if (storedPath.startsWith('~/')) return resolve(homedir(), storedPath.slice(2));
+  return resolve(configDir, storedPath);
+};
+
 const handleSetLocalPluginsAdd = async (value: string): Promise<void> => {
   const pluginPath = resolve(value);
   const { config, configPath } = await loadConfig();
@@ -258,8 +269,10 @@ const handleSetLocalPluginsAdd = async (value: string): Promise<void> => {
     config.localPlugins = [];
   }
   const plugins = config.localPlugins as string[];
+  const configDir = dirname(configPath);
 
-  if (plugins.includes(pluginPath)) {
+  const alreadyRegistered = plugins.some(p => resolveStoredPluginPath(p, configDir) === pluginPath);
+  if (alreadyRegistered) {
     console.log(`${pc.dim('Already registered:')} ${pluginPath}`);
     return;
   }
@@ -278,7 +291,10 @@ const handleSetLocalPluginsRemove = async (value: string): Promise<void> => {
     process.exit(1);
   }
   const plugins = config.localPlugins as string[];
-  const index = plugins.indexOf(pluginPath);
+  const configDir = dirname(configPath);
+
+  // Find by resolved absolute path to handle mixed path formats
+  const index = plugins.findIndex(p => resolveStoredPluginPath(p, configDir) === pluginPath);
 
   if (index === -1) {
     console.error(pc.red(`Path not found in localPlugins: ${pluginPath}`));

@@ -10,7 +10,7 @@ import { validatePluginName, validateUrlPattern, LUCIDE_ICON_NAMES } from '@open
 import { parsePluginPackageJson } from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { z } from 'zod';
-import { mkdirSync, watch } from 'node:fs';
+import { mkdirSync, rmSync, watch } from 'node:fs';
 import { chmod, rename, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve, join, relative, dirname } from 'node:path';
@@ -53,9 +53,55 @@ const atomicWriteConfig = async (configPath: string, content: string): Promise<v
   }
 };
 
+const CONFIG_LOCK_RETRY_DELAY_MS = 50;
+const CONFIG_LOCK_MAX_RETRIES = 20;
+
+/**
+ * Acquire an advisory lock for the config file by atomically creating a lock
+ * directory. `mkdir` is atomic on POSIX — it fails with EEXIST if the
+ * directory already exists, providing safe mutual exclusion without race
+ * conditions. Retries with a short delay if the lock is held. Returns a
+ * release function that removes the lock directory.
+ */
+const acquireConfigLock = async (configPath: string): Promise<() => void> => {
+  const lockDir = configPath + '.lock';
+  for (let attempt = 0; attempt < CONFIG_LOCK_MAX_RETRIES; attempt++) {
+    try {
+      mkdirSync(lockDir);
+      return () => {
+        try {
+          rmSync(lockDir, { recursive: true });
+        } catch {
+          // Lock directory already removed — benign
+        }
+      };
+    } catch (err: unknown) {
+      if (err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'EEXIST') {
+        // Lock held by another process — retry
+        await new Promise<void>(r => setTimeout(r, CONFIG_LOCK_RETRY_DELAY_MS));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error('Could not acquire config lock — another build may be running');
+};
+
+/**
+ * Resolve a stored plugin path to its absolute form for comparison.
+ * Handles both absolute paths and relative paths (resolved against configDir).
+ */
+const resolvePluginPathForComparison = (storedPath: string, configDir: string): string => {
+  if (storedPath.startsWith('/')) return storedPath;
+  if (storedPath.startsWith('~/')) return resolve(homedir(), storedPath.slice(2));
+  return resolve(configDir, storedPath);
+};
+
 /**
  * Add the plugin directory to localPlugins in ~/.opentabs/config.json.
- * Uses a relative path from the config directory for portability.
+ * Uses an absolute path for consistency with the CLI's `localPlugins.add`.
+ * Uses advisory file locking to prevent concurrent builds from overwriting
+ * each other's registrations.
  * Returns true if newly registered, false if already present.
  */
 const registerInConfig = async (projectDir: string): Promise<boolean> => {
@@ -67,30 +113,42 @@ const registerInConfig = async (projectDir: string): Promise<boolean> => {
     return false;
   }
 
-  let config: Record<string, unknown>;
+  let releaseLock: (() => void) | undefined;
   try {
-    const parsed: unknown = JSON.parse(await configFile.text());
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      console.warn(pc.yellow('Warning: Config file is not a JSON object — skipping auto-registration.'));
+    releaseLock = await acquireConfigLock(configPath);
+
+    // Re-read config inside the lock to get the latest state
+    let config: Record<string, unknown>;
+    try {
+      const parsed: unknown = JSON.parse(await Bun.file(configPath).text());
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        console.warn(pc.yellow('Warning: Config file is not a JSON object — skipping auto-registration.'));
+        return false;
+      }
+      config = parsed as Record<string, unknown>;
+    } catch {
+      console.warn(pc.yellow('Warning: Config file has invalid JSON — skipping auto-registration.'));
       return false;
     }
-    config = parsed as Record<string, unknown>;
-  } catch {
-    console.warn(pc.yellow('Warning: Config file has invalid JSON — skipping auto-registration.'));
-    return false;
+
+    if (!Array.isArray(config.localPlugins)) config.localPlugins = [];
+    const plugins = config.localPlugins as string[];
+
+    const absolutePath = resolve(projectDir);
+    const configDir = dirname(configPath);
+
+    // Check for duplicates by comparing resolved absolute paths
+    const alreadyRegistered = plugins.some(
+      existing => resolvePluginPathForComparison(existing, configDir) === absolutePath,
+    );
+    if (alreadyRegistered) return false;
+
+    plugins.push(absolutePath);
+    await atomicWriteConfig(configPath, JSON.stringify(config, null, 2) + '\n');
+    return true;
+  } finally {
+    if (releaseLock) releaseLock();
   }
-
-  if (!Array.isArray(config.localPlugins)) config.localPlugins = [];
-  const plugins = config.localPlugins as string[];
-
-  const configDir = dirname(configPath);
-  const pluginPath = relative(configDir, projectDir);
-
-  if (plugins.includes(pluginPath)) return false;
-
-  plugins.push(pluginPath);
-  await atomicWriteConfig(configPath, JSON.stringify(config, null, 2) + '\n');
-  return true;
 };
 
 /**
