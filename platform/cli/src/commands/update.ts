@@ -60,7 +60,18 @@ const performUpdate = (version: string): boolean => {
   return result.exitCode === 0;
 };
 
+/** Detect if the CLI is running from a source checkout (monorepo) rather than a global npm install. */
+const isRunningFromSource = (): boolean => {
+  const cliPath = fileURLToPath(import.meta.url);
+  return !cliPath.includes('node_modules');
+};
+
 const handleUpdate = async (options: UpdateOptions): Promise<void> => {
+  if (isRunningFromSource()) {
+    console.log(pc.yellow('You appear to be running from source. Use git pull to update instead.'));
+    return;
+  }
+
   const port = resolvePort(options);
 
   // 1. Get current and latest versions
