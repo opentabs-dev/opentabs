@@ -20,15 +20,29 @@ import { join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
+// ANSI color codes for prefixed output
+const CYAN = '\x1b[36m';
+const GREEN = '\x1b[32m';
+const YELLOW = '\x1b[33m';
+const MAGENTA = '\x1b[35m';
+const BOLD = '\x1b[1m';
+const RESET = '\x1b[0m';
+
 type Writable = { write(data: string): boolean };
 
 /**
  * Read a stream line by line, writing each non-empty line with a prefix.
  * Returns a promise that resolves when the stream ends.
  */
-const pipeWithPrefix = async (stream: ReadableStream<Uint8Array>, prefix: string, output: Writable): Promise<void> => {
+const pipeWithPrefix = async (
+  stream: ReadableStream<Uint8Array>,
+  prefix: string,
+  color: string,
+  output: Writable,
+): Promise<void> => {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
+  const coloredPrefix = `${color}${BOLD}${prefix}${RESET}`;
   let partial = '';
 
   for (;;) {
@@ -39,13 +53,13 @@ const pipeWithPrefix = async (stream: ReadableStream<Uint8Array>, prefix: string
     partial = lines.pop() ?? '';
     for (const line of lines) {
       if (line.length > 0) {
-        output.write(`${prefix} ${line}\n`);
+        output.write(`${coloredPrefix} ${line}\n`);
       }
     }
   }
 
   if (partial.length > 0) {
-    output.write(`${prefix} ${partial}\n`);
+    output.write(`${coloredPrefix} ${partial}\n`);
   }
 };
 
@@ -58,11 +72,13 @@ const pipeWithPrefix = async (stream: ReadableStream<Uint8Array>, prefix: string
 const pipeTscStdout = async (
   stream: ReadableStream<Uint8Array>,
   prefix: string,
+  color: string,
   output: Writable,
   onCompilationDone: () => void,
 ): Promise<void> => {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
+  const coloredPrefix = `${color}${BOLD}${prefix}${RESET}`;
   let partial = '';
 
   for (;;) {
@@ -73,7 +89,7 @@ const pipeTscStdout = async (
     partial = lines.pop() ?? '';
     for (const line of lines) {
       if (line.length > 0) {
-        output.write(`${prefix} ${line}\n`);
+        output.write(`${coloredPrefix} ${line}\n`);
       }
       if (line.includes('Watching for file changes')) {
         onCompilationDone();
@@ -82,7 +98,7 @@ const pipeTscStdout = async (
   }
 
   if (partial.length > 0) {
-    output.write(`${prefix} ${partial}\n`);
+    output.write(`${coloredPrefix} ${partial}\n`);
   }
 };
 
@@ -109,10 +125,10 @@ const readWsSecret = async (): Promise<string | null> => {
  * Run a shell command, streaming stdout/stderr with a prefix.
  * Returns the exit code.
  */
-const runWithPrefix = async (cmd: string[], cwd: string, prefix: string): Promise<number> => {
+const runWithPrefix = async (cmd: string[], cwd: string, prefix: string, color: string): Promise<number> => {
   const proc = Bun.spawn(cmd, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-  void pipeWithPrefix(proc.stdout, prefix, process.stdout);
-  void pipeWithPrefix(proc.stderr, prefix, process.stderr);
+  void pipeWithPrefix(proc.stdout, prefix, color, process.stdout);
+  void pipeWithPrefix(proc.stderr, prefix, color, process.stderr);
   return proc.exited;
 };
 
@@ -123,28 +139,30 @@ const runWithPrefix = async (cmd: string[], cwd: string, prefix: string): Promis
 const buildExtension = async (): Promise<boolean> => {
   const extDir = join(ROOT, 'platform', 'browser-extension');
   const prefix = '[ext]';
+  const color = YELLOW;
+  const coloredPrefix = `${color}${BOLD}${prefix}${RESET}`;
 
-  console.log(`${prefix} Rebuilding extension...`);
+  console.log(`${coloredPrefix} Rebuilding extension...`);
 
-  const bundleCode = await runWithPrefix(['bun', 'run', 'build:bundle'], extDir, prefix);
+  const bundleCode = await runWithPrefix(['bun', 'run', 'build:bundle'], extDir, prefix, color);
   if (bundleCode !== 0) {
-    console.error(`${prefix} build:bundle failed (exit ${bundleCode})`);
+    console.error(`${coloredPrefix} build:bundle failed (exit ${bundleCode})`);
     return false;
   }
 
-  const sidePanelCode = await runWithPrefix(['bun', 'run', 'build:side-panel'], extDir, prefix);
+  const sidePanelCode = await runWithPrefix(['bun', 'run', 'build:side-panel'], extDir, prefix, color);
   if (sidePanelCode !== 0) {
-    console.error(`${prefix} build:side-panel failed (exit ${sidePanelCode})`);
+    console.error(`${coloredPrefix} build:side-panel failed (exit ${sidePanelCode})`);
     return false;
   }
 
-  const installCode = await runWithPrefix(['bun', 'scripts/install-extension.ts'], ROOT, prefix);
+  const installCode = await runWithPrefix(['bun', 'scripts/install-extension.ts'], ROOT, prefix, color);
   if (installCode !== 0) {
-    console.error(`${prefix} install-extension failed (exit ${installCode})`);
+    console.error(`${coloredPrefix} install-extension failed (exit ${installCode})`);
     return false;
   }
 
-  console.log(`${prefix} Extension built and installed.`);
+  console.log(`${coloredPrefix} Extension built and installed.`);
   return true;
 };
 
@@ -154,7 +172,7 @@ const buildExtension = async (): Promise<boolean> => {
  * running or the extension is not connected.
  */
 const reloadExtension = async (): Promise<void> => {
-  const prefix = '[ext]';
+  const coloredPrefix = `${YELLOW}${BOLD}[ext]${RESET}`;
   const port = Bun.env.PORT ?? '9515';
   const url = `http://localhost:${port}/extension/reload`;
 
@@ -168,14 +186,14 @@ const reloadExtension = async (): Promise<void> => {
     const response = await fetch(url, { method: 'POST', headers });
 
     if (response.ok) {
-      console.log(`${prefix} Extension reloaded.`);
+      console.log(`${coloredPrefix} Extension reloaded.`);
     } else if (response.status === 503) {
-      console.log(`${prefix} Extension not connected — reload skipped (will pick up changes on next connect).`);
+      console.log(`${coloredPrefix} Extension not connected — reload skipped (will pick up changes on next connect).`);
     } else {
-      console.warn(`${prefix} Reload request returned ${response.status}: ${await response.text()}`);
+      console.warn(`${coloredPrefix} Reload request returned ${response.status}: ${await response.text()}`);
     }
   } catch {
-    console.warn(`${prefix} MCP server not reachable — extension reload skipped.`);
+    console.warn(`${coloredPrefix} MCP server not reachable — extension reload skipped.`);
   }
 };
 
@@ -205,7 +223,8 @@ if (process.platform !== 'win32') {
 }
 
 // 1. Start tsc --build --watch
-console.log('[dev] Starting tsc --build --watch...');
+const devPrefix = `${MAGENTA}${BOLD}[dev]${RESET}`;
+console.log(`${devPrefix} Starting tsc --build --watch...`);
 const tsc = Bun.spawn(['bun', 'run', 'tsc', '--build', '--watch'], {
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -223,7 +242,7 @@ const tscReady = new Promise<void>(r => {
   tscReadyResolve = r;
 });
 
-void pipeTscStdout(tsc.stdout, '[tsc]', process.stdout, () => {
+void pipeTscStdout(tsc.stdout, '[tsc]', CYAN, process.stdout, () => {
   if (tscReadyResolve) {
     tscReadyResolve();
     tscReadyResolve = null;
@@ -231,16 +250,16 @@ void pipeTscStdout(tsc.stdout, '[tsc]', process.stdout, () => {
   }
   onTscRecompile?.();
 });
-void pipeWithPrefix(tsc.stderr, '[tsc]', process.stderr);
+void pipeWithPrefix(tsc.stderr, '[tsc]', CYAN, process.stderr);
 
 await tscReady;
-console.log('[dev] tsc initial compilation complete.');
+console.log(`${devPrefix} tsc initial compilation complete.`);
 
 // 3. Run the extension build pipeline once after initial tsc build
 await buildExtension();
 
 // 4. Start MCP server with bun --hot
-console.log('[dev] Starting MCP server (bun --hot)...');
+console.log(`${devPrefix} Starting MCP server (bun --hot)...`);
 const mcp = Bun.spawn(['bun', '--hot', 'platform/mcp-server/dist/index.js'], {
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -248,8 +267,8 @@ const mcp = Bun.spawn(['bun', '--hot', 'platform/mcp-server/dist/index.js'], {
 children.push(mcp);
 
 // Pipe MCP output
-void pipeWithPrefix(mcp.stdout, '[mcp]', process.stdout);
-void pipeWithPrefix(mcp.stderr, '[mcp]', process.stderr);
+void pipeWithPrefix(mcp.stdout, '[mcp]', GREEN, process.stdout);
+void pipeWithPrefix(mcp.stderr, '[mcp]', GREEN, process.stderr);
 
 // 5. Rebuild the extension on each tsc recompilation.
 //
@@ -302,6 +321,6 @@ const tscExit = tsc.exited.then(code => ({ process: 'tsc', code }));
 const mcpExit = mcp.exited.then(code => ({ process: 'mcp', code }));
 const result = await Promise.race([tscExit, mcpExit]);
 
-console.log(`[dev] ${result.process} exited with code ${result.code}`);
+console.log(`${devPrefix} ${result.process} exited with code ${result.code}`);
 cleanup();
 process.exit(result.code);
