@@ -8,7 +8,7 @@
  */
 
 import { log } from './logger.js';
-import { prefixedToolName, prefixedResourceUri, prefixedPromptName, isToolEnabled } from './state.js';
+import { prefixedToolName, prefixedResourceUri, prefixedPromptName } from './state.js';
 import AjvValidator from 'ajv';
 import type {
   FailedPlugin,
@@ -16,7 +16,6 @@ import type {
   RegisteredPlugin,
   ResourceLookupEntry,
   PromptLookupEntry,
-  ServerState,
   ToolLookupEntry,
 } from './state.js';
 import type { ManifestTool, ManifestResource, ManifestPrompt, TrustTier } from '@opentabs-dev/shared';
@@ -152,33 +151,6 @@ const getTool = (registry: PluginRegistry, prefixedName: string): ToolLookupResu
   return { plugin, tool, lookup };
 };
 
-/**
- * Return enabled tools for MCP tools/list responses.
- *
- * Plugin tools are filtered by the toolConfig on state (disabled tools
- * are excluded). Each tool description is prefixed with the trust tier.
- */
-const listEnabledTools = (
-  registry: PluginRegistry,
-  state: ServerState,
-): Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> => {
-  const tools: Array<{ name: string; description: string; inputSchema: Record<string, unknown> }> = [];
-
-  for (const plugin of registry.plugins.values()) {
-    for (const toolDef of plugin.tools) {
-      const prefixed = prefixedToolName(plugin.name, toolDef.name);
-      if (!isToolEnabled(state, prefixed)) continue;
-      tools.push({
-        name: prefixed,
-        description: trustTierPrefix(plugin.trustTier) + toolDef.description,
-        inputSchema: toolDef.input_schema,
-      });
-    }
-  }
-
-  return tools;
-};
-
 /** Look up a resource by its prefixed URI */
 const getResource = (registry: PluginRegistry, prefixedUri: string): ResourceLookupResult | undefined => {
   const lookup = registry.resourceLookup.get(prefixedUri);
@@ -263,7 +235,6 @@ export {
   getTool,
   listAllPrompts,
   listAllResources,
-  listEnabledTools,
   trustTierPrefix,
 };
 export type { PromptLookupResult, ResourceLookupResult, ToolLookupResult };

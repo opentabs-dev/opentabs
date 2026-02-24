@@ -7,12 +7,11 @@ import {
   getTool,
   listAllPrompts,
   listAllResources,
-  listEnabledTools,
 } from './registry.js';
 import { describe, expect, test } from 'bun:test';
 import os from 'node:os';
 import path from 'node:path';
-import type { FailedPlugin, RegisteredPlugin, ServerState } from './state.js';
+import type { FailedPlugin, RegisteredPlugin } from './state.js';
 
 /**
  * Unit tests for the immutable PluginRegistry module.
@@ -47,9 +46,6 @@ const makePlugin = (overrides: Partial<RegisteredPlugin> = {}): RegisteredPlugin
   npmPackageName: 'opentabs-plugin-test',
   ...overrides,
 });
-
-/** Create a minimal ServerState for listEnabledTools tests */
-const makeState = (toolConfig: Record<string, boolean> = {}): ServerState => ({ toolConfig }) as unknown as ServerState;
 
 describe('buildRegistry', () => {
   test('builds a registry from loaded plugins', () => {
@@ -242,96 +238,6 @@ describe('getTool', () => {
     const registry = emptyRegistry();
 
     expect(getTool(registry, 'anything')).toBeUndefined();
-  });
-});
-
-describe('listEnabledTools', () => {
-  test('returns all tools when none are disabled', () => {
-    const plugin = makePlugin();
-    const registry = buildRegistry([plugin], []);
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools).toHaveLength(1);
-    expect(tools[0]?.name).toBe('test_my_tool');
-  });
-
-  test('filters out disabled tools', () => {
-    const plugin = makePlugin();
-    const registry = buildRegistry([plugin], []);
-    const state = makeState({ test_my_tool: false });
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools).toHaveLength(0);
-  });
-
-  test('prefixes description with trust tier for official plugins', () => {
-    const plugin = makePlugin({ trustTier: 'official' });
-    const registry = buildRegistry([plugin], []);
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools[0]?.description).toStartWith('[Official] ');
-  });
-
-  test('prefixes description with trust tier for community plugins', () => {
-    const plugin = makePlugin({ trustTier: 'community' });
-    const registry = buildRegistry([plugin], []);
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools[0]?.description).toStartWith('[Community plugin — unverified] ');
-  });
-
-  test('prefixes description with trust tier for local plugins', () => {
-    const plugin = makePlugin({ trustTier: 'local' });
-    const registry = buildRegistry([plugin], []);
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools[0]?.description).toStartWith('[Local plugin] ');
-  });
-
-  test('returns tools from multiple plugins', () => {
-    const pluginA = makePlugin({ name: 'alpha' });
-    const pluginB = makePlugin({
-      name: 'beta',
-      tools: [
-        {
-          name: 'tool_b',
-          displayName: 'Tool B',
-          description: 'B tool',
-          icon: 'star',
-          input_schema: {},
-          output_schema: {},
-        },
-      ],
-    });
-    const registry = buildRegistry([pluginA, pluginB], []);
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools).toHaveLength(2);
-    const names = tools.map(t => t.name);
-    expect(names).toContain('alpha_my_tool');
-    expect(names).toContain('beta_tool_b');
-  });
-
-  test('includes inputSchema from tool definitions', () => {
-    const plugin = makePlugin();
-    const registry = buildRegistry([plugin], []);
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools[0]?.inputSchema).toEqual({ type: 'object', properties: { msg: { type: 'string' } } });
-  });
-
-  test('returns empty array for empty registry', () => {
-    const registry = emptyRegistry();
-    const state = makeState();
-
-    const tools = listEnabledTools(registry, state);
-    expect(tools).toHaveLength(0);
   });
 });
 

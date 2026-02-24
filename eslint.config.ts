@@ -43,6 +43,7 @@ const config: Linter.Config[] = [
       'docs-v2/**',
       'platform/browser-extension/side-panel/**/*.{js,css}',
       '**/storybook-static/**',
+      '**/.storybook/*.mjs',
       '.ralph/worktrees/**',
       '.claude/worktrees/**',
     ],
