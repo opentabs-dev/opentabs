@@ -1,5 +1,6 @@
 import { stopFileWatching } from './file-watcher.js';
 import { performConfigReload, performReload } from './reload.js';
+import { resetGlobalPathsCache } from './resolver.js';
 import { createState, prefixedToolName } from './state.js';
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -87,11 +88,15 @@ describe('performReload', () => {
 
     // Clear the globalThis reload guard
     (globalThis as Record<string, unknown>).__opentabs_reload_guard__ = undefined;
+    // Isolate from real globally-installed npm plugins by pointing the global paths cache
+    // to an empty list, so auto-discovery finds no global node_modules directories.
+    (globalThis as Record<string, unknown>).__opentabs_global_paths__ = [];
   });
 
   afterEach(() => {
     stopFileWatching(state);
     rmSync(configDir, { recursive: true, force: true });
+    resetGlobalPathsCache();
   });
 
   afterAll(() => {
@@ -281,11 +286,13 @@ describe('performReload — concurrent reload guard', () => {
     state = createState();
 
     (globalThis as Record<string, unknown>).__opentabs_reload_guard__ = undefined;
+    (globalThis as Record<string, unknown>).__opentabs_global_paths__ = [];
   });
 
   afterEach(() => {
     stopFileWatching(state);
     rmSync(configDir, { recursive: true, force: true });
+    resetGlobalPathsCache();
   });
 
   afterAll(() => {
@@ -331,11 +338,15 @@ describe('performConfigReload', () => {
     state = createState();
 
     (globalThis as Record<string, unknown>).__opentabs_reload_guard__ = undefined;
+    // Isolate from real globally-installed npm plugins by pointing the global paths cache
+    // to an empty list, so auto-discovery finds no global node_modules directories.
+    (globalThis as Record<string, unknown>).__opentabs_global_paths__ = [];
   });
 
   afterEach(() => {
     stopFileWatching(state);
     rmSync(configDir, { recursive: true, force: true });
+    resetGlobalPathsCache();
   });
 
   afterAll(() => {

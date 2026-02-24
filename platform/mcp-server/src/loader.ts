@@ -65,7 +65,6 @@ interface LoadedPlugin {
 }
 
 /**
-/**
  * Extract the internal plugin name from an npm package name.
  *
  * Unscoped:                opentabs-plugin-slack                      → slack
