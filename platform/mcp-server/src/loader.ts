@@ -114,6 +114,26 @@ const checkBrowserToolReferences = (
 };
 
 /**
+ * Extract the tools array from a parsed tools.json manifest.
+ * Supports two formats:
+ *   - Legacy: a plain array of tool definitions
+ *   - Current: { tools: [...], resources: [...], prompts: [...] }
+ * Returns null if the format is unrecognized or tools is not an array.
+ */
+const extractToolsArray = (raw: unknown): unknown[] | null => {
+  if (Array.isArray(raw)) {
+    return raw as unknown[];
+  }
+  if (typeof raw === 'object' && raw !== null && 'tools' in raw) {
+    const candidate = (raw as Record<string, unknown>).tools;
+    if (Array.isArray(candidate)) {
+      return candidate as unknown[];
+    }
+  }
+  return null;
+};
+
+/**
  * Validate an array of tool definitions from dist/tools.json.
  * Each tool must have name, displayName, description, icon, input_schema, output_schema.
  */
@@ -434,11 +454,10 @@ const loadPlugin = async (
     typeof manifestRaw === 'object' && manifestRaw !== null && !Array.isArray(manifestRaw)
       ? (manifestRaw as Record<string, unknown>)
       : null;
-  const toolsArray = Array.isArray(manifestRaw)
-    ? manifestRaw
-    : manifestObj && 'tools' in manifestObj
-      ? manifestObj.tools
-      : manifestRaw;
+  const toolsArray = extractToolsArray(manifestRaw);
+  if (!toolsArray) {
+    return err(`Invalid tools.json at ${dir}: expected an array or { tools: [...] }`);
+  }
 
   const toolsResult = validateTools(toolsArray, dir);
   if (!toolsResult.ok) {
@@ -521,6 +540,7 @@ const loadPlugin = async (
 export {
   checkBrowserToolReferences,
   checkSdkCompatibility,
+  extractToolsArray,
   loadPlugin,
   parseMajorMinor,
   pluginNameFromPackage,

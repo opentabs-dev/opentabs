@@ -21,7 +21,7 @@
  */
 
 import { getConfigDir } from './config.js';
-import { loadPlugin } from './loader.js';
+import { extractToolsArray, loadPlugin } from './loader.js';
 import { log } from './logger.js';
 import { buildRegistry } from './registry.js';
 import { ADAPTER_FILENAME, ADAPTER_SOURCE_MAP_FILENAME, TOOLS_FILENAME, isOk } from '@opentabs-dev/shared';
@@ -233,18 +233,8 @@ const parseToolsJson = (raw: string, filePath: string): ManifestTool[] | null =>
     return null;
   }
 
-  // Extract the tools array from either format
-  let toolsArray: unknown[];
-  if (Array.isArray(parsed)) {
-    toolsArray = parsed;
-  } else if (typeof parsed === 'object' && parsed !== null && 'tools' in parsed) {
-    const candidate = (parsed as Record<string, unknown>).tools;
-    if (!Array.isArray(candidate)) {
-      log.error(`File watcher: ${filePath} .tools is not an array`);
-      return null;
-    }
-    toolsArray = candidate;
-  } else {
+  const toolsArray = extractToolsArray(parsed);
+  if (!toolsArray) {
     log.error(`File watcher: ${filePath} is not a valid manifest`);
     return null;
   }
