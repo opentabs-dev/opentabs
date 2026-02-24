@@ -13,6 +13,7 @@
  */
 
 import { getLogFilePath } from '../config.js';
+import { getFileSize, readFileSlice } from '@opentabs-dev/shared';
 import { InvalidArgumentError } from 'commander';
 import pc from 'picocolors';
 import { existsSync, statSync, createReadStream, watch } from 'node:fs';
@@ -42,11 +43,10 @@ const tailFile = async (
   lineCount: number,
   filter?: string,
 ): Promise<{ content: string; fileSize: number }> => {
-  const file = Bun.file(filePath);
-  const fileSize = file.size;
+  const fileSize = await getFileSize(filePath);
   if (lineCount <= 0 || fileSize === 0) return { content: '', fileSize };
   const readStart = Math.max(0, fileSize - TAIL_BUFFER_SIZE);
-  const chunk = await file.slice(readStart, fileSize).text();
+  const chunk = await readFileSlice(filePath, readStart, fileSize);
   let lines = chunk.split('\n');
   // If we didn't read from the start, the first line may be partial — skip it
   if (readStart > 0) lines.shift();

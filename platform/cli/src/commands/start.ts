@@ -13,7 +13,13 @@
 import { installExtension } from './setup.js';
 import { getConfigDir, getLogFilePath, readAuthSecret } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
-import { isWindows, platformExec, toErrorMessage } from '@opentabs-dev/shared';
+import {
+  fileExists as runtimeFileExists,
+  isWindows,
+  platformExec,
+  spawnStreaming,
+  toErrorMessage,
+} from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { mkdirSync, createWriteStream } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -130,9 +136,9 @@ const printMcpClientConfigs = (mcpUrl: string, secret: string | null): void => {
 const handleStart = async (options: StartOptions): Promise<void> => {
   const serverEntry = resolveServerEntry();
 
-  if (!(await Bun.file(serverEntry).exists())) {
+  if (!(await runtimeFileExists(serverEntry))) {
     console.error(pc.red(`Error: MCP server entry not found at ${serverEntry}`));
-    console.error('Run bun run build from the project root first.');
+    console.error('Run npm run build from the project root first.');
     process.exit(1);
   }
 
@@ -177,9 +183,9 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   console.log(pc.dim('  Press Ctrl+C to stop'));
   console.log('');
 
-  const proc = Bun.spawn([platformExec('bun'), serverEntry], {
-    env: env as Record<string, string>,
-    stdio: ['inherit', 'pipe', 'pipe'],
+  const proc = spawnStreaming(platformExec('node'), [serverEntry], {
+    env: env,
+    stdin: 'inherit',
   });
 
   const stdoutPipe = teeStream(proc.stdout, process.stdout, logStream);

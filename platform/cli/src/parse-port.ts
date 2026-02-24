@@ -2,7 +2,7 @@
  * Shared port parser and resolver for Commander options.
  */
 
-import { DEFAULT_PORT } from '@opentabs-dev/shared';
+import { DEFAULT_PORT, getEnv } from '@opentabs-dev/shared';
 import { InvalidArgumentError } from 'commander';
 import pc from 'picocolors';
 
@@ -23,7 +23,7 @@ const parsePort = (value: string): number => {
 const resolvePort = (options: { port?: number }): number => {
   if (options.port !== undefined) return options.port;
 
-  const envPort = Bun.env.OPENTABS_PORT;
+  const envPort = getEnv('OPENTABS_PORT');
   if (envPort !== undefined) {
     const parsed = Number(envPort);
     if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 65535) {

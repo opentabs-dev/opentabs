@@ -3,12 +3,12 @@
  *
  * Shells out to `npm view` to check the latest published version (which
  * handles auth for private packages via ~/.npmrc), compares with the
- * currently installed version, and delegates to `bun install -g` for
+ * currently installed version, and delegates to `npm install -g` for
  * the actual update. Warns if a server is running.
  */
 
 import { resolvePort } from '../parse-port.js';
-import { toErrorMessage } from '@opentabs-dev/shared';
+import { readFile, spawnProcessSync, toErrorMessage } from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,20 +23,18 @@ interface UpdateOptions {
 /** Read the currently installed CLI version from package.json. */
 const getInstalledVersion = async (): Promise<string> => {
   const cliDir = dirname(fileURLToPath(import.meta.url));
-  const pkgJson = JSON.parse(await Bun.file(join(cliDir, '..', '..', 'package.json')).text()) as { version: string };
+  const pkgJson = JSON.parse(await readFile(join(cliDir, '..', '..', 'package.json'))) as { version: string };
   return pkgJson.version;
 };
 
 /** Query the latest published version via `npm view`. */
 const getLatestVersion = (): string => {
-  const result = Bun.spawnSync(['npm', 'view', CLI_PACKAGE_NAME, 'version'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const result = spawnProcessSync('npm', ['view', CLI_PACKAGE_NAME, 'version']);
   if (result.exitCode !== 0) {
-    const stderr = result.stderr.toString().trim();
+    const stderr = result.stderr.trim();
     throw new Error(`npm view failed: ${stderr || `exit code ${result.exitCode}`}`);
   }
-  return result.stdout.toString().trim();
+  return result.stdout.trim();
 };
 
 /** Check if the MCP server is running on the given port. */
@@ -51,12 +49,10 @@ const isServerRunning = async (port: number): Promise<boolean> => {
   }
 };
 
-/** Run `bun install -g` to update the CLI package. */
+/** Run `npm install -g` to update the CLI package. */
 const performUpdate = (version: string): boolean => {
   const target = `${CLI_PACKAGE_NAME}@${version}`;
-  const result = Bun.spawnSync(['bun', 'install', '-g', target], {
-    stdio: ['inherit', 'inherit', 'inherit'],
-  });
+  const result = spawnProcessSync('npm', ['install', '-g', target], { stdin: 'inherit' });
   return result.exitCode === 0;
 };
 
@@ -100,7 +96,7 @@ const handleUpdate = async (options: UpdateOptions): Promise<void> => {
   if (!success) {
     console.error('');
     console.error(pc.red('Update failed.'));
-    console.error(pc.dim(`Try manually: bun install -g ${CLI_PACKAGE_NAME}@latest`));
+    console.error(pc.dim(`Try manually: npm install -g ${CLI_PACKAGE_NAME}@latest`));
     process.exit(1);
   }
 

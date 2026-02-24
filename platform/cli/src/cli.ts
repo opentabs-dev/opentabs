@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import {
   registerAuditCommand,
@@ -11,12 +11,13 @@ import {
   registerUpdateCommand,
 } from './commands/index.js';
 import { parsePort } from './parse-port.js';
+import { readFile } from '@opentabs-dev/shared';
 import { Command } from 'commander';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const cliDir = dirname(fileURLToPath(import.meta.url));
-const pkgJson = JSON.parse(await Bun.file(join(cliDir, '..', 'package.json')).text()) as { version: string };
+const pkgJson = JSON.parse(await readFile(join(cliDir, '..', 'package.json'))) as { version: string };
 
 const program = new Command('opentabs')
   .version(pkgJson.version, '-V, --version')

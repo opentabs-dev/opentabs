@@ -55,10 +55,10 @@ describe('checkExtensionConnected', () => {
 // ---------------------------------------------------------------------------
 
 describe('checkBunVersion', () => {
-  test('returns pass result with current Bun version', () => {
+  test('returns pass result with current runtime version', () => {
     const result: CheckResult = checkBunVersion();
     expect(result.ok).toBe(true);
-    expect(result.label).toBe('Bun runtime');
+    expect(result.label).toBe('Runtime');
     expect(result.detail).toContain(Bun.version);
   });
 });

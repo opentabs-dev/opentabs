@@ -5,7 +5,12 @@
  * auto-initialization on first run.
  */
 
-import { EXTENSION_COPY_EXCLUDE_PATTERN } from '@opentabs-dev/shared';
+import {
+  EXTENSION_COPY_EXCLUDE_PATTERN,
+  fileExists as runtimeFileExists,
+  readFile,
+  writeFile as runtimeWriteFile,
+} from '@opentabs-dev/shared';
 import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,7 +26,7 @@ const resolveExtensionDir = (): string => {
 
 const getCliVersion = async (): Promise<string> => {
   const cliPkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
-  const pkgJson = JSON.parse(await Bun.file(cliPkgPath).text()) as { version: string };
+  const pkgJson = JSON.parse(await readFile(cliPkgPath)) as { version: string };
   return pkgJson.version;
 };
 
@@ -46,8 +51,8 @@ const installExtension = async (configDir: string): Promise<InstallExtensionResu
   const extensionSrc = resolveExtensionDir();
 
   // Verify the extension source exists
-  if (!(await Bun.file(join(extensionSrc, 'manifest.json')).exists())) {
-    throw new Error(`Browser extension not found at ${extensionSrc}. Run bun run build from the project root first.`);
+  if (!(await runtimeFileExists(join(extensionSrc, 'manifest.json')))) {
+    throw new Error(`Browser extension not found at ${extensionSrc}. Run npm run build from the project root first.`);
   }
 
   const version = await getCliVersion();
@@ -57,9 +62,8 @@ const installExtension = async (configDir: string): Promise<InstallExtensionResu
 
   // Check if already up-to-date
   if (!firstTime) {
-    const versionFile = Bun.file(versionMarkerPath);
-    if (await versionFile.exists()) {
-      const installedVersion = (await versionFile.text()).trim();
+    if (await runtimeFileExists(versionMarkerPath)) {
+      const installedVersion = (await readFile(versionMarkerPath)).trim();
       if (installedVersion === version) {
         return { installed: false, firstTime: false, extensionDest, version };
       }
@@ -80,7 +84,7 @@ const installExtension = async (configDir: string): Promise<InstallExtensionResu
   mkdirSync(join(extensionDest, 'adapters'), { recursive: true });
 
   // Write version marker
-  await Bun.write(versionMarkerPath, version);
+  await runtimeWriteFile(versionMarkerPath, version);
 
   // Verify installation
   if (!existsSync(join(extensionDest, 'manifest.json'))) {

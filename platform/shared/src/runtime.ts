@@ -11,7 +11,8 @@
 
 import { spawnSync as nodeSpawnSync, spawn as nodeSpawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFile as nodeReadFile, writeFile as nodeWriteFile, unlink, stat } from 'node:fs/promises';
+import { open, readFile as nodeReadFile, writeFile as nodeWriteFile, unlink, stat } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 
 // ---------------------------------------------------------------------------
 // Runtime detection
@@ -146,6 +147,120 @@ export const spawnProcess = (cmd: string, args: string[], opts?: SpawnOptions): 
       });
     });
   });
+};
+
+/** Handle for a streaming child process. */
+export interface StreamingProcess {
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+  kill: (signal?: string) => void;
+  exited: Promise<number>;
+}
+
+/**
+ * Spawn a process with streaming stdout/stderr.
+ * Used when the caller needs real-time output (e.g., tee to terminal + log file).
+ */
+export const spawnStreaming = (
+  cmd: string,
+  args: string[],
+  opts?: SpawnOptions & { env?: Record<string, string | undefined> },
+): StreamingProcess => {
+  if (isBun) {
+    const proc = Bun.spawn([cmd, ...args], {
+      cwd: opts?.cwd,
+      env: opts?.env as Record<string, string>,
+      stdin: opts?.stdin ?? 'inherit',
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    return {
+      stdout: proc.stdout,
+      stderr: proc.stderr,
+      kill: (signal?: string) => proc.kill(signal === 'SIGTERM' ? 'SIGTERM' : 'SIGINT'),
+      exited: proc.exited,
+    };
+  }
+  const child = nodeSpawn(cmd, args, {
+    cwd: opts?.cwd,
+    env: opts?.env as NodeJS.ProcessEnv,
+    stdio: [opts?.stdin ?? 'inherit', 'pipe', 'pipe'],
+  });
+  const toReadableStream = (readable: Readable | null): ReadableStream<Uint8Array> => {
+    if (!readable)
+      return new ReadableStream({
+        start(c) {
+          c.close();
+        },
+      });
+    return Readable.toWeb(readable) as unknown as ReadableStream<Uint8Array>;
+  };
+  const exited = new Promise<number>((resolve, reject) => {
+    child.on('error', reject);
+    child.on('close', code => resolve(code ?? 1));
+  });
+  return {
+    stdout: toReadableStream(child.stdout),
+    stderr: toReadableStream(child.stderr),
+    kill: (signal?: string) => child.kill(signal === 'SIGTERM' ? 'SIGTERM' : 'SIGINT'),
+    exited,
+  };
+};
+
+/**
+ * Spawn a process with inherited stdio (pass-through to terminal).
+ * Returns the exit code when the process completes.
+ */
+export const spawnInherit = (cmd: string, args: string[], opts?: SpawnOptions): Promise<number> => {
+  if (isBun) {
+    const proc = Bun.spawn([cmd, ...args], {
+      cwd: opts?.cwd,
+      env: opts?.env as Record<string, string>,
+      stdio: ['inherit', 'inherit', 'inherit'],
+    });
+    return proc.exited;
+  }
+  return new Promise<number>((resolve, reject) => {
+    const child = nodeSpawn(cmd, args, {
+      cwd: opts?.cwd,
+      env: opts?.env as NodeJS.ProcessEnv,
+      stdio: 'inherit',
+    });
+    child.on('error', reject);
+    child.on('close', code => resolve(code ?? 1));
+  });
+};
+
+// ---------------------------------------------------------------------------
+// File metadata & partial reads
+// ---------------------------------------------------------------------------
+
+/** Get the size of a file in bytes. Returns 0 if the file does not exist. */
+export const getFileSize = async (path: string): Promise<number> => {
+  if (isBun) return Bun.file(path).size;
+  try {
+    const s = await stat(path);
+    return s.size;
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Read a slice of a file as UTF-8 text.
+ * Reads bytes from `start` to `end` (exclusive).
+ */
+export const readFileSlice = async (path: string, start: number, end: number): Promise<string> => {
+  if (isBun) return Bun.file(path).slice(start, end).text();
+  const fh = await open(path, 'r');
+  try {
+    const length = end - start;
+    const buf = Buffer.alloc(length);
+    await fh.read(buf, 0, length, start);
+    return buf.toString('utf-8');
+  } finally {
+    await fh.close();
+  }
 };
 
 // ---------------------------------------------------------------------------

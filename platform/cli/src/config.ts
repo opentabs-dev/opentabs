@@ -4,10 +4,12 @@
 
 import {
   atomicWrite,
+  fileExists as runtimeFileExists,
   getConfigDir,
   getConfigPath,
   getExtensionDir,
   getLogFilePath,
+  readFile,
   toErrorMessage,
 } from '@opentabs-dev/shared';
 import { dirname, join, resolve, isAbsolute } from 'node:path';
@@ -20,13 +22,12 @@ export type ConfigResult =
   | { config: null; error: 'invalid'; message: string };
 
 export const readConfig = async (configPath: string): Promise<ConfigResult> => {
-  const configFile = Bun.file(configPath);
-  if (!(await configFile.exists())) {
+  if (!(await runtimeFileExists(configPath))) {
     return { config: null, error: 'missing' };
   }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(await configFile.text());
+    parsed = JSON.parse(await readFile(configPath));
   } catch (err) {
     return {
       config: null,
@@ -63,10 +64,9 @@ export const atomicWriteConfig = (configPath: string, content: string): Promise<
  */
 export const readAuthSecret = async (): Promise<string | null> => {
   const authPath = join(getExtensionDir(), 'auth.json');
-  const authFile = Bun.file(authPath);
-  if (!(await authFile.exists())) return null;
+  if (!(await runtimeFileExists(authPath))) return null;
   try {
-    const parsed: unknown = JSON.parse(await authFile.text());
+    const parsed: unknown = JSON.parse(await readFile(authPath));
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const secret = (parsed as Record<string, unknown>).secret;
       if (typeof secret === 'string' && secret.length > 0) return secret;

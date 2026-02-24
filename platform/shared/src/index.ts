@@ -23,13 +23,17 @@ export {
   writeFile,
   fileExists,
   deleteFile,
+  getFileSize,
+  readFileSlice,
   spawnProcess,
   spawnProcessSync,
+  spawnStreaming,
+  spawnInherit,
   getEnv,
   getArgv,
   sha256,
 } from './runtime.js';
-export type { SpawnResult, SpawnOptions } from './runtime.js';
+export type { SpawnResult, SpawnOptions, StreamingProcess } from './runtime.js';
 
 // ---------------------------------------------------------------------------
 // Error utilities

@@ -7,6 +7,7 @@
  */
 
 import { validatePluginName, validateUrlPattern } from '@opentabs-dev/plugin-sdk';
+import { readJsonFile, writeFile as runtimeWriteFile } from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { existsSync, mkdirSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
@@ -60,7 +61,7 @@ const resolveOpenTabsVersion = async (): Promise<string> => {
   try {
     const entryUrl = import.meta.resolve('@opentabs-dev/plugin-sdk');
     const entryDir = dirname(new URL(entryUrl).pathname);
-    const pkg: unknown = await Bun.file(join(entryDir, '..', 'package.json')).json();
+    const pkg: unknown = await readJsonFile(join(entryDir, '..', 'package.json'));
     if (pkg !== null && typeof pkg === 'object' && 'version' in pkg && typeof pkg.version === 'string') {
       return `^${pkg.version}`;
     }
@@ -191,6 +192,7 @@ const GITIGNORE_CONTENT = `dist/
 node_modules/
 *.tsbuildinfo
 bun.lock
+package-lock.json
 `;
 
 const generateReadme = (args: ScaffoldArgs, urlPattern: string): string => {
@@ -267,11 +269,11 @@ ${args.name}/
 ## Development
 
 \`\`\`bash
-bun install
-bun run build       # tsc && opentabs-plugin build
-bun run dev         # watch mode (tsc --watch + opentabs-plugin build --watch)
-bun run type-check  # tsc --noEmit
-bun run lint        # eslint
+npm install
+npm run build       # tsc && opentabs-plugin build
+npm run dev         # watch mode (tsc --watch + opentabs-plugin build --watch)
+npm run type-check  # tsc --noEmit
+npm run lint        # eslint
 \`\`\`
 
 ## Adding Tools
@@ -477,28 +479,28 @@ const scaffoldPlugin = async (args: ScaffoldArgs): Promise<string> => {
   mkdirSync(projectDir, { recursive: true });
   mkdirSync(join(projectDir, 'src', 'tools'), { recursive: true });
 
-  await Bun.write(join(projectDir, 'package.json'), await generatePackageJson(args, urlPattern));
+  await runtimeWriteFile(join(projectDir, 'package.json'), await generatePackageJson(args, urlPattern));
   console.log(`  ${pc.dim('Created:')} ${pc.bold('package.json')}`);
 
-  await Bun.write(join(projectDir, 'tsconfig.json'), TSCONFIG_CONTENT);
+  await runtimeWriteFile(join(projectDir, 'tsconfig.json'), TSCONFIG_CONTENT);
   console.log(`  ${pc.dim('Created:')} ${pc.bold('tsconfig.json')}`);
 
-  await Bun.write(join(projectDir, 'eslint.config.ts'), ESLINT_CONFIG_CONTENT);
+  await runtimeWriteFile(join(projectDir, 'eslint.config.ts'), ESLINT_CONFIG_CONTENT);
   console.log(`  ${pc.dim('Created:')} ${pc.bold('eslint.config.ts')}`);
 
-  await Bun.write(join(projectDir, '.prettierrc'), PRETTIERRC_CONTENT);
+  await runtimeWriteFile(join(projectDir, '.prettierrc'), PRETTIERRC_CONTENT);
   console.log(`  ${pc.dim('Created:')} ${pc.bold('.prettierrc')}`);
 
-  await Bun.write(join(projectDir, '.gitignore'), GITIGNORE_CONTENT);
+  await runtimeWriteFile(join(projectDir, '.gitignore'), GITIGNORE_CONTENT);
   console.log(`  ${pc.dim('Created:')} ${pc.bold('.gitignore')}`);
 
-  await Bun.write(join(projectDir, 'src', 'index.ts'), generatePluginIndex(args, urlPattern));
+  await runtimeWriteFile(join(projectDir, 'src', 'index.ts'), generatePluginIndex(args, urlPattern));
   console.log(`  ${pc.dim('Created:')} ${pc.bold('src/index.ts')}`);
 
-  await Bun.write(join(projectDir, 'src', 'tools', 'example.ts'), generateExampleTool(args));
+  await runtimeWriteFile(join(projectDir, 'src', 'tools', 'example.ts'), generateExampleTool(args));
   console.log(`  ${pc.dim('Created:')} ${pc.bold('src/tools/example.ts')}`);
 
-  await Bun.write(join(projectDir, 'README.md'), generateReadme(args, urlPattern));
+  await runtimeWriteFile(join(projectDir, 'README.md'), generateReadme(args, urlPattern));
   console.log(`  ${pc.dim('Created:')} ${pc.bold('README.md')}`);
 
   console.log('');
@@ -506,8 +508,8 @@ const scaffoldPlugin = async (args: ScaffoldArgs): Promise<string> => {
   console.log('');
   console.log('Next steps:');
   console.log(`  ${pc.cyan(`cd ${args.name}`)}`);
-  console.log(`  ${pc.cyan('bun install')}`);
-  console.log(`  ${pc.cyan('bun run build')}`);
+  console.log(`  ${pc.cyan('npm install')}`);
+  console.log(`  ${pc.cyan('npm run build')}`);
 
   return projectDir;
 };

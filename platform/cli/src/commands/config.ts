@@ -11,7 +11,13 @@ import {
   readConfig,
 } from '../config.js';
 import { resolvePort } from '../parse-port.js';
-import { atomicWrite, generateSecret, toErrorMessage } from '@opentabs-dev/shared';
+import {
+  atomicWrite,
+  deleteFile as runtimeDeleteFile,
+  fileExists as runtimeFileExists,
+  generateSecret,
+  toErrorMessage,
+} from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -348,9 +354,8 @@ interface ConfigResetOptions {
 
 const handleConfigReset = async (options: ConfigResetOptions): Promise<void> => {
   const configPath = getConfigPath();
-  const configFile = Bun.file(configPath);
 
-  if (!(await configFile.exists())) {
+  if (!(await runtimeFileExists(configPath))) {
     console.log(`No config file found at ${configPath}`);
     return;
   }
@@ -364,7 +369,7 @@ const handleConfigReset = async (options: ConfigResetOptions): Promise<void> => 
     process.exit(1);
   }
 
-  await configFile.delete();
+  await runtimeDeleteFile(configPath);
   console.log('Config reset. Run opentabs start to regenerate.');
 };
 
