@@ -32,10 +32,10 @@ const isAdapterPresent = async (tabId: number, pluginName: string): Promise<bool
 
 /**
  * Verify that the injected adapter reports the expected version.
- * Logs a warning on mismatch — does not throw, so the injection pipeline
- * continues for other tabs/plugins.
+ * Returns true if versions match, false on mismatch or failure.
+ * Logs a warning on mismatch so the injection pipeline continues.
  */
-const verifyAdapterVersion = async (tabId: number, pluginName: string, expectedVersion: string): Promise<void> => {
+const verifyAdapterVersion = async (tabId: number, pluginName: string, expectedVersion: string): Promise<boolean> => {
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
@@ -54,9 +54,12 @@ const verifyAdapterVersion = async (tabId: number, pluginName: string, expectedV
       console.warn(
         `[opentabs] Adapter version mismatch for ${pluginName}: expected ${expectedVersion}, got ${String(version)}`,
       );
+      return false;
     }
+    return true;
   } catch {
     console.warn(`[opentabs] Failed to verify adapter version for ${pluginName}`);
+    return false;
   }
 };
 
@@ -158,8 +161,8 @@ const injectLogRelay = async (tabId: number): Promise<void> => {
       },
       args: [nonce],
     });
-  } catch {
-    // Tab may not be injectable (e.g., chrome:// pages) — best-effort
+  } catch (err) {
+    console.warn(`[opentabs] injectLogRelay failed for tab ${String(tabId)}:`, err);
   }
 };
 
@@ -227,6 +230,56 @@ const injectAdapterFile = async (
 };
 
 /**
+ * Collect all unique tab IDs matching the given URL patterns.
+ * Queries each pattern independently and deduplicates by tab ID.
+ */
+const queryMatchingTabIds = async (urlPatterns: string[]): Promise<number[]> => {
+  const tabIds = new Set<number>();
+  for (const pattern of urlPatterns) {
+    try {
+      const tabs = await chrome.tabs.query({ url: pattern });
+      for (const tab of tabs) {
+        if (tab.id !== undefined) {
+          tabIds.add(tab.id);
+        }
+      }
+    } catch (err) {
+      console.warn(`[opentabs] chrome.tabs.query failed for pattern ${pattern}:`, err);
+    }
+  }
+  return Array.from(tabIds);
+};
+
+/**
+ * Call an adapter's teardown() function in a tab via chrome.scripting.executeScript.
+ * Swallows errors — the injection pipeline continues regardless of teardown outcome.
+ */
+const teardownAdapterInTab = async (tabId: number, pluginName: string): Promise<void> => {
+  await chrome.scripting
+    .executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (pName: string) => {
+        const ot = (globalThis as Record<string, unknown>).__openTabs as
+          | { adapters?: Record<string, { teardown?: () => void }> }
+          | undefined;
+        const adapter = ot?.adapters?.[pName];
+        if (adapter && typeof adapter.teardown === 'function') {
+          try {
+            adapter.teardown();
+          } catch (e) {
+            console.warn('[opentabs] teardown error:', e);
+          }
+        }
+      },
+      args: [pluginName],
+    })
+    .catch((err: unknown) => {
+      console.warn(`[opentabs] adapter teardown script failed for ${pluginName}:`, err);
+    });
+};
+
+/**
  * Injects a plugin's adapter IIFE into all tabs matching its URL patterns.
  *
  * @param pluginName - The plugin's unique name (validated against reserved names)
@@ -238,7 +291,7 @@ const injectAdapterFile = async (
  * @param adapterHash - Expected content hash for post-injection integrity check
  * @returns Tab IDs where injection succeeded
  */
-export const injectPluginIntoMatchingTabs = async (
+const injectPluginIntoMatchingTabs = async (
   pluginName: string,
   urlPatterns: string[],
   forceReinject = false,
@@ -250,55 +303,21 @@ export const injectPluginIntoMatchingTabs = async (
     return [];
   }
 
-  // Collect all unique matching tabs across all URL patterns
-  const tabMap = new Map<number, chrome.tabs.Tab>();
-  for (const pattern of urlPatterns) {
-    try {
-      const tabs = await chrome.tabs.query({ url: pattern });
-      for (const tab of tabs) {
-        if (tab.id !== undefined && !tabMap.has(tab.id)) {
-          tabMap.set(tab.id, tab);
-        }
-      }
-    } catch (err) {
-      console.warn(`[opentabs] chrome.tabs.query failed for pattern ${pattern}:`, err);
-    }
-  }
+  const tabIds = await queryMatchingTabIds(urlPatterns);
 
   // Process all tabs in parallel: check presence + inject
   const results = await Promise.allSettled(
-    Array.from(tabMap.keys()).map(async tabId => {
+    tabIds.map(async tabId => {
       if (!forceReinject && (await isAdapterPresent(tabId, pluginName))) {
         return tabId;
       }
 
-      // Belt-and-suspenders with the IIFE wrapper's self-teardown (US-001):
+      // Belt-and-suspenders with the IIFE wrapper's self-teardown:
       // call teardown from the extension side first, so cleanup happens even
       // if the adapter was injected by an older SDK version without wrapper
       // teardown support.
       if (forceReinject) {
-        await chrome.scripting
-          .executeScript({
-            target: { tabId },
-            world: 'MAIN',
-            func: (pName: string) => {
-              const ot = (globalThis as Record<string, unknown>).__openTabs as
-                | { adapters?: Record<string, { teardown?: () => void }> }
-                | undefined;
-              const adapter = ot?.adapters?.[pName];
-              if (adapter && typeof adapter.teardown === 'function') {
-                try {
-                  adapter.teardown();
-                } catch (e) {
-                  console.warn('[opentabs] teardown error:', e);
-                }
-              }
-            },
-            args: [pluginName],
-          })
-          .catch((err: unknown) => {
-            console.warn(`[opentabs] adapter teardown script failed for ${pluginName}:`, err);
-          });
+        await teardownAdapterInTab(tabId, pluginName);
       }
 
       await injectAdapterFile(tabId, pluginName, version, adapterHash);
@@ -324,7 +343,7 @@ export const injectPluginIntoMatchingTabs = async (
  * @param tabId - The Chrome tab ID to inject adapters into
  * @param tabUrl - The tab's current URL, used to filter plugins by URL pattern match
  */
-export const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promise<void> => {
+const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promise<void> => {
   const index = await getAllPluginMeta();
   const plugins = Object.values(index);
 
@@ -370,30 +389,17 @@ export const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promi
  * @param pluginName - The plugin whose adapter should be removed
  * @param urlPatterns - Chrome match patterns identifying which tabs to clean up
  */
-export const cleanupAdaptersInMatchingTabs = async (pluginName: string, urlPatterns: string[]): Promise<void> => {
+const cleanupAdaptersInMatchingTabs = async (pluginName: string, urlPatterns: string[]): Promise<void> => {
   if (!isSafePluginName(pluginName)) {
     console.warn(`[opentabs] Skipping cleanup for unsafe plugin name: ${pluginName}`);
     return;
   }
 
-  // Collect all unique matching tabs across all URL patterns
-  const tabMap = new Map<number, chrome.tabs.Tab>();
-  for (const pattern of urlPatterns) {
-    try {
-      const tabs = await chrome.tabs.query({ url: pattern });
-      for (const tab of tabs) {
-        if (tab.id !== undefined && !tabMap.has(tab.id)) {
-          tabMap.set(tab.id, tab);
-        }
-      }
-    } catch (err) {
-      console.warn(`[opentabs] chrome.tabs.query failed for pattern ${pattern}:`, err);
-    }
-  }
+  const tabIds = await queryMatchingTabIds(urlPatterns);
 
   // Run cleanup scripts in parallel across all matching tabs
   await Promise.allSettled(
-    Array.from(tabMap.keys()).map(async tabId => {
+    tabIds.map(async tabId => {
       try {
         await chrome.scripting.executeScript({
           target: { tabId },
@@ -444,7 +450,7 @@ export const cleanupAdaptersInMatchingTabs = async (pluginName: string, urlPatte
  * Re-injects all stored plugins into their matching tabs on extension startup.
  * Runs all plugin injections in parallel, logging warnings for any failures.
  */
-export const reinjectStoredPlugins = async (): Promise<void> => {
+const reinjectStoredPlugins = async (): Promise<void> => {
   const index = await getAllPluginMeta();
   const plugins = Object.values(index);
   if (plugins.length === 0) return;
@@ -461,4 +467,15 @@ export const reinjectStoredPlugins = async (): Promise<void> => {
       console.warn(`[opentabs] Failed to reinject stored plugin ${plugin?.name ?? 'unknown'}:`, result.reason);
     }
   }
+};
+
+export {
+  cleanupAdaptersInMatchingTabs,
+  injectPluginIntoMatchingTabs,
+  injectPluginsIntoTab,
+  isSafePluginName,
+  queryMatchingTabIds,
+  reinjectStoredPlugins,
+  teardownAdapterInTab,
+  verifyAdapterVersion,
 };
