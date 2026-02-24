@@ -19,6 +19,12 @@ type PluginState = ConfigStatePlugin;
 /** Failed plugin state as displayed in the side panel */
 type FailedPluginState = ConfigStateFailedPlugin;
 
+/** Returns true if a tool's displayName, name, or description matches the filter string */
+const matchesTool = (tool: PluginState['tools'][number], filterLower: string): boolean =>
+  tool.displayName.toLowerCase().includes(filterLower) ||
+  tool.name.toLowerCase().includes(filterLower) ||
+  tool.description.toLowerCase().includes(filterLower);
+
 /** Timeout for pending JSON-RPC requests relayed through the background script (ms) */
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -155,6 +161,7 @@ export type { FailedPluginState, PluginState };
 export {
   getConnectionState,
   fetchConfigState,
+  matchesTool,
   setToolEnabled,
   setAllToolsEnabled,
   handleServerResponse,

@@ -4,7 +4,7 @@ import { Alert } from './retro/Alert.js';
 import { Switch } from './retro/Switch.js';
 import { Tooltip } from './retro/Tooltip.js';
 import { ToolRow } from './ToolRow.js';
-import { setToolEnabled, setAllToolsEnabled } from '../bridge.js';
+import { matchesTool, setToolEnabled, setAllToolsEnabled } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ChevronDown } from 'lucide-react';
@@ -58,14 +58,7 @@ const PluginCard = ({
   };
 
   const filterLower = toolFilter?.toLowerCase() ?? '';
-  const visibleTools = filterLower
-    ? plugin.tools.filter(
-        t =>
-          t.displayName.toLowerCase().includes(filterLower) ||
-          t.name.toLowerCase().includes(filterLower) ||
-          t.description.toLowerCase().includes(filterLower),
-      )
-    : plugin.tools;
+  const visibleTools = filterLower ? plugin.tools.filter(t => matchesTool(t, filterLower)) : plugin.tools;
 
   return (
     <Accordion.Item value={plugin.name}>

@@ -1,6 +1,7 @@
 import { FailedPluginCard } from './FailedPluginCard.js';
 import { PluginCard } from './PluginCard.js';
 import { Accordion } from './retro/Accordion.js';
+import { matchesTool } from '../bridge.js';
 import type { FailedPluginState, PluginState } from '../bridge.js';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -19,16 +20,7 @@ const PluginList = ({
 }) => {
   const filterLower = toolFilter.toLowerCase();
 
-  const visiblePlugins = filterLower
-    ? plugins.filter(p =>
-        p.tools.some(
-          t =>
-            t.displayName.toLowerCase().includes(filterLower) ||
-            t.name.toLowerCase().includes(filterLower) ||
-            t.description.toLowerCase().includes(filterLower),
-        ),
-      )
-    : plugins;
+  const visiblePlugins = filterLower ? plugins.filter(p => p.tools.some(t => matchesTool(t, filterLower))) : plugins;
 
   // Hide failed plugins when filtering tools
   const visibleFailed = filterLower ? [] : failedPlugins;
