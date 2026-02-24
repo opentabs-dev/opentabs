@@ -13,6 +13,7 @@
  * documents do not have access to chrome.storage APIs.
  */
 
+import { DEFAULT_SERVER_PORT, WS_CLOSE_AUTH_FAILED, WS_CLOSE_PONG_TIMEOUT, WS_INFO_TIMEOUT_MS } from '../constants.js';
 import { ALL_ALLOWED_METHODS } from '../known-methods.js';
 import { installLogCollector } from '../log-collector.js';
 import type { DisconnectReason, InternalMessage, WsStateMessage, WsDataMessage } from '../extension-messages.js';
@@ -20,7 +21,7 @@ import type { DisconnectReason, InternalMessage, WsStateMessage, WsDataMessage }
 /** Capture console output in a ring buffer for retrieval by debugging tools */
 const offscreenLogCollector = installLogCollector('offscreen');
 
-const DEFAULT_MCP_SERVER_URL = 'ws://localhost:9515/ws';
+const DEFAULT_MCP_SERVER_URL = `ws://localhost:${DEFAULT_SERVER_PORT}/ws`;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 const BACKOFF_MULTIPLIER = 2;
@@ -145,7 +146,7 @@ const sendPing = (): void => {
     if (ws) {
       reconnectScheduledByWatchdog = true;
       try {
-        ws.close(4000, 'Pong timeout');
+        ws.close(WS_CLOSE_PONG_TIMEOUT, 'Pong timeout');
       } catch {
         // Already closed
       }
@@ -202,7 +203,11 @@ const refreshWsUrl = async (): Promise<DisconnectReason | undefined> => {
     if (wsSecret) {
       headers['Authorization'] = `Bearer ${wsSecret}`;
     }
-    let res = await fetch(`${httpBase}/ws-info`, { headers, signal: AbortSignal.timeout(3_000), cache: 'no-store' });
+    let res = await fetch(`${httpBase}/ws-info`, {
+      headers,
+      signal: AbortSignal.timeout(WS_INFO_TIMEOUT_MS),
+      cache: 'no-store',
+    });
     // 401 means the secret is stale (e.g., server rotated secrets during hot
     // reload). Re-read auth.json for the latest secret and retry once.
     if (res.status === 401) {
@@ -211,7 +216,7 @@ const refreshWsUrl = async (): Promise<DisconnectReason | undefined> => {
       if (wsSecret) retryHeaders['Authorization'] = `Bearer ${wsSecret}`;
       res = await fetch(`${httpBase}/ws-info`, {
         headers: retryHeaders,
-        signal: AbortSignal.timeout(3_000),
+        signal: AbortSignal.timeout(WS_INFO_TIMEOUT_MS),
         cache: 'no-store',
       });
     }
@@ -327,9 +332,9 @@ const connect = async (): Promise<void> => {
     clearPongWatchdog();
 
     // Determine disconnect reason from the WebSocket close code.
-    // Code 4001 is sent by the MCP server when authentication fails during
-    // the WebSocket handshake (invalid or missing Sec-WebSocket-Protocol token).
-    if (event.code === 4001) {
+    // WS_CLOSE_AUTH_FAILED is sent by the MCP server when authentication fails
+    // during the WebSocket handshake (invalid or missing Sec-WebSocket-Protocol token).
+    if (event.code === WS_CLOSE_AUTH_FAILED) {
       lastDisconnectReason = 'auth_failed';
     } else if (!lastDisconnectReason) {
       lastDisconnectReason = 'connection_refused';
@@ -409,7 +414,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
           }
           let infoRes = await fetch(`${httpBase}/ws-info`, {
             headers: setUrlHeaders,
-            signal: AbortSignal.timeout(3_000),
+            signal: AbortSignal.timeout(WS_INFO_TIMEOUT_MS),
             cache: 'no-store',
           });
           // 401 means the secret is stale — re-read auth.json and retry
@@ -419,7 +424,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
             if (wsSecret) retryHeaders['Authorization'] = `Bearer ${wsSecret}`;
             infoRes = await fetch(`${httpBase}/ws-info`, {
               headers: retryHeaders,
-              signal: AbortSignal.timeout(3_000),
+              signal: AbortSignal.timeout(WS_INFO_TIMEOUT_MS),
               cache: 'no-store',
             });
           }

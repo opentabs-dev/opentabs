@@ -1,4 +1,5 @@
 import { requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
+import { CDP_VERSION } from '../constants.js';
 import { JSONRPC_INVALID_PARAMS } from '../json-rpc-errors.js';
 import { sendToServer } from '../messaging.js';
 import { isCapturing } from '../network-capture.js';
@@ -71,7 +72,7 @@ export const withDebugger = async <T>(tabId: number, fn: () => Promise<T>): Prom
   const alreadyAttached = isCapturing(tabId);
   if (!alreadyAttached) {
     try {
-      await chrome.debugger.attach({ tabId }, '1.3');
+      await chrome.debugger.attach({ tabId }, CDP_VERSION);
     } catch (err) {
       const msg = toErrorMessage(err);
       throw new Error(

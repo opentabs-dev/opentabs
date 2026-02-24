@@ -1,4 +1,10 @@
-import { KEEPALIVE_ALARM, KEEPALIVE_INTERVAL_MINUTES, PLUGINS_META_KEY, WS_CONNECTED_KEY } from './constants.js';
+import {
+  KEEPALIVE_ALARM,
+  KEEPALIVE_INTERVAL_MINUTES,
+  PLUGINS_META_KEY,
+  SERVER_PORT_KEY,
+  WS_CONNECTED_KEY,
+} from './constants.js';
 import { injectPluginsIntoTab, reinjectStoredPlugins } from './iife-injection.js';
 import { handleServerMessage, clearConfirmationBadge, clearAllConfirmationBadges } from './message-router.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
@@ -173,9 +179,12 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
       // reads auth.json for the secret separately.
       (async () => {
         const stored: Record<string, unknown> = await chrome.storage.local
-          .get('serverPort')
+          .get(SERVER_PORT_KEY)
           .catch(() => ({}) as Record<string, unknown>);
-        const port = typeof stored.serverPort === 'number' && stored.serverPort > 0 ? stored.serverPort : undefined;
+        const port =
+          typeof stored[SERVER_PORT_KEY] === 'number' && stored[SERVER_PORT_KEY] > 0
+            ? stored[SERVER_PORT_KEY]
+            : undefined;
         const url = port ? `ws://localhost:${port}/ws` : undefined;
         sendResponse({ url });
       })().catch(() => {
@@ -345,8 +354,9 @@ reinjectStoredPlugins().catch((err: unknown) => console.warn('[opentabs] plugin 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
 
-  if (typeof changes.serverPort?.newValue === 'number' && changes.serverPort.newValue > 0) {
-    const newUrl = `ws://localhost:${changes.serverPort.newValue}/ws`;
+  const portChange = changes[SERVER_PORT_KEY];
+  if (typeof portChange?.newValue === 'number' && portChange.newValue > 0) {
+    const newUrl = `ws://localhost:${portChange.newValue}/ws`;
     chrome.runtime.sendMessage({ type: 'ws:setUrl', url: newUrl } satisfies InternalMessage).catch(() => {
       // Offscreen may not be ready yet
     });

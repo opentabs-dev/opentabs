@@ -1,6 +1,18 @@
 import { requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { bgLogCollector } from '../background-log-state.js';
-import { IS_READY_TIMEOUT_MS, SCRIPT_TIMEOUT_MS, WS_CONNECTED_KEY, WS_FLUSH_DELAY_MS } from '../constants.js';
+import {
+  DEFAULT_LOG_LIMIT,
+  DEFAULT_SERVER_PORT,
+  EXEC_MAX_ASYNC_WAIT_MS,
+  EXEC_POLL_INTERVAL_MS,
+  EXEC_RESULT_TRUNCATION_LIMIT,
+  IS_READY_TIMEOUT_MS,
+  SCRIPT_TIMEOUT_MS,
+  SERVER_PORT_KEY,
+  SIDE_PANEL_TIMEOUT_MS,
+  WS_CONNECTED_KEY,
+  WS_FLUSH_DELAY_MS,
+} from '../constants.js';
 import { JSONRPC_INVALID_PARAMS } from '../json-rpc-errors.js';
 import { sendToServer } from '../messaging.js';
 import { getActiveCapturesSummary } from '../network-capture.js';
@@ -20,9 +32,12 @@ export const handleExtensionGetState = async (id: string | number): Promise<void
 
     // MCP server URL derived from port in chrome.storage.local
     const localData: Record<string, unknown> = await chrome.storage.local
-      .get('serverPort')
+      .get(SERVER_PORT_KEY)
       .catch(() => ({}) as Record<string, unknown>);
-    const port = typeof localData.serverPort === 'number' && localData.serverPort > 0 ? localData.serverPort : 9515;
+    const port =
+      typeof localData[SERVER_PORT_KEY] === 'number' && localData[SERVER_PORT_KEY] > 0
+        ? localData[SERVER_PORT_KEY]
+        : DEFAULT_SERVER_PORT;
     const mcpServerUrl = `ws://localhost:${port}/ws`;
 
     // Plugin metadata with tab states
@@ -110,7 +125,7 @@ export const handleExtensionGetLogs = async (params: Record<string, unknown>, id
     const merged = [...bgEntries, ...offscreenEntries].sort((a, b) => b.timestamp - a.timestamp);
 
     // Apply limit to the merged result
-    const limit = filterOptions.limit ?? 100;
+    const limit = filterOptions.limit ?? DEFAULT_LOG_LIMIT;
     const entries = merged.slice(0, limit);
 
     sendSuccessResult(id, {
@@ -128,8 +143,6 @@ export const handleExtensionGetLogs = async (params: Record<string, unknown>, id
 
 export const handleExtensionGetSidePanel = async (id: string | number): Promise<void> => {
   try {
-    const SIDE_PANEL_TIMEOUT_MS = 3000;
-
     const sidePanelResult = await Promise.race([
       chrome.runtime.sendMessage({ type: 'sp:getState' } satisfies SpGetStateMessage).then((raw: unknown) => raw),
       new Promise<null>(resolve => setTimeout(() => resolve(null), SIDE_PANEL_TIMEOUT_MS)),
@@ -365,15 +378,13 @@ export const handleBrowserExecuteScript = async (
       // immediately by the wrapper. For async code (Promises), the wrapper
       // sets __lastExecAsync=true and resolves __lastExecResult when the
       // Promise settles. Poll until the result is available.
-      const maxAsyncWait = 10_000;
-      const pollInterval = 50;
       let elapsed = 0;
 
-      while (elapsed <= maxAsyncWait) {
+      while (elapsed <= EXEC_MAX_ASYNC_WAIT_MS) {
         const results = await chrome.scripting.executeScript({
           target: { tabId },
           world: 'MAIN',
-          func: () => {
+          func: (truncLimit: number) => {
             const ot = (globalThis as Record<string, unknown>).__openTabs as
               | {
                   __lastExecResult?: { value?: unknown; error?: string };
@@ -394,7 +405,8 @@ export const handleBrowserExecuteScript = async (
               if (captured.value !== null && typeof captured.value === 'object') {
                 try {
                   const json = JSON.stringify(captured.value);
-                  captured.value = json.length > 50_000 ? json.slice(0, 50_000) + '... (truncated)' : JSON.parse(json);
+                  captured.value =
+                    json.length > truncLimit ? json.slice(0, truncLimit) + '... (truncated)' : JSON.parse(json);
                 } catch {
                   captured.value = String(captured.value);
                 }
@@ -411,6 +423,7 @@ export const handleBrowserExecuteScript = async (
             // Sync code produced no __lastExecResult (should not happen)
             return { pending: false, result: { error: 'No result captured' } };
           },
+          args: [EXEC_RESULT_TRUNCATION_LIMIT],
         });
 
         const first = results[0] as { result?: { pending: boolean; result?: unknown } } | undefined;
@@ -421,8 +434,8 @@ export const handleBrowserExecuteScript = async (
         }
 
         // Still pending — wait and retry
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
-        elapsed += pollInterval;
+        await new Promise(resolve => setTimeout(resolve, EXEC_POLL_INTERVAL_MS));
+        elapsed += EXEC_POLL_INTERVAL_MS;
       }
 
       // Async timed out — clean up and report error
@@ -440,7 +453,7 @@ export const handleBrowserExecuteScript = async (
         })
         .catch(() => {});
 
-      return { value: { error: `Async code did not resolve within ${maxAsyncWait}ms` } };
+      return { value: { error: `Async code did not resolve within ${EXEC_MAX_ASYNC_WAIT_MS}ms` } };
     })();
 
     const timeoutPromise = new Promise<never>((_resolve, reject) => {

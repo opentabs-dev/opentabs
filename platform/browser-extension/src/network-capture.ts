@@ -1,3 +1,4 @@
+import { CDP_VERSION } from './constants.js';
 import { toErrorMessage } from '@opentabs-dev/shared';
 
 // ---------------------------------------------------------------------------
@@ -293,7 +294,7 @@ export const startCapture = async (
   }
 
   try {
-    await chrome.debugger.attach({ tabId }, '1.3');
+    await chrome.debugger.attach({ tabId }, CDP_VERSION);
   } catch (err) {
     throw new Error(
       `Failed to attach debugger to tab ${tabId}: ${toErrorMessage(err)}. ` +

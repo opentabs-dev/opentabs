@@ -1,4 +1,4 @@
-import { SCRIPT_TIMEOUT_MS, MAX_SCRIPT_TIMEOUT_MS } from './constants.js';
+import { MAX_INPUT_SIZE, MAX_SCRIPT_TIMEOUT_MS, SCRIPT_TIMEOUT_MS } from './constants.js';
 import { dispatchWithTabFallback, requireStringParam, resolvePlugin } from './dispatch-helpers.js';
 import { JSONRPC_INTERNAL_ERROR, JSONRPC_INVALID_PARAMS } from './json-rpc-errors.js';
 import { sendToServer } from './messaging.js';
@@ -345,7 +345,6 @@ const handleToolDispatch = async (params: Record<string, unknown>, id: string | 
   }
   const input = (rawInput ?? {}) as Record<string, unknown>;
 
-  const MAX_INPUT_SIZE = 10 * 1024 * 1024;
   let inputJson: string;
   try {
     inputJson = JSON.stringify(input);

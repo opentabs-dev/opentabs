@@ -1,5 +1,11 @@
 import { extractScriptResult, requireSelector, requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { withDebugger } from './resource-commands.js';
+import {
+  DEFAULT_QUERY_LIMIT,
+  DEFAULT_WAIT_TIMEOUT_MS,
+  POLL_INTERVAL_MS,
+  TEXT_PREVIEW_MAX_LENGTH,
+} from '../constants.js';
 import { JSONRPC_INTERNAL_ERROR, JSONRPC_INVALID_PARAMS } from '../json-rpc-errors.js';
 import { sendToServer } from '../messaging.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
@@ -23,17 +29,17 @@ export const handleBrowserClickElement = async (
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (sel: string) => {
+      func: (sel: string, maxPreview: number) => {
         const el = document.querySelector(sel);
         if (!el) return { error: `Element not found: ${sel}` };
         (el as HTMLElement).click();
         return {
           clicked: true,
           tagName: el.tagName.toLowerCase(),
-          text: (el.textContent || '').trim().slice(0, 200),
+          text: (el.textContent || '').trim().slice(0, maxPreview),
         };
       },
-      args: [selector],
+      args: [selector, TEXT_PREVIEW_MAX_LENGTH],
     });
 
     const result = extractScriptResult(results, id);
@@ -190,13 +196,13 @@ export const handleBrowserWaitForElement = async (
     if (tabId === null) return;
     const selector = requireSelector(params, id);
     if (selector === null) return;
-    const timeout = typeof params.timeout === 'number' ? params.timeout : 10000;
+    const timeout = typeof params.timeout === 'number' ? params.timeout : DEFAULT_WAIT_TIMEOUT_MS;
     const visible = typeof params.visible === 'boolean' ? params.visible : false;
 
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (sel: string, tmo: number, vis: boolean) =>
+      func: (sel: string, tmo: number, vis: boolean, maxPreview: number, pollMs: number) =>
         new Promise<{ found?: boolean; tagName?: string; text?: string; error?: string }>(resolve => {
           let elapsed = 0;
           const poll = setInterval(() => {
@@ -209,19 +215,19 @@ export const handleBrowserWaitForElement = async (
                 resolve({
                   found: true,
                   tagName: el.tagName.toLowerCase(),
-                  text: (el.textContent || '').trim().slice(0, 200),
+                  text: (el.textContent || '').trim().slice(0, maxPreview),
                 });
                 return;
               }
             }
-            elapsed += 100;
+            elapsed += pollMs;
             if (elapsed >= tmo) {
               clearInterval(poll);
               resolve({ error: `Timeout waiting for element: ${sel} (${tmo}ms)` });
             }
-          }, 100);
+          }, pollMs);
         }),
-      args: [selector, timeout, visible],
+      args: [selector, timeout, visible, TEXT_PREVIEW_MAX_LENGTH, POLL_INTERVAL_MS],
     });
 
     const result = extractScriptResult(results, id);
@@ -246,7 +252,7 @@ export const handleBrowserQueryElements = async (
     if (tabId === null) return;
     const selector = requireSelector(params, id);
     if (selector === null) return;
-    const limit = typeof params.limit === 'number' ? params.limit : 100;
+    const limit = typeof params.limit === 'number' ? params.limit : DEFAULT_QUERY_LIMIT;
     const attributes = Array.isArray(params.attributes)
       ? (params.attributes as unknown[]).filter((a): a is string => typeof a === 'string')
       : ['id', 'class', 'href', 'src', 'type', 'name', 'value', 'placeholder'];
@@ -254,18 +260,18 @@ export const handleBrowserQueryElements = async (
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (sel: string, lim: number, attrs: string[]) => {
+      func: (sel: string, lim: number, attrs: string[], maxPreview: number) => {
         const all = document.querySelectorAll(sel);
         const elements = Array.from(all)
           .slice(0, lim)
           .map(el => ({
             tagName: el.tagName.toLowerCase(),
-            text: (el.textContent || '').trim().slice(0, 200),
+            text: (el.textContent || '').trim().slice(0, maxPreview),
             attributes: Object.fromEntries(attrs.filter(a => el.hasAttribute(a)).map(a => [a, el.getAttribute(a)])),
           }));
         return { count: all.length, elements };
       },
-      args: [selector, limit, attributes],
+      args: [selector, limit, attributes, TEXT_PREVIEW_MAX_LENGTH],
     });
 
     const result = extractScriptResult(results, id, 'No result from query');
@@ -451,6 +457,7 @@ export const handleBrowserScroll = async (params: Record<string, unknown>, id: s
         dist: number | null,
         pos: { x?: number; y?: number } | null,
         ctr: string | null,
+        maxPreview: number,
       ) => {
         // Resolve scroll target (container or page)
         let scrollEl: Element | null = null;
@@ -483,7 +490,7 @@ export const handleBrowserScroll = async (params: Record<string, unknown>, id: s
           const el = document.querySelector(sel);
           if (!el) return { error: `Element not found: ${sel}` };
           el.scrollIntoView({ behavior: 'instant', block: 'center' });
-          const text = (el.textContent || '').trim().slice(0, 200);
+          const text = (el.textContent || '').trim().slice(0, maxPreview);
           return {
             scrolledTo: { tagName: el.tagName.toLowerCase(), text },
             ...getMetrics(),
@@ -541,6 +548,7 @@ export const handleBrowserScroll = async (params: Record<string, unknown>, id: s
             }
           : null,
         container,
+        TEXT_PREVIEW_MAX_LENGTH,
       ],
     });
 
@@ -565,7 +573,7 @@ export const handleBrowserHoverElement = async (
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (sel: string) => {
+      func: (sel: string, maxPreview: number) => {
         const el = document.querySelector(sel);
         if (!el) return { error: `Element not found: ${sel}` };
 
@@ -593,11 +601,11 @@ export const handleBrowserHoverElement = async (
         return {
           hovered: true,
           tagName: el.tagName.toLowerCase(),
-          text: (el.textContent || '').trim().slice(0, 200),
+          text: (el.textContent || '').trim().slice(0, maxPreview),
           bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
         };
       },
-      args: [selector],
+      args: [selector, TEXT_PREVIEW_MAX_LENGTH],
     });
 
     const result = extractScriptResult(results, id);
