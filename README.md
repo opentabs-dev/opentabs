@@ -99,20 +99,20 @@ You're ready. Your AI agent can now use all registered plugin tools and the 36 b
 
 ## Building a Plugin
 
-Want to extend OpenTabs for a new website? You need [Bun](https://bun.sh/) (v1.0+) in addition to the user setup above.
+Want to extend OpenTabs for a new website? You need [Node.js](https://nodejs.org/) (v20+) in addition to the user setup above.
 
 ### Scaffold a new plugin
 
 ```bash
 npx create-opentabs-plugin my-plugin
 cd my-plugin
-bun install
+npm install
 ```
 
 ### Build and register
 
 ```bash
-bun run build
+npm run build
 ```
 
 This compiles your plugin, generates the adapter bundle and tool manifest, registers the plugin locally, and notifies the running server.
@@ -129,7 +129,7 @@ See the [Plugin Development guide](https://opentabs.ai/docs/guides/plugin-develo
 
 ## Contributing
 
-Work on the OpenTabs platform itself. You need [Bun](https://bun.sh/) (>= 1.3.9) and Google Chrome.
+Work on the OpenTabs platform itself. You need [Bun](https://bun.sh/) (>= 1.3.9), [Node.js](https://nodejs.org/) (v20+), and Google Chrome.
 
 ### Clone and build
 

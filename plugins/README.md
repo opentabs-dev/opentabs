@@ -8,11 +8,11 @@ These plugins are **not** covered by the root `bun run build`, `bun run lint`, `
 
 ```bash
 cd plugins/<name>
-bun install
-bun run build         # tsc + opentabs-plugin build
-bun run type-check    # tsc --noEmit
-bun run lint          # eslint
-bun run format:check  # prettier
+npm install
+npm run build         # tsc + opentabs-plugin build
+npm run type-check    # tsc --noEmit
+npm run lint          # eslint
+npm run format:check  # prettier
 ```
 
 ## Root-level commands
@@ -28,13 +28,13 @@ Each plugin also has a `check` script for running all quality checks at once:
 
 ```bash
 cd plugins/<name>
-bun run check   # build + type-check + lint + format:check
+npm run check   # build + type-check + lint + format:check
 ```
 
 ## Adding a new plugin
 
 ```bash
-bunx create-opentabs-plugin <name> --domain <domain>
+npx create-opentabs-plugin <name> --domain <domain>
 ```
 
 Or manually: create a directory here following the same structure as the existing plugins.
