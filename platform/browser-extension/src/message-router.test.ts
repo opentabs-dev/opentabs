@@ -13,6 +13,7 @@ import type { ValidatedPluginPayload } from './message-router.js';
 
 const mockSendToServer = mock<(data: unknown) => void>();
 const mockForwardToSidePanel = mock<(message: unknown) => void>();
+const mockSendTabStateNotification = mock<(pluginName: string, stateInfo: unknown) => void>();
 
 const asyncNoop = () => Promise.resolve();
 const mockHandleToolDispatch = mock(
@@ -118,6 +119,7 @@ const mockHandlePromptGet = mock(asyncNoop as (params: Record<string, unknown>, 
 await mock.module('./messaging.js', () => ({
   sendToServer: mockSendToServer,
   forwardToSidePanel: mockForwardToSidePanel,
+  sendTabStateNotification: mockSendTabStateNotification,
 }));
 
 await mock.module('./tool-dispatch.js', () => ({

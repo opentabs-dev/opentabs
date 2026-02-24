@@ -38,7 +38,7 @@ import {
 import { isValidPluginName, RELOAD_FLUSH_DELAY_MS, WS_CONNECTED_KEY } from './constants.js';
 import { cleanupAdaptersInMatchingTabs, injectPluginIntoMatchingTabs } from './iife-injection.js';
 import { JSONRPC_INTERNAL_ERROR, JSONRPC_INVALID_PARAMS, JSONRPC_METHOD_NOT_FOUND } from './json-rpc-errors.js';
-import { forwardToSidePanel, sendToServer } from './messaging.js';
+import { forwardToSidePanel, sendTabStateNotification, sendToServer } from './messaging.js';
 import { getAllPluginMeta, removePlugin, removePluginsBatch, storePluginsBatch } from './plugin-storage.js';
 import { checkRateLimit } from './rate-limiter.js';
 import { handleResourceRead, handlePromptGet } from './resource-prompt-dispatch.js';
@@ -369,30 +369,7 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
   // server's tabMapping reflects the new adapter's readiness immediately.
   const newState = await computePluginTabState(meta);
   updateLastKnownState(meta.name, newState.state);
-  sendToServer({
-    jsonrpc: '2.0',
-    method: 'tab.stateChanged',
-    params: {
-      plugin: meta.name,
-      state: newState.state,
-      tabId: newState.tabId,
-      url: newState.url,
-    },
-  });
-
-  forwardToSidePanel({
-    type: 'sp:serverMessage',
-    data: {
-      jsonrpc: '2.0',
-      method: 'tab.stateChanged',
-      params: {
-        plugin: meta.name,
-        state: newState.state,
-        tabId: newState.tabId,
-        url: newState.url,
-      },
-    },
-  });
+  sendTabStateNotification(meta.name, newState);
 
   // Notify the side panel so it refreshes its plugin list without user interaction
   forwardToSidePanel({

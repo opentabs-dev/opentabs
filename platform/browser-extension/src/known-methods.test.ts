@@ -9,6 +9,7 @@ import { describe, expect, test, mock } from 'bun:test';
 await mock.module('./messaging.js', () => ({
   sendToServer: mock(),
   forwardToSidePanel: mock(),
+  sendTabStateNotification: mock(),
 }));
 
 await mock.module('./tool-dispatch.js', () => ({

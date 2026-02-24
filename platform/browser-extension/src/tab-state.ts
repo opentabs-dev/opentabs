@@ -1,8 +1,8 @@
 import { IS_READY_TIMEOUT_MS } from './constants.js';
-import { forwardToSidePanel, sendToServer } from './messaging.js';
+import { forwardToSidePanel, sendTabStateNotification, sendToServer } from './messaging.js';
 import { getAllPluginMeta } from './plugin-storage.js';
 import { findAllMatchingTabs, urlMatchesPatterns } from './tab-matching.js';
-import type { PluginMeta } from './extension-messages.js';
+import type { PluginMeta, PluginTabStateInfo } from './extension-messages.js';
 import type { TabState } from '@opentabs-dev/shared';
 
 /**
@@ -63,9 +63,7 @@ const probeTabReadiness = async (tabId: number, pluginName: string): Promise<boo
  * for adapter readiness. Reports 'ready' if ANY matching tab is ready,
  * 'unavailable' if tabs exist but none are ready, 'closed' if no tabs match.
  */
-export const computePluginTabState = async (
-  plugin: PluginMeta,
-): Promise<{ state: TabState; tabId: number | null; url: string | null }> => {
+export const computePluginTabState = async (plugin: PluginMeta): Promise<PluginTabStateInfo> => {
   const tabs = await findAllMatchingTabs(plugin);
   if (tabs.length === 0) {
     return { state: 'closed', tabId: null, url: null };
@@ -112,7 +110,7 @@ export const sendTabSyncAll = async (): Promise<void> => {
   const settled = await Promise.allSettled(
     plugins.map(async plugin => [plugin.name, await computePluginTabState(plugin)] as const),
   );
-  const entries: (readonly [string, { state: TabState; tabId: number | null; url: string | null }])[] = [];
+  const entries: (readonly [string, PluginTabStateInfo])[] = [];
   for (const result of settled) {
     if (result.status === 'fulfilled') {
       entries.push(result.value);
@@ -121,8 +119,7 @@ export const sendTabSyncAll = async (): Promise<void> => {
     }
   }
   if (entries.length === 0) return;
-  const tabSyncPayload: Record<string, { state: TabState; tabId: number | null; url: string | null }> =
-    Object.fromEntries(entries);
+  const tabSyncPayload: Record<string, PluginTabStateInfo> = Object.fromEntries(entries);
 
   // Populate the cache from the full sync
   lastKnownState.clear();
@@ -267,30 +264,7 @@ export const checkTabStateChanges = async (
         // latest state and don't produce duplicate notifications.
         lastKnownState.set(plugin.name, newState.state);
 
-        sendToServer({
-          jsonrpc: '2.0',
-          method: 'tab.stateChanged',
-          params: {
-            plugin: plugin.name,
-            state: newState.state,
-            tabId: newState.tabId,
-            url: newState.url,
-          },
-        });
-
-        forwardToSidePanel({
-          type: 'sp:serverMessage',
-          data: {
-            jsonrpc: '2.0',
-            method: 'tab.stateChanged',
-            params: {
-              plugin: plugin.name,
-              state: newState.state,
-              tabId: newState.tabId,
-              url: newState.url,
-            },
-          },
-        });
+        sendTabStateNotification(plugin.name, newState);
       });
       pluginLocks.set(
         plugin.name,
