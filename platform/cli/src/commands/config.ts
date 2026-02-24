@@ -316,6 +316,46 @@ const handleSetLocalPluginsRemove = async (value: string, options: { port?: numb
   await notifyServer({ port: options.port, warnIfNotRunning: true });
 };
 
+const levenshtein = (a: string, b: string): number => {
+  const n = b.length;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+
+  for (let i = 1; i <= a.length; i++) {
+    const curr = [i] as number[];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min((prev[j] ?? 0) + 1, (curr[j - 1] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
+    }
+    prev = curr;
+  }
+  return prev[n] ?? 0;
+};
+
+const KNOWN_KEYS = ['tool.', 'browser-tool.', PORT_KEY, LOCAL_PLUGINS_ADD, LOCAL_PLUGINS_REMOVE];
+
+const suggestKey = (input: string): string | null => {
+  let best: string | null = null;
+  let bestDistance = Infinity;
+
+  for (const known of KNOWN_KEYS) {
+    // For prefix keys (ending with '.'), compare against the prefix portion of the input
+    const inputPart = known.endsWith('.') ? input.slice(0, input.indexOf('.') + 1) || input : input;
+    const distance = levenshtein(inputPart, known);
+    if (distance < bestDistance && distance <= 2) {
+      bestDistance = distance;
+      best = known;
+    }
+  }
+
+  if (!best) return null;
+
+  // For prefix keys, append the user's suffix to show a complete suggestion
+  if (best.endsWith('.') && input.includes('.')) {
+    return best + input.slice(input.indexOf('.') + 1);
+  }
+  return best;
+};
+
 const handleConfigSet = async (key: string, value: string | undefined, options: { port?: number }): Promise<void> => {
   if (key === TOOL_PREFIX) {
     return handleListTools();
@@ -344,6 +384,13 @@ const handleConfigSet = async (key: string, value: string | undefined, options: 
   }
 
   console.error(pc.red(`Unknown config key: ${key}`));
+
+  const suggestion = suggestKey(key);
+  if (suggestion) {
+    console.error(`Did you mean ${pc.bold(suggestion)}?`);
+    console.error('');
+  }
+
   console.error(SUPPORTED_KEYS);
   process.exit(1);
 };
