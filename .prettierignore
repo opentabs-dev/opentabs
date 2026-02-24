@@ -1,5 +1,6 @@
 dist
 node_modules
+storybook-static
 *.tsbuildinfo
 bun.lock
 playwright-report
