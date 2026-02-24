@@ -89,6 +89,28 @@ const sendJsonRpcError = (state: ServerState, id: string | number, code: number,
   sendToExtension(state, { jsonrpc: '2.0', error: { code, message }, id });
 };
 
+/**
+ * Extract error details from a caught plugin management error and send a JSON-RPC error response.
+ * Handles code, message, data, and retryAfterMs fields that plugin management functions may throw.
+ */
+const sendPluginManagementError = (state: ServerState, id: string | number, err: unknown): void => {
+  const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
+  const message = err instanceof Error ? err.message : 'Unknown error';
+  const rawData = (err as Record<string, unknown>).data;
+  const data = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : undefined;
+  const retryAfterMs =
+    typeof (err as Record<string, unknown>).retryAfterMs === 'number'
+      ? (err as { retryAfterMs: number }).retryAfterMs
+      : undefined;
+  const errorData = { ...(data ?? {}), ...(retryAfterMs !== undefined ? { retryAfterMs } : {}) };
+  const hasData = Object.keys(errorData).length > 0;
+  sendToExtension(state, {
+    jsonrpc: '2.0',
+    error: { code, message, ...(hasData ? { data: errorData } : {}) },
+    id,
+  });
+};
+
 /** Callbacks the extension protocol can invoke on the MCP side */
 interface McpCallbacks {
   onToolConfigChanged: () => void;
@@ -1026,17 +1048,7 @@ const handlePluginSearch = async (
       id,
     });
   } catch (err) {
-    const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    const data: Record<string, unknown> = {};
-    if (typeof (err as Record<string, unknown>).retryAfterMs === 'number') {
-      data.retryAfterMs = (err as { retryAfterMs: number }).retryAfterMs;
-    }
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code, message, ...(Object.keys(data).length > 0 ? { data } : {}) },
-      id,
-    });
+    sendPluginManagementError(state, id, err);
   }
 };
 
@@ -1063,15 +1075,7 @@ const handlePluginInstall = async (
       id,
     });
   } catch (err) {
-    const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    const rawData = (err as Record<string, unknown>).data;
-    const data = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : undefined;
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code, message, ...(data ? { data } : {}) },
-      id,
-    });
+    sendPluginManagementError(state, id, err);
   }
 };
 
@@ -1102,15 +1106,7 @@ const handlePluginUpdateFromRegistry = async (
       id,
     });
   } catch (err) {
-    const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    const rawData = (err as Record<string, unknown>).data;
-    const data = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : undefined;
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code, message, ...(data ? { data } : {}) },
-      id,
-    });
+    sendPluginManagementError(state, id, err);
   }
 };
 
@@ -1146,15 +1142,7 @@ const handlePluginRemove = async (
       id,
     });
   } catch (err) {
-    const code = typeof (err as Record<string, unknown>).code === 'number' ? (err as { code: number }).code : -32603;
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    const rawData = (err as Record<string, unknown>).data;
-    const data = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : undefined;
-    sendToExtension(state, {
-      jsonrpc: '2.0',
-      error: { code, message, ...(data ? { data } : {}) },
-      id,
-    });
+    sendPluginManagementError(state, id, err);
   }
 };
 
@@ -1167,7 +1155,7 @@ const handlePluginCheckUpdates = async (state: ServerState, id: string | number)
       id,
     });
   } catch (err) {
-    sendJsonRpcError(state, id, -32603, err instanceof Error ? err.message : 'Unknown error');
+    sendPluginManagementError(state, id, err);
   }
 };
 
