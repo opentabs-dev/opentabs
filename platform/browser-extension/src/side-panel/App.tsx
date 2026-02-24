@@ -10,6 +10,7 @@ import { DisconnectedState, NoPluginsState, LoadingState } from './components/Em
 import { Footer } from './components/Footer.js';
 import { PluginList } from './components/PluginList.js';
 import { Input } from './components/retro/Input.js';
+import { Tooltip } from './components/retro/Tooltip.js';
 import { VALID_PLUGIN_NAME } from '../constants.js';
 import { Search, X } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -243,55 +244,57 @@ const App = () => {
   const showSearchBar = connected && !loading && totalTools > 5;
 
   return (
-    <div className="text-foreground flex min-h-screen flex-col">
-      {connected && pendingConfirmations.length > 0 && (
-        <ConfirmationDialog
-          confirmations={pendingConfirmations}
-          onRespond={handleConfirmationRespond}
-          onDenyAll={handleDenyAll}
-        />
-      )}
-      {showSearchBar && (
-        <div className="px-4 pt-4 pb-2">
-          <div className="relative">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
-            <Input
-              value={toolFilter}
-              onChange={e => setToolFilter(e.target.value)}
-              placeholder="Filter tools..."
-              className="pr-8 pl-9"
-            />
-            {toolFilter && (
-              <button
-                type="button"
-                onClick={() => setToolFilter('')}
-                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-      <main
-        className={`flex-1 px-4 pb-2 ${showSearchBar ? 'pt-2' : 'pt-4'} ${showPlugins ? '' : 'flex items-center justify-center'}`}>
-        {loading ? (
-          <LoadingState />
-        ) : !connected ? (
-          <DisconnectedState reason={disconnectReason} />
-        ) : !hasContent ? (
-          <NoPluginsState />
-        ) : (
-          <PluginList
-            plugins={plugins}
-            failedPlugins={failedPlugins}
-            activeTools={activeTools}
-            setPlugins={setPlugins}
-            toolFilter={toolFilter}
+    <Tooltip.Provider>
+      <div className="text-foreground flex min-h-screen flex-col">
+        {connected && pendingConfirmations.length > 0 && (
+          <ConfirmationDialog
+            confirmations={pendingConfirmations}
+            onRespond={handleConfirmationRespond}
+            onDenyAll={handleDenyAll}
           />
         )}
-      </main>
-      <Footer />
-    </div>
+        {showSearchBar && (
+          <div className="px-4 pt-4 pb-2">
+            <div className="relative">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
+              <Input
+                value={toolFilter}
+                onChange={e => setToolFilter(e.target.value)}
+                placeholder="Filter tools..."
+                className="pr-8 pl-9"
+              />
+              {toolFilter && (
+                <button
+                  type="button"
+                  onClick={() => setToolFilter('')}
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        <main
+          className={`flex-1 px-4 pb-2 ${showSearchBar ? 'pt-2' : 'pt-4'} ${showPlugins ? '' : 'flex items-center justify-center'}`}>
+          {loading ? (
+            <LoadingState />
+          ) : !connected ? (
+            <DisconnectedState reason={disconnectReason} />
+          ) : !hasContent ? (
+            <NoPluginsState />
+          ) : (
+            <PluginList
+              plugins={plugins}
+              failedPlugins={failedPlugins}
+              activeTools={activeTools}
+              setPlugins={setPlugins}
+              toolFilter={toolFilter}
+            />
+          )}
+        </main>
+        <Footer />
+      </div>
+    </Tooltip.Provider>
   );
 };
 

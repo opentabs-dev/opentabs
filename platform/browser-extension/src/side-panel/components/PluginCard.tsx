@@ -82,27 +82,25 @@ const PluginCard = ({
     <Accordion.Item value={plugin.name}>
       <AccordionPrimitive.Header className="flex">
         <AccordionPrimitive.Trigger className="font-head flex flex-1 cursor-pointer items-center gap-2 px-3 py-2 focus:outline-hidden [&[data-state=open]>svg]:rotate-180">
-          <Tooltip.Provider>
-            <Tooltip>
-              <Tooltip.Trigger asChild>
-                <div>
-                  <PluginIcon
-                    pluginName={plugin.name}
-                    displayName={plugin.displayName}
-                    tabState={plugin.tabState}
-                    hasUpdate={!!plugin.update}
-                    size={32}
-                    iconSvg={plugin.iconSvg}
-                    iconInactiveSvg={plugin.iconInactiveSvg}
-                  />
-                </div>
-              </Tooltip.Trigger>
-              <Tooltip.Content>
-                v{plugin.version} &middot; {plugin.trustTier}
-                {plugin.update && <> &middot; Update: {plugin.update.latestVersion}</>}
-              </Tooltip.Content>
-            </Tooltip>
-          </Tooltip.Provider>
+          <Tooltip>
+            <Tooltip.Trigger asChild>
+              <div>
+                <PluginIcon
+                  pluginName={plugin.name}
+                  displayName={plugin.displayName}
+                  tabState={plugin.tabState}
+                  hasUpdate={!!plugin.update}
+                  size={32}
+                  iconSvg={plugin.iconSvg}
+                  iconInactiveSvg={plugin.iconInactiveSvg}
+                />
+              </div>
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              v{plugin.version} &middot; {plugin.trustTier}
+              {plugin.update && <> &middot; Update: {plugin.update.latestVersion}</>}
+            </Tooltip.Content>
+          </Tooltip>
           <div className="font-head text-foreground flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm">
             {plugin.displayName}
             {plugin.source === 'local' && (
@@ -111,16 +109,14 @@ const PluginCard = ({
               </span>
             )}
             {!plugin.sdkVersion && (
-              <Tooltip.Provider>
-                <Tooltip>
-                  <Tooltip.Trigger asChild>
-                    <span className="border-accent bg-accent/10 text-accent-foreground inline-block rounded border px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
-                      SDK
-                    </span>
-                  </Tooltip.Trigger>
-                  <Tooltip.Content>SDK version mismatch — rebuild plugin</Tooltip.Content>
-                </Tooltip>
-              </Tooltip.Provider>
+              <Tooltip>
+                <Tooltip.Trigger asChild>
+                  <span className="border-accent bg-accent/10 text-accent-foreground inline-block rounded border px-1 py-0.5 align-middle text-[9px] leading-none font-medium">
+                    SDK
+                  </span>
+                </Tooltip.Trigger>
+                <Tooltip.Content>SDK version mismatch — rebuild plugin</Tooltip.Content>
+              </Tooltip>
             )}
           </div>
           <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
