@@ -36,7 +36,7 @@
     "check:docs": "bun run --cwd docs check",
     "build:plugins": "bun scripts/plugins.ts --build",
     "check:plugins": "bun scripts/plugins.ts --check",
-    "dev:mcp": "bun --hot platform/mcp-server/dist/index.js --dev",
+    "dev:mcp": "bun scripts/dev-mcp.ts",
     "storybook": "bun run --cwd platform/browser-extension storybook",
     "clean": "bun scripts/clean.ts",
     "clean:all": "bun scripts/clean.ts --all",
