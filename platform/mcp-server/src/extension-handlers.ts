@@ -420,6 +420,9 @@ const handlePluginLog = (params: Record<string, unknown> | undefined, callbacks:
 
 // --- Confirmation handler ---
 
+/** Valid values for ConfirmationScope — used to validate extension input */
+const VALID_CONFIRMATION_SCOPES = new Set<ConfirmationScope>(['tool_domain', 'tool_all', 'domain_all']);
+
 /**
  * Handle a confirmation.response from the extension.
  * Resolves the pending confirmation promise with the user's decision.
@@ -442,7 +445,13 @@ const handleConfirmationResponse = (state: ServerState, params: Record<string, u
 
   // For allow_always, add a session permission rule based on the scope
   if (decision === 'allow_always') {
-    const scope = typeof params.scope === 'string' ? (params.scope as ConfirmationScope) : 'tool_domain';
+    const rawScope = typeof params.scope === 'string' ? params.scope : '';
+    if (rawScope && !VALID_CONFIRMATION_SCOPES.has(rawScope as ConfirmationScope)) {
+      log.warn(`Invalid confirmation scope '${rawScope}', falling back to 'tool_domain'`);
+    }
+    const scope: ConfirmationScope = VALID_CONFIRMATION_SCOPES.has(rawScope as ConfirmationScope)
+      ? (rawScope as ConfirmationScope)
+      : 'tool_domain';
     const rule: SessionPermissionRule = { tool: pending.tool, domain: pending.domain, scope };
 
     // Adjust rule fields based on scope
