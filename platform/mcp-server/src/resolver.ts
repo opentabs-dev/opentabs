@@ -11,7 +11,7 @@
  */
 
 import { log } from './logger.js';
-import { ok, err, platformExec, toErrorMessage } from '@opentabs-dev/shared';
+import { ok, err, PLUGIN_PREFIX, platformExec, toErrorMessage } from '@opentabs-dev/shared';
 import { readdir, realpath, stat } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
@@ -220,7 +220,7 @@ const scanGlobalDir = async (globalDir: string): Promise<string[]> => {
   const scopeDirScans: Promise<void>[] = [];
 
   for (const entry of entries) {
-    if (entry.startsWith('opentabs-plugin-')) {
+    if (entry.startsWith(PLUGIN_PREFIX)) {
       const fullPath = join(globalDir, entry);
       unscopedChecks.push(
         hasOpentabsField(fullPath).then(valid => {
@@ -235,7 +235,7 @@ const scanGlobalDir = async (globalDir: string): Promise<string[]> => {
           .then(async scopeEntries => {
             const scopeChecks: Promise<void>[] = [];
             for (const scopeEntry of scopeEntries) {
-              if (scopeEntry.startsWith('opentabs-plugin-')) {
+              if (scopeEntry.startsWith(PLUGIN_PREFIX)) {
                 const fullPath = join(scopeDir, scopeEntry);
                 scopeChecks.push(
                   hasOpentabsField(fullPath).then(valid => {

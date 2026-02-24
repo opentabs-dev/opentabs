@@ -4,7 +4,7 @@ import { loadPlugin } from './loader.js';
 import { log } from './logger.js';
 import { buildRegistry } from './registry.js';
 import { discoverGlobalNpmPlugins, resolvePluginPath } from './resolver.js';
-import { isErr, toErrorMessage } from '@opentabs-dev/shared';
+import { isErr, OFFICIAL_SCOPE, toErrorMessage } from '@opentabs-dev/shared';
 import type { LoadedPlugin } from './loader.js';
 import type { FailedPlugin, PluginRegistry } from './state.js';
 import type { TrustTier } from '@opentabs-dev/shared';
@@ -23,8 +23,7 @@ interface DiscoveryError {
 
 /** Determine trust tier for an npm plugin directory path based on its package name. */
 const npmTrustTier = (dir: string): TrustTier => {
-  // Scoped @opentabs-dev packages are official
-  if (dir.includes('/@opentabs-dev/')) return 'official';
+  if (dir.includes(`/${OFFICIAL_SCOPE}/`)) return 'official';
   return 'community';
 };
 

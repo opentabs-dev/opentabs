@@ -46,6 +46,51 @@ export const getExtensionDir = (): string => join(getConfigDir(), 'extension');
 export const getLogFilePath = (): string => join(getConfigDir(), 'server.log');
 
 // ---------------------------------------------------------------------------
+// Plugin naming conventions
+// ---------------------------------------------------------------------------
+
+/** npm scope for official first-party OpenTabs plugins */
+export const OFFICIAL_SCOPE = '@opentabs-dev';
+
+/** Prefix for opentabs plugin npm package names */
+export const PLUGIN_PREFIX = 'opentabs-plugin-';
+
+/**
+ * Resolve all possible npm package names for a given plugin shorthand.
+ *
+ * Returns candidates in priority order (official first, then community unscoped).
+ * Already-qualified names (scoped or full `opentabs-plugin-*`) return as-is.
+ *
+ * Examples:
+ *   "slack"                              → ["@opentabs-dev/opentabs-plugin-slack", "opentabs-plugin-slack"]
+ *   "opentabs-plugin-slack"              → ["opentabs-plugin-slack"]
+ *   "@opentabs-dev/opentabs-plugin-slack"→ ["@opentabs-dev/opentabs-plugin-slack"]
+ *   "@myorg/opentabs-plugin-jira"        → ["@myorg/opentabs-plugin-jira"]
+ */
+export const resolvePluginPackageCandidates = (name: string): string[] => {
+  if (name.startsWith('@')) return [name];
+  if (name.startsWith(PLUGIN_PREFIX)) return [name];
+  return [`${OFFICIAL_SCOPE}/${PLUGIN_PREFIX}${name}`, `${PLUGIN_PREFIX}${name}`];
+};
+
+/**
+ * Normalize a shorthand plugin name to its full npm package name.
+ *
+ * Shorthand names expand to the official scoped package first. Already-qualified
+ * names (scoped or prefixed with `opentabs-plugin-`) pass through unchanged.
+ *
+ * Examples:
+ *   "slack"                               → "@opentabs-dev/opentabs-plugin-slack"
+ *   "opentabs-plugin-slack"               → "opentabs-plugin-slack"
+ *   "@opentabs-dev/opentabs-plugin-slack" → "@opentabs-dev/opentabs-plugin-slack"
+ *   "@myorg/opentabs-plugin-jira"         → "@myorg/opentabs-plugin-jira"
+ */
+export const normalizePluginName = (name: string): string => {
+  const candidates = resolvePluginPackageCandidates(name);
+  return candidates[0] ?? `${OFFICIAL_SCOPE}/${PLUGIN_PREFIX}${name}`;
+};
+
+// ---------------------------------------------------------------------------
 // Cryptography
 // ---------------------------------------------------------------------------
 

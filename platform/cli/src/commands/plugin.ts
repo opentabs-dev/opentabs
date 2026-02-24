@@ -14,8 +14,16 @@ import {
 } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import { scaffoldPlugin, promptForMissingArgs, ScaffoldError } from '../scaffold.js';
-import { TOOLS_FILENAME, platformExec } from '@opentabs-dev/shared';
+import {
+  TOOLS_FILENAME,
+  OFFICIAL_SCOPE,
+  PLUGIN_PREFIX,
+  normalizePluginName,
+  resolvePluginPackageCandidates,
+  platformExec,
+} from '@opentabs-dev/shared';
 import pc from 'picocolors';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { Command } from 'commander';
 
@@ -32,16 +40,13 @@ interface NpmSearchResult {
   objects: Array<{ package: NpmSearchPackage }>;
 }
 
-// --- Helpers ---
-
-/**
- * Normalize a shorthand plugin name to its full npm package name.
- * "slack" → "opentabs-plugin-slack", but scoped names and full names pass through.
- */
-const normalizePluginName = (name: string): string => {
-  if (name.startsWith('@') || name.startsWith('opentabs-plugin-')) return name;
-  return `opentabs-plugin-${name}`;
-};
+/** Abbreviated response from the npm registry package endpoint */
+interface NpmPackageInfo {
+  name: string;
+  description?: string;
+  'dist-tags'?: Record<string, string>;
+  maintainers?: Array<{ name?: string; username?: string }>;
+}
 
 /**
  * Notify the running MCP server to rediscover plugins via POST /reload.
@@ -81,10 +86,86 @@ const notifyServer = async (options: { port?: number }): Promise<void> => {
   }
 };
 
+// --- npm auth ---
+
+/**
+ * Read the npm auth token from ~/.npmrc.
+ * Returns the token string or null if not found.
+ */
+const readNpmAuthToken = async (): Promise<string | null> => {
+  try {
+    const text = await Bun.file(join(homedir(), '.npmrc')).text();
+    const match = /\/\/registry\.npmjs\.org\/:_authToken=(.+)/.exec(text);
+    return match?.[1]?.trim() ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Build HTTP headers for npm registry requests, including auth if available.
+ */
+const npmRegistryHeaders = async (): Promise<Record<string, string>> => {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const token = await readNpmAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+};
+
 // --- Install handler ---
 
+/**
+ * Check whether a package exists on the npm registry.
+ * Includes npm auth token when available to support private/scoped packages.
+ */
+const packageExistsOnNpm = async (pkg: string): Promise<boolean> => {
+  try {
+    const headers = await npmRegistryHeaders();
+    const res = await fetch(`https://registry.npmjs.org/${pkg}`, {
+      method: 'HEAD',
+      headers,
+      signal: AbortSignal.timeout(5_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Resolve a user-supplied plugin name to the actual npm package name.
+ *
+ * For shorthand names (e.g., "slack"), queries the npm registry for each
+ * candidate in priority order (official scoped → community unscoped) and
+ * returns the first one that exists. For already-qualified names, returns as-is.
+ */
+const resolvePackageName = async (name: string): Promise<string | null> => {
+  const candidates = resolvePluginPackageCandidates(name);
+  if (candidates.length === 1) return candidates[0] ?? null;
+
+  for (const candidate of candidates) {
+    if (await packageExistsOnNpm(candidate)) return candidate;
+  }
+  return null;
+};
+
 const handlePluginInstall = async (name: string, options: { port?: number }): Promise<void> => {
-  const pkg = normalizePluginName(name);
+  const candidates = resolvePluginPackageCandidates(name);
+  const isShorthand = candidates.length > 1;
+
+  if (isShorthand) {
+    console.log(`Resolving plugin ${pc.bold(name)}...`);
+  }
+
+  const pkg = await resolvePackageName(name);
+  if (!pkg) {
+    console.error(pc.red(`Plugin "${name}" not found on npm.`));
+    if (isShorthand) {
+      console.error(pc.dim(`Tried: ${candidates.join(', ')}`));
+    }
+    process.exit(1);
+  }
+
   console.log(`Installing ${pc.bold(pkg)}...`);
 
   const proc = Bun.spawn([platformExec('npm'), 'install', '-g', pkg], {
@@ -141,7 +222,35 @@ const removeFromLocalPlugins = async (pkg: string): Promise<void> => {
 };
 
 const handlePluginRemove = async (name: string, options: { port?: number }): Promise<void> => {
-  const pkg = normalizePluginName(name);
+  const candidates = resolvePluginPackageCandidates(name);
+  const isShorthand = candidates.length > 1;
+
+  if (isShorthand) {
+    console.log(`Resolving plugin ${pc.bold(name)}...`);
+  }
+
+  const pkg = await resolvePackageName(name);
+  if (!pkg) {
+    // Fall back to the primary candidate for uninstall (npm uninstall is lenient)
+    const fallback = normalizePluginName(name);
+    console.log(`Removing ${pc.bold(fallback)}...`);
+
+    const proc = Bun.spawn([platformExec('npm'), 'uninstall', '-g', fallback], {
+      stdio: ['inherit', 'inherit', 'inherit'],
+    });
+    const exitCode = await proc.exited;
+
+    if (exitCode !== 0) {
+      console.error(pc.red(`npm uninstall failed (exit code ${exitCode}).`));
+      process.exit(1);
+    }
+
+    console.log(pc.green(`Successfully removed ${fallback}.`));
+    await removeFromLocalPlugins(fallback);
+    await notifyServer(options);
+    return;
+  }
+
   console.log(`Removing ${pc.bold(pkg)}...`);
 
   const proc = Bun.spawn([platformExec('npm'), 'uninstall', '-g', pkg], {
@@ -163,40 +272,115 @@ const handlePluginRemove = async (name: string, options: { port?: number }): Pro
 
 const NPM_SEARCH_URL = 'https://registry.npmjs.org/-/v1/search';
 
+/**
+ * Fetch package metadata directly from the npm registry.
+ * Returns the package info if it exists, null otherwise.
+ * Includes npm auth to support private/scoped packages.
+ */
+const fetchPackageInfo = async (pkg: string): Promise<NpmSearchPackage | null> => {
+  try {
+    const headers = await npmRegistryHeaders();
+    const res = await fetch(`https://registry.npmjs.org/${pkg}`, {
+      signal: AbortSignal.timeout(5_000),
+      headers,
+    });
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as NpmPackageInfo;
+    const version = data['dist-tags']?.latest;
+    if (!version) return null;
+
+    const author = data.maintainers?.[0];
+    return {
+      name: data.name,
+      description: data.description,
+      version,
+      publisher: author ? { username: author.username ?? author.name ?? 'unknown' } : undefined,
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Build a list of candidate package names to probe directly on the npm registry.
+ *
+ * When a query is provided (e.g., "slack"), generates the official and community
+ * package names to check via direct registry lookup. This catches private/scoped
+ * packages that the npm search API excludes from keyword-based results.
+ */
+const buildDirectLookupCandidates = (query?: string): string[] => {
+  if (!query) return [];
+  // If the query is already a fully qualified name, probe it directly
+  if (query.startsWith('@') || query.startsWith(PLUGIN_PREFIX)) return [query];
+  return [`${OFFICIAL_SCOPE}/${PLUGIN_PREFIX}${query}`, `${PLUGIN_PREFIX}${query}`];
+};
+
 const handlePluginSearch = async (query?: string): Promise<void> => {
   const params = new URLSearchParams({
     text: query ? `keywords:opentabs-plugin ${query}` : 'keywords:opentabs-plugin',
     size: '20',
   });
 
-  let data: NpmSearchResult;
-  try {
-    const response = await fetch(`${NPM_SEARCH_URL}?${params.toString()}`);
+  // Run npm keyword search and direct registry lookups in parallel
+  const directCandidates = buildDirectLookupCandidates(query);
+  const [searchResult, ...directResults] = await Promise.all([
+    (async (): Promise<NpmSearchResult | string> => {
+      try {
+        const response = await fetch(`${NPM_SEARCH_URL}?${params.toString()}`);
+        if (response.status === 429) return 'rate-limited';
+        if (!response.ok) return `error-${response.status.toString()}`;
+        return (await response.json()) as NpmSearchResult;
+      } catch {
+        return 'unreachable';
+      }
+    })(),
+    ...directCandidates.map(candidate => fetchPackageInfo(candidate)),
+  ]);
 
-    if (response.status === 429) {
+  // Collect results from keyword search
+  const results: NpmSearchPackage[] = [];
+  const seenNames = new Set<string>();
+
+  if (typeof searchResult === 'object') {
+    for (const { package: pkg } of searchResult.objects) {
+      if (!seenNames.has(pkg.name)) {
+        seenNames.add(pkg.name);
+        results.push(pkg);
+      }
+    }
+  }
+
+  // Merge in direct lookup results (private packages not in keyword search)
+  for (const info of directResults) {
+    if (info && !seenNames.has(info.name)) {
+      seenNames.add(info.name);
+      results.push(info);
+    }
+  }
+
+  if (typeof searchResult === 'string' && results.length === 0) {
+    if (searchResult === 'rate-limited') {
       console.error(pc.yellow('npm registry rate limit reached. Try again in a moment.'));
-      process.exit(1);
+    } else if (searchResult === 'unreachable') {
+      console.error(pc.red('Could not reach npm registry. Check your internet connection.'));
+    } else {
+      console.error(
+        pc.red(`npm registry returned an error (HTTP ${searchResult.replace('error-', '')}). Try again later.`),
+      );
     }
-    if (!response.ok) {
-      console.error(pc.red(`npm registry returned an error (HTTP ${response.status.toString()}). Try again later.`));
-      process.exit(1);
-    }
-
-    data = (await response.json()) as NpmSearchResult;
-  } catch {
-    console.error(pc.red('Could not reach npm registry. Check your internet connection.'));
     process.exit(1);
   }
 
-  if (data.objects.length === 0) {
+  if (results.length === 0) {
     const term = query ?? '';
     console.log(pc.yellow(`No plugins found for '${term}'. Try a different search term.`));
     return;
   }
 
   console.log();
-  for (const { package: pkg } of data.objects) {
-    const label = pkg.name.startsWith('@opentabs-dev/') ? pc.blue('[official]') : pc.dim('[community]');
+  for (const pkg of results) {
+    const label = pkg.name.startsWith(`${OFFICIAL_SCOPE}/`) ? pc.blue('[official]') : pc.dim('[community]');
     const desc = pkg.description
       ? pkg.description.length > 60
         ? pkg.description.slice(0, 57) + '...'
@@ -293,7 +477,7 @@ const scanNpmPlugins = async (): Promise<ListPluginEntry[]> => {
     const deps = typeof data.dependencies === 'object' && data.dependencies !== null ? data.dependencies : {};
 
     for (const [pkgName, info] of Object.entries(deps as Record<string, Record<string, unknown>>)) {
-      const isPlugin = pkgName.startsWith('opentabs-plugin-') || /^@[^/]+\/opentabs-plugin-/.test(pkgName);
+      const isPlugin = pkgName.startsWith(PLUGIN_PREFIX) || new RegExp(`^@[^/]+/${PLUGIN_PREFIX}`).test(pkgName);
       if (!isPlugin) continue;
 
       const version = typeof info.version === 'string' ? info.version : null;
@@ -530,4 +714,4 @@ Examples:
     });
 };
 
-export { registerPluginCommand };
+export { registerPluginCommand, packageExistsOnNpm, resolvePackageName, buildDirectLookupCandidates };

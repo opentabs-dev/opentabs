@@ -8,7 +8,16 @@
 
 import { pluginNameFromPackage } from './loader.js';
 import { log } from './logger.js';
-import { atomicWrite, getConfigDir, getConfigPath, platformExec } from '@opentabs-dev/shared';
+import {
+  atomicWrite,
+  getConfigDir,
+  getConfigPath,
+  OFFICIAL_SCOPE,
+  normalizePluginName,
+  isValidPluginPackageName,
+  resolvePluginPackageCandidates,
+  platformExec,
+} from '@opentabs-dev/shared';
 import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -56,28 +65,8 @@ interface PluginInstallResult {
 }
 
 // ---------------------------------------------------------------------------
-// Name normalization and validation
+// Name normalization and validation — re-exported from @opentabs-dev/shared
 // ---------------------------------------------------------------------------
-
-/**
- * Normalize a shorthand plugin name to its full npm package name.
- * "slack" → "opentabs-plugin-slack", scoped and full names pass through.
- */
-const normalizePluginName = (name: string): string => {
-  if (name.startsWith('@') || name.startsWith('opentabs-plugin-')) return name;
-  return `opentabs-plugin-${name}`;
-};
-
-/**
- * Validate that a normalized package name matches the opentabs plugin naming convention.
- * Accepts `opentabs-plugin-*` and `@scope/opentabs-plugin-*` patterns.
- */
-const isValidPluginPackageName = (name: string): boolean => {
-  if (name.startsWith('@')) {
-    return /^@[^/]+\/opentabs-plugin-.+$/.test(name);
-  }
-  return name.startsWith('opentabs-plugin-') && name.length > 'opentabs-plugin-'.length;
-};
 
 // ---------------------------------------------------------------------------
 // npm subprocess timeout (60 seconds)
@@ -173,7 +162,7 @@ const searchNpmPlugins = async (query?: string): Promise<PluginSearchResult[]> =
     description: pkg.description ?? '',
     version: pkg.version,
     author: pkg.publisher?.username ?? 'unknown',
-    isOfficial: pkg.name.startsWith('@opentabs-dev/'),
+    isOfficial: pkg.name.startsWith(`${OFFICIAL_SCOPE}/`),
   }));
 };
 
@@ -262,15 +251,20 @@ interface PluginUpdateResult {
 
 /**
  * Find a registered plugin by name (shorthand or full npm package name).
- * Returns the matching RegisteredPlugin or undefined.
+ *
+ * Tries all candidate package names for shorthand inputs (official scoped first,
+ * then community unscoped) to match against both `npmPackageName` and the
+ * derived internal name.
  */
 const findPlugin = (state: ServerState, name: string): RegisteredPlugin | undefined => {
-  const pkg = normalizePluginName(name);
-  const derivedName = pluginNameFromPackage(pkg);
+  const candidates = resolvePluginPackageCandidates(name);
 
   for (const p of state.registry.plugins.values()) {
-    if (p.npmPackageName === pkg || p.name === derivedName || p.name === name) {
-      return p;
+    if (p.name === name) return p;
+    for (const candidate of candidates) {
+      if (p.npmPackageName === candidate || p.name === pluginNameFromPackage(candidate)) {
+        return p;
+      }
     }
   }
   return undefined;

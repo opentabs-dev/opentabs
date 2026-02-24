@@ -32,6 +32,10 @@ export {
   getExtensionDir,
   getLogFilePath,
   generateSecret,
+  OFFICIAL_SCOPE,
+  PLUGIN_PREFIX,
+  normalizePluginName,
+  resolvePluginPackageCandidates,
 } from './constants.js';
 
 // ---------------------------------------------------------------------------
@@ -44,7 +48,7 @@ export { type Ok, type Err, type Result, ok, err, isOk, isErr, unwrap, unwrapOr,
 // Plugin package.json manifest — new plugin metadata format
 // ---------------------------------------------------------------------------
 
-export { parsePluginPackageJson } from './manifest.js';
+export { parsePluginPackageJson, isValidPluginPackageName } from './manifest.js';
 export type { PluginOpentabsField, PluginPackageJson } from './manifest.js';
 
 // ---------------------------------------------------------------------------

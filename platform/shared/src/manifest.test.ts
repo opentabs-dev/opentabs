@@ -1,4 +1,4 @@
-import { parsePluginPackageJson } from './manifest.js';
+import { parsePluginPackageJson, isValidPluginPackageName } from './manifest.js';
 import { isErr, isOk, unwrap } from './result.js';
 import { describe, expect, test } from 'bun:test';
 import os from 'node:os';
@@ -300,5 +300,36 @@ describe('parsePluginPackageJson', () => {
       const error = expectErr(parsePluginPackageJson(null, customPath));
       expect(error).toContain(customPath);
     });
+  });
+});
+
+describe('isValidPluginPackageName', () => {
+  test('accepts unscoped opentabs-plugin-* names', () => {
+    expect(isValidPluginPackageName('opentabs-plugin-slack')).toBe(true);
+    expect(isValidPluginPackageName('opentabs-plugin-my-cool-tool')).toBe(true);
+  });
+
+  test('accepts scoped opentabs-plugin-* names', () => {
+    expect(isValidPluginPackageName('@opentabs-dev/opentabs-plugin-slack')).toBe(true);
+    expect(isValidPluginPackageName('@my-org/opentabs-plugin-jira')).toBe(true);
+    expect(isValidPluginPackageName('@company/opentabs-plugin-data-viewer')).toBe(true);
+  });
+
+  test('rejects bare opentabs-plugin- prefix with no suffix', () => {
+    expect(isValidPluginPackageName('opentabs-plugin-')).toBe(false);
+  });
+
+  test('rejects scoped bare opentabs-plugin- prefix with no suffix', () => {
+    expect(isValidPluginPackageName('@org/opentabs-plugin-')).toBe(false);
+  });
+
+  test('rejects names without the plugin prefix', () => {
+    expect(isValidPluginPackageName('some-random-package')).toBe(false);
+    expect(isValidPluginPackageName('slack')).toBe(false);
+  });
+
+  test('rejects scoped names without opentabs-plugin- in the name part', () => {
+    expect(isValidPluginPackageName('@my-org/random-package')).toBe(false);
+    expect(isValidPluginPackageName('@my-org/slack')).toBe(false);
   });
 });

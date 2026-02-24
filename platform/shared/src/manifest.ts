@@ -25,16 +25,16 @@ interface PluginPackageJson {
 }
 
 /**
- * Validate a plugin name: must start with 'opentabs-plugin-' or be a scoped
- * package (e.g., @org/opentabs-plugin-foo).
+ * Validate that a package name matches the opentabs plugin naming convention.
+ *
+ * Accepts `opentabs-plugin-<name>` (unscoped) and `@scope/opentabs-plugin-<name>` (scoped).
+ * The name portion after the prefix must be non-empty.
  */
 const isValidPluginPackageName = (name: string): boolean => {
-  if (name.startsWith('opentabs-plugin-')) return true;
   if (name.startsWith('@')) {
-    const parts = name.split('/');
-    if (parts.length === 2 && (parts[1] ?? '').startsWith('opentabs-plugin-')) return true;
+    return /^@[^/]+\/opentabs-plugin-.+$/.test(name);
   }
-  return false;
+  return name.startsWith('opentabs-plugin-') && name.length > 'opentabs-plugin-'.length;
 };
 
 /**
@@ -114,5 +114,5 @@ const parsePluginPackageJson = (json: unknown, sourcePath: string): Result<Plugi
   });
 };
 
-export { parsePluginPackageJson };
+export { parsePluginPackageJson, isValidPluginPackageName };
 export type { PluginOpentabsField, PluginPackageJson };

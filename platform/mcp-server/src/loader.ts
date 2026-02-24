@@ -15,6 +15,8 @@ import { sdkVersion as serverSdkVersion } from './sdk-version.js';
 import {
   ADAPTER_FILENAME,
   ADAPTER_SOURCE_MAP_FILENAME,
+  OFFICIAL_SCOPE,
+  PLUGIN_PREFIX,
   TOOLS_FILENAME,
   err,
   ok,
@@ -63,12 +65,6 @@ interface LoadedPlugin {
 }
 
 /**
- * The official npm scope for first-party OpenTabs packages.
- * Plugins published under this scope are treated as unscoped for naming
- * purposes — the scope is invisible in the derived plugin name.
- */
-const OFFICIAL_SCOPE = '@opentabs-dev';
-
 /**
  * Extract the internal plugin name from an npm package name.
  *
@@ -77,11 +73,12 @@ const OFFICIAL_SCOPE = '@opentabs-dev';
  * Third-party scope:       @myorg/opentabs-plugin-jira                → myorg-jira
  */
 const pluginNameFromPackage = (pkgName: string): string => {
+  const prefixPattern = new RegExp(`^${PLUGIN_PREFIX}`);
   if (pkgName.startsWith('@')) {
     const parts = pkgName.split('/');
     const scopePart = parts[0] ?? '';
     const namePart = parts[1] ?? '';
-    const pluginSuffix = namePart.replace(/^opentabs-plugin-/, '');
+    const pluginSuffix = namePart.replace(prefixPattern, '');
 
     // Official scope is invisible — treat like an unscoped package
     if (scopePart === OFFICIAL_SCOPE) {
@@ -91,7 +88,7 @@ const pluginNameFromPackage = (pkgName: string): string => {
     const scope = scopePart.slice(1);
     return `${scope}-${pluginSuffix}`;
   }
-  return pkgName.replace(/^opentabs-plugin-/, '');
+  return pkgName.replace(prefixPattern, '');
 };
 
 /**

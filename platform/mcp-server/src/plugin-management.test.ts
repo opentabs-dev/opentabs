@@ -2,17 +2,18 @@ import { normalizePluginName, isValidPluginPackageName } from './plugin-manageme
 import { describe, expect, test } from 'bun:test';
 
 describe('normalizePluginName', () => {
-  test('prefixes shorthand names with opentabs-plugin-', () => {
-    expect(normalizePluginName('slack')).toBe('opentabs-plugin-slack');
-    expect(normalizePluginName('my-tool')).toBe('opentabs-plugin-my-tool');
+  test('shorthand names resolve to official scoped package', () => {
+    expect(normalizePluginName('slack')).toBe('@opentabs-dev/opentabs-plugin-slack');
+    expect(normalizePluginName('my-tool')).toBe('@opentabs-dev/opentabs-plugin-my-tool');
   });
 
-  test('passes through full package names unchanged', () => {
+  test('passes through full unscoped package names unchanged', () => {
     expect(normalizePluginName('opentabs-plugin-slack')).toBe('opentabs-plugin-slack');
   });
 
   test('passes through scoped package names unchanged', () => {
     expect(normalizePluginName('@my-org/opentabs-plugin-custom')).toBe('@my-org/opentabs-plugin-custom');
+    expect(normalizePluginName('@opentabs-dev/opentabs-plugin-slack')).toBe('@opentabs-dev/opentabs-plugin-slack');
   });
 });
 
