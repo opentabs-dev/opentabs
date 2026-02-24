@@ -37,6 +37,8 @@
     "lint:docs": "bun run --cwd docs lint",
     "type-check:docs": "bun run --cwd docs type-check",
     "check:docs": "bun run --cwd docs build && bun run --cwd docs type-check && bun run --cwd docs lint && bun run --cwd docs knip && bun run --cwd docs format:check",
+    "build:plugins": "bun scripts/plugins.ts --build",
+    "check:plugins": "bun scripts/plugins.ts --check",
     "clean": "bun scripts/clean.ts",
     "clean:all": "bun scripts/clean.ts --all",
     "postinstall": "bun scripts/check-bun-version.ts",
