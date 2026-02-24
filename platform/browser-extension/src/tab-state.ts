@@ -147,10 +147,24 @@ const sendTabSyncAll = async (): Promise<void> => {
   if (entries.length === 0) return;
   const tabSyncPayload: Record<string, PluginTabStateInfo> = Object.fromEntries(entries);
 
-  // Populate the cache from the full sync
-  lastKnownState.clear();
-  for (const [pluginName, stateInfo] of entries) {
-    lastKnownState.set(pluginName, stateInfo.state);
+  // Write each plugin's state through the per-plugin lock so concurrent
+  // checkTabChanged / checkTabRemoved calls are properly serialized.
+  const pluginNamesInSync = new Set<string>();
+  await Promise.all(
+    entries.map(([pluginName, stateInfo]) => {
+      pluginNamesInSync.add(pluginName);
+      return withPluginLock(pluginName, () => {
+        lastKnownState.set(pluginName, stateInfo.state);
+        return Promise.resolve();
+      });
+    }),
+  );
+  // Remove entries for plugins no longer in the index
+  for (const key of lastKnownState.keys()) {
+    if (!pluginNamesInSync.has(key)) {
+      lastKnownState.delete(key);
+      pluginLocks.delete(key);
+    }
   }
 
   sendToServer({

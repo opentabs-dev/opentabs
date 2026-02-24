@@ -268,6 +268,11 @@ const scanGlobalDir = async (globalDir: string): Promise<string[]> => {
  * plus any non-fatal errors encountered during scanning.
  */
 const discoverGlobalNpmPlugins = async (): Promise<{ dirs: string[]; errors: string[] }> => {
+  if (Bun.env.OPENTABS_SKIP_NPM_DISCOVERY === '1') {
+    log.info('Skipping npm auto-discovery (OPENTABS_SKIP_NPM_DISCOVERY=1)');
+    return { dirs: [], errors: [] };
+  }
+
   const globalPaths = getGlobalNodeModulesPaths();
   const errors: string[] = [];
 
