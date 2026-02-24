@@ -38,6 +38,27 @@ export const requireSelector = (params: Record<string, unknown>, id: string | nu
 };
 
 /**
+ * Validates that `params[paramName]` is a non-empty string.
+ * Sends a JSONRPC_INVALID_PARAMS error if invalid, returning `null`.
+ */
+export const requireStringParam = (
+  params: Record<string, unknown>,
+  paramName: string,
+  id: string | number,
+): string | null => {
+  const value = params[paramName];
+  if (typeof value !== 'string' || value.length === 0) {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: JSONRPC_INVALID_PARAMS, message: `Missing or invalid ${paramName} parameter` },
+      id,
+    });
+    return null;
+  }
+  return value;
+};
+
+/**
  * Validates that `params.url` is a string and not a blocked URL scheme.
  * Sends a JSONRPC_INVALID_PARAMS error if invalid, returning `null`.
  */

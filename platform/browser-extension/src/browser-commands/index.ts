@@ -17,13 +17,13 @@ export {
   handleBrowserClickElement,
   handleBrowserHandleDialog,
   handleBrowserHoverElement,
-  handleBrowserPressKey,
   handleBrowserQueryElements,
-  handleBrowserScroll,
   handleBrowserSelectOption,
   handleBrowserTypeText,
   handleBrowserWaitForElement,
 } from './interaction-commands.js';
+export { handleBrowserPressKey } from './key-press-command.js';
+export { handleBrowserScroll } from './scroll-command.js';
 export {
   handleBrowserClearConsoleLogs,
   handleBrowserDisableNetworkCapture,
