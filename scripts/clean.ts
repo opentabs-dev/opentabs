@@ -43,9 +43,6 @@ remove(join(repoRoot, 'e2e', 'dist'));
 // Generated icons (produced by build:icons)
 remove(join(repoRoot, 'platform', 'browser-extension', 'icons'));
 
-// Side panel build output
-remove(join(repoRoot, 'platform', 'browser-extension', 'side-panel'));
-
 // *.tsbuildinfo files under platform/
 for (const pkg of readdirSync(platformDir, { withFileTypes: true })) {
   if (pkg.isDirectory()) {
