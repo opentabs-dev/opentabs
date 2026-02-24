@@ -2687,7 +2687,7 @@ export const InstallPaths = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-primary)"
         textAnchor="middle">
-        + Bun runtime
+        + Node.js 20+
       </text>
       <rect x="266" y="94" width="176" height="22" fill="var(--color-foreground)" />
       <text
@@ -2992,7 +2992,7 @@ export const FirstPluginFlow = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-primary)"
         textAnchor="middle">
-        bun run build
+        npm run build
       </text>
       <text
         x="670"

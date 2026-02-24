@@ -10,7 +10,7 @@ Choose the installation path that matches your role. Each section is self-contai
 
 ## For Users
 
-Use OpenTabs with existing plugins and the built-in browser tools. You need **Node.js 18+** and **Google Chrome** (or any Chromium-based browser).
+Use OpenTabs with existing plugins and the built-in browser tools. You need **Node.js 20+** and **Google Chrome** (or any Chromium-based browser).
 
 ### Install the CLI
 
@@ -81,7 +81,7 @@ You're ready. Your AI agent can now use all registered plugin tools and the 37 b
 
 ## For Plugin Developers
 
-Build your own OpenTabs plugins. You need everything in **For Users** above, plus **Bun** (v1.0+) — [install Bun](https://bun.sh).
+Build your own OpenTabs plugins. You need everything in **For Users** above.
 
 ### Set up the user environment
 
@@ -93,13 +93,13 @@ Follow the [For Users](#for-users) section above first. You need a working OpenT
 
 ```bash
 cd my-plugin
-bun install
+npm install
 ```
 
 ### Build and register
 
 ```bash
-bun run build
+npm run build
 ```
 
 This compiles your plugin, generates `dist/adapter.iife.js` and `dist/tools.json`, registers the plugin in `~/.opentabs/config.json` under `localPlugins`, and notifies the running server via `POST /reload`.
@@ -109,10 +109,10 @@ This compiles your plugin, generates `dist/adapter.iife.js` and `dist/tools.json
 Every time you rebuild, the server picks up your changes automatically:
 
 ```bash
-bun run build   # Compiles, builds adapter, and notifies the server via POST /reload
+npm run build   # Compiles, builds adapter, and notifies the server via POST /reload
 ```
 
-The `opentabs-plugin build` step (part of `bun run build`) calls `POST /reload` on the running server, triggering plugin rediscovery. No server restart needed.
+The `opentabs-plugin build` step (part of `npm run build`) calls `POST /reload` on the running server, triggering plugin rediscovery. No server restart needed.
 
 See the [Plugin Development guide](/docs/guides/plugin-development) for a complete walkthrough of building your first plugin.
 
@@ -120,7 +120,7 @@ See the [Plugin Development guide](/docs/guides/plugin-development) for a comple
 
 ## For Contributors
 
-Work on the OpenTabs platform itself. You need **Bun** (v1.0+) — [install Bun](https://bun.sh) — and **Google Chrome**.
+Work on the OpenTabs platform itself. You need **[Bun](https://bun.sh)** (v1.3.9+), **[Node.js](https://nodejs.org)** (v20+), and **Google Chrome**.
 
 ### Clone and build
 
@@ -143,7 +143,7 @@ bun run build
 bun --hot platform/mcp-server/dist/index.js --dev
 ```
 
-This starts the MCP server with hot reload enabled. When you rebuild platform packages (`bun run build`), Bun re-evaluates modules without restarting the process.
+This starts the MCP server with Bun's hot reload enabled (contributor-only). When you rebuild platform packages (`bun run build`), Bun re-evaluates modules without restarting the process.
 
 ### Configure your MCP client
 

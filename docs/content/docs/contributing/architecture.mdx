@@ -10,7 +10,7 @@ OpenTabs has three main components: the **MCP server** (discovers plugins and di
 
 ## MCP Server
 
-The MCP server runs on `localhost:9515` (configurable via `PORT` or `OPENTABS_PORT` env var). It is a `Bun.serve()` HTTP + WebSocket server with two responsibilities:
+The MCP server runs on `localhost:9515` (configurable via `PORT` or `OPENTABS_PORT` env var). It is an HTTP + WebSocket server (using `Bun.serve()` in dev mode, `node:http` + `ws` in production) with two responsibilities:
 
 1. **Plugin discovery** — resolves plugins from npm and local paths, loads their metadata and adapter bundles, and builds an immutable registry
 2. **Request dispatch** — registers plugin tools, resources, and prompts as MCP capabilities, dispatches calls to the Chrome extension via WebSocket, and relays results back to MCP clients

@@ -295,7 +295,7 @@ opentabs start
 - No file watchers — minimal background filesystem activity
 - `POST /reload` is available for on-demand rediscovery (used by `opentabs-plugin build`)
 
-### Dev mode
+### Dev mode (contributors only)
 
 ```bash
 bun --hot platform/mcp-server/dist/index.js --dev
@@ -304,6 +304,8 @@ bun --hot platform/mcp-server/dist/index.js --dev
 - **File watchers** monitor local plugin `dist/` directories — auto-reloads when plugins are rebuilt
 - **Config watching** detects changes to `config.json` and re-discovers plugins
 - **`bun --hot`** enables hot reload — rebuilt server files take effect without restarting
+
+Dev mode requires Bun and is intended for platform contributors working on the server source code. Normal users and plugin developers use production mode.
 
 The `/health` endpoint includes a `mode` field (`"dev"` or `"production"`) to verify which mode the server is running in.
 

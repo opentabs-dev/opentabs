@@ -9,7 +9,7 @@ lastUpdated: 2026-02-21
 When something isn't working, start with these two commands:
 
 ```bash
-# Full setup diagnostic — checks Bun, config, server, extension, plugins
+# Full setup diagnostic — checks runtime, config, server, extension, plugins
 opentabs doctor
 
 # Server status — shows plugins, tab states, tool counts
@@ -131,7 +131,7 @@ The `opentabs-plugin build` command calls `POST /reload` automatically. If the s
 
 **Symptom**: After modifying extension source and rebuilding, behavior is unchanged.
 
-The Chrome extension does not auto-reload. After `bun run build`:
+The Chrome extension does not auto-reload. After rebuilding:
 
 1. Open `chrome://extensions`
 2. Find the OpenTabs card and click the circular refresh icon
@@ -163,7 +163,7 @@ The Chrome extension does not auto-reload. After `bun run build`:
     <Table.Row>
       <Table.Cell className="font-medium">TypeScript errors</Table.Cell>
       <Table.Cell>Type mismatches or missing types</Table.Cell>
-      <Table.Cell>Run `bun run type-check` for details and fix the errors.</Table.Cell>
+      <Table.Cell>Run `npm run type-check` for details and fix the errors.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">Zod schema serialization</Table.Cell>
@@ -178,7 +178,7 @@ The Chrome extension does not auto-reload. After `bun run build`:
     <Table.Row>
       <Table.Cell className="font-medium">Missing dependencies</Table.Cell>
       <Table.Cell>`@opentabs-dev/plugin-sdk` not installed</Table.Cell>
-      <Table.Cell>Run `bun install` in the plugin directory.</Table.Cell>
+      <Table.Cell>Run `npm install` in the plugin directory.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -197,7 +197,7 @@ The Chrome extension does not auto-reload. After `bun run build`:
   <Table.Body>
     <Table.Row>
       <Table.Cell className="font-medium">`opentabs doctor`</Table.Cell>
-      <Table.Cell>Full setup diagnostic — Bun, config, server, extension, plugins.</Table.Cell>
+      <Table.Cell>Full setup diagnostic — runtime, config, server, extension, plugins.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`opentabs status`</Table.Cell>

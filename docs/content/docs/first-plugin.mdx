@@ -11,14 +11,14 @@ Build a working OpenTabs plugin from scratch. By the end, you'll have a tool tha
 ## Prerequisites
 
 - [OpenTabs running](/docs/quick-start) (server + extension + MCP client)
-- [Bun](https://bun.sh) installed (`curl -fsSL https://bun.sh/install | bash`)
+- [Node.js](https://nodejs.org) v20+ installed
 
 ## 1. Scaffold the project
 
 ```bash
 opentabs plugin create my-app --domain .example.com --display "My App"
 cd my-app
-bun install
+npm install
 ```
 
 This creates a standalone npm package and auto-registers it with the MCP server.
@@ -75,7 +75,7 @@ export default new MyAppPlugin();
 ## 4. Build
 
 ```bash
-bun run build
+npm run build
 ```
 
 This compiles your plugin, generates the adapter bundle and tool manifest, and notifies the running MCP server.
@@ -96,7 +96,7 @@ opentabs status
 
 ## What just happened?
 
-1. **`bun run build`** compiled your TypeScript and bundled an adapter IIFE — a self-contained script that runs in the page context
+1. **`npm run build`** compiled your TypeScript and bundled an adapter IIFE — a self-contained script that runs in the page context
 2. The build auto-registered your plugin in `~/.opentabs/config.json` and called `POST /reload` to notify the server
 3. The server sent the plugin definition to the Chrome extension via WebSocket
 4. The extension injected the adapter into matching tabs

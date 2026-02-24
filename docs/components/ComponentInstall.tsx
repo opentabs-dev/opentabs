@@ -49,10 +49,10 @@ export const CliCommand = ({
     <TabGroup className="bg-secondary text-secondary-foreground/90 my-2 rounded-(--radius) p-4">
       <TabList className="mb-6 flex space-x-4 text-sm">
         <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
-          pnpm
+          npm
         </Tab>
         <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
-          npm
+          pnpm
         </Tab>
         <Tab className="text-muted-foreground border-accent data-selected:text-secondary-foreground relative cursor-pointer bg-transparent px-2 py-1 focus:outline-hidden data-selected:border-b-2">
           yarn
@@ -63,10 +63,10 @@ export const CliCommand = ({
       </TabList>
       <TabPanels className="text-accent-foreground text-sm">
         <TabPanel>
-          <CopyableCommand command={resolvedPnpm} />
+          <CopyableCommand command={npmCommand} />
         </TabPanel>
         <TabPanel>
-          <CopyableCommand command={npmCommand} />
+          <CopyableCommand command={resolvedPnpm} />
         </TabPanel>
         <TabPanel>
           <CopyableCommand command={resolvedYarn} />

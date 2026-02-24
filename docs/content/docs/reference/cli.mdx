@@ -225,7 +225,7 @@ opentabs doctor [options]
 
 Performs the following checks:
 
-1. **Bun runtime** — verifies Bun is installed
+1. **Runtime** — verifies Node.js 20+ is installed
 2. **Config file** — checks `~/.opentabs/config.json` exists
 3. **MCP server health** — fetches the `/health` endpoint (3s timeout)
 4. **Extension connection** — checks if the Chrome extension is connected via WebSocket
@@ -384,7 +384,7 @@ When run without arguments, enters interactive mode and prompts for the plugin n
 The standalone `create-opentabs-plugin` package provides the same functionality:
 
 ```bash
-bunx create-opentabs-plugin my-plugin --domain .example.com --display "My App"
+npx create-opentabs-plugin my-plugin --domain .example.com --display "My App"
 ```
 
 ### opentabs plugin list

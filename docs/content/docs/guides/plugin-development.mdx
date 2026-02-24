@@ -11,9 +11,9 @@ This guide walks you through creating an OpenTabs plugin from scratch. By the en
 The fastest way to start is with the scaffolder:
 
 ```bash
-bunx create-opentabs-plugin my-app --domain .example.com --display "My App"
+npx create-opentabs-plugin my-app --domain .example.com --display "My App"
 cd my-app
-bun install
+npm install
 ```
 
 Or use the `opentabs` CLI:
@@ -395,7 +395,7 @@ z.string()
 ### First build
 
 ```bash
-bun run build
+npm run build
 ```
 
 This runs `tsc` (TypeScript compilation) then `opentabs-plugin build`, which:
@@ -417,7 +417,7 @@ opentabs status
 Use watch mode for a fast iteration loop:
 
 ```bash
-bun run dev
+npm run dev
 ```
 
 This runs `tsc --watch` and `opentabs-plugin build --watch` in parallel. When you save a file:
@@ -466,7 +466,7 @@ The `opentabs-plugin-*` naming convention and `opentabs-plugin` keyword enable a
 ### Publish
 
 ```bash
-bun run build
+npm run build
 npm publish
 ```
 

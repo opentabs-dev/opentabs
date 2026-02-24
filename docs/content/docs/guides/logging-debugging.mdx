@@ -208,21 +208,21 @@ opentabs doctor
 ```
 OpenTabs Doctor
 
-  ✓ Bun runtime: v1.2.0
+  ✓ Runtime: Node.js v20.11.0
   ✓ Config file: /Users/you/.opentabs/config.json
   ✓ MCP server: running on port 9515
   ✓ Extension connection: connected
   ✓ Extension installed: /Users/you/.opentabs/extension
   ✓ Extension version: matches (0.0.3)
   ! Plugin: /Users/you/plugins/slack — missing dist/tools.json
-    Run: cd /Users/you/plugins/slack && bun run build
+    Run: cd /Users/you/plugins/slack && npm run build
 
 6/7 checks passed.
 ```
 
 Doctor checks:
 
-- **Bun runtime** — is Bun installed?
+- **Runtime** — is Node.js 20+ installed?
 - **Config file** — does `~/.opentabs/config.json` exist?
 - **MCP server** — is the server running and reachable?
 - **Extension connection** — is the Chrome extension connected via WebSocket?
