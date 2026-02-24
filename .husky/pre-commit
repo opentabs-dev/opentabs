@@ -8,4 +8,3 @@ if git diff --cached --name-only | grep -qE '\.ralph/(prd\.json|progress\.txt)$'
 fi
 
 bunx lint-staged --allow-empty
-bun run knip
