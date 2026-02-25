@@ -1,6 +1,9 @@
 {
   "name": "@opentabs-dev/create-plugin",
   "version": "0.0.32",
+  "engines": {
+    "node": ">= 20.0.0"
+  },
   "type": "module",
   "bin": {
     "create-opentabs-plugin": "./dist/index.js"

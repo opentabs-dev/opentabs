@@ -1,6 +1,9 @@
 {
   "name": "@opentabs-dev/cli",
   "version": "0.0.32",
+  "engines": {
+    "node": ">= 20.0.0"
+  },
   "type": "module",
   "exports": {
     "./scaffold": {
