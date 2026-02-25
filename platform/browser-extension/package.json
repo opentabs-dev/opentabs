@@ -2,6 +2,13 @@
   "name": "@opentabs-dev/browser-extension",
   "version": "0.0.1",
   "type": "module",
+  "files": [
+    "manifest.json",
+    "dist/",
+    "side-panel/",
+    "offscreen/",
+    "icons/"
+  ],
   "exports": {
     "./package.json": "./package.json"
   },
