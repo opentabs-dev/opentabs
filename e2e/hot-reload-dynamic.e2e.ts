@@ -300,6 +300,13 @@ test.describe.serial('File watcher — manifest changes', () => {
       // The dynamic_tool should NOT be present yet (not in manifest)
       expect(toolsBefore.map(t => t.name)).not.toContain('e2e-test_dynamic_tool');
 
+      // Wait for the file watcher to be fully set up before modifying files.
+      // On macOS, fs.watch() returns before FSEvents is ready to deliver events.
+      // The explicit delay after the log is necessary — without it, the file write
+      // can race ahead of FSEvents registration and the change is silently missed.
+      await waitForLog(server, 'File watcher: Watching', 10_000);
+      await new Promise(r => setTimeout(r, 500));
+
       // Modify dist/tools.json to add a new tool
       const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
       const tools = readToolsFromManifest(toolsJsonPath);
@@ -322,7 +329,7 @@ test.describe.serial('File watcher — manifest changes', () => {
       const toolsAfter = await waitForToolList(
         client,
         tools => tools.some(t => t.name === 'e2e-test_dynamic_tool'),
-        10_000,
+        15_000,
         300,
         'e2e-test_dynamic_tool to appear',
       );
@@ -355,6 +362,13 @@ test.describe.serial('File watcher — manifest changes', () => {
       const toolsBefore = await client.listTools();
       expect(toolsBefore.map(t => t.name)).toContain('e2e-test_echo');
 
+      // Wait for the file watcher to be fully set up before modifying files.
+      // On macOS, fs.watch() returns before FSEvents is ready to deliver events.
+      // The explicit delay after the log is necessary — without it, the file write
+      // can race ahead of FSEvents registration and the change is silently missed.
+      await waitForLog(server, 'File watcher: Watching', 10_000);
+      await new Promise(r => setTimeout(r, 500));
+
       // Remove the echo tool from dist/tools.json
       const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
       const tools = readToolsFromManifest(toolsJsonPath);
@@ -365,7 +379,7 @@ test.describe.serial('File watcher — manifest changes', () => {
       const toolsAfter = await waitForToolList(
         client,
         tools => !tools.some(t => t.name === 'e2e-test_echo'),
-        10_000,
+        15_000,
         300,
         'e2e-test_echo to disappear',
       );
@@ -648,6 +662,13 @@ test.describe('File watcher + hot reload combined', () => {
     try {
       await client.initialize();
 
+      // Wait for the file watcher to be fully set up before modifying files.
+      // On macOS, fs.watch() returns before FSEvents is ready to deliver events.
+      // The explicit delay after the log is necessary — without it, the file write
+      // can race ahead of FSEvents registration and the change is silently missed.
+      await waitForLog(server, 'File watcher: Watching', 10_000);
+      await new Promise(r => setTimeout(r, 500));
+
       // 1. File watcher change: add a tool via dist/tools.json
       const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
       const tools = readToolsFromManifest(toolsJsonPath);
@@ -670,7 +691,7 @@ test.describe('File watcher + hot reload combined', () => {
       await waitForToolList(
         client,
         tools => tools.some(t => t.name === 'e2e-test_fw_tool'),
-        10_000,
+        15_000,
         300,
         'e2e-test_fw_tool to appear',
       );
@@ -836,6 +857,13 @@ test.describe.serial('File watcher — tool metadata changes', () => {
       if (!echoBefore) throw new Error('echo tool not found');
       const originalDesc = echoBefore.description;
 
+      // Wait for the file watcher to be fully set up before modifying files.
+      // On macOS, fs.watch() returns before FSEvents is ready to deliver events.
+      // The explicit delay after the log is necessary — without it, the file write
+      // can race ahead of FSEvents registration and the change is silently missed.
+      await waitForLog(server, 'File watcher: Watching', 10_000);
+      await new Promise(r => setTimeout(r, 500));
+
       // Modify the echo tool's description in dist/tools.json
       const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
       const tools = readToolsFromManifest(toolsJsonPath);
@@ -852,7 +880,7 @@ test.describe.serial('File watcher — tool metadata changes', () => {
           const echo = tools.find(t => t.name === 'e2e-test_echo');
           return echo !== undefined && echo.description.includes('UPDATED');
         },
-        10_000,
+        15_000,
         300,
         'echo description to contain UPDATED',
       );
@@ -894,12 +922,19 @@ test.describe('File watcher — corrupted manifest', () => {
       const e2eCountBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_')).length;
       expect(e2eCountBefore).toBeGreaterThan(0);
 
+      // Wait for the file watcher to be fully set up before modifying files.
+      // On macOS, fs.watch() returns before FSEvents is ready to deliver events.
+      // The explicit delay after the log is necessary — without it, the file write
+      // can race ahead of FSEvents registration and the change is silently missed.
+      await waitForLog(server, 'File watcher: Watching', 10_000);
+      await new Promise(r => setTimeout(r, 500));
+
       // Write invalid JSON to dist/tools.json
       const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
       fs.writeFileSync(toolsJsonPath, '{ invalid json ???', 'utf-8');
 
       // Wait for the file watcher to detect and attempt to process the change
-      await waitForLog(server, 'Invalid JSON', 10_000);
+      await waitForLog(server, 'Invalid JSON', 15_000);
 
       // Server should still be alive and healthy
       const health = await server.health();
@@ -1039,6 +1074,13 @@ test.describe.serial('File watcher — input_schema changes', () => {
       expect(echoBefore).toBeDefined();
       if (!echoBefore) throw new Error('echo tool not found');
 
+      // Wait for the file watcher to be fully set up before modifying files.
+      // On macOS, fs.watch() returns before FSEvents is ready to deliver events.
+      // The explicit delay after the log is necessary — without it, the file write
+      // can race ahead of FSEvents registration and the change is silently missed.
+      await waitForLog(server, 'File watcher: Watching', 10_000);
+      await new Promise(r => setTimeout(r, 500));
+
       // Modify the echo tool's input_schema in dist/tools.json — add a new property
       const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
       const tools = readToolsFromManifest(toolsJsonPath);
@@ -1062,7 +1104,7 @@ test.describe.serial('File watcher — input_schema changes', () => {
           const propsObj = schema?.properties as Record<string, unknown> | undefined;
           return propsObj !== undefined && 'prefix' in propsObj;
         },
-        10_000,
+        15_000,
         300,
         'echo input_schema to include prefix property',
       );

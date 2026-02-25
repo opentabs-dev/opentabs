@@ -11,7 +11,7 @@ export default defineConfig({
     timeout: 30_000,
   },
   fullyParallel: true, // Each test gets its own dynamic ports — safe to parallelize
-  retries: 1, // 1 retry for resilience under parallel load (Chrome/extension startup can be flaky)
+  retries: 0,
   workers: process.env.CI ? 2 : 8,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {

@@ -34,7 +34,12 @@ test.describe('Lifecycle hooks', () => {
   test('onNavigate fires on pushState URL change', async ({ mcpServer, testServer, extensionContext, mcpClient }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    // Perform a pushState navigation
+    // Perform a pushState navigation.
+    // The monkey-patched pushState fires checkUrl() synchronously, which calls
+    // plugin.onNavigate(newUrl), pushing the URL into the global array before
+    // page.evaluate resolves. The subsequent waitFor should succeed on its
+    // first poll — the generous timeout is purely defensive against CDP latency
+    // under heavy parallel test load.
     await page.evaluate(() => history.pushState({}, '', '/navigated-path'));
 
     // Wait for the hook to fire and record the URL
@@ -43,7 +48,7 @@ test.describe('Lifecycle hooks', () => {
         const urls = await page.evaluate(() => (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls);
         return Array.isArray(urls) && urls.length > 0;
       },
-      5_000,
+      10_000,
       200,
       'onNavigate hook to record URL',
     );
