@@ -639,6 +639,13 @@ dispatch_prd() {
   if [ -f "$HOME/.npmrc" ]; then
     DOCKER_COMMON+=(-v "$HOME/.npmrc:/tmp/worker/.npmrc:ro")
   fi
+  # Claude Code settings — contains model, alwaysThinkingEnabled,
+  # skipDangerousModePermissionPrompt, etc. Env vars are forwarded
+  # separately (see DOCKER_ENV_ARGS), but claude also reads this file
+  # directly at startup for non-env settings.
+  if [ -f "$HOME/.claude/settings.json" ]; then
+    DOCKER_COMMON+=(-v "$HOME/.claude/settings.json:/tmp/worker/.claude/settings.json:ro")
+  fi
 
   if ! docker run --rm "${DOCKER_COMMON[@]}" \
     -w "$worktree_dir" \
