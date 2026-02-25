@@ -354,7 +354,7 @@ Mark a story as an E2E checkpoint when:
 
 1. **The story changes browser-observable behavior** — tool dispatch, side panel UI, adapter injection, WebSocket communication, or anything that Playwright E2E tests exercise.
 2. **The story is the last in a group of behavioral changes** — if stories US-003 through US-006 all touch the browser extension, mark US-006 as the checkpoint. This batches E2E verification for the group.
-3. **The story is the final story in the PRD** — always mark the last story as a checkpoint so the branch is fully verified before ralph merges it.
+3. **The story is the final story in a PRD that touches browser behavior** — mark the last story as a checkpoint so the branch is fully verified before ralph merges it. If no story in the PRD touches browser behavior, this is not needed — ralph's safety net handles it.
 
 ### When to Set `e2eCheckpoint: false`
 
@@ -369,7 +369,8 @@ Keep a story as a non-checkpoint when:
 - **Group related behavioral stories together** and put a checkpoint on the last one. A typical group is 2-4 stories.
 - **Don't go more than ~5 stories without a checkpoint** if any of them touch behavior — the longer you wait, the harder it is to diagnose which story caused an E2E failure.
 - **Isolated high-risk stories** (e.g., changing WebSocket protocol, modifying tool dispatch) should be their own checkpoint — don't batch these with other changes.
-- **Always make the final story a checkpoint**, regardless of what it does. This is the last line of defense before merge.
+- **If the PRD touches browser behavior, mark the final story as a checkpoint** — this is the last line of defense before merge.
+- **If no story touches browser behavior** (pure server-side, SDK internals, type changes, refactoring, docs), all stories can have `e2eCheckpoint: false`. Ralph's safety net still runs E2E after all stories complete, so regressions are caught without wasting time on mid-PRD checkpoints.
 
 ### Example
 
@@ -398,6 +399,38 @@ Keep a story as a non-checkpoint when:
 ```
 
 In this example, E2E runs twice: after US-003 (verifies the new adapter works end-to-end) and after US-005 (final story checkpoint, verifies UI changes). Because the final story is a checkpoint, ralph's safety net is skipped — the branch is already fully verified.
+
+**Example: Internal-only PRD (no E2E checkpoints)**
+
+```json
+{
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Extract shared type definitions",
+      "e2eCheckpoint": false,
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "US-002",
+      "title": "Refactor error handling in SDK",
+      "e2eCheckpoint": false,
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "US-003",
+      "title": "Remove dead code from server utils",
+      "e2eCheckpoint": false,
+      "priority": 3,
+      "passes": false
+    }
+  ]
+}
+```
+
+No story touches browser behavior, so no E2E checkpoints are needed mid-PRD. Ralph's safety net automatically runs the full verification suite (including E2E) after all stories complete.
 
 ---
 
@@ -441,8 +474,8 @@ Ralph commits code changes only — never ralph's own state files.
 - [ ] Notes use repo-root-relative file paths
 - [ ] `passes` field is boolean `false` for every story
 - [ ] `e2eCheckpoint` field is set on every story (`false` for standalone subprojects; see "E2E Checkpoint Strategy" for root monorepo)
-- [ ] **For root monorepo PRDs: the final story has `e2eCheckpoint: true`** (ensures E2E runs before merge)
-- [ ] **For root monorepo PRDs: E2E checkpoints are placed at logical group boundaries** for behavioral changes
+- [ ] **For root monorepo PRDs that touch browser behavior: the final story has `e2eCheckpoint: true`** and checkpoints are placed at logical group boundaries
+- [ ] **For root monorepo PRDs with no browser-observable changes: all stories can be `e2eCheckpoint: false`** (ralph's safety net runs E2E after completion)
 - [ ] JSON is valid
 - [ ] File written with `~draft` suffix and NO timestamp in filename
 - [ ] Published via `mv` command with `$(date '+%Y-%m-%d-%H%M%S')` for accurate timestamp
