@@ -24,6 +24,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
+    "@opentabs-dev/browser-extension": "workspace:*",
     "@opentabs-dev/mcp-server": "workspace:*",
     "@opentabs-dev/plugin-sdk": "workspace:*",
     "@opentabs-dev/plugin-tools": "workspace:*",

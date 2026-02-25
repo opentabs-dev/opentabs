@@ -2,8 +2,9 @@
  * Publish platform packages to npm (private) and update plugins.
  *
  * Platform packages published (in dependency order):
- *   @opentabs-dev/shared, @opentabs-dev/mcp-server, @opentabs-dev/plugin-sdk,
- *   @opentabs-dev/plugin-tools, @opentabs-dev/cli, @opentabs-dev/create-plugin.
+ *   @opentabs-dev/shared, @opentabs-dev/browser-extension, @opentabs-dev/mcp-server,
+ *   @opentabs-dev/plugin-sdk, @opentabs-dev/plugin-tools, @opentabs-dev/cli,
+ *   @opentabs-dev/create-plugin.
  *
  * After publishing, plugins under plugins/ have their @opentabs-dev/* dependency
  * versions updated to ^<version>, then are reinstalled and rebuilt. Plugin
@@ -76,6 +77,7 @@ const writePackageJson = async (pkgDir: string, data: PackageJson): Promise<void
 
 const PACKAGES = [
   'platform/shared',
+  'platform/browser-extension',
   'platform/mcp-server',
   'platform/plugin-sdk',
   'platform/plugin-tools',
