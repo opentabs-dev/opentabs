@@ -54,12 +54,6 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell className="*:text-xs">`undefined`</Table.Cell>
       <Table.Cell>Skip all browser tool confirmation prompts. **Dangerous** — disables the human-in-the-loop safety check. Intended for CI/testing only.</Table.Cell>
     </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`secret`</Table.Cell>
-      <Table.Cell className="*:text-xs">`string`</Table.Cell>
-      <Table.Cell className="*:text-xs">_(auto-generated)_</Table.Cell>
-      <Table.Cell>64-character hex string for authentication. Shared between the MCP server, Chrome extension, and MCP clients. Auto-generated on first run.</Table.Cell>
-    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -89,8 +83,7 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
         "browser_execute_script": "deny"
       }
     }
-  },
-  "secret": "a1b2c3d4e5f6...64 hex characters..."
+  }
 }
 ```
 
@@ -126,16 +119,26 @@ opentabs config set tool.slack_send_message enabled
 
 ### secret
 
-Used for authentication across all transports:
+The authentication secret is stored in `~/.opentabs/extension/auth.json`, not config.json:
+
+```json
+{
+  "secret": "<64-character hex string>"
+}
+```
+
+Auto-generated on first run. Used for authentication across all transports:
 
 - **`/mcp`** and admin endpoints: `Authorization: Bearer <secret>` header
 - **`/ws`**: `Sec-WebSocket-Protocol` header (keeps the secret out of URLs and logs)
 
-Auto-generated on first run. If missing from an existing config, the server generates a new one and writes it back. Retrieve it for MCP client configuration:
+Retrieve it for MCP client configuration:
 
 ```bash
 opentabs config show --json | jq -r .secret
 ```
+
+This works because `opentabs config show` merges the secret from auth.json into its output for convenience. The source of truth is always auth.json.
 
 ### browserToolPolicy
 
