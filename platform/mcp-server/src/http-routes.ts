@@ -274,7 +274,9 @@ const handleHealth = (
     ...(p.iconSvg ? { iconSvg: p.iconSvg } : {}),
   }));
 
-  const toolCount = state.registry.toolLookup.size + state.cachedBrowserTools.length;
+  const browserToolCount = state.cachedBrowserTools.length;
+  const pluginToolCount = state.registry.toolLookup.size;
+  const toolCount = pluginToolCount + browserToolCount;
   const uptimeSeconds = Math.floor((Date.now() - state.startedAt) / 1000);
 
   const pendingPlugins = state.fileWatching.entries.filter(e => e.pluginName.startsWith('(pending:')).length;
@@ -298,6 +300,8 @@ const handleHealth = (
     failedPlugins: [...state.registry.failures],
     discoveryErrors: [...state.discoveryErrors],
     toolCount,
+    browserToolCount,
+    pluginToolCount,
     disabledBrowserTools,
     confirmationBypassed: state.skipConfirmation,
     uptime: uptimeSeconds,

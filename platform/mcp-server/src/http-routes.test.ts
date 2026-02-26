@@ -248,6 +248,8 @@ interface HealthResponse {
   plugins: number;
   pluginDetails: { name: string; displayName: string; toolCount: number; tabState: string; source: string }[];
   toolCount: number;
+  browserToolCount: number;
+  pluginToolCount: number;
   disabledBrowserTools: string[];
   confirmationBypassed: boolean;
   uptime: number;
@@ -366,7 +368,7 @@ describe('/health endpoint', () => {
     expect(text).not.toContain(secret);
   });
 
-  test('includes browser tools in toolCount', async () => {
+  test('includes browser tools in toolCount and browserToolCount', async () => {
     const { handlers, state } = createTestHandlers();
 
     state.cachedBrowserTools = [
@@ -377,6 +379,8 @@ describe('/health endpoint', () => {
     const body = await fetchJson<HealthResponse>(handlers, 'http://localhost:9876/health');
 
     expect(body.toolCount).toBe(2);
+    expect(body.browserToolCount).toBe(2);
+    expect(body.pluginToolCount).toBe(0);
   });
 
   test('disabledBrowserTools is empty when no tools are disabled', async () => {

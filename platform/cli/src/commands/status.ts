@@ -84,6 +84,8 @@ const handleStatus = async (options: StatusOptions): Promise<void> => {
       const mcpClients = Number(data.mcpClients) || 0;
       const plugins = Number(data.plugins) || 0;
       const toolCount = Number(data.toolCount) || 0;
+      const browserToolCount = typeof data.browserToolCount === 'number' ? data.browserToolCount : null;
+      const pluginToolCount = typeof data.pluginToolCount === 'number' ? data.pluginToolCount : null;
       const uptime = Number(data.uptime) || 0;
       const pluginDetails = Array.isArray(data.pluginDetails) ? (data.pluginDetails as PluginDetail[]) : [];
 
@@ -100,7 +102,14 @@ const handleStatus = async (options: StatusOptions): Promise<void> => {
       console.log(`${pad('Extension')}${data.extensionConnected ? pc.green('connected') : pc.yellow('not connected')}`);
       console.log(`${pad('MCP clients')}${mcpClients > 0 ? pc.green(String(mcpClients)) : pc.dim('0')}`);
       console.log(`${pad('Plugins')}${plugins > 0 ? pc.green(String(plugins)) : pc.yellow('0')}`);
-      console.log(`${pad('Tools')}${toolCount > 0 ? pc.green(String(toolCount)) : pc.dim('0')}`);
+      if (browserToolCount !== null && pluginToolCount !== null) {
+        console.log(
+          `${pad('Browser tools')}${browserToolCount > 0 ? pc.green(String(browserToolCount)) : pc.dim('0')}`,
+        );
+        console.log(`${pad('Plugin tools')}${pluginToolCount > 0 ? pc.green(String(pluginToolCount)) : pc.dim('0')}`);
+      } else {
+        console.log(`${pad('Tools')}${toolCount > 0 ? pc.green(String(toolCount)) : pc.dim('0')}`);
+      }
       console.log(`${pad('Plugin reloads')}${String(data.reloadCount)}`);
 
       if (pluginDetails.length > 0) {
