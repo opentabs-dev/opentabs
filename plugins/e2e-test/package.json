@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "restricted"
   },
-  "version": "0.0.19",
+  "version": "0.0.34",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
