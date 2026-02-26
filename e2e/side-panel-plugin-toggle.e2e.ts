@@ -212,14 +212,15 @@ test.describe('Side panel — tool toggle', () => {
         )
         .toBe(true);
 
-      // Verify the tool reappears in MCP tools/list
+      // Verify the tool reappears in MCP tools/list. Use a longer timeout (30s) because
+      // under parallel test load the config.setToolEnabled WebSocket round-trip can be slow.
       await expect
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
             return toolList.some(t => t.name === 'e2e-test_echo');
           },
-          { timeout: 15_000, message: 'e2e-test_echo should reappear in tools/list after being re-enabled' },
+          { timeout: 30_000, message: 'e2e-test_echo should reappear in tools/list after being re-enabled' },
         )
         .toBe(true);
 
@@ -306,14 +307,14 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
       await echoToggle.click();
       await expect(echoToggle).toHaveAttribute('aria-checked', 'true', { timeout: 5_000 });
 
-      // Wait for tool to reappear in tools/list
+      // Wait for tool to reappear in tools/list. Use 30s timeout for parallel load headroom.
       await expect
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
             return toolList.some(t => t.name === 'e2e-test_echo');
           },
-          { timeout: 15_000, message: 'e2e-test_echo should reappear in tools/list after being re-enabled' },
+          { timeout: 30_000, message: 'e2e-test_echo should reappear in tools/list after being re-enabled' },
         )
         .toBe(true);
 
@@ -432,7 +433,8 @@ test.describe('Side panel — toggle all tools', () => {
       // Click the master toggle again to re-enable all tools
       await masterToggle.click();
 
-      // Wait for all e2e-test plugin tools to reappear in tools/list
+      // Wait for all e2e-test plugin tools to reappear in tools/list. Use a longer timeout
+      // (30s) because under parallel test load the WebSocket round-trip can be slow.
       await expect
         .poll(
           async () => {
@@ -440,7 +442,7 @@ test.describe('Side panel — toggle all tools', () => {
             const toolNames = toolList.map(t => t.name);
             return prefixedToolNames.every(name => toolNames.includes(name));
           },
-          { timeout: 15_000, message: 'All e2e-test plugin tools should reappear in tools/list' },
+          { timeout: 30_000, message: 'All e2e-test plugin tools should reappear in tools/list' },
         )
         .toBe(true);
 

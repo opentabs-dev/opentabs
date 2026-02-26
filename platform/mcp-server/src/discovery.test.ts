@@ -52,6 +52,11 @@ describe('npmTrustTier', () => {
   test('returns community for non-opentabs-dev scoped path', () => {
     expect(npmTrustTier('/usr/lib/node_modules/@other-scope/opentabs-plugin-foo')).toBe('community');
   });
+
+  test('returns community for community plugin installed under a path containing /@opentabs-dev/', () => {
+    // A user with @opentabs-dev in their home path must not cause a false-positive.
+    expect(npmTrustTier('/home/@opentabs-dev/projects/node_modules/community-plugin')).toBe('community');
+  });
 });
 
 describe('checkBrowserToolReferences', () => {

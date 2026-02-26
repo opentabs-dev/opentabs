@@ -6,6 +6,7 @@ import { buildRegistry } from './registry.js';
 import { discoverGlobalNpmPlugins, resolvePluginPath } from './resolver.js';
 import { isSkipNpmDiscovery } from './skip-npm-discovery.js';
 import { isErr, OFFICIAL_SCOPE, toErrorMessage } from '@opentabs-dev/shared';
+import path from 'node:path';
 import type { LoadedPlugin } from './loader.js';
 import type { FailedPlugin, PluginRegistry } from './state.js';
 import type { TrustTier } from '@opentabs-dev/shared';
@@ -24,7 +25,11 @@ interface DiscoveryError {
 
 /** Determine trust tier for an npm plugin directory path based on its package name. */
 const npmTrustTier = (dir: string): TrustTier => {
-  if (dir.includes(`/${OFFICIAL_SCOPE}/`)) return 'official';
+  // Extract the immediate parent directory name (e.g. "@opentabs-dev") from a path like
+  // "/usr/lib/node_modules/@opentabs-dev/opentabs-plugin-slack". Using basename(dirname(dir))
+  // avoids false-positives where /@opentabs-dev/ appears elsewhere in the path (e.g. a
+  // user's home directory) but is not the package scope.
+  if (path.basename(path.dirname(dir)) === OFFICIAL_SCOPE) return 'official';
   return 'community';
 };
 

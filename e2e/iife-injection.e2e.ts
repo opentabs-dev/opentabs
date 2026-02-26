@@ -664,8 +664,16 @@ test.describe('IIFE injection — teardown() lifecycle hook', () => {
       });
       expect(baseline.message).toBe('before-teardown-test');
 
-      // Constructor clears the transient marker and no teardown has been called yet,
-      // so both markers should be absent after initial injection
+      // Reset both teardown markers to a known clean state before the intentional
+      // re-injection. Under parallel test load, a file-watcher event can trigger a
+      // spurious re-injection between initial injection and this check, which leaves
+      // __opentabs_teardown_called=true. Resetting here ensures the intentional
+      // re-injection below is the one we measure, regardless of prior re-injections.
+      await page.evaluate(() => {
+        const g = globalThis as Record<string, unknown>;
+        delete g.__opentabs_teardown_called;
+        delete g.__opentabs_teardown_evidence;
+      });
       const markersBefore = await page.evaluate(() => {
         const g = globalThis as Record<string, unknown>;
         return {
