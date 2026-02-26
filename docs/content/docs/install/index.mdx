@@ -140,7 +140,7 @@ bun run build
 ### Start the dev server
 
 ```bash
-bun --hot platform/mcp-server/dist/index.js --dev
+bun run dev
 ```
 
 This starts the MCP server with Bun's hot reload enabled (contributor-only). When you rebuild platform packages (`bun run build`), Bun re-evaluates modules without restarting the process.
@@ -150,7 +150,7 @@ This starts the MCP server with Bun's hot reload enabled (contributor-only). Whe
 Get the auth secret from the auto-generated config:
 
 ```bash
-cat ~/.opentabs/config.json | jq -r .secret
+cat ~/.opentabs/extension/auth.json | jq -r .secret
 ```
 
 Add it to your MCP client as shown in the [For Users](#configure-your-mcp-client) section.
