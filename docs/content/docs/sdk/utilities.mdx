@@ -419,7 +419,7 @@ const patched = await patchJSON<{ ok: boolean }>('/api/users/123', {
 Convenience wrapper for DELETE requests. Parses the JSON response. Unlike `postJSON`/`putJSON`/`patchJSON`, there is no `body` parameter. When a Zod schema is provided as the third argument, the parsed JSON is validated against it.
 
 ```typescript
-function deleteJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T>;
+function deleteJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T | undefined>;
 function deleteJSON<T extends z.ZodType>(
   url: string, init: FetchFromPageOptions | undefined, schema: T,
 ): Promise<z.infer<T>>;
@@ -427,6 +427,7 @@ function deleteJSON<T extends z.ZodType>(
 
 ```typescript
 const result = await deleteJSON<{ ok: boolean }>('/api/users/123');
+// result may be undefined for 204 No Content responses
 ```
 
 ### `httpStatusToToolError(response, message)`
