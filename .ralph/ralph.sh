@@ -628,6 +628,12 @@ dispatch_prd() {
     setup_script="$setup_script && cd $worktree_dir/plugins/e2e-test && bun install --frozen-lockfile 2>&1 | tail -1 && OPENTABS_CONFIG_DIR=$plugin_tmp_config bun run build 2>&1 | tail -1"
   fi
   # Build common Docker args for setup and worker containers.
+  #
+  # IMPORTANT: Never mount files directly into /tmp/worker/ (the container
+  # HOME). Docker creates parent directories as root when mounting into paths
+  # that don't exist, making HOME unwritable by the non-root container user.
+  # Instead, mount config files to /tmp/staging/ and copy them into HOME in
+  # the CONTAINER_INIT command after creating the writable directory.
   local -a DOCKER_COMMON=()
   DOCKER_COMMON+=(--init --ipc=host --shm-size=2g)
   # Run as host user — Claude CLI refuses --dangerously-skip-permissions as
@@ -637,23 +643,22 @@ dispatch_prd() {
   DOCKER_COMMON+=(-v "$worktree_dir:$worktree_dir")
   DOCKER_COMMON+=(-v "$PROJECT_DIR/.git:$PROJECT_DIR/.git")
   DOCKER_COMMON+=(--network host)
-  # npm auth — needed to install private @opentabs-dev/* packages in plugins.
-  # Mounted read-only at container HOME so bun/npm finds it automatically.
+  # Stage host config files at /tmp/staging/ (read-only). These are copied
+  # into the writable HOME by CONTAINER_INIT below.
   if [ -f "$HOME/.npmrc" ]; then
-    DOCKER_COMMON+=(-v "$HOME/.npmrc:/tmp/worker/.npmrc:ro")
+    DOCKER_COMMON+=(-v "$HOME/.npmrc:/tmp/staging/.npmrc:ro")
   fi
-  # Claude Code settings — contains model, alwaysThinkingEnabled,
-  # skipDangerousModePermissionPrompt, etc. Mounted to a staging path and
-  # copied into ~/.claude/ at container startup (see CONTAINER_INIT_CMD).
-  # Mounting directly into ~/.claude/ creates a root-owned directory that
-  # the non-root container user can't write to — Claude CLI needs ~/.claude/
-  # writable for session data, debug logs, and todos.
   if [ -f "$HOME/.claude/settings.json" ]; then
-    DOCKER_COMMON+=(-v "$HOME/.claude/settings.json:/tmp/.claude-settings.json:ro")
+    DOCKER_COMMON+=(-v "$HOME/.claude/settings.json:/tmp/staging/claude-settings.json:ro")
   fi
 
   # Container init: create writable HOME and copy staged config files.
-  local CONTAINER_INIT="mkdir -p /tmp/worker/.claude && cp /tmp/.claude-settings.json /tmp/worker/.claude/settings.json 2>/dev/null; true"
+  # Runs before any other command in every container.
+  local CONTAINER_INIT
+  CONTAINER_INIT="mkdir -p /tmp/worker/.claude"
+  CONTAINER_INIT="$CONTAINER_INIT && cp /tmp/staging/.npmrc /tmp/worker/.npmrc 2>/dev/null"
+  CONTAINER_INIT="$CONTAINER_INIT; cp /tmp/staging/claude-settings.json /tmp/worker/.claude/settings.json 2>/dev/null"
+  CONTAINER_INIT="$CONTAINER_INIT; true"
 
   if ! docker run --rm "${DOCKER_COMMON[@]}" \
     -w "$worktree_dir" \
