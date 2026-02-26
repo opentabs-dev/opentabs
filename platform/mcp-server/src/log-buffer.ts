@@ -94,10 +94,20 @@ const getLogCount = (plugin: string): number => getBuffers().get(plugin)?.size ?
 /** Get all plugin names that have buffered entries */
 const getBufferedPlugins = (): string[] => Array.from(getBuffers().keys());
 
+/** Remove log buffers for plugins not in the active set */
+const pruneStaleBuffers = (activePlugins: Set<string>): void => {
+  const buffers = getBuffers();
+  for (const pluginName of buffers.keys()) {
+    if (!activePlugins.has(pluginName)) {
+      buffers.delete(pluginName);
+    }
+  }
+};
+
 /** Clear all buffered entries (used during testing or state reset) */
 const clearAllLogs = (): void => {
   getBuffers().clear();
 };
 
-export { appendLog, clearAllLogs, getBufferedPlugins, getLogCount, getLogs };
+export { appendLog, clearAllLogs, getBufferedPlugins, getLogCount, getLogs, pruneStaleBuffers };
 export type { PluginLogEntry };

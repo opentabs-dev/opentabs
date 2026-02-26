@@ -19,6 +19,7 @@ import { ensureExtensionInstalled } from './extension-install.js';
 import { sendSyncFull, sendPluginUpdate, sendExtensionReload, cleanupStaleExecFiles } from './extension-protocol.js';
 import { startConfigWatching, startFileWatching, stopFileWatching } from './file-watcher.js';
 import { sweepStaleSessions } from './http-routes.js';
+import { pruneStaleBuffers } from './log-buffer.js';
 import { log } from './logger.js';
 import {
   registerMcpHandlers,
@@ -91,6 +92,9 @@ const pruneStaleState = (state: ServerState): void => {
   if (prunedToolConfigCount > 0) {
     log.info(`Pruned ${prunedToolConfigCount} stale tool config entry/entries`);
   }
+
+  // Prune stale log buffers for removed plugins
+  pruneStaleBuffers(new Set(state.registry.plugins.keys()));
 
   // Keep only outdatedPlugins entries for still-present plugins
   const npmPkgNames = new Set(

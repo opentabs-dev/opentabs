@@ -1,4 +1,4 @@
-import { appendLog, clearAllLogs, getBufferedPlugins, getLogCount, getLogs } from './log-buffer.js';
+import { appendLog, clearAllLogs, getBufferedPlugins, getLogCount, getLogs, pruneStaleBuffers } from './log-buffer.js';
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { PluginLogEntry } from './log-buffer.js';
 
@@ -211,6 +211,46 @@ describe('getBufferedPlugins', () => {
     }
 
     expect(getBufferedPlugins()).toContain('slack');
+  });
+});
+
+describe('pruneStaleBuffers', () => {
+  test('removes buffers for plugins not in the active set', () => {
+    appendLog('slack', makeEntry('slack', 'a'));
+    appendLog('github', makeEntry('github', 'b'));
+    appendLog('jira', makeEntry('jira', 'c'));
+
+    pruneStaleBuffers(new Set(['slack']));
+
+    expect(getLogCount('slack')).toBe(1);
+    expect(getLogCount('github')).toBe(0);
+    expect(getLogCount('jira')).toBe(0);
+    expect(getBufferedPlugins()).toEqual(['slack']);
+  });
+
+  test('preserves buffers for all active plugins', () => {
+    appendLog('slack', makeEntry('slack', 'a'));
+    appendLog('github', makeEntry('github', 'b'));
+
+    pruneStaleBuffers(new Set(['slack', 'github']));
+
+    expect(getLogCount('slack')).toBe(1);
+    expect(getLogCount('github')).toBe(1);
+  });
+
+  test('removes all buffers when active set is empty', () => {
+    appendLog('slack', makeEntry('slack', 'a'));
+    appendLog('github', makeEntry('github', 'b'));
+
+    pruneStaleBuffers(new Set());
+
+    expect(getBufferedPlugins()).toEqual([]);
+  });
+
+  test('is a no-op when no buffers exist', () => {
+    pruneStaleBuffers(new Set(['slack']));
+
+    expect(getBufferedPlugins()).toEqual([]);
   });
 });
 
