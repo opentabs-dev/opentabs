@@ -58,11 +58,20 @@ const App = () => {
         }
         setPlugins(updatedPlugins);
         setFailedPlugins(result.failedPlugins);
+        setActiveTools(prev => {
+          const next = new Set<string>();
+          for (const key of prev) {
+            if (updatedPlugins.some(p => key.startsWith(p.name + ':'))) {
+              next.add(key);
+            }
+          }
+          return next;
+        });
       })
       .catch(() => {
         // Server may not be ready yet
       });
-  }, []);
+  }, [setActiveTools]);
 
   const { handleNotification, clearConfirmationTimeout } = useServerNotifications({
     setPlugins,

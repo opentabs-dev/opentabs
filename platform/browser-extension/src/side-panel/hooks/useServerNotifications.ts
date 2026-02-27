@@ -1,4 +1,5 @@
 import { VALID_PLUGIN_NAME } from '../../constants.js';
+import { TOOL_INVOCATION_TIMEOUT_MS } from '../constants.js';
 import { useCallback, useEffect, useRef } from 'react';
 import type { PluginState } from '../bridge.js';
 import type { ConfirmationData } from '../components/ConfirmationDialog.js';
@@ -30,14 +31,20 @@ const useServerNotifications = ({
   pendingTabStates,
 }: UseServerNotificationsParams): UseServerNotificationsResult => {
   const timeoutIds = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const invocationTimeoutIds = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
-    const map = timeoutIds.current;
+    const confirmationMap = timeoutIds.current;
+    const invocationMap = invocationTimeoutIds.current;
     return () => {
-      for (const id of map.values()) {
+      for (const id of confirmationMap.values()) {
         clearTimeout(id);
       }
-      map.clear();
+      confirmationMap.clear();
+      for (const id of invocationMap.values()) {
+        clearTimeout(id);
+      }
+      invocationMap.clear();
     };
   }, []);
 
@@ -103,6 +110,17 @@ const useServerNotifications = ({
         ) {
           const toolKey = `${params.plugin}:${params.tool}`;
           setActiveTools(prev => new Set(prev).add(toolKey));
+          const existingTid = invocationTimeoutIds.current.get(toolKey);
+          if (existingTid !== undefined) clearTimeout(existingTid);
+          const tid = setTimeout(() => {
+            invocationTimeoutIds.current.delete(toolKey);
+            setActiveTools(prev => {
+              const next = new Set(prev);
+              next.delete(toolKey);
+              return next;
+            });
+          }, TOOL_INVOCATION_TIMEOUT_MS);
+          invocationTimeoutIds.current.set(toolKey, tid);
         }
       }
 
@@ -114,6 +132,11 @@ const useServerNotifications = ({
           VALID_PLUGIN_NAME.test(params.plugin)
         ) {
           const toolKey = `${params.plugin}:${params.tool}`;
+          const tid = invocationTimeoutIds.current.get(toolKey);
+          if (tid !== undefined) {
+            clearTimeout(tid);
+            invocationTimeoutIds.current.delete(toolKey);
+          }
           setActiveTools(prev => {
             const next = new Set(prev);
             next.delete(toolKey);
