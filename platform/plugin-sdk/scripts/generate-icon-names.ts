@@ -1,7 +1,7 @@
 /**
  * Generates src/lucide-icon-names.ts from the installed lucide-react package.
  *
- * Run with: bun run generate:icons
+ * Run with: npm run generate:icons
  *
  * The generated file contains:
  * - LucideIconName: a union type of all kebab-case icon names (for plugin author autocomplete)
@@ -10,6 +10,7 @@
 
 import { iconNames } from 'lucide-react/dynamic';
 import { version } from 'lucide-react/package.json';
+import { writeFile } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,7 +23,7 @@ const content = `/**
  * Union type of all Lucide icon names (kebab-case).
  *
  * Auto-generated from lucide-react v${version} (${sorted.length} icons).
- * Regenerate with: bun run generate:icons
+ * Regenerate with: npm run generate:icons
  */
 export type LucideIconName =
 ${typeLines.join('\n')};
@@ -35,6 +36,6 @@ ${setLines.join('\n')}
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const outPath = join(scriptDir, '..', 'src', 'lucide-icon-names.ts');
-await Bun.write(outPath, content);
+await writeFile(outPath, content);
 
 console.log(`Generated ${outPath} (${sorted.length} icons, ${content.length} bytes)`);

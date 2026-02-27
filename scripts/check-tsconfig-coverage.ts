@@ -6,9 +6,13 @@
  * patterns to concrete files, and reports any source files that fall outside
  * all tsconfigs.
  *
- * Usage: bun scripts/check-tsconfig-coverage.ts
+ * Usage: tsx scripts/check-tsconfig-coverage.ts
  */
 
+import { globSync } from 'glob';
+import { minimatch } from 'minimatch';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -53,20 +57,20 @@ const toGlob = (pattern: string): string => {
  * directory.
  */
 const resolveConfigFiles = async (tsconfigPath: string): Promise<Set<string>> => {
-  const raw = await Bun.file(tsconfigPath).text();
+  const raw = await readFile(tsconfigPath, 'utf-8');
   const config = JSON.parse(raw) as TsConfig;
   const configDir = dirname(tsconfigPath);
   const result = new Set<string>();
 
   const includes = config.include ?? config.files ?? [];
-  const excludeGlobs = (config.exclude ?? []).map(p => new Bun.Glob(p));
+  const excludePatterns = config.exclude ?? [];
 
   for (const pattern of includes) {
-    const glob = new Bun.Glob(toGlob(pattern));
-    for (const match of glob.scanSync({ cwd: configDir })) {
+    const matches = globSync(toGlob(pattern), { cwd: configDir });
+    for (const match of matches) {
       if (match.endsWith('.d.ts')) continue;
       if (shouldSkip(match)) continue;
-      if (excludeGlobs.some(eg => eg.match(match))) continue;
+      if (excludePatterns.some(p => minimatch(match, p))) continue;
       result.add(resolve(configDir, match));
     }
   }
@@ -77,12 +81,12 @@ const resolveConfigFiles = async (tsconfigPath: string): Promise<Set<string>> =>
 /**
  * Collects all .ts/.tsx source files that should be type-checked.
  */
-const collectAllFiles = async (): Promise<Set<string>> => {
+const collectAllFiles = (): Set<string> => {
   const files = new Set<string>();
-  const glob = new Bun.Glob('**/*.{ts,tsx}');
 
   for (const dir of SCAN_DIRS) {
-    for (const match of glob.scanSync({ cwd: join(ROOT, dir) })) {
+    const matches = globSync('**/*.{ts,tsx}', { cwd: join(ROOT, dir) });
+    for (const match of matches) {
       if (match.endsWith('.d.ts')) continue;
       if (shouldSkip(match)) continue;
       files.add(resolve(ROOT, dir, match));
@@ -91,7 +95,7 @@ const collectAllFiles = async (): Promise<Set<string>> => {
 
   for (const name of ROOT_TS_FILES) {
     const fullPath = resolve(ROOT, name);
-    if (await Bun.file(fullPath).exists()) files.add(fullPath);
+    if (existsSync(fullPath)) files.add(fullPath);
   }
 
   return files;
@@ -101,7 +105,7 @@ const collectAllFiles = async (): Promise<Set<string>> => {
  * Collects all files covered by tsconfigs referenced from the root tsconfig.json.
  */
 const collectCoveredFiles = async (): Promise<Set<string>> => {
-  const raw = await Bun.file(join(ROOT, 'tsconfig.json')).text();
+  const raw = await readFile(join(ROOT, 'tsconfig.json'), 'utf-8');
   const rootConfig = JSON.parse(raw) as TsConfig;
   const covered = new Set<string>();
 
@@ -118,7 +122,7 @@ const collectCoveredFiles = async (): Promise<Set<string>> => {
   return covered;
 };
 
-const allFiles = await collectAllFiles();
+const allFiles = collectAllFiles();
 const coveredFiles = await collectCoveredFiles();
 const uncovered = [...allFiles].filter(f => !coveredFiles.has(f)).sort();
 

@@ -10,9 +10,6 @@
  * versions updated to ^<version>, then are reinstalled and rebuilt. Plugin
  * versions are NOT bumped — they have their own independent release lifecycle.
  *
- * All intra-workspace dependencies use workspace:* in source. bun publish
- * automatically replaces workspace:* with the resolved version in the tarball.
- *
  * Requires:
  *   - ~/.npmrc with a token that has read+write access to @opentabs-dev packages.
  *
@@ -22,11 +19,13 @@
  *   2. Save it: echo '//registry.npmjs.org/:_authToken=<TOKEN>' > ~/.npmrc
  *
  * Usage:
- *   bun scripts/publish.ts <version>
- *   bun scripts/publish.ts 0.0.3
+ *   tsx scripts/publish.ts <version>
+ *   tsx scripts/publish.ts 0.0.3
  */
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, unlinkSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dirname, '..');
@@ -43,18 +42,20 @@ interface PackageJson {
 
 /** Run a command synchronously with inherited stdio. Throws on non-zero exit. */
 const run = (cmd: string[], cwd: string = ROOT): void => {
-  const result = Bun.spawnSync(cmd, { cwd, stdio: ['inherit', 'inherit', 'inherit'] });
-  if (result.exitCode !== 0) {
-    throw new Error(`Command failed (exit ${result.exitCode}): ${cmd.join(' ')}`);
+  const [bin = '', ...args] = cmd;
+  const result = spawnSync(bin, args, { cwd, stdio: ['inherit', 'inherit', 'inherit'] });
+  if ((result.status ?? 0) !== 0) {
+    throw new Error(`Command failed (exit ${result.status ?? 0}): ${cmd.join(' ')}`);
   }
 };
 
 /** Run a command and capture stdout. Throws on non-zero exit. */
 const capture = (cmd: string[], cwd: string = ROOT): string => {
-  const result = Bun.spawnSync(cmd, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-  if (result.exitCode !== 0) {
+  const [bin = '', ...args] = cmd;
+  const result = spawnSync(bin, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  if ((result.status ?? 0) !== 0) {
     const stderr = result.stderr.toString().trim();
-    throw new Error(`Command failed (exit ${result.exitCode}): ${cmd.join(' ')}\n${stderr}`);
+    throw new Error(`Command failed (exit ${result.status ?? 0}): ${cmd.join(' ')}\n${stderr}`);
   }
   return result.stdout.toString().trim();
 };
@@ -62,13 +63,13 @@ const capture = (cmd: string[], cwd: string = ROOT): string => {
 /** Read and parse a package.json file. */
 const readPackageJson = async (pkgDir: string): Promise<PackageJson> => {
   const filePath = resolve(ROOT, pkgDir, 'package.json');
-  return Bun.file(filePath).json() as Promise<PackageJson>;
+  return JSON.parse(await readFile(filePath, 'utf-8')) as PackageJson;
 };
 
 /** Write a package.json file with standard formatting (2-space indent, trailing newline). */
 const writePackageJson = async (pkgDir: string, data: PackageJson): Promise<void> => {
   const filePath = resolve(ROOT, pkgDir, 'package.json');
-  await Bun.write(filePath, JSON.stringify(data, null, 2) + '\n');
+  await writeFile(filePath, JSON.stringify(data, null, 2) + '\n');
 };
 
 // ---------------------------------------------------------------------------
@@ -213,10 +214,10 @@ const buildChangelog = (version: string, groups: CommitGroups): string => {
 // ---------------------------------------------------------------------------
 
 const main = async (): Promise<void> => {
-  const version = Bun.argv[2];
+  const version = process.argv[2];
   if (!version) {
-    console.error('Usage: bun scripts/publish.ts <version>');
-    console.error('Example: bun scripts/publish.ts 0.0.3');
+    console.error('Usage: tsx scripts/publish.ts <version>');
+    console.error('Example: tsx scripts/publish.ts 0.0.3');
     process.exit(1);
   }
 
@@ -259,17 +260,18 @@ const main = async (): Promise<void> => {
     console.log(`  ${pkg}/package.json → ${version}`);
   }
 
-  // 3. Delete lockfile and reinstall so bun picks up the bumped workspace versions.
-  //    Without this, `bun publish` resolves workspace:* to the old lockfile versions.
+  // 3. Delete lockfile and reinstall so npm picks up the bumped workspace versions.
+  //    Without this, `npm publish` resolves workspace:* to the old lockfile versions.
   console.log('');
   console.log('==> Syncing lockfile and rebuilding with new versions...');
-  unlinkSync(resolve(ROOT, 'bun.lock'));
-  run(['bun', 'install']);
-  run(['bun', 'run', 'build:force']);
+  const lockPath = resolve(ROOT, 'package-lock.json');
+  if (existsSync(lockPath)) {
+    unlinkSync(lockPath);
+  }
+  run(['npm', 'install']);
+  run(['npm', 'run', 'build:force']);
 
   // 4. Publish packages in dependency order
-  // bun publish automatically replaces workspace:* with the resolved version
-  // in the published tarball, so no manual cross-reference rewriting is needed.
   console.log('');
   console.log('==> Publishing packages (dependency order)...');
   console.log('');
@@ -277,7 +279,7 @@ const main = async (): Promise<void> => {
     const shortName = pkg.split('/')[1] ?? pkg;
     const pkgName = `@opentabs-dev/${shortName}`;
     console.log(`  Publishing ${pkgName}@${version}...`);
-    run(['bun', 'publish', '--access', 'restricted'], resolve(ROOT, pkg));
+    run(['npm', 'publish', '--access', 'restricted'], resolve(ROOT, pkg));
   }
 
   console.log('');
@@ -299,7 +301,6 @@ const main = async (): Promise<void> => {
     }
 
     // Wait for npm registry to propagate the new versions before installing.
-    // bun's resolver caches aggressively, so we also clear lockfiles.
     console.log('');
     console.log('  Waiting 10s for npm registry propagation...');
     await new Promise(r => setTimeout(r, 10_000));
@@ -308,15 +309,15 @@ const main = async (): Promise<void> => {
     console.log('==> Installing and rebuilding plugins...');
     for (const plugin of plugins) {
       const pluginDir = resolve(ROOT, plugin);
-      // Remove lockfile so bun resolves fresh versions from npm
-      const lockPath = resolve(pluginDir, 'bun.lock');
-      if (existsSync(lockPath)) {
-        await Bun.file(lockPath).delete();
+      // Remove lockfile so npm resolves fresh versions from registry
+      const pluginLockPath = resolve(pluginDir, 'package-lock.json');
+      if (existsSync(pluginLockPath)) {
+        unlinkSync(pluginLockPath);
       }
-      console.log(`  ${plugin}: bun install...`);
-      run(['bun', 'install'], pluginDir);
-      console.log(`  ${plugin}: bun run build...`);
-      run(['bun', 'run', 'build'], pluginDir);
+      console.log(`  ${plugin}: npm install...`);
+      run(['npm', 'install'], pluginDir);
+      console.log(`  ${plugin}: npm run build...`);
+      run(['npm', 'run', 'build'], pluginDir);
     }
   }
 
@@ -345,12 +346,11 @@ const main = async (): Promise<void> => {
     const entry = buildChangelog(version, groups);
 
     const changelogPath = resolve(ROOT, 'CHANGELOG.md');
-    const changelogFile = Bun.file(changelogPath);
-    if (await changelogFile.exists()) {
-      const existing = await changelogFile.text();
-      await Bun.write(changelogPath, entry + existing + '\n');
+    if (existsSync(changelogPath)) {
+      const existing = await readFile(changelogPath, 'utf-8');
+      await writeFile(changelogPath, entry + existing + '\n');
     } else {
-      await Bun.write(changelogPath, `# Changelog\n\n${entry}`);
+      await writeFile(changelogPath, `# Changelog\n\n${entry}`);
     }
 
     console.log(`  Generated changelog for v${version}`);
@@ -363,10 +363,10 @@ const main = async (): Promise<void> => {
   const filesToStage = PACKAGES.map(pkg => `${pkg}/package.json`);
   for (const plugin of plugins) {
     filesToStage.push(`${plugin}/package.json`);
-    filesToStage.push(`${plugin}/bun.lock`);
+    filesToStage.push(`${plugin}/package-lock.json`);
   }
-  const changelogExists = await Bun.file(resolve(ROOT, 'CHANGELOG.md')).exists();
-  if (changelogExists) {
+  const changelogPath = resolve(ROOT, 'CHANGELOG.md');
+  if (existsSync(changelogPath)) {
     filesToStage.push('CHANGELOG.md');
   }
 

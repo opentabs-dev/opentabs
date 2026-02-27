@@ -8,6 +8,7 @@
  *    "Watching for file changes" line in tsc output).
  * 3. Runs the extension build pipeline (bundle + side panel + install).
  * 4. Starts the MCP server via `bun --hot platform/mcp-server/dist/index.js`.
+ *    (Will be replaced by the Node.js proxy dev server in US-005.)
  * 5. On each subsequent tsc recompilation (detected via the "Watching for
  *    file changes" sentinel in tsc output), re-runs the extension pipeline
  *    (debounced) and sends a reload signal to the Chrome extension.
@@ -15,8 +16,12 @@
  * 7. Cleans up on SIGINT/SIGTERM.
  */
 
+import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { Readable } from 'node:stream';
+import type { ChildProcess } from 'node:child_process';
 
 const ROOT = resolve(import.meta.dirname, '..');
 
@@ -109,7 +114,7 @@ const pipeTscStdout = async (
 const readWsSecret = async (): Promise<string | null> => {
   try {
     const configPath = join(homedir(), '.opentabs', 'config.json');
-    const raw = await Bun.file(configPath).text();
+    const raw = await readFile(configPath, 'utf-8');
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
       const secret = (parsed as Record<string, unknown>).secret;
@@ -122,14 +127,37 @@ const readWsSecret = async (): Promise<string | null> => {
 };
 
 /**
+ * Spawn a child process and return its exit promise plus Web-compatible
+ * stdout/stderr streams.
+ */
+const spawnProcess = (
+  cmd: string[],
+  opts: { cwd: string; stdio: ['ignore', 'pipe', 'pipe'] },
+): {
+  proc: ChildProcess;
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+  exited: Promise<number>;
+} => {
+  const [bin = '', ...args] = cmd;
+  const proc = spawn(bin, args, { cwd: opts.cwd, stdio: opts.stdio });
+  const stdout = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
+  const stderr = Readable.toWeb(proc.stderr) as ReadableStream<Uint8Array>;
+  const exited = new Promise<number>(resolve => {
+    proc.on('close', code => resolve(code ?? 0));
+  });
+  return { proc, stdout, stderr, exited };
+};
+
+/**
  * Run a shell command, streaming stdout/stderr with a prefix.
  * Returns the exit code.
  */
 const runWithPrefix = async (cmd: string[], cwd: string, prefix: string, color: string): Promise<number> => {
-  const proc = Bun.spawn(cmd, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-  void pipeWithPrefix(proc.stdout, prefix, color, process.stdout);
-  void pipeWithPrefix(proc.stderr, prefix, color, process.stderr);
-  return proc.exited;
+  const { stdout, stderr, exited } = spawnProcess(cmd, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  void pipeWithPrefix(stdout, prefix, color, process.stdout);
+  void pipeWithPrefix(stderr, prefix, color, process.stderr);
+  return exited;
 };
 
 /**
@@ -144,19 +172,19 @@ const buildExtension = async (): Promise<boolean> => {
 
   console.log(`${coloredPrefix} Rebuilding extension...`);
 
-  const bundleCode = await runWithPrefix(['bun', 'run', 'build:bundle'], extDir, prefix, color);
+  const bundleCode = await runWithPrefix(['npm', 'run', 'build:bundle'], extDir, prefix, color);
   if (bundleCode !== 0) {
     console.error(`${coloredPrefix} build:bundle failed (exit ${bundleCode})`);
     return false;
   }
 
-  const sidePanelCode = await runWithPrefix(['bun', 'run', 'build:side-panel'], extDir, prefix, color);
+  const sidePanelCode = await runWithPrefix(['npm', 'run', 'build:side-panel'], extDir, prefix, color);
   if (sidePanelCode !== 0) {
     console.error(`${coloredPrefix} build:side-panel failed (exit ${sidePanelCode})`);
     return false;
   }
 
-  const installCode = await runWithPrefix(['bun', 'scripts/install-extension.ts'], ROOT, prefix, color);
+  const installCode = await runWithPrefix(['npx', 'tsx', 'scripts/install-extension.ts'], ROOT, prefix, color);
   if (installCode !== 0) {
     console.error(`${coloredPrefix} install-extension failed (exit ${installCode})`);
     return false;
@@ -173,7 +201,7 @@ const buildExtension = async (): Promise<boolean> => {
  */
 const reloadExtension = async (): Promise<void> => {
   const coloredPrefix = `${YELLOW}${BOLD}[ext]${RESET}`;
-  const port = Bun.env.PORT ?? '9515';
+  const port = process.env['PORT'] ?? '9515';
   const url = `http://localhost:${port}/extension/reload`;
 
   try {
@@ -198,7 +226,7 @@ const reloadExtension = async (): Promise<void> => {
 };
 
 // Track child processes for cleanup
-const children: Array<ReturnType<typeof Bun.spawn>> = [];
+const children: ChildProcess[] = [];
 
 const cleanup = (): void => {
   for (const child of children) {
@@ -225,11 +253,11 @@ if (process.platform !== 'win32') {
 // 1. Start tsc --build --watch
 const devPrefix = `${MAGENTA}${BOLD}[dev]${RESET}`;
 console.log(`${devPrefix} Starting tsc --build --watch...`);
-const tsc = Bun.spawn(['bun', 'run', 'tsc', '--build', '--watch'], {
+const tscSpawn = spawnProcess(['node_modules/.bin/tsc', '--build', '--watch'], {
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
 });
-children.push(tsc);
+children.push(tscSpawn.proc);
 
 // 2. Pipe tsc output and wait for initial compilation.
 //    `pipeTscStdout` calls the callback every time tsc prints the
@@ -242,7 +270,7 @@ const tscReady = new Promise<void>(r => {
   tscReadyResolve = r;
 });
 
-void pipeTscStdout(tsc.stdout, '[tsc]', CYAN, process.stdout, () => {
+void pipeTscStdout(tscSpawn.stdout, '[tsc]', CYAN, process.stdout, () => {
   if (tscReadyResolve) {
     tscReadyResolve();
     tscReadyResolve = null;
@@ -250,7 +278,7 @@ void pipeTscStdout(tsc.stdout, '[tsc]', CYAN, process.stdout, () => {
   }
   onTscRecompile?.();
 });
-void pipeWithPrefix(tsc.stderr, '[tsc]', CYAN, process.stderr);
+void pipeWithPrefix(tscSpawn.stderr, '[tsc]', CYAN, process.stderr);
 
 await tscReady;
 console.log(`${devPrefix} tsc initial compilation complete.`);
@@ -258,20 +286,20 @@ console.log(`${devPrefix} tsc initial compilation complete.`);
 // 3. Run the extension build pipeline once after initial tsc build
 await buildExtension();
 
-// 4. Start MCP server with bun --hot
+// 4. Start MCP server with bun --hot (will be replaced by proxy dev server in US-005)
 console.log(`${devPrefix} Starting MCP server (bun --hot)...`);
-const mcp = Bun.spawn(['bun', '--hot', 'platform/mcp-server/dist/index.js', '--dev'], {
+const mcpSpawn = spawnProcess(['bun', '--hot', 'platform/mcp-server/dist/index.js', '--dev'], {
   cwd: ROOT,
   stdio: ['ignore', 'pipe', 'pipe'],
 });
-children.push(mcp);
+children.push(mcpSpawn.proc);
 
 // Pipe MCP output
-void pipeWithPrefix(mcp.stdout, '[mcp]', GREEN, process.stdout);
-void pipeWithPrefix(mcp.stderr, '[mcp]', GREEN, process.stderr);
+void pipeWithPrefix(mcpSpawn.stdout, '[mcp]', GREEN, process.stdout);
+void pipeWithPrefix(mcpSpawn.stderr, '[mcp]', GREEN, process.stderr);
 
 // Print startup banner
-const port = Bun.env.PORT ?? '9515';
+const port = process.env['PORT'] ?? '9515';
 const extensionPath = join(homedir(), '.opentabs', 'extension') + '/';
 const bannerLines = [
   '┌─────────────────────────────────────────────┐',
@@ -333,8 +361,8 @@ const scheduleExtensionRebuild = (): void => {
 onTscRecompile = scheduleExtensionRebuild;
 
 // Wait for either process to exit (shouldn't happen in normal operation)
-const tscExit = tsc.exited.then(code => ({ process: 'tsc', code }));
-const mcpExit = mcp.exited.then(code => ({ process: 'mcp', code }));
+const tscExit = tscSpawn.exited.then(code => ({ process: 'tsc', code }));
+const mcpExit = mcpSpawn.exited.then(code => ({ process: 'mcp', code }));
 const result = await Promise.race([tscExit, mcpExit]);
 
 console.log(`${devPrefix} ${result.process} exited with code ${result.code}`);

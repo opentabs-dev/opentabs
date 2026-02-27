@@ -2,20 +2,21 @@
  * Build or check all plugins under plugins/.
  *
  * Usage:
- *   bun scripts/plugins.ts --build    # Install deps + build each plugin
- *   bun scripts/plugins.ts --check    # Type-check + lint + format:check each plugin
+ *   tsx scripts/plugins.ts --build    # Install deps + build each plugin
+ *   tsx scripts/plugins.ts --check    # Type-check + lint + format:check each plugin
  */
 
-import { readdirSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repoRoot = join(import.meta.dirname, '..');
 const pluginsDir = join(repoRoot, 'plugins');
 
-const mode = Bun.argv.includes('--build') ? 'build' : Bun.argv.includes('--check') ? 'check' : null;
+const mode = process.argv.includes('--build') ? 'build' : process.argv.includes('--check') ? 'check' : null;
 
 if (!mode) {
-  console.error('Usage: bun scripts/plugins.ts --build | --check');
+  console.error('Usage: tsx scripts/plugins.ts --build | --check');
   process.exit(1);
 }
 
@@ -24,7 +25,7 @@ const pluginDirs: string[] = [];
 for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
   if (entry.isDirectory()) {
     const pkgPath = join(pluginsDir, entry.name, 'package.json');
-    if (await Bun.file(pkgPath).exists()) {
+    if (existsSync(pkgPath)) {
       pluginDirs.push(entry.name);
     }
   }
@@ -45,13 +46,15 @@ const RESET = '\x1b[0m';
 
 const failed: string[] = [];
 
-const runInPlugin = async (pluginName: string, cmd: string[]): Promise<boolean> => {
-  const proc = Bun.spawn(cmd, {
+const runInPlugin = (pluginName: string, cmd: string[]): Promise<boolean> => {
+  const [bin = '', ...args] = cmd;
+  const proc = spawn(bin, args, {
     cwd: join(pluginsDir, pluginName),
     stdio: ['ignore', 'inherit', 'inherit'],
   });
-  const exitCode = await proc.exited;
-  return exitCode === 0;
+  return new Promise(resolve => {
+    proc.on('close', code => resolve(code === 0));
+  });
 };
 
 for (const pluginName of pluginDirs) {
@@ -61,13 +64,13 @@ for (const pluginName of pluginDirs) {
 
   if (mode === 'build') {
     success =
-      (await runInPlugin(pluginName, ['bun', 'install', '--frozen-lockfile'])) &&
-      (await runInPlugin(pluginName, ['bun', 'run', 'build']));
+      (await runInPlugin(pluginName, ['npm', 'install', '--frozen-lockfile'])) &&
+      (await runInPlugin(pluginName, ['npm', 'run', 'build']));
   } else {
     success =
-      (await runInPlugin(pluginName, ['bun', 'run', 'type-check'])) &&
-      (await runInPlugin(pluginName, ['bun', 'run', 'lint'])) &&
-      (await runInPlugin(pluginName, ['bun', 'run', 'format:check']));
+      (await runInPlugin(pluginName, ['npm', 'run', 'type-check'])) &&
+      (await runInPlugin(pluginName, ['npm', 'run', 'lint'])) &&
+      (await runInPlugin(pluginName, ['npm', 'run', 'format:check']));
   }
 
   if (success) {

@@ -2,15 +2,15 @@
  * Remove build artifacts from the repository.
  *
  * Usage:
- *   bun scripts/clean.ts          # Remove dist/, tsbuildinfo, generated icons
- *   bun scripts/clean.ts --all    # Above + node_modules, plugins/dist, docs artifacts
+ *   tsx scripts/clean.ts          # Remove dist/, tsbuildinfo, generated icons
+ *   tsx scripts/clean.ts --all    # Above + node_modules, plugins/dist, docs artifacts
  */
 
 import { readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repoRoot = join(import.meta.dirname, '..');
-const allMode = Bun.argv.includes('--all');
+const allMode = process.argv.includes('--all');
 
 let removedCount = 0;
 
