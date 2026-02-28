@@ -50,6 +50,18 @@ describe('formatUptime', () => {
     expect(formatUptime(172800)).toBe('2d 0h');
     expect(formatUptime(90061)).toBe('1d 1h');
   });
+
+  test('truncates fractional seconds (123.456 → 2m 3s)', () => {
+    expect(formatUptime(123.456)).toBe('2m 3s');
+  });
+
+  test('truncates fractional seconds below 1 (0.9 → 0s)', () => {
+    expect(formatUptime(0.9)).toBe('0s');
+  });
+
+  test('truncates fractional seconds in hours range (3661.5 → 1h 1m)', () => {
+    expect(formatUptime(3661.5)).toBe('1h 1m');
+  });
 });
 
 // ---------------------------------------------------------------------------

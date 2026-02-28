@@ -30,6 +30,7 @@ interface FailedPluginEntry {
 const pad = (label: string) => `  ${pc.cyan(label.padEnd(16))}`;
 
 const formatUptime = (seconds: number): string => {
+  seconds = Math.floor(seconds);
   if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
