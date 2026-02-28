@@ -175,11 +175,19 @@ Network capture uses the Chrome DevTools Protocol (`chrome.debugger`) to interce
   <Table.Body>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_enable_network_capture`</Table.Cell>
-      <Table.Cell>Start capturing network requests and responses for a tab. Captures URL, method, status, headers, request/response bodies (text-based), MIME type, and timing. One capture session per tab. Also enables console log capture.</Table.Cell>
+      <Table.Cell>Start capturing network requests and responses for a tab. Captures URL, method, status, headers, request/response bodies (text-based), MIME type, and timing. One capture session per tab. Also enables console log capture. Also captures WebSocket frame payloads (sent and received) — retrieve them with browser_get_websocket_frames.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_get_network_requests`</Table.Cell>
       <Table.Cell>Retrieve captured network requests. Useful for reverse-engineering API shapes and understanding data flows. Optionally clears the buffer after reading.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_get_websocket_frames`</Table.Cell>
+      <Table.Cell>Get WebSocket frames captured since browser_enable_network_capture was called on this tab. Each frame includes URL, direction (sent/received), data payload, opcode, and timestamp.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_export_har`</Table.Cell>
+      <Table.Cell>Export captured network traffic as a HAR 1.2 JSON file. Requires an active or completed capture session from browser_enable_network_capture.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_disable_network_capture`</Table.Cell>
