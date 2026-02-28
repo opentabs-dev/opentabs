@@ -63,6 +63,13 @@ const sendResponse = (webResponse: Response, res: ServerResponse): void => {
   // piping preserves the streaming behavior.
   const nodeStream = Readable.fromWeb(body as unknown as NodeReadableStream);
   nodeStream.pipe(res);
+  nodeStream.on('error', err => {
+    log.warn('Response stream error:', err);
+    if (!res.headersSent) {
+      res.writeHead(500);
+    }
+    res.end();
+  });
   res.on('close', () => nodeStream.destroy());
 };
 
