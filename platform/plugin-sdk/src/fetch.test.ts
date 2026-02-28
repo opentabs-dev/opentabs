@@ -336,6 +336,32 @@ describe('fetchFromPage', () => {
     }
   });
 
+  test('throws ToolError with aborted code when signal is aborted with non-DOMException reason', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('custom abort reason'));
+    try {
+      await fetchFromPage(`${baseUrl}/ok`, { signal: controller.signal });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.code).toBe('aborted');
+    }
+  });
+
+  test('throws non-retryable ToolError when signal is aborted with non-DOMException reason', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('custom abort reason'));
+    try {
+      await fetchFromPage(`${baseUrl}/ok`, { signal: controller.signal });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.retryable).toBe(false);
+    }
+  });
+
   test('merges custom headers with defaults', async () => {
     const response = await fetchFromPage(`${baseUrl}/echo-headers`, {
       headers: { 'X-Custom': 'test' },

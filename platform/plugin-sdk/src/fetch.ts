@@ -69,7 +69,7 @@ export const fetchFromPage = async (url: string, init?: FetchFromPageOptions): P
     if (error instanceof DOMException && error.name === 'TimeoutError') {
       throw ToolError.timeout(`fetchFromPage: request timed out after ${timeout}ms for ${url}`);
     }
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (combinedSignal.aborted) {
       throw new ToolError(`fetchFromPage: request aborted for ${url}`, 'aborted');
     }
     throw new ToolError(`fetchFromPage: network error for ${url}: ${toErrorMessage(error)}`, 'network_error', {
