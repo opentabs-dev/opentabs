@@ -490,16 +490,17 @@ export const setupIsolatedIifeTest = async (configDirPrefix: string): Promise<Is
 // ---------------------------------------------------------------------------
 
 /**
- * Replace the IIFE closing pattern `})();` with the given injection before it.
- * Throws immediately if the regex does not match — prevents silent failures
- * when the IIFE closing pattern changes (e.g. due to a build format change).
+ * Replace the main IIFE closing pattern `})();` with the given injection before it.
+ * The adapter file ends with `})();<freeze-block>})();\n//# sourceMappingURL=...`
+ * so we match the first `})();` that is immediately followed by `(function(){`
+ * (the freeze block). Throws if the regex does not match.
  */
 export const replaceIifeClosing = (iife: string, injection: string): string => {
-  const modified = iife.replace(/}\)\(\);[\s]*$/, `${injection}\n})();\n`);
+  const modified = iife.replace(/}\)\(\);(\(function\(\)\{)/, `${injection}\n})();$1`);
   if (modified === iife) {
     throw new Error(
       'IIFE regex replacement did not match — the adapter.iife.js closing pattern may have changed. ' +
-        'Expected to find })(); at end of file.',
+        'Expected to find })();(function(){ (main IIFE close followed by freeze block).',
     );
   }
   return modified;
