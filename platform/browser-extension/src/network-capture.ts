@@ -338,6 +338,11 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
       state.wsFrames.shift();
     }
     state.wsFrames.push({ url, direction, data, opcode, timestamp: Date.now() });
+  } else if (method === 'Network.webSocketClosed') {
+    const requestId = paramsRecord?.requestId as string | undefined;
+    if (requestId) {
+      state.wsFramesByRequestId.delete(requestId);
+    }
   } else if (method === 'Runtime.consoleAPICalled') {
     const type = paramsRecord?.type as string | undefined;
     const args = paramsRecord?.args as Array<{ type?: string; value?: unknown; description?: string }> | undefined;
