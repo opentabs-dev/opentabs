@@ -16,7 +16,7 @@ const matchSchema = z.object({
 });
 
 interface SearchMatch {
-  channel: { id: string; name: string };
+  channel?: { id: string; name: string };
   username: string;
   text: string;
   ts: string;
@@ -89,13 +89,13 @@ export const searchMessages = defineTool({
         total: messages.total,
         matches: (messages.matches ?? []).map(m => ({
           channel: {
-            id: m.channel.id,
-            name: m.channel.name,
+            id: m.channel?.id ?? '',
+            name: m.channel?.name ?? '',
           },
-          username: m.username,
-          text: m.text,
-          ts: m.ts,
-          permalink: m.permalink,
+          username: m.username ?? '',
+          text: m.text ?? '',
+          ts: m.ts ?? '',
+          permalink: m.permalink ?? '',
         })),
         paging: messages.paging
           ? {
