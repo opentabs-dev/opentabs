@@ -102,14 +102,14 @@ const analyzeSite = async (mcpClient: McpClient, url: string, waitSeconds = 3): 
 // ---------------------------------------------------------------------------
 
 // Use a shared server across all test groups to avoid spawning multiple processes
-let analyzeSiteServer: TestServer;
+let analyzeSiteServer: TestServer | undefined;
 
 test.beforeAll(async () => {
   analyzeSiteServer = await startAnalyzeSiteServer();
 });
 
 test.afterAll(async () => {
-  await analyzeSiteServer.kill();
+  if (analyzeSiteServer) await analyzeSiteServer.kill();
 });
 
 test.describe('plugin_analyze_site — cookie session auth', () => {
@@ -122,7 +122,7 @@ test.describe('plugin_analyze_site — cookie session auth', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/cookie-session/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/cookie-session/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Auth detection ---
@@ -189,7 +189,7 @@ test.describe('plugin_analyze_site — JWT localStorage auth', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/jwt-localstorage/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/jwt-localstorage/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Auth detection ---
@@ -239,7 +239,7 @@ test.describe('plugin_analyze_site — GraphQL API', () => {
     await waitForLog(mcpServer, 'tab.syncAll received');
 
     // The GraphQL page is served at /graphql-app/ (distinct from the /graphql API endpoint)
-    const siteUrl = `${analyzeSiteServer.url}/graphql-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/graphql-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- API detection ---
@@ -253,9 +253,8 @@ test.describe('plugin_analyze_site — GraphQL API', () => {
     expect(gqlEndpoint?.method).toBe('POST');
 
     // Should have captured the request body with a query field
-    if (gqlEndpoint?.requestBodySample) {
-      expect(gqlEndpoint.requestBodySample).toContain('query');
-    }
+    expect(gqlEndpoint?.requestBodySample).toBeDefined();
+    expect(gqlEndpoint?.requestBodySample).toContain('query');
 
     // --- Suggestions ---
     // Should include GraphQL-specific tool suggestions
@@ -284,7 +283,7 @@ test.describe('plugin_analyze_site — JSON-RPC API', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/jsonrpc-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/jsonrpc-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- API detection ---
@@ -298,9 +297,8 @@ test.describe('plugin_analyze_site — JSON-RPC API', () => {
     expect(rpcEndpoint?.method).toBe('POST');
 
     // Should have captured the request body with jsonrpc field
-    if (rpcEndpoint?.requestBodySample) {
-      expect(rpcEndpoint.requestBodySample).toContain('jsonrpc');
-    }
+    expect(rpcEndpoint?.requestBodySample).toBeDefined();
+    expect(rpcEndpoint?.requestBodySample).toContain('jsonrpc');
 
     // --- Title ---
     expect(analysis.title).toBe('JSON-RPC Test App');
@@ -316,7 +314,7 @@ test.describe('plugin_analyze_site — API key header auth', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/apikey-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/apikey-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Auth detection ---
@@ -354,7 +352,7 @@ test.describe('plugin_analyze_site — Next.js SSR app', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/nextjs-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/nextjs-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Framework detection ---
@@ -404,7 +402,7 @@ test.describe('plugin_analyze_site — tRPC API', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/trpc-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/trpc-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- API detection ---
@@ -439,7 +437,7 @@ test.describe('plugin_analyze_site — WebSocket real-time connection', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/websocket-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/websocket-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- WebSocket detection ---
@@ -478,7 +476,7 @@ test.describe('plugin_analyze_site — mixed auth (cookie + CSRF + Bearer)', () 
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/mixed-auth/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/mixed-auth/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Cookie-session auth ---
@@ -549,7 +547,7 @@ test.describe('plugin_analyze_site — SPA with client-side routing', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/spa-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/spa-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Framework detection ---
@@ -576,7 +574,7 @@ test.describe('plugin_analyze_site — suggestion generation quality', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/suggestions-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/suggestions-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Suggestions array has at least 3 entries ---
@@ -644,7 +642,7 @@ test.describe('plugin_analyze_site — sessionStorage JWT auth', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/jwt-sessionstorage/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/jwt-sessionstorage/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Auth detection ---
@@ -693,7 +691,7 @@ test.describe('plugin_analyze_site — Basic Auth', () => {
     await waitForExtensionConnected(mcpServer);
     await waitForLog(mcpServer, 'tab.syncAll received');
 
-    const siteUrl = `${analyzeSiteServer.url}/basicauth-app/`;
+    const siteUrl = `${analyzeSiteServer?.url ?? ''}/basicauth-app/`;
     const analysis = await analyzeSite(mcpClient, siteUrl);
 
     // --- Auth detection ---
