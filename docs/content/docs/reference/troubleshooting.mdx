@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Solutions for common OpenTabs issues — connection problems, plugin state issues, timeouts, diagnostics, and build errors.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-02-28
 ---
 
 ## First steps
@@ -121,7 +121,7 @@ The `opentabs-plugin build` command calls `POST /reload` automatically. If the s
 3. **Manual reload** — Call the reload endpoint directly:
    ```bash
    curl -X POST http://localhost:9515/reload \
-     -H "Authorization: Bearer $(opentabs config show --json | jq -r .secret)"
+     -H "Authorization: Bearer $(opentabs config show --json --show-secret | jq -r .secret)"
    ```
 4. **Verify via status** — `opentabs status` shows the current plugin list and tool counts.
 
