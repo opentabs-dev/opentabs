@@ -885,33 +885,39 @@ test.describe('IIFE injection — IIFE-only change with correct hash', () => {
       });
       expect(baseline.message).toBe('before-iife-update');
 
-      // Modify the IIFE to append a comment (changes the hash but keeps the code valid).
+      // Verify no marker is set initially
+      const markerBefore = await page.evaluate(() => (globalThis as Record<string, unknown>).__e2eIifeOnlyChange);
+      expect(markerBefore).toBeUndefined();
+
+      // Modify the IIFE to inject a global marker that proves the new code ran.
       // Only the IIFE file is changed, NOT the manifest — handleIifeChange fires,
       // which updates both plugin.iife and plugin.adapterHash. sendPluginUpdate sends
       // the correct hash, so the extension re-injects cleanly without hash mismatch.
       const iifePath = path.join(ctx.pluginDir, 'dist', 'adapter.iife.js');
       const originalIife = fs.readFileSync(iifePath, 'utf-8');
-      const modifiedIife = originalIife + '\n// E2E test: IIFE-only change trigger\n';
+      const markerCode = [
+        '',
+        '// Injected by E2E test to verify IIFE-only re-injection',
+        'globalThis.__e2eIifeOnlyChange = true;',
+      ].join('\n');
+      const modifiedIife = replaceIifeClosing(originalIife, markerCode);
       ctx.server.logs.length = 0;
       fs.writeFileSync(iifePath, modifiedIife, 'utf-8');
 
       // Wait for the file watcher to detect the IIFE change and send plugin.update
       await waitForLog(ctx.server, 'IIFE updated for', 15_000);
 
-      // Wait for re-injection to complete (adapter is still functional in the page)
+      // Wait for the marker to appear in the page (proves re-injection of new IIFE)
       await waitFor(
         async () => {
-          const present = await page.evaluate(() => {
-            const ot = (globalThis as Record<string, unknown>).__openTabs as
-              | { adapters?: Record<string, unknown> }
-              | undefined;
-            return ot?.adapters?.['e2e-test'] !== undefined;
-          });
-          return present;
+          const marker = await page.evaluate(
+            () => (globalThis as Record<string, unknown>).__e2eIifeOnlyChange === true,
+          );
+          return marker;
         },
         15_000,
         500,
-        'adapter e2e-test to be present after IIFE re-injection',
+        '__e2eIifeOnlyChange to be true after IIFE-only re-injection',
       );
 
       // Verify the extension is still connected after re-injection
