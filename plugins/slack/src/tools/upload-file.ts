@@ -96,6 +96,7 @@ export const uploadFile = defineTool({
     const uploadResult = await fetch(uploadResponse.upload_url, {
       method: 'POST',
       body: contentBytes,
+      credentials: 'include',
       redirect: 'error',
       signal: AbortSignal.timeout(30_000),
     });
