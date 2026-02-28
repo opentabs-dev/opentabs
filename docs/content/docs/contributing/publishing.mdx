@@ -1,7 +1,7 @@
 ---
 title: Publishing
 description: How to publish platform packages to npm, manage versions, and update plugin dependencies.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-02-28
 ---
 
 The platform packages are published as private packages to the npm registry under the `@opentabs-dev` org. This guide covers authentication setup, the publish workflow, and updating plugins after a release.
@@ -96,7 +96,7 @@ The script:
 5. Runs `npm run build` again with the new versions
 6. Publishes in dependency order: `shared` → `browser-extension` → `mcp-server` → `plugin-sdk` → `plugin-tools` → `cli` → `create-plugin`
 
-All packages use `"publishConfig": { "access": "restricted" }` — only `@opentabs-dev` org members can install them.
+All packages except `browser-extension` use `"publishConfig": { "access": "restricted" }` — only `@opentabs-dev` org members can install them.
 
 ## After Publishing
 
