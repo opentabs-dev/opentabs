@@ -8,8 +8,8 @@ import {
 import { afterAll, afterEach, describe, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 // ---------------------------------------------------------------------------
 // Test isolation: override config dir so tests don't touch real config
@@ -165,6 +165,11 @@ describe('resolvePluginPath', () => {
   test('resolves bare name relative path against config directory', () => {
     const result = resolvePluginPath('my-plugin', '/home/user/.opentabs/config.json');
     expect(result).toBe('/home/user/.opentabs/my-plugin');
+  });
+
+  test('expands tilde prefix to home directory', () => {
+    const result = resolvePluginPath('~/projects/my-plugin', '/home/user/.opentabs/config.json');
+    expect(result).toBe(resolve(homedir(), 'projects/my-plugin'));
   });
 });
 

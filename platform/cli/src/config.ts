@@ -12,7 +12,8 @@ import {
   toErrorMessage,
 } from '@opentabs-dev/shared';
 import { access, mkdir, readFile } from 'node:fs/promises';
-import { dirname, join, resolve, isAbsolute } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 export { getConfigDir, getConfigPath, getExtensionDir, getLogFilePath };
 
@@ -56,8 +57,10 @@ export const getLocalPluginsFromConfig = (config: Record<string, unknown>): stri
     ? (config.localPlugins as unknown[]).filter((p): p is string => typeof p === 'string')
     : [];
 
-export const resolvePluginPath = (pluginPath: string, configPath: string): string =>
-  isAbsolute(pluginPath) ? pluginPath : resolve(dirname(configPath), pluginPath);
+export const resolvePluginPath = (pluginPath: string, configPath: string): string => {
+  if (pluginPath.startsWith('~/')) return resolve(homedir(), pluginPath.slice(2));
+  return isAbsolute(pluginPath) ? pluginPath : resolve(dirname(configPath), pluginPath);
+};
 
 /** Write config atomically with restrictive permissions via the shared helper. */
 export const atomicWriteConfig = (configPath: string, content: string): Promise<void> =>
