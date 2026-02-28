@@ -40,10 +40,14 @@ export const createChannel = defineTool({
 
     let warning: string | undefined;
     if (params.topic) {
-      try {
-        await slackApi('conversations.setTopic', { channel: data.channel.id, topic: params.topic });
-      } catch (err) {
-        warning = `Channel created but failed to set topic: ${err instanceof Error ? err.message : String(err)}`;
+      if (!data.channel.id) {
+        warning = 'Channel created but could not set topic: missing channel ID in API response';
+      } else {
+        try {
+          await slackApi('conversations.setTopic', { channel: data.channel.id, topic: params.topic });
+        } catch (err) {
+          warning = `Channel created but failed to set topic: ${err instanceof Error ? err.message : String(err)}`;
+        }
       }
     }
 
