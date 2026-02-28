@@ -1,4 +1,4 @@
-import { detectFramework } from './detect-framework.js';
+import { deduplicateFrameworkProbes, detectFramework } from './detect-framework.js';
 import { describe, expect, test } from 'vitest';
 import type { FrameworkDetectionInput } from './detect-framework.js';
 
@@ -10,6 +10,49 @@ const emptyInput: FrameworkDetectionInput = {
   hasNuxtData: false,
   hasHydrationMarkers: false,
 };
+
+// ---------------------------------------------------------------------------
+// deduplicateFrameworkProbes
+// ---------------------------------------------------------------------------
+
+describe('deduplicateFrameworkProbes', () => {
+  test('prefers versioned entry over versionless entry for same name', () => {
+    const result = deduplicateFrameworkProbes([
+      { name: 'vue', version: undefined },
+      { name: 'vue', version: '3.4.1' },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe('vue');
+    expect(result[0]?.version).toBe('3.4.1');
+  });
+
+  test('deduplicates true duplicates (same name, same version)', () => {
+    const result = deduplicateFrameworkProbes([
+      { name: 'react', version: '18.2.0' },
+      { name: 'react', version: '18.2.0' },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.version).toBe('18.2.0');
+  });
+
+  test('keeps distinct framework names', () => {
+    const result = deduplicateFrameworkProbes([
+      { name: 'react', version: '18.2.0' },
+      { name: 'vue', version: '3.4.1' },
+    ]);
+    expect(result).toHaveLength(2);
+  });
+
+  test('keeps versionless entry when no versioned entry exists for the same name', () => {
+    const result = deduplicateFrameworkProbes([{ name: 'svelte', version: undefined }]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.version).toBeUndefined();
+  });
+
+  test('returns empty array for empty input', () => {
+    expect(deduplicateFrameworkProbes([])).toEqual([]);
+  });
+});
 
 describe('detectFramework', () => {
   test('returns empty when no frameworks detected', () => {

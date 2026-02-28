@@ -14,13 +14,7 @@ import {
   removePlugin,
   checkPluginUpdates,
 } from './plugin-management.js';
-import {
-  prefixedToolName,
-  isToolEnabled,
-  getNextRequestId,
-  DISPATCH_TIMEOUT_MS,
-  MAX_DISPATCH_TIMEOUT_MS,
-} from './state.js';
+import { prefixedToolName, isToolEnabled, DISPATCH_TIMEOUT_MS, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
 import type { PluginLogEntry } from './log-buffer.js';
 import type { RegisteredPlugin, ServerState, TabMapping, ConfirmationScope, SessionPermissionRule } from './state.js';
 import type {
@@ -583,7 +577,6 @@ const handlePluginRemove = async (
       jsonrpc: '2.0',
       method: 'plugin.uninstall',
       params: { name: pluginName },
-      id: getNextRequestId(),
     });
 
     // Notify the side panel so the UI refreshes

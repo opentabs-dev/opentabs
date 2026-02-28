@@ -364,7 +364,7 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
   let removed = false;
 
   const prev = state.configWriteMutex;
-  state.configWriteMutex = (async () => {
+  const writePromise = (async () => {
     await prev;
     await mkdir(configDir, { recursive: true, mode: 0o700 });
 
@@ -432,11 +432,10 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
       await atomicWrite(configPath, JSON.stringify(record, null, 2) + '\n', 0o600);
       removed = true;
     }
-  })().catch((err: unknown) => {
-    log.warn(`Failed to remove local plugin from config:`, err);
-  });
-
-  await state.configWriteMutex;
+  })();
+  // The mutex chain always fulfills so subsequent writes proceed even after a failure.
+  state.configWriteMutex = writePromise.catch(() => {});
+  await writePromise;
   return removed;
 };
 

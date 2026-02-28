@@ -324,6 +324,7 @@ const createNodeServer = (options: NodeServerOptions): Promise<NodeServer> =>
     });
 
     httpServer.on('error', (err: NodeJS.ErrnoException) => {
+      log.error('HTTP server error:', err.code, err.message);
       rejectServer(err);
     });
 

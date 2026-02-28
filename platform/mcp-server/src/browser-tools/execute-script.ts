@@ -47,7 +47,11 @@ const executeScript = defineBrowserTool({
         execFile: filename,
       });
     } finally {
-      await deleteExecFile(filename);
+      try {
+        await deleteExecFile(filename);
+      } catch {
+        // Best-effort cleanup
+      }
     }
   },
 });

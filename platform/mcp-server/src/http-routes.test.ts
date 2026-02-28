@@ -657,6 +657,22 @@ describe('wsClose handler', () => {
     expect(state.extensionWs).toBeNull();
     expect(state.pendingDispatches.size).toBe(0);
   });
+
+  test('matching ws clears activeNetworkCaptures and tabMapping', () => {
+    const { handlers, state } = createTestHandlers();
+    const ws = createMockWsHandle();
+    state.extensionWs = ws;
+
+    state.activeNetworkCaptures.add(1);
+    state.activeNetworkCaptures.add(2);
+    state.tabMapping.set('plugin-a', { state: 'ready', tabId: 1, url: 'https://example.com' });
+    state.tabMapping.set('plugin-b', { state: 'unavailable', tabId: null, url: null });
+
+    handlers.wsClose(ws);
+
+    expect(state.activeNetworkCaptures.size).toBe(0);
+    expect(state.tabMapping.size).toBe(0);
+  });
 });
 
 describe('wsOpen handler', () => {

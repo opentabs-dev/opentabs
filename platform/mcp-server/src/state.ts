@@ -20,6 +20,22 @@ import type {
 } from '@opentabs-dev/shared';
 import type { FSWatcher } from 'node:fs';
 
+/**
+ * Creates an empty Map whose mutating methods throw TypeError, preventing
+ * accidental corruption of the EMPTY_REGISTRY sentinel via misrouted .set() calls.
+ * Object.freeze alone does not block Map.prototype.set (it accesses internal slots).
+ */
+const createFrozenRegistryMap = <K, V>(): ReadonlyMap<K, V> => {
+  const m = new Map<K, V>();
+  const throwFn = (): never => {
+    throw new TypeError('Cannot mutate a frozen registry map');
+  };
+  Object.defineProperty(m, 'set', { value: throwFn, writable: false, configurable: false });
+  Object.defineProperty(m, 'delete', { value: throwFn, writable: false, configurable: false });
+  Object.defineProperty(m, 'clear', { value: throwFn, writable: false, configurable: false });
+  return Object.freeze(m) as ReadonlyMap<K, V>;
+};
+
 /** Timeout for tool dispatch and browser command requests (ms) */
 export const DISPATCH_TIMEOUT_MS = 30_000;
 
@@ -327,11 +343,11 @@ export const STATE_SCHEMA_VERSION = 4;
 
 /** Frozen empty registry for initializing ServerState */
 export const EMPTY_REGISTRY: PluginRegistry = Object.freeze({
-  plugins: new Map<string, RegisteredPlugin>(),
-  toolLookup: new Map<string, ToolLookupEntry>(),
-  resourceLookup: new Map<string, ResourceLookupEntry>(),
-  promptLookup: new Map<string, PromptLookupEntry>(),
-  failures: [] as FailedPlugin[],
+  plugins: createFrozenRegistryMap<string, RegisteredPlugin>(),
+  toolLookup: createFrozenRegistryMap<string, ToolLookupEntry>(),
+  resourceLookup: createFrozenRegistryMap<string, ResourceLookupEntry>(),
+  promptLookup: createFrozenRegistryMap<string, PromptLookupEntry>(),
+  failures: Object.freeze([] as FailedPlugin[]),
 });
 
 /**

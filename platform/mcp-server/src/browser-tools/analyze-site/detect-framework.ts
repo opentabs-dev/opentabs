@@ -55,6 +55,25 @@ interface FrameworkAnalysis {
 // ---------------------------------------------------------------------------
 
 /**
+ * Deduplicate framework probes by name, preferring entries with a version over
+ * versionless entries for the same framework name.
+ *
+ * Vue detection pushes a versionless entry first (window.__VUE__) and a versioned
+ * entry second (window.__VUE_DEVTOOLS_GLOBAL_HOOK__.Vue.version). Without this,
+ * the first (versionless) entry wins and the version is lost.
+ */
+const deduplicateFrameworkProbes = (probes: FrameworkProbe[]): FrameworkProbe[] => {
+  const best = new Map<string, FrameworkProbe>();
+  for (const p of probes) {
+    const existing = best.get(p.name);
+    if (!existing || (!existing.version && p.version !== undefined)) {
+      best.set(p.name, p);
+    }
+  }
+  return Array.from(best.values());
+};
+
+/**
  * Analyze collected framework probe data and determine SPA/SSR status.
  *
  * This is a pure function: takes data in, returns structured results.
@@ -76,5 +95,5 @@ const detectFramework = (input: FrameworkDetectionInput): FrameworkAnalysis => {
   return { frameworks, isSPA, isSSR };
 };
 
-export { detectFramework };
+export { deduplicateFrameworkProbes, detectFramework };
 export type { FrameworkDetectionInput, FrameworkProbe, FrameworkAnalysis, FrameworkInfo };

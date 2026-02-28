@@ -1,5 +1,6 @@
 import {
   createState,
+  EMPTY_REGISTRY,
   getNextRequestId,
   isBrowserToolEnabled,
   isSessionAllowed,
@@ -169,5 +170,32 @@ describe('isSessionAllowed', () => {
   test('returns false when no rules match', () => {
     const rules: SessionPermissionRule[] = [];
     expect(isSessionAllowed(rules, 'slack_send_message', 'example.com')).toBe(false);
+  });
+});
+
+describe('EMPTY_REGISTRY', () => {
+  test('registry maps are frozen instances of Map', () => {
+    expect(EMPTY_REGISTRY.plugins).toBeInstanceOf(Map);
+    expect(EMPTY_REGISTRY.toolLookup).toBeInstanceOf(Map);
+    expect(EMPTY_REGISTRY.resourceLookup).toBeInstanceOf(Map);
+    expect(EMPTY_REGISTRY.promptLookup).toBeInstanceOf(Map);
+    expect(Object.isFrozen(EMPTY_REGISTRY.plugins)).toBe(true);
+    expect(Object.isFrozen(EMPTY_REGISTRY.toolLookup)).toBe(true);
+    expect(Object.isFrozen(EMPTY_REGISTRY.resourceLookup)).toBe(true);
+    expect(Object.isFrozen(EMPTY_REGISTRY.promptLookup)).toBe(true);
+  });
+
+  test('failures array is frozen', () => {
+    expect(Object.isFrozen(EMPTY_REGISTRY.failures)).toBe(true);
+  });
+
+  test('calling .set() on a frozen registry map throws TypeError', () => {
+    const map = EMPTY_REGISTRY.plugins as unknown as Map<string, unknown>;
+    expect(() => map.set('key', {})).toThrow(TypeError);
+  });
+
+  test('non-sentinel maps (new Map()) remain mutable', () => {
+    const freshMap = new Map<string, unknown>();
+    expect(() => freshMap.set('key', {})).not.toThrow();
   });
 });

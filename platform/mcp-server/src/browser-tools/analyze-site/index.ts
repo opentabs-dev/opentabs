@@ -10,7 +10,7 @@
 import { detectApis } from './detect-apis.js';
 import { detectAuth } from './detect-auth.js';
 import { detectDom } from './detect-dom.js';
-import { detectFramework } from './detect-framework.js';
+import { deduplicateFrameworkProbes, detectFramework } from './detect-framework.js';
 import { detectGlobals } from './detect-globals.js';
 import { detectStorage } from './detect-storage.js';
 import { dispatchToExtension, writeExecFile, deleteExecFile } from '../../extension-protocol.js';
@@ -200,17 +200,7 @@ const FRAMEWORK_PROBE_SCRIPT = `
     probes.push({ name: 'backbone', version: window.Backbone.VERSION || undefined });
   }
 
-  // Deduplicate by name (keep first occurrence with version)
-  const seen = new Set();
-  const unique = [];
-  for (const p of probes) {
-    if (!seen.has(p.name)) {
-      seen.add(p.name);
-      unique.push(p);
-    }
-  }
-
-  return unique;
+  return probes;
 `;
 
 /**
@@ -865,7 +855,9 @@ const analyzeSite = async (
 
     let frameworkProbes: FrameworkProbe[] = [];
     try {
-      frameworkProbes = ((await executeInTab(state, tabId, FRAMEWORK_PROBE_SCRIPT)) ?? []) as FrameworkProbe[];
+      frameworkProbes = deduplicateFrameworkProbes(
+        ((await executeInTab(state, tabId, FRAMEWORK_PROBE_SCRIPT)) ?? []) as FrameworkProbe[],
+      );
     } catch {
       // Partial analysis: framework detection skipped
     }

@@ -597,6 +597,12 @@ const createHandleWsClose =
     if (state.extensionWs === ws) {
       state.extensionWs = null;
 
+      // Clear network capture and tab mapping state — those sessions are gone
+      // when the extension disconnects and stale entries would cause dispatches
+      // to tabs that no longer exist.
+      state.activeNetworkCaptures.clear();
+      state.tabMapping.clear();
+
       // Reject all pending confirmations immediately so tool dispatch promises
       // resolve with an error instead of hanging until confirmation timeout.
       rejectAllPendingConfirmations(state);
