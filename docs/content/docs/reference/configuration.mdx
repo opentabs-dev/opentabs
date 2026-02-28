@@ -54,6 +54,12 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell className="*:text-xs">`undefined`</Table.Cell>
       <Table.Cell>Skip all browser tool confirmation prompts. **Dangerous** — disables the human-in-the-loop safety check. Intended for CI/testing only.</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`port`</Table.Cell>
+      <Table.Cell className="*:text-xs">`number`</Table.Cell>
+      <Table.Cell className="*:text-xs">_(omitted — uses default 9515)_</Table.Cell>
+      <Table.Cell>MCP server port. When set to the default value (`9515`), the field is removed from config.json rather than stored explicitly.</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -235,6 +241,24 @@ Set to `true` to bypass all browser tool confirmation prompts. This disables the
 **This is dangerous and intended only for CI/testing environments.** In normal usage, leave this unset and use the `permissions` object to fine-tune which tools require confirmation.
 
 Can also be enabled via the `OPENTABS_SKIP_CONFIRMATION` environment variable or the `--dangerously-skip-confirmation` flag on the MCP server binary (not the `opentabs` CLI). Prefer the env var for portability.
+
+### port
+
+Sets the MCP server port. When not present in config.json, the server uses the default port `9515`.
+
+Set a custom port:
+
+```bash
+opentabs config set port 8080
+```
+
+Reset to default:
+
+```bash
+opentabs config set port 9515
+```
+
+Resetting to the default removes the `port` field from config.json entirely rather than storing `9515` explicitly. Requires a server restart to take effect.
 
 ## Plugin discovery
 

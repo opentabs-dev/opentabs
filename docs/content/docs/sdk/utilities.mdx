@@ -50,6 +50,12 @@ function waitForSelector<T extends Element = Element>(selector: string, opts?: W
       <Table.Cell>`10000`</Table.Cell>
       <Table.Cell>Timeout in milliseconds. Throws an `Error` if the element does not appear within this time.</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`signal`</Table.Cell>
+      <Table.Cell>`AbortSignal`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+      <Table.Cell>Cancel the wait early. Rejects with the signal's abort reason.</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -69,7 +75,7 @@ Waits for an element matching `selector` to be removed from the DOM. Resolves im
 function waitForSelectorRemoval(selector: string, opts?: WaitForSelectorOptions): Promise<void>;
 ```
 
-Takes the same `timeout` option as `waitForSelector` (default: 10000ms).
+Takes the same `timeout` and `signal` options as `waitForSelector` (timeout default: 10000ms).
 
 ```typescript
 // Wait for a loading spinner to disappear
@@ -438,6 +444,8 @@ Maps an HTTP error response to a `ToolError` with the appropriate category. Stat
 | --- | --- | --- | --- |
 | 401, 403 | `auth` | `false` | |
 | 404 | `not_found` | `false` | |
+| 400, 422 | `validation` | `false` | |
+| 408 | `timeout` | `true` | |
 | 429 | `rate_limit` | `true` | Parses `Retry-After` header into `retryAfterMs` |
 | 503 | `internal` | `true` | Parses `Retry-After` header into `retryAfterMs` |
 | 5xx (other) | `internal` | `true` | Server errors are retryable |
@@ -486,7 +494,7 @@ function getLocalStorage(key: string): string | null;
 
 ### `setLocalStorage(key, value)`
 
-Writes a value to `localStorage`. Silently fails if storage access throws (SecurityError or QuotaExceededError).
+Writes a value to `localStorage`. Logs a warning via `log.warn()` if storage access throws (SecurityError or QuotaExceededError).
 
 ```typescript
 function setLocalStorage(key: string, value: string): void;
@@ -494,7 +502,7 @@ function setLocalStorage(key: string, value: string): void;
 
 ### `removeLocalStorage(key)`
 
-Removes a key from `localStorage`. Silently fails if storage access throws (e.g., SecurityError in sandboxed iframes).
+Removes a key from `localStorage`. Logs a warning via `log.warn()` if storage access throws (e.g., SecurityError in sandboxed iframes).
 
 ```typescript
 function removeLocalStorage(key: string): void;
@@ -510,7 +518,7 @@ function getSessionStorage(key: string): string | null;
 
 ### `setSessionStorage(key, value)`
 
-Writes a value to `sessionStorage`. Silently fails if storage access throws (SecurityError or QuotaExceededError).
+Writes a value to `sessionStorage`. Logs a warning via `log.warn()` if storage access throws (SecurityError or QuotaExceededError).
 
 ```typescript
 function setSessionStorage(key: string, value: string): void;
@@ -518,7 +526,7 @@ function setSessionStorage(key: string, value: string): void;
 
 ### `removeSessionStorage(key)`
 
-Removes a key from `sessionStorage`. Silently fails if storage access throws (e.g., SecurityError in sandboxed iframes).
+Removes a key from `sessionStorage`. Logs a warning via `log.warn()` if storage access throws (e.g., SecurityError in sandboxed iframes).
 
 ```typescript
 function removeSessionStorage(key: string): void;
@@ -649,19 +657,43 @@ const data = await retry(
 );
 ```
 
-### `sleep(ms)`
+### `sleep(ms, opts?)`
 
-Returns a promise that resolves after `ms` milliseconds.
+Returns a promise that resolves after `ms` milliseconds. Optionally accepts an AbortSignal to cancel the sleep early.
 
 ```typescript
-function sleep(ms: number): Promise<void>;
+function sleep(ms: number, opts?: SleepOptions): Promise<void>;
 ```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Default</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`signal`</Table.Cell>
+      <Table.Cell>`AbortSignal`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+      <Table.Cell>Cancel the sleep early. Rejects with the signal's abort reason.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
 
 ```typescript
 // Wait 2 seconds between operations
 await doFirstThing();
 await sleep(2000);
 await doSecondThing();
+
+// Cancel a sleep early with an AbortSignal
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 1000);
+await sleep(5000, { signal: controller.signal }); // resolves/rejects after ~1s
 ```
 
 ### `waitUntil(predicate, opts?)`

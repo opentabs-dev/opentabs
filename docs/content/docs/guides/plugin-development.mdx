@@ -87,6 +87,9 @@ export default new MyAppPlugin();
 Here's what each field does:
 
 - **`name`** — unique identifier used as the tool prefix in MCP. A tool called `get_items` becomes `my-app_get_items` when exposed to AI agents.
+- **`version`** — plugin version string (e.g., semver `"0.0.1"`). Used for display purposes.
+- **`description`** — brief description of the plugin's purpose. Shown in discovery and status output.
+- **`displayName`** — human-readable name shown in the side panel and health endpoint (e.g., `"My App"`).
 - **`urlPatterns`** — [Chrome match patterns](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns) that determine which tabs get your adapter injected. Use `*://*.example.com/*` to match all subdomains.
 - **`tools`** — array of tool definitions (covered below).
 - **`isReady()`** — return `true` when the user is authenticated. The extension calls this to determine whether the plugin's tab is ready for tool dispatch.
