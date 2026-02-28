@@ -153,6 +153,7 @@ Pass `Authorization: Bearer <secret>` to get the full payload:
       "name": "slack",
       "displayName": "Slack",
       "toolCount": 22,
+      "tools": ["slack_send_message", "slack_list_channels"],
       "tabState": "ready",
       "source": "local",
       "sdkVersion": "0.0.4",
@@ -161,6 +162,8 @@ Pass `Authorization: Bearer <secret>` to get the full payload:
   ],
   "failedPlugins": [],
   "toolCount": 58,
+  "browserToolCount": 39,
+  "pluginToolCount": 19,
   "disabledBrowserTools": ["browser_execute_script"],
   "confirmationBypassed": false,
   "uptime": 3600,
@@ -189,6 +192,9 @@ Key fields:
 
 - `mode` — `"dev"` or `"production"`
 - `sdkVersion` — server-level SDK version
+- `browserToolCount` — number of built-in browser tools registered
+- `pluginToolCount` — total number of plugin tools across all loaded plugins
+- `pluginDetails[].tools` — prefixed tool names exposed by this plugin (e.g., `["slack_send_message"]`)
 - `pluginDetails[].sdkVersion` — per-plugin SDK version (null if missing)
 - `pluginDetails[].logBufferSize` — number of log entries in the per-plugin ring buffer
 - `failedPlugins` — plugins that failed to load (path + error message)
@@ -216,11 +222,12 @@ Response:
 
 ```json
 {
-  "wsUrl": "ws://localhost:9515/ws"
+  "wsUrl": "ws://localhost:9515/ws",
+  "wsSecret": "<secret>"
 }
 ```
 
-The extension reads this URL to establish the WebSocket connection. The `wsUrl` is derived from the server's host and always points to the `/ws` endpoint.
+The `wsSecret` field is included only when authentication is configured. The extension uses this URL and secret to establish the WebSocket connection. The `wsUrl` is derived from the server's host and always points to the `/ws` endpoint.
 
 ---
 
