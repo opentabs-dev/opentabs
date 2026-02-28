@@ -384,9 +384,11 @@ const handlePendingPluginChange = async (
     return;
   }
 
-  // Build a new registry that includes the newly discovered plugin
+  // Build a new registry that includes the newly discovered plugin.
+  // Filter out the failure entry for this path since it succeeded.
   const updatedPlugins = [...state.registry.plugins.values(), plugin];
-  state.registry = buildRegistry(updatedPlugins, [...state.registry.failures]);
+  const updatedFailures = state.registry.failures.filter(f => f.path !== pluginDir);
+  state.registry = buildRegistry(updatedPlugins, updatedFailures);
 
   // Update mtimes for polling fallback
   const entry = findEntry(state, pluginDir);
