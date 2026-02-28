@@ -20,6 +20,7 @@ playwright-report/
 !/.ralph/perfect-extension.sh
 !/.ralph/perfect-backend.sh
 !/.ralph/perfect-cli-user.sh
+!/.ralph/perfect.sh
 .claude/worktrees/
 .tmp/
 opencode.json
