@@ -363,7 +363,8 @@ const resolveStoredPluginPath = (storedPath: string, configDir: string): string 
 };
 
 const handleSetLocalPluginsAdd = async (value: string, options: { port?: number }): Promise<void> => {
-  const pluginPath = resolve(value);
+  const expandedValue = value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
+  const pluginPath = resolve(expandedValue);
   const { config, configPath } = await loadConfig();
 
   if (!Array.isArray(config.localPlugins)) {
@@ -392,7 +393,8 @@ const handleSetLocalPluginsAdd = async (value: string, options: { port?: number 
 };
 
 const handleSetLocalPluginsRemove = async (value: string, options: { port?: number }): Promise<void> => {
-  const pluginPath = resolve(value);
+  const expandedValue = value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
+  const pluginPath = resolve(expandedValue);
   const { config, configPath } = await loadConfig();
 
   if (!Array.isArray(config.localPlugins)) {
