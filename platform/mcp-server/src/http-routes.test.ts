@@ -256,6 +256,7 @@ interface HealthResponse {
   toolCount: number;
   browserToolCount: number;
   pluginToolCount: number;
+  browserToolNames: string[];
   disabledBrowserTools: string[];
   confirmationBypassed: boolean;
   uptime: number;
@@ -413,6 +414,21 @@ describe('/health endpoint', () => {
     const body = await fetchJson<HealthResponse>(handlers, 'http://localhost:9876/health');
 
     expect(body.disabledBrowserTools).toEqual(['browser_execute_script', 'browser_get_cookies']);
+  });
+
+  test('browserToolNames lists all browser tool names regardless of policy', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: {}, tool: {} as never },
+      { name: 'browser_execute_script', description: 'Execute script', inputSchema: {}, tool: {} as never },
+      { name: 'browser_get_cookies', description: 'Get cookies', inputSchema: {}, tool: {} as never },
+    ];
+    state.browserToolPolicy = { browser_execute_script: false };
+
+    const body = await fetchJson<HealthResponse>(handlers, 'http://localhost:9876/health');
+
+    expect(body.browserToolNames).toEqual(['browser_list_tabs', 'browser_execute_script', 'browser_get_cookies']);
   });
 
   test('unauthenticated request returns minimal response when secret is set', async () => {

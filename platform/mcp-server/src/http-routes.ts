@@ -291,6 +291,8 @@ const handleHealth = (
     .filter(c => state.browserToolPolicy[c.name] === false)
     .map(c => c.name);
 
+  const browserToolNames = state.cachedBrowserTools.map(c => c.name);
+
   return Response.json({
     status: 'ok',
     version,
@@ -305,6 +307,7 @@ const handleHealth = (
     toolCount,
     browserToolCount,
     pluginToolCount,
+    browserToolNames,
     disabledBrowserTools,
     confirmationBypassed: state.skipConfirmation,
     uptime: uptimeSeconds,

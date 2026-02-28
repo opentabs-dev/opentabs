@@ -222,6 +222,7 @@ interface HealthPluginDetail {
 
 interface HealthResponse {
   pluginDetails?: HealthPluginDetail[];
+  browserToolNames?: string[];
   disabledBrowserTools?: string[];
 }
 
@@ -238,6 +239,24 @@ const fetchToolNames = async (port: number): Promise<string[] | null> => {
     const data = (await res.json()) as HealthResponse;
     if (!Array.isArray(data.pluginDetails)) return null;
     return data.pluginDetails.flatMap(p => p.tools);
+  } catch {
+    return null;
+  }
+};
+
+const fetchBrowserToolNames = async (port: number): Promise<string[] | null> => {
+  try {
+    const secret = await readAuthSecret();
+    const headers: Record<string, string> = {};
+    if (secret) headers['Authorization'] = `Bearer ${secret}`;
+    const res = await fetch(`http://localhost:${port}/health`, {
+      headers,
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as HealthResponse;
+    if (!Array.isArray(data.browserToolNames)) return null;
+    return data.browserToolNames;
   } catch {
     return null;
   }
@@ -322,6 +341,10 @@ const handleSetTool = async (key: string, value: string, options: { port?: numbe
     console.log(
       pc.yellow(`Warning: "${toolName}" does not match any registered tool. Check the name or start the server.`),
     );
+  } else if (!registeredTools) {
+    console.log(
+      pc.dim(`Note: Could not validate tool name (server not running). Verify with: opentabs config set tool.`),
+    );
   }
 
   await notifyServer({ port: options.port, warnIfNotRunning: true });
@@ -364,6 +387,21 @@ const handleSetBrowserTool = async (key: string, value: string, options: { port?
 
   const indicator = enabled ? pc.green('enabled') : pc.red('disabled');
   console.log(`${toolName}: ${indicator}`);
+
+  const port = resolvePort(options);
+  const registeredBrowserTools = await fetchBrowserToolNames(port);
+  if (registeredBrowserTools && !registeredBrowserTools.includes(toolName)) {
+    console.log(
+      pc.yellow(
+        `Warning: "${toolName}" does not match any registered browser tool. Check the name or start the server.`,
+      ),
+    );
+  } else if (!registeredBrowserTools) {
+    console.log(
+      pc.dim(`Note: Could not validate tool name (server not running). Verify with: opentabs config set browser-tool.`),
+    );
+  }
+
   await notifyServer({ port: options.port, warnIfNotRunning: true });
 };
 
