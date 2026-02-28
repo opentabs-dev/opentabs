@@ -407,6 +407,96 @@ describe('periodic pruning interval', () => {
   });
 });
 
+describe('wsFramesByRequestId pruning', () => {
+  test('periodic prune interval removes wsFramesByRequestId entries older than WS_TTL_MS', async () => {
+    vi.useFakeTimers();
+    const tabId = 5001;
+    await startCapture(tabId);
+
+    // Simulate WebSocket creation — stores entry in wsFramesByRequestId and wsCreatedAt
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-stale-1',
+      url: 'wss://example.com/ws',
+    });
+
+    // Verify the frame is captured while the entry is still active
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-stale-1',
+      response: { opcode: 1, payloadData: 'before-prune', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(1);
+
+    // Advance time past WS_TTL_MS (5 min = 300,000 ms) with at least one prune interval firing
+    // after the TTL is exceeded. PRUNE_INTERVAL_MS = 30,000 ms, so advancing 330,000 ms ensures
+    // an interval fires at t=330,000 when the entry is 330,000 ms old (> 300,000 ms TTL).
+    vi.advanceTimersByTime(330_000);
+
+    // The entry should now be pruned — a new frame event must be silently dropped
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-stale-1',
+      response: { opcode: 1, payloadData: 'after-prune', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(1); // only the original frame remains
+
+    stopCapture(tabId);
+    vi.useRealTimers();
+  });
+
+  test('inline prune in requestWillBeSent removes stale wsFramesByRequestId entries', async () => {
+    vi.useFakeTimers();
+    const tabId = 5002;
+    await startCapture(tabId);
+
+    // Simulate WebSocket creation
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-stale-2',
+      url: 'wss://example.com/live',
+    });
+
+    // Advance only the clock past WS_TTL_MS (5 min + 1 ms) without firing any interval timers
+    vi.setSystemTime(Date.now() + 300_001);
+
+    // Trigger the inline prune by sending a new HTTP request
+    capturedOnEventListener?.({ tabId }, 'Network.requestWillBeSent', {
+      requestId: 'req-trigger-prune',
+      request: { url: 'https://example.com/api', method: 'GET', headers: {} },
+    });
+
+    // The WebSocket entry should now be pruned — subsequent frame events are dropped
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-stale-2',
+      response: { opcode: 1, payloadData: 'after-prune', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(0);
+
+    stopCapture(tabId);
+    vi.useRealTimers();
+  });
+
+  test('active WebSocket connections within WS_TTL_MS are not pruned by the periodic interval', async () => {
+    vi.useFakeTimers();
+    const tabId = 5003;
+    await startCapture(tabId);
+
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-active-1',
+      url: 'wss://example.com/active',
+    });
+
+    // Advance time less than WS_TTL_MS — entry should survive periodic pruning
+    vi.advanceTimersByTime(240_000); // 4 minutes: 8 prune intervals, but entry is only 4 min old
+
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-active-1',
+      response: { opcode: 1, payloadData: 'still-alive', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(1);
+
+    stopCapture(tabId);
+    vi.useRealTimers();
+  });
+});
+
 describe('getRequests', () => {
   test('clear=true discards in-flight pending requests so they do not appear in subsequent reads', async () => {
     const tabId = 1001;

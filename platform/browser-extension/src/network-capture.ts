@@ -14,6 +14,11 @@ const PENDING_REQUEST_TTL_MS = 60_000;
 /** How often the periodic pruning timer fires to remove stale entries during idle captures (ms). */
 const PRUNE_INTERVAL_MS = 30_000;
 
+/** How long a WebSocket entry lives in wsFramesByRequestId before being pruned as stale (ms).
+ * WebSocket connections are typically long-lived, so a separate TTL longer than
+ * PENDING_REQUEST_TTL_MS avoids pruning active connections. */
+const WS_TTL_MS = 5 * 60_000;
+
 /** Headers whose values are replaced with '[REDACTED]' before returning to MCP clients. */
 const SENSITIVE_HEADERS = new Set([
   'authorization',
@@ -94,6 +99,8 @@ interface CaptureState {
   requestIdToRequest: Map<string, CapturedRequest>;
   /** Maps requestId → WebSocket URL from Network.webSocketCreated events */
   wsFramesByRequestId: Map<string, string>;
+  /** Maps requestId → creation timestamp for WebSocket entries, used to prune stale wsFramesByRequestId entries */
+  wsCreatedAt: Map<string, number>;
   /** Handle for the periodic stale-entry pruning interval; cleared in stopCapture */
   pruneIntervalId?: ReturnType<typeof setInterval>;
 }
@@ -195,6 +202,12 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
     for (const [id, req] of state.requestIdToRequest) {
       if (now - req.timestamp > PENDING_REQUEST_TTL_MS) {
         state.requestIdToRequest.delete(id);
+      }
+    }
+    for (const [id, createdAt] of state.wsCreatedAt) {
+      if (now - createdAt > WS_TTL_MS) {
+        state.wsFramesByRequestId.delete(id);
+        state.wsCreatedAt.delete(id);
       }
     }
 
@@ -305,9 +318,10 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
     // Apply URL filter
     if (state.urlFilter && !url.includes(state.urlFilter)) return;
 
-    // Store requestId → url mapping for frame capture
+    // Store requestId → url mapping for frame capture, and track creation time for pruning
     if (requestId) {
       state.wsFramesByRequestId.set(requestId, url);
+      state.wsCreatedAt.set(requestId, Date.now());
     }
 
     const completed: CapturedRequest = {
@@ -347,6 +361,7 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
     const requestId = paramsRecord?.requestId as string | undefined;
     if (requestId) {
       state.wsFramesByRequestId.delete(requestId);
+      state.wsCreatedAt.delete(requestId);
     }
   } else if (method === 'Runtime.consoleAPICalled') {
     const type = paramsRecord?.type as string | undefined;
@@ -444,6 +459,7 @@ export const startCapture = async (
     pendingRequests: new Map(),
     requestIdToRequest: new Map(),
     wsFramesByRequestId: new Map(),
+    wsCreatedAt: new Map(),
   };
 
   captureState.pruneIntervalId = setInterval(() => {
@@ -456,6 +472,12 @@ export const startCapture = async (
     for (const [id, req] of captureState.requestIdToRequest) {
       if (now - req.timestamp > PENDING_REQUEST_TTL_MS) {
         captureState.requestIdToRequest.delete(id);
+      }
+    }
+    for (const [id, createdAt] of captureState.wsCreatedAt) {
+      if (now - createdAt > WS_TTL_MS) {
+        captureState.wsFramesByRequestId.delete(id);
+        captureState.wsCreatedAt.delete(id);
       }
     }
   }, PRUNE_INTERVAL_MS);
@@ -473,6 +495,7 @@ export const stopCapture = (tabId: number): void => {
 
   clearInterval(state.pruneIntervalId);
   state.wsFramesByRequestId.clear();
+  state.wsCreatedAt.clear();
   void chrome.debugger.detach({ tabId }).catch(() => {});
   captures.delete(tabId);
 };
@@ -539,6 +562,7 @@ export const getWsFrames = (tabId: number, clear: boolean = false): WsFrame[] =>
   if (clear) {
     state.wsFrames = [];
     state.wsFramesByRequestId.clear();
+    state.wsCreatedAt.clear();
   }
   return frames;
 };
