@@ -34,7 +34,7 @@ The server runs on port 9515 by default (override with the `PORT` environment va
       <Table.Cell className="font-medium">`/ws-info`</Table.Cell>
       <Table.Cell>GET</Table.Cell>
       <Table.Cell>Bearer token</Table.Cell>
-      <Table.Cell>Returns WebSocket URL and auth secret for extension bootstrap.</Table.Cell>
+      <Table.Cell>Returns WebSocket URL for extension bootstrap.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/health`</Table.Cell>
@@ -123,15 +123,13 @@ Max payload: 10 MB.
 
 ## /health — Health check
 
-Returns server status. Accepts an optional Bearer token — unauthenticated requests receive a minimal response, authenticated requests receive the full payload.
+Returns server status. Accepts an optional Bearer token — unauthenticated requests receive only the `status` field, authenticated requests receive the full payload.
 
 ### Unauthenticated response
 
 ```json
 {
-  "status": "ok",
-  "version": "0.0.4",
-  "extensionConnected": true
+  "status": "ok"
 }
 ```
 
@@ -222,12 +220,11 @@ Response:
 
 ```json
 {
-  "wsUrl": "ws://localhost:9515/ws",
-  "wsSecret": "<secret>"
+  "wsUrl": "ws://localhost:9515/ws"
 }
 ```
 
-The `wsSecret` field is included only when authentication is configured. The extension uses this URL and secret to establish the WebSocket connection. The `wsUrl` is derived from the server's host and always points to the `/ws` endpoint.
+The extension uses this URL to establish the WebSocket connection. The `wsUrl` is derived from the server's host and always points to the `/ws` endpoint.
 
 ---
 
