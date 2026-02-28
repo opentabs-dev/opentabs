@@ -1152,8 +1152,14 @@ test.describe.serial('File watcher — restart after hot reload', () => {
       const echoTool = toolsBefore2.find(t => t.name === 'echo');
       expect(echoTool).toBeDefined();
       if (!echoTool) throw new Error('echo tool not found in tools.json');
-      echoTool.description = 'BEFORE-RELOAD: modified description';
-      writeToolsToManifest(toolsJsonPath, toolsBefore2);
+      await writeAndWaitForWatcher(
+        server,
+        attempt => {
+          echoTool.description = 'BEFORE-RELOAD: modified description' + ' '.repeat(attempt);
+          writeToolsToManifest(toolsJsonPath, toolsBefore2);
+        },
+        'tools.json updated for',
+      );
 
       // Poll until the description changes
       const toolsMid = await waitForToolList(
@@ -1180,9 +1186,8 @@ test.describe.serial('File watcher — restart after hot reload', () => {
 
       // 3. Modify tools.json AGAIN after hot reload — the new file watcher
       //    should detect this change. Add a new tool to be sure.
-      server.logs.length = 0;
       const toolsAfterReload = readToolsFromManifest(toolsJsonPath);
-      toolsAfterReload.push({
+      const postReloadTool = {
         name: 'post_reload_tool',
         displayName: 'Post Reload Tool',
         description: 'Added after hot reload to verify file watcher restart',
@@ -1194,8 +1199,16 @@ test.describe.serial('File watcher — restart after hot reload', () => {
           required: ['ok'],
           additionalProperties: false,
         },
-      });
-      writeToolsToManifest(toolsJsonPath, toolsAfterReload);
+      };
+      toolsAfterReload.push(postReloadTool);
+      await writeAndWaitForWatcher(
+        server,
+        attempt => {
+          postReloadTool.description = 'Added after hot reload to verify file watcher restart' + ' '.repeat(attempt);
+          writeToolsToManifest(toolsJsonPath, toolsAfterReload);
+        },
+        'tools.json updated for',
+      );
 
       // Poll until the new tool appears (new file watcher after hot reload should detect this)
       await waitForToolList(
