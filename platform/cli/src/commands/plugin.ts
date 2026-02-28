@@ -255,6 +255,24 @@ const handlePluginRemove = async (name: string, options: PluginRemoveOptions): P
 // --- Search handler ---
 
 /**
+ * Extract a display name from an npm maintainer entry.
+ * npm view returns maintainers as strings like "name <email@example.com>".
+ * Object format `{ name, username }` is also handled for compatibility.
+ */
+const parseMaintainer = (entry: unknown): string | undefined => {
+  if (typeof entry === 'string') {
+    const match = entry.match(/^(.+?)\s*</);
+    return match?.[1]?.trim() || entry.trim() || undefined;
+  }
+  if (entry && typeof entry === 'object') {
+    const obj = entry as Record<string, unknown>;
+    if (typeof obj.name === 'string') return obj.name;
+    if (typeof obj.username === 'string') return obj.username;
+  }
+  return undefined;
+};
+
+/**
  * Fetch package metadata via `npm view`.
  * Delegates auth to npm itself (reads ~/.npmrc), supporting private packages.
  */
@@ -270,13 +288,7 @@ const fetchPackageInfo = (pkg: string): NpmSearchPackage | null => {
 
     const description = typeof data.description === 'string' ? data.description : undefined;
     const maintainers = Array.isArray(data.maintainers) ? data.maintainers : [];
-    const firstMaintainer = maintainers[0] as Record<string, unknown> | undefined;
-    const authorName =
-      typeof firstMaintainer?.name === 'string'
-        ? firstMaintainer.name
-        : typeof firstMaintainer?.username === 'string'
-          ? firstMaintainer.username
-          : undefined;
+    const authorName = parseMaintainer(maintainers[0]);
 
     return {
       name,
@@ -766,5 +778,6 @@ export {
   warnIfNotPlugin,
   removeFromLocalPlugins,
   buildDirectLookupCandidates,
+  parseMaintainer,
   KNOWN_OFFICIAL_PLUGIN_SLUGS,
 };

@@ -1,6 +1,7 @@
 import {
   buildDirectLookupCandidates,
   KNOWN_OFFICIAL_PLUGIN_SLUGS,
+  parseMaintainer,
   removeFromLocalPlugins,
   resolvePackageName,
   warnIfNotPlugin,
@@ -70,6 +71,36 @@ describe('buildDirectLookupCandidates', () => {
 
   test('returns full unscoped name as-is when query starts with opentabs-plugin-', () => {
     expect(buildDirectLookupCandidates('opentabs-plugin-slack')).toEqual(['opentabs-plugin-slack']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseMaintainer
+// ---------------------------------------------------------------------------
+
+describe('parseMaintainer', () => {
+  test('extracts name from string with email in angle brackets', () => {
+    expect(parseMaintainer('opentabs-dev-admin <admin@example.com>')).toBe('opentabs-dev-admin');
+  });
+
+  test('returns trimmed string when no angle bracket is present', () => {
+    expect(parseMaintainer('opentabs-dev-admin')).toBe('opentabs-dev-admin');
+  });
+
+  test('returns undefined for empty array (no first element)', () => {
+    expect(parseMaintainer(undefined)).toBeUndefined();
+  });
+
+  test('extracts name from object with name field (backwards compatibility)', () => {
+    expect(parseMaintainer({ name: 'alice', email: 'alice@example.com' })).toBe('alice');
+  });
+
+  test('extracts username from object without name field', () => {
+    expect(parseMaintainer({ username: 'alice' })).toBe('alice');
+  });
+
+  test('returns undefined for object with neither name nor username', () => {
+    expect(parseMaintainer({ email: 'alice@example.com' })).toBeUndefined();
   });
 });
 
