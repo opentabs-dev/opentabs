@@ -1,4 +1,4 @@
 dist/
 node_modules/
 *.tsbuildinfo
-bun.lock
+package-lock.json
