@@ -122,6 +122,18 @@ describe('sdk.log', () => {
   });
 });
 
+describe('global registration', () => {
+  test('globalThis.__openTabs._setLogTransport is a function', () => {
+    const ot = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown>;
+    expect(typeof ot['_setLogTransport']).toBe('function');
+  });
+
+  test('globalThis.__openTabs.log is the exported log object', () => {
+    const ot = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown>;
+    expect(ot['log']).toBe(log);
+  });
+});
+
 describe('safe serialization', () => {
   let restore: (() => void) | undefined;
   afterEach(() => {
