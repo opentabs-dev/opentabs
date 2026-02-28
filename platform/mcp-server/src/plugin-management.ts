@@ -397,6 +397,7 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
     // We try multiple matching strategies:
     // 1. Path ends with the plugin name directory
     // 2. The resolved path's package.json has a matching name
+    let found = false;
     const updatedPlugins: string[] = [];
     for (const pluginPath of localPlugins) {
       const resolvedPath = pluginPath.startsWith('~/')
@@ -406,7 +407,7 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
 
       // Check if the directory name matches the plugin name
       if (dirName === pluginName || dirName === `opentabs-plugin-${pluginName}`) {
-        removed = true;
+        found = true;
         continue;
       }
 
@@ -416,7 +417,7 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
         const pkgName = typeof pkg.name === 'string' ? pkg.name : '';
         const derivedPkgName = pluginNameFromPackage(pkgName);
         if (derivedPkgName === pluginName || pkgName === pluginName) {
-          removed = true;
+          found = true;
           continue;
         }
       } catch {
@@ -426,14 +427,14 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
       updatedPlugins.push(pluginPath);
     }
 
-    if (removed) {
+    if (found) {
       record.localPlugins = updatedPlugins;
       await atomicWrite(configPath, JSON.stringify(record, null, 2) + '\n', 0o600);
+      removed = true;
     }
   })().catch((err: unknown) => {
     state.configWriteMutex = Promise.resolve();
     log.warn(`Failed to remove local plugin from config:`, err);
-    throw err;
   });
 
   await state.configWriteMutex;
