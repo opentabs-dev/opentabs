@@ -71,7 +71,7 @@ const writeAdapterFile = async (pluginName: string, iife: string, sourceMap?: st
   // files for plugin 'foo-bar').
   const pluginFileRegex = new RegExp(`^${escapeRegex(pluginName)}-[0-9a-f]{8}\\.js(\\.map)?$`);
   const oldFiles = entries.filter(f => pluginFileRegex.test(f) && f !== `${baseName}.js` && f !== `${baseName}.js.map`);
-  await Promise.allSettled(oldFiles.map(f => unlink(join(adaptersDir, f)).catch(() => {})));
+  await Promise.allSettled(oldFiles.map(f => unlink(join(adaptersDir, f))));
 
   let content = iife;
   if (sourceMap) {
@@ -129,7 +129,7 @@ const cleanupStaleAdapterFiles = async (currentPluginNames: Set<string>): Promis
 
   if (staleFiles.length === 0) return;
 
-  const results = await Promise.allSettled(staleFiles.map(f => unlink(join(adaptersDir, f)).catch(() => {})));
+  const results = await Promise.allSettled(staleFiles.map(f => unlink(join(adaptersDir, f))));
   let deleted = 0;
   for (const [i, result] of results.entries()) {
     if (result.status === 'rejected') {
@@ -216,8 +216,17 @@ const cleanupStaleExecFiles = async (): Promise<void> => {
   );
   if (staleExecFiles.length === 0) return;
 
-  await Promise.allSettled(staleExecFiles.map(f => unlink(join(adaptersDir, f)).catch(() => {})));
-  log.info(`Cleaned up ${staleExecFiles.length} stale exec file(s)`);
+  const results = await Promise.allSettled(staleExecFiles.map(f => unlink(join(adaptersDir, f))));
+  let deleted = 0;
+  for (const [i, result] of results.entries()) {
+    if (result.status === 'rejected') {
+      const fileName = staleExecFiles[i] ?? 'unknown';
+      log.warn(`Failed to delete stale exec file ${fileName}:`, result.reason);
+    } else {
+      deleted++;
+    }
+  }
+  log.info(`Cleaned up ${deleted} stale exec file(s)`);
 };
 
 export {
