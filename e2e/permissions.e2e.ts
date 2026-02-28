@@ -23,12 +23,12 @@ import {
   createMcpClient,
   symlinkCrossPlatform,
 } from './fixtures.js';
-import { waitForExtensionConnected, waitForLog, setupAdapterSymlink } from './helpers.js';
+import { waitForExtensionConnected, waitForLog, openSidePanel, setupAdapterSymlink } from './helpers.js';
 import { test as base, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { McpClient, McpServer, TestServer } from './fixtures.js';
-import type { BrowserContext } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
 // Custom fixture — MCP server without skipConfirmation
@@ -160,5 +160,95 @@ test.describe('Permission evaluation', () => {
     expect(result.progressNotifications.length).toBeGreaterThanOrEqual(1);
     const approvalNotif = result.progressNotifications.find(n => n.message?.toLowerCase().includes('approval'));
     expect(approvalNotif).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers for confirmation dialog interaction
+// ---------------------------------------------------------------------------
+
+/**
+ * Wait for the confirmation dialog to appear in the side panel, then return
+ * the locator for the dialog container (the element with role="alert").
+ */
+const waitForConfirmationDialog = async (sidePanel: Page, timeoutMs = 15_000): Promise<void> => {
+  await sidePanel.locator('[role="alert"]').waitFor({ state: 'visible', timeout: timeoutMs });
+};
+
+/**
+ * Click the "Allow Once" button in the confirmation dialog.
+ */
+const clickAllowOnce = async (sidePanel: Page): Promise<void> => {
+  await waitForConfirmationDialog(sidePanel);
+  await sidePanel.getByRole('button', { name: 'Allow Once' }).click();
+};
+
+// ---------------------------------------------------------------------------
+// Confirmation dialog — Allow Once flow
+// ---------------------------------------------------------------------------
+
+test.describe('Confirmation dialog — Allow Once', () => {
+  test('Allow Once grants permission and tool completes successfully', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    // Open the side panel so we can interact with the confirmation dialog.
+    const sidePanel = await openSidePanel(extensionContext);
+
+    // Build a non-trusted URL (127.0.0.2 is not in default trustedDomains).
+    const nonTrustedUrl = testServer.url.replace('localhost', '127.0.0.2');
+
+    // Call a sensitive-tier tool (browser_get_cookies) on a non-trusted domain.
+    // This blocks waiting for confirmation. Concurrently, verify the dialog
+    // shows the correct tool name and domain, then click "Allow Once".
+    const [result] = await Promise.all([
+      mcpClient.callTool('browser_get_cookies', { url: nonTrustedUrl }, { timeout: 35_000 }),
+      (async () => {
+        await waitForConfirmationDialog(sidePanel);
+        // Verify the dialog displays the correct tool name and domain.
+        const dialogEl = sidePanel.locator('[role="alert"]');
+        await expect(dialogEl.getByText('browser_get_cookies')).toBeVisible();
+        await expect(dialogEl.getByText('127.0.0.2')).toBeVisible();
+        await expect(dialogEl.getByText('Approval Required')).toBeVisible();
+        // Grant "Allow Once" to unblock the tool call.
+        await sidePanel.getByRole('button', { name: 'Allow Once' }).click();
+      })(),
+    ]);
+
+    // The tool should have completed successfully after the confirmation.
+    expect(result.isError).toBe(false);
+  });
+
+  test('Allow Once does not persist — subsequent call triggers new confirmation dialog', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const sidePanel = await openSidePanel(extensionContext);
+    const nonTrustedUrl = testServer.url.replace('localhost', '127.0.0.2');
+
+    // First call: grant "Allow Once" to complete the tool.
+    const [firstResult] = await Promise.all([
+      mcpClient.callTool('browser_get_cookies', { url: nonTrustedUrl }, { timeout: 35_000 }),
+      clickAllowOnce(sidePanel),
+    ]);
+    expect(firstResult.isError).toBe(false);
+
+    // Second call: "Allow Once" should NOT persist, so a new confirmation
+    // dialog should appear. Grant it again to verify the full round-trip.
+    const [secondResult] = await Promise.all([
+      mcpClient.callTool('browser_get_cookies', { url: nonTrustedUrl }, { timeout: 35_000 }),
+      clickAllowOnce(sidePanel),
+    ]);
+    expect(secondResult.isError).toBe(false);
   });
 });
