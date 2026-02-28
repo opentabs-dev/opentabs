@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/cli",
-  "version": "0.0.34",
+  "version": "0.0.35",
   "engines": {
     "node": ">= 22.0.0"
   },

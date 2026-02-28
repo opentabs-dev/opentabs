@@ -8,6 +8,7 @@
 
 import { defineBrowserTool } from './definition.js';
 import { dispatchToExtension } from '../extension-protocol.js';
+import { version } from '../version.js';
 import { z } from 'zod';
 
 /** HAR 1.2 header entry */
@@ -220,7 +221,7 @@ const exportHar = defineBrowserTool({
         version: '1.2',
         creator: {
           name: 'OpenTabs',
-          version: '0.0.34',
+          version,
         },
         entries,
       },
