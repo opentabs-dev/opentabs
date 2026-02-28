@@ -112,7 +112,7 @@ const SESSION_COOKIE_PATTERNS = [
 // JWT detection
 // ---------------------------------------------------------------------------
 
-const BASE64URL_SEGMENT = /^[A-Za-z0-9_-]+=*$/;
+const BASE64URL_SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 /** Returns true if the string looks like a JWT (three dot-separated base64url segments). */
 const looksLikeJwt = (value: string): boolean => {
@@ -298,9 +298,13 @@ const detectBasicAuth = (requests: NetworkRequest[]): AuthMethod[] => {
 
   if (!hasBasicPrefix) return [];
 
-  const firstReq = requestsWithAuth[0];
-  if (!firstReq) return [];
-  const sampleUrl = firstReq.url;
+  const basicReq = requestsWithAuth.find(r => {
+    if (!r.requestHeaders) return false;
+    const val = getHeaderValue(r.requestHeaders, 'authorization');
+    return val !== undefined && val.startsWith('Basic ');
+  });
+  if (!basicReq) return [];
+  const sampleUrl = basicReq.url;
   return [
     {
       type: 'basic-auth',

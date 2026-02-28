@@ -182,6 +182,18 @@ describe('detectAuth', () => {
       });
       expect(result.methods.filter(m => m.type === 'jwt-localstorage')).toHaveLength(2);
     });
+
+    test('does NOT detect base64-padded segments as JWT (no = padding in base64url)', () => {
+      // A three-segment dot-separated string where one segment has base64 standard padding (=)
+      // Per RFC 7515, base64url does not use padding — this should not match
+      const paddedValue =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIn0=.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+      const result = detectAuth({
+        ...emptyInput,
+        localStorageEntries: [{ key: 'token', value: paddedValue }],
+      });
+      expect(result.methods.filter(m => m.type === 'jwt-localstorage')).toHaveLength(0);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -449,6 +461,27 @@ describe('detectAuth', () => {
       });
       const method = result.methods.find(m => m.type === 'basic-auth');
       expect(method).toBeUndefined();
+    });
+
+    test('samples URL from the first Basic auth request, not from a Bearer request that appears first', () => {
+      const result = detectAuth({
+        ...emptyInput,
+        networkRequests: [
+          {
+            url: 'https://api.example.com/bearer-endpoint',
+            method: 'GET',
+            requestHeaders: { Authorization: `Bearer ${FAKE_JWT}` },
+          },
+          {
+            url: 'https://api.example.com/basic-endpoint',
+            method: 'GET',
+            requestHeaders: { Authorization: 'Basic dXNlcjpwYXNz' },
+          },
+        ],
+      });
+      const method = findMethod(result.methods, 'basic-auth');
+      expect(method.details).toContain('basic-endpoint');
+      expect(method.details).not.toContain('bearer-endpoint');
     });
   });
 
