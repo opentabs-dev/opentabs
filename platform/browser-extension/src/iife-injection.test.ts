@@ -1,4 +1,4 @@
-import { vi, describe, expect, test, beforeEach } from 'vitest';
+import { vi, describe, expect, test, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Module mocks — set up before importing iife-injection.ts so that the
@@ -40,7 +40,8 @@ const mockExecuteScript = vi.fn<(injection: unknown) => Promise<Array<{ result?:
 };
 
 // Import after mocking
-const { isSafePluginName, queryMatchingTabIds, verifyAdapterVersion } = await import('./iife-injection.js');
+const { isSafePluginName, queryMatchingTabIds, verifyAdapterVersion, injectPluginIntoMatchingTabs } =
+  await import('./iife-injection.js');
 
 // ---------------------------------------------------------------------------
 // isSafePluginName
@@ -195,5 +196,81 @@ describe('verifyAdapterVersion', () => {
 
     const result = await verifyAdapterVersion(1, 'slack', '2.0.0');
     expect(result).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// injectLogRelay nonce management
+// ---------------------------------------------------------------------------
+
+describe('injectLogRelay nonce management', () => {
+  let fakeWindow: Record<string, unknown>;
+
+  beforeEach(() => {
+    mockTabsQuery.mockReset();
+    mockExecuteScript.mockReset();
+    // Provide a fake window for the ISOLATED world func to run against.
+    // The ISOLATED world content script accesses `window` — in Node test
+    // context we set it on globalThis so the reference resolves.
+    fakeWindow = {};
+    (globalThis as Record<string, unknown>).window = fakeWindow;
+  });
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).window;
+  });
+
+  test('replaces stale nonces with the new nonce on re-injection', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 42 } as chrome.tabs.Tab]);
+
+    // Execute ISOLATED world funcs in the fake window context;
+    // return generic results for all MAIN world calls.
+    let isolatedCallCount = 0;
+    mockExecuteScript.mockImplementation((raw: unknown) => {
+      const injection = raw as Record<string, unknown>;
+      if (injection['world'] === 'ISOLATED') {
+        isolatedCallCount++;
+        const func = injection['func'] as (...args: unknown[]) => void;
+        const args = (injection['args'] as unknown[] | undefined) ?? [];
+        func(...args);
+      }
+      return Promise.resolve([{ result: undefined }]);
+    });
+
+    // First injection: creates the guard + nonces Set with nonce1
+    await injectPluginIntoMatchingTabs('slack', ['*://slack.com/*'], true);
+    const nonces = fakeWindow['__opentabs_log_nonces'] as Set<string>;
+    expect(nonces).toBeDefined();
+    expect(nonces.size).toBe(1);
+    const nonce1 = [...nonces][0];
+
+    // Second injection: should clear nonce1 and store only nonce2
+    await injectPluginIntoMatchingTabs('slack', ['*://slack.com/*'], true);
+    expect(nonces.size).toBe(1);
+    const nonce2 = [...nonces][0];
+    expect(nonce2).not.toBe(nonce1);
+
+    expect(isolatedCallCount).toBe(2);
+  });
+
+  test('nonces Set always has exactly one entry regardless of injection count', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 42 } as chrome.tabs.Tab]);
+
+    mockExecuteScript.mockImplementation((raw: unknown) => {
+      const injection = raw as Record<string, unknown>;
+      if (injection['world'] === 'ISOLATED') {
+        const func = injection['func'] as (...args: unknown[]) => void;
+        const args = (injection['args'] as unknown[] | undefined) ?? [];
+        func(...args);
+      }
+      return Promise.resolve([{ result: undefined }]);
+    });
+
+    for (let i = 0; i < 10; i++) {
+      await injectPluginIntoMatchingTabs('slack', ['*://slack.com/*'], true);
+    }
+
+    const nonces = fakeWindow['__opentabs_log_nonces'] as Set<string>;
+    expect(nonces.size).toBe(1);
   });
 });

@@ -220,6 +220,61 @@ describe('lastKnownState cache', () => {
 });
 
 // ---------------------------------------------------------------------------
+// withPluginLock — chain-breaking and serialization
+// ---------------------------------------------------------------------------
+
+describe('withPluginLock (via updateLastKnownState)', () => {
+  beforeEach(() => {
+    clearTabStateCache();
+  });
+
+  test('many sequential operations complete successfully without chain growth', async () => {
+    // Run enough operations that an unbounded chain would be observable as a
+    // slowdown or stack overflow; verifies chain-breaking does not break correctness.
+    for (let i = 0; i < 100; i++) {
+      await updateLastKnownState('my-plugin', i % 2 === 0 ? 'ready' : 'closed');
+    }
+    // 100th iteration (i=99, odd) sets 'closed'
+    expect(getLastKnownStates().get('my-plugin')).toBe('closed');
+  });
+
+  test('concurrent operations for the same plugin serialize correctly', async () => {
+    const executionOrder: string[] = [];
+
+    // We use notifyAffectedPlugins indirectly via checkTabRemoved with a
+    // delayed mock to verify serialization. Instead, we use the fact that
+    // concurrent updateLastKnownState calls should produce a deterministic
+    // final state because they execute in queue order.
+    const updates = ['ready', 'unavailable', 'closed', 'ready', 'unavailable'] as const;
+    // Launch all without awaiting — they should serialize via the lock
+    const promises = updates.map((state, i) => {
+      executionOrder.push(`start-${i}`);
+      return updateLastKnownState('plugin-a', state);
+    });
+    await Promise.all(promises);
+
+    // All operations started before any completed (concurrent launch)
+    expect(executionOrder).toEqual(['start-0', 'start-1', 'start-2', 'start-3', 'start-4']);
+    // Final state is the last enqueued update
+    expect(getLastKnownStates().get('plugin-a')).toBe('unavailable');
+  });
+
+  test('concurrent operations for different plugins run independently', async () => {
+    const promises = [
+      updateLastKnownState('alpha', 'ready'),
+      updateLastKnownState('beta', 'closed'),
+      updateLastKnownState('alpha', 'closed'),
+      updateLastKnownState('beta', 'ready'),
+    ];
+    await Promise.all(promises);
+
+    // Each plugin's last queued state wins
+    expect(getLastKnownStates().get('alpha')).toBe('closed');
+    expect(getLastKnownStates().get('beta')).toBe('ready');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // checkTabRemoved
 // ---------------------------------------------------------------------------
 

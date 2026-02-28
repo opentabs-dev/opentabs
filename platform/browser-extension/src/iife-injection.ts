@@ -115,15 +115,18 @@ const injectLogRelay = async (tabId: number): Promise<void> => {
       func: (n: string) => {
         // Idempotent guard: only register the listener once per tab.
         // When re-invoked (e.g., on re-injection), the existing listener
-        // stays in place — the new nonce is injected into MAIN world so
-        // the adapter picks it up, and the ISOLATED listener accepts
-        // messages with ANY previously registered nonce via a Set.
+        // stays in place — stale nonces are cleared and only the new nonce
+        // is accepted. The adapter in MAIN world will use the new nonce
+        // (set in step 2) on its next flush.
         const guard = '__opentabs_log_relay';
         const win = window as unknown as Record<string, unknown>;
         if (win[guard]) {
-          // Add the new nonce to the accepted set
+          // Replace stale nonces with the new nonce — old adapters are gone after re-injection
           const nonceSet = win.__opentabs_log_nonces as Set<string> | undefined;
-          if (nonceSet) nonceSet.add(n);
+          if (nonceSet) {
+            nonceSet.clear();
+            nonceSet.add(n);
+          }
           return;
         }
         win[guard] = true;

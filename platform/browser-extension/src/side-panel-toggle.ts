@@ -30,10 +30,21 @@ export const initSidePanelToggle = (): void => {
   }
 
   chrome.action.onClicked.addListener(({ windowId }) => {
-    if (canToggle && openWindows.has(windowId)) {
-      chrome.sidePanel.close({ windowId }).catch(() => {});
-    } else {
-      chrome.sidePanel.open({ windowId }).catch(() => {});
-    }
+    void (async () => {
+      if (canToggle && openWindows.has(windowId)) {
+        // Validate the window still exists — MV3 service workers can be suspended
+        // and miss chrome.windows.onRemoved, leaving stale IDs in openWindows.
+        try {
+          await chrome.windows.get(windowId);
+        } catch {
+          openWindows.delete(windowId);
+          await chrome.sidePanel.open({ windowId }).catch(() => {});
+          return;
+        }
+        chrome.sidePanel.close({ windowId }).catch(() => {});
+      } else {
+        chrome.sidePanel.open({ windowId }).catch(() => {});
+      }
+    })();
   });
 };

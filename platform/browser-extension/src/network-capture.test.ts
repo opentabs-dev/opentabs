@@ -27,7 +27,8 @@ let capturedOnDetachListener: ((source: { tabId?: number }, reason: string) => v
   tabs: { onRemoved: { addListener: vi.fn() } },
 };
 
-const { scrubHeaders, startCapture, isCapturing, stopCapture, getRequests } = await import('./network-capture.js');
+const { scrubHeaders, startCapture, isCapturing, stopCapture, getRequests, getWsFrames } =
+  await import('./network-capture.js');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -270,6 +271,50 @@ describe('Network.loadingFinished', () => {
     expect(requests).toHaveLength(1);
     expect(requests[0]).toHaveProperty('url', 'https://example.com/r2');
     expect(requests[0]).not.toHaveProperty('responseBody');
+
+    stopCapture(tabId);
+  });
+});
+
+describe('Network.webSocketClosed', () => {
+  test('deletes the requestId entry from wsFramesByRequestId on close', async () => {
+    const tabId = 3001;
+    await startCapture(tabId);
+
+    // Simulate WebSocket open — stores requestId → url in wsFramesByRequestId
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-req-1',
+      url: 'wss://example.com/ws',
+    });
+
+    // A frame received before close should be captured
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-req-1',
+      response: { opcode: 1, payloadData: 'hello', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(1);
+
+    // Close the WebSocket — should remove the entry from wsFramesByRequestId
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketClosed', {
+      requestId: 'ws-req-1',
+    });
+
+    // Frames received after close (stale events) must not be stored
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-req-1',
+      response: { opcode: 1, payloadData: 'after-close', mask: false },
+    });
+    expect(getWsFrames(tabId, false)).toHaveLength(1);
+
+    stopCapture(tabId);
+  });
+
+  test('is a no-op when requestId is missing from params', async () => {
+    const tabId = 3002;
+    await startCapture(tabId);
+
+    // Should not throw even if requestId is absent
+    expect(() => capturedOnEventListener?.({ tabId }, 'Network.webSocketClosed', {})).not.toThrow();
 
     stopCapture(tabId);
   });

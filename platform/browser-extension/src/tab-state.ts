@@ -31,17 +31,24 @@ const pluginLocks = new Map<string, Promise<void>>();
  * with any other pending operations for the same plugin. Returns the
  * promise for the operation itself (rejections are logged on the lock
  * chain but propagated to the caller via the returned promise).
+ *
+ * After the operation completes, the lock is reset to a resolved promise
+ * if no new work has been enqueued, breaking the promise chain to allow
+ * fulfilled promises to be garbage collected.
  */
 const withPluginLock = (pluginName: string, fn: () => Promise<void>): Promise<void> => {
   const prev = pluginLocks.get(pluginName) ?? Promise.resolve();
-  const next = prev.then(fn);
-  pluginLocks.set(
-    pluginName,
-    next.catch((err: unknown) => {
-      console.warn('[opentabs] tab state operation failed for plugin', pluginName, ':', err);
-    }),
-  );
-  return next;
+  const operation = prev.then(fn);
+  const lock = operation.catch((err: unknown) => {
+    console.warn('[opentabs] tab state operation failed for plugin', pluginName, ':', err);
+  });
+  pluginLocks.set(pluginName, lock);
+  void lock.then(() => {
+    if (pluginLocks.get(pluginName) === lock) {
+      pluginLocks.set(pluginName, Promise.resolve());
+    }
+  });
+  return operation;
 };
 
 /**
