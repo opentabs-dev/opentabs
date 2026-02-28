@@ -41,7 +41,7 @@ vi.mock('./sanitize-error.js', () => ({
 };
 
 // ---------------------------------------------------------------------------
-// Bun's mock.module is process-global: message-router.test.ts and
+// Vitest's mock.module is process-global: message-router.test.ts and
 // known-methods.test.ts both mock './tool-dispatch.js', replacing the real
 // module. When tests run together, `await import('./tool-dispatch.js')` here
 // returns the mock (empty functions), not the real code.

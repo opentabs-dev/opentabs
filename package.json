@@ -18,7 +18,7 @@
     "dev": "tsx scripts/dev.ts",
     "build": "tsc --build && npm run --prefix platform/browser-extension build:bundle && npm run --prefix platform/browser-extension build:side-panel && tsx scripts/generate-icons.ts && tsx scripts/install-extension.ts",
     "build:force": "tsc --build --force && npm run --prefix platform/browser-extension build:bundle && npm run --prefix platform/browser-extension build:side-panel && tsx scripts/generate-icons.ts && tsx scripts/install-extension.ts",
-    "type-check": "tsc --build --noEmit",
+    "type-check": "tsc --build",
     "type-check:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

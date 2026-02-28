@@ -7,7 +7,7 @@ import type { ValidatedPluginPayload } from './message-router.js';
 //
 // Only mock modules that have NO separate test file in this directory.
 // Modules with their own test files (plugin-storage, tab-matching) are NOT
-// mocked here to avoid contaminating their tests when Bun runs all test
+// mocked here to avoid contaminating their tests when Vitest runs all test
 // files in the same process.
 // ---------------------------------------------------------------------------
 

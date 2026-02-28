@@ -540,8 +540,8 @@ const createHandleWsOpen =
   (ws: WsHandle): void => {
     const previousWs = state.extensionWs;
 
-    // Assign the new WS BEFORE closing the previous one. Bun fires the
-    // close handler synchronously during ws.close(), so if extensionWs
+    // Assign the new WS BEFORE closing the previous one. The close handler
+    // may fire synchronously during ws.close(), so if extensionWs
     // still pointed at the old WS the close handler would see
     // `state.extensionWs === ws` (true) and reject all pending dispatches
     // with "Extension disconnected" — even though a new connection is

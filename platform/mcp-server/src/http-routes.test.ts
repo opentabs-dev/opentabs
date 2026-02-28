@@ -860,7 +860,7 @@ describe('WebSocket upgrade origin check', () => {
 
     const res = await handlers.fetch(req, upgradingServer);
 
-    // Successful upgrade returns undefined (Bun convention)
+    // Successful upgrade returns undefined
     expect(res).toBeUndefined();
   });
 
@@ -877,7 +877,7 @@ describe('WebSocket upgrade origin check', () => {
 
     const res = await handlers.fetch(req, upgradingServer);
 
-    // Successful upgrade returns undefined (Bun convention)
+    // Successful upgrade returns undefined
     expect(res).toBeUndefined();
   });
 });

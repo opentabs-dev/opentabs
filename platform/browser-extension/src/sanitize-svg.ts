@@ -7,7 +7,7 @@
  * javascript: URIs, and CSS-based attacks.
  *
  * Runs in the side panel context (browser DOM available) and is also testable
- * in Bun's test runner (no DOM dependency — pure string processing).
+ * in Vitest (no DOM dependency — pure string processing).
  */
 
 // Elements allowed in plugin SVG icons (covers common icon shapes and styling)

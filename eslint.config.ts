@@ -140,7 +140,7 @@ const config: Linter.Config[] = [
       },
     },
   },
-  // Node globals for server, CLI, scaffolding, and test code (runs in Bun/Node)
+  // Node globals for server, CLI, scaffolding, and test code (runs in Node)
   {
     files: [
       'platform/mcp-server/**/*.ts',

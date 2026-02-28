@@ -100,7 +100,7 @@ npm run check           # Root checks: build + lint + format:check + knip + test
 npm run check:everything # Everything: root checks + E2E + docs + plugins
 npm run check:docs      # Docs checks (delegates to docs/package.json check script)
 npm run check:plugins   # Plugin checks: type-check + lint + format:check (all plugins)
-npm run type-check      # TypeScript check (tsc --build --noEmit, fast non-emitting verification)
+npm run type-check      # TypeScript check (tsc --build, incremental verification)
 npm run lint            # ESLint check
 npm run lint:fix        # ESLint auto-fix
 npm run format          # Prettier format
