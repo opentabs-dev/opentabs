@@ -7,6 +7,8 @@
  *
  * Uses the e2e-test plugin's `log_levels` tool, which emits one log entry at
  * each level (debug, info, warning, error) with a unique prefix for isolation.
+ * Each log call includes a structured args object ({ level: '<levelname>' })
+ * which the SDK serializes to JSON and the server appends to the log line.
  */
 
 import { test, expect } from './fixtures.js';
@@ -57,6 +59,72 @@ test.describe('Plugin logging — full pipeline', () => {
     expect(allLogs).toContain('INFO');
     expect(allLogs).toContain('WARNING');
     expect(allLogs).toContain('ERROR');
+
+    await page.close();
+  });
+
+  test('log_levels tool serializes structured args into server log output', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Record buffer size before so we can wait for entries to arrive.
+    const healthBefore = await mcpServer.health();
+    const bufferBefore = healthBefore?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+
+    const prefix = `e2e-args-${Date.now()}`;
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_levels', { prefix });
+
+    // Wait until all 4 entries are buffered before checking stdout.
+    await mcpServer.waitForHealth(h => {
+      const buf = h.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+      return buf >= bufferBefore + 4;
+    }, 10_000);
+
+    // The log_levels tool calls log.debug/info/warn/error with a structured args
+    // object { level: '<levelname>' }. The SDK serializes these as a JSON array
+    // and the server appends them to the log line:
+    //   [plugin:e2e-test] <ts> DEBUG prefix debug-message [{"level":"debug"}]
+    await waitForLog(mcpServer, `${prefix} error-message`, 5_000);
+
+    const allLogs = mcpServer.logs.join('\n');
+    expect(allLogs).toContain(`${prefix} debug-message [{"level":"debug"}]`);
+    expect(allLogs).toContain(`${prefix} info-message [{"level":"info"}]`);
+    expect(allLogs).toContain(`${prefix} warning-message [{"level":"warning"}]`);
+    expect(allLogs).toContain(`${prefix} error-message [{"level":"error"}]`);
+
+    await page.close();
+  });
+
+  test('log_levels tool increments log buffer size by exactly the number of entries emitted', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Record the exact buffer size before the tool call.
+    const healthBefore = await mcpServer.health();
+    const bufferBefore = healthBefore?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+
+    const prefix = `e2e-count-${Date.now()}`;
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_levels', { prefix });
+
+    // The log_levels tool emits exactly 4 entries (debug, info, warning, error).
+    // Wait for the buffer to reach exactly bufferBefore + 4 — if duplicate
+    // entries were emitted the count would overshoot.
+    await mcpServer.waitForHealth(h => {
+      const buf = h.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+      return buf >= bufferBefore + 4;
+    }, 10_000);
+
+    const healthAfter = await mcpServer.health();
+    const bufferAfter = healthAfter?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+    expect(bufferAfter).toBe(bufferBefore + 4);
 
     await page.close();
   });

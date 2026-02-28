@@ -24,6 +24,49 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+test.describe('POST /reload authentication enforcement', () => {
+  let configDir = '';
+
+  test.beforeEach(() => {
+    configDir = createTestConfigDir();
+  });
+
+  test.afterEach(() => {
+    if (configDir) cleanupTestConfigDir(configDir);
+  });
+
+  test('POST /reload without Bearer auth returns 401', async () => {
+    const server = await startMcpServer(configDir, true);
+    try {
+      await server.waitForHealth(h => h.status === 'ok');
+
+      const res = await fetch(`http://localhost:${server.port}/reload`, {
+        method: 'POST',
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(res.status).toBe(401);
+    } finally {
+      await server.kill();
+    }
+  });
+
+  test('POST /reload with incorrect Bearer token returns 401', async () => {
+    const server = await startMcpServer(configDir, true);
+    try {
+      await server.waitForHealth(h => h.status === 'ok');
+
+      const res = await fetch(`http://localhost:${server.port}/reload`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer wrong-token-that-is-not-valid' },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(res.status).toBe(401);
+    } finally {
+      await server.kill();
+    }
+  });
+});
+
 test.describe('Secret rotation via POST /reload', () => {
   let configDir = '';
 
