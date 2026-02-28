@@ -313,6 +313,26 @@ All server ↔ extension communication uses JSON-RPC 2.0 over WebSocket with a 1
       <Table.Cell>Enable/disable all tools in a plugin at once</Table.Cell>
     </Table.Row>
     <Table.Row>
+      <Table.Cell className="font-medium">`plugin.search`</Table.Cell>
+      <Table.Cell>Search the npm registry for plugins matching a query</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.install`</Table.Cell>
+      <Table.Cell>Install a plugin from npm</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.updateFromRegistry`</Table.Cell>
+      <Table.Cell>Update an installed plugin to the latest registry version</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.remove`</Table.Cell>
+      <Table.Cell>Remove an installed plugin</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.checkUpdates`</Table.Cell>
+      <Table.Cell>Check for available updates to installed plugins</Table.Cell>
+    </Table.Row>
+    <Table.Row>
       <Table.Cell className="font-medium">`confirmation.response`</Table.Cell>
       <Table.Cell>User's approval decision (id, decision, optional scope)</Table.Cell>
     </Table.Row>
@@ -469,7 +489,7 @@ Session permission rules are stored in memory and reset when the server restarts
 For deeper understanding, start with these files:
 
 - `platform/mcp-server/src/index.ts` — server entry point, HTTP routes, WebSocket handling
-- `platform/mcp-server/src/discovery.ts` — four-phase plugin discovery pipeline
+- `platform/mcp-server/src/discovery.ts` — five-phase plugin discovery pipeline
 - `platform/mcp-server/src/registry.ts` — immutable plugin registry with O(1) lookups
 - `platform/mcp-server/src/extension-protocol.ts` — JSON-RPC dispatch to the extension, confirmation handling
 - `platform/mcp-server/src/permissions.ts` — browser tool security tiers and permission evaluation

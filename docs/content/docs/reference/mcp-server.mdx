@@ -33,7 +33,7 @@ The server runs on port 9515 by default (override with the `PORT` environment va
     <Table.Row>
       <Table.Cell className="font-medium">`/ws-info`</Table.Cell>
       <Table.Cell>GET</Table.Cell>
-      <Table.Cell>Bearer token or rate-limited</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
       <Table.Cell>Returns WebSocket URL and auth secret for extension bootstrap.</Table.Cell>
     </Table.Row>
     <Table.Row>
@@ -165,13 +165,13 @@ Pass `Authorization: Bearer <secret>` to get the full payload:
   "confirmationBypassed": false,
   "uptime": 3600,
   "reloadCount": 2,
-  "lastReloadTimestamp": "2026-02-21T10:15:00.000Z",
+  "lastReloadTimestamp": 1740134100000,
   "lastReloadDurationMs": 45,
   "stateSchemaVersion": 4,
   "discoveryErrors": [],
   "fileWatcher": {
-    "watchedPlugins": ["slack"],
-    "pendingPlugins": [],
+    "watchedPlugins": 1,
+    "pendingPlugins": 0,
     "lastPollAt": "2026-02-21T10:30:00.000Z",
     "pollDetections": 0
   },
@@ -194,7 +194,7 @@ Key fields:
 - `failedPlugins` — plugins that failed to load (path + error message)
 - `disabledBrowserTools` — browser tool names that have been disabled via config
 - `confirmationBypassed` — whether the confirmation prompt system is skipped (via `skipConfirmation` config or `OPENTABS_SKIP_CONFIRMATION` env var)
-- `lastReloadTimestamp` — ISO 8601 timestamp of the last plugin reload (0 if never reloaded)
+- `lastReloadTimestamp` — milliseconds since epoch of the last plugin reload (0 if never reloaded)
 - `lastReloadDurationMs` — how long the last reload took in milliseconds
 - `stateSchemaVersion` — internal state schema version number
 - `discoveryErrors` — array of non-fatal errors encountered during plugin discovery
@@ -205,7 +205,7 @@ Key fields:
 
 ## /ws-info — WebSocket bootstrap
 
-Returns the WebSocket URL for the Chrome extension to connect. Requires Bearer token authentication (rate-limited to 10 requests/minute).
+Returns the WebSocket URL for the Chrome extension to connect. Requires Bearer token authentication.
 
 ```bash
 curl -s http://localhost:9515/ws-info \
@@ -348,7 +348,7 @@ The server rejects all HTTP requests with a browser `Origin` header, except thos
 
 ## Rate Limiting
 
-Admin endpoints (`/ws-info`, `/reload`, `/extension/reload`) are rate-limited to 10 requests/minute. Exceeding the limit returns HTTP 429 with `Retry-After: 60`.
+Admin endpoints (`/reload`, `/extension/reload`) are rate-limited to 10 requests/minute. Exceeding the limit returns HTTP 429 with `Retry-After: 60`.
 
 ---
 
@@ -470,6 +470,31 @@ Admin endpoints (`/ws-info`, `/reload`, `/extension/reload`) are rate-limited to
       <Table.Cell className="font-medium">`config.setAllToolsEnabled`</Table.Cell>
       <Table.Cell>Request</Table.Cell>
       <Table.Cell>Enable or disable all tools in a plugin at once (plugin name + enabled boolean).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.search`</Table.Cell>
+      <Table.Cell>Request</Table.Cell>
+      <Table.Cell>Search the npm registry for plugins matching a query.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.install`</Table.Cell>
+      <Table.Cell>Request</Table.Cell>
+      <Table.Cell>Install a plugin from npm.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.updateFromRegistry`</Table.Cell>
+      <Table.Cell>Request</Table.Cell>
+      <Table.Cell>Update an installed plugin to the latest registry version.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.remove`</Table.Cell>
+      <Table.Cell>Request</Table.Cell>
+      <Table.Cell>Remove an installed plugin.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`plugin.checkUpdates`</Table.Cell>
+      <Table.Cell>Request</Table.Cell>
+      <Table.Cell>Check for available updates to installed plugins.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`confirmation.response`</Table.Cell>
