@@ -535,8 +535,12 @@ export const getRequests = (tabId: number, clear: boolean = false): CapturedRequ
   }));
   if (clear) {
     state.requests = [];
+    // requestIdToRequest tracks completed requests (post-responseReceived, pre-loadingFinished)
+    // that were in state.requests. Clearing both together is safe; the body-fetch guard
+    // (state.requests.includes check) handles any in-flight async callbacks.
+    // pendingRequests is NOT cleared — in-flight requests that have not yet received
+    // a response continue to be tracked and will appear in subsequent getRequests calls.
     state.requestIdToRequest.clear();
-    state.pendingRequests.clear();
   }
   return requests;
 };
@@ -581,8 +585,10 @@ export const getWsFrames = (tabId: number, clear: boolean = false): WsFrame[] =>
   const frames = [...state.wsFrames];
   if (clear) {
     state.wsFrames = [];
-    state.wsFramesByRequestId.clear();
-    state.wsCreatedAt.clear();
+    // wsFramesByRequestId and wsCreatedAt are NOT cleared — they hold the
+    // requestId→url mappings needed to capture frames from existing connections.
+    // Entries are cleaned up by webSocketClosed events, the prune interval,
+    // and stopCapture when the entire session ends.
   }
   return frames;
 };

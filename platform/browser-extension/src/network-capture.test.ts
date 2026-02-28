@@ -546,23 +546,23 @@ describe('concurrent startCapture guard', () => {
 });
 
 describe('getRequests', () => {
-  test('clear=true discards in-flight pending requests so they do not appear in subsequent reads', async () => {
+  test('clear=true preserves in-flight pending requests so their responses appear in subsequent reads', async () => {
     const tabId = 1001;
     await startCapture(tabId);
 
     // Fire requestWillBeSent — request is now pending (no responseReceived yet)
     capturedOnEventListener?.({ tabId }, 'Network.requestWillBeSent', {
-      requestId: 'req-stale',
+      requestId: 'req-inflight',
       request: { url: 'https://example.com/api', method: 'GET', headers: {} },
     });
 
-    // Clear the buffer — pendingRequests must also be cleared
+    // Clear the buffer — pendingRequests must NOT be cleared
     const firstRead = getRequests(tabId, true);
     expect(firstRead).toHaveLength(0);
 
-    // Fire responseReceived for the now-discarded pending request
+    // Fire responseReceived for the still-tracked pending request
     capturedOnEventListener?.({ tabId }, 'Network.responseReceived', {
-      requestId: 'req-stale',
+      requestId: 'req-inflight',
       response: {
         url: 'https://example.com/api',
         status: 200,
@@ -572,9 +572,128 @@ describe('getRequests', () => {
       },
     });
 
-    // The stale pending request must not appear — the clear already discarded it
+    // The in-flight request's response must appear — it was preserved through the clear
     const secondRead = getRequests(tabId, false);
-    expect(secondRead).toHaveLength(0);
+    expect(secondRead).toHaveLength(1);
+    expect(secondRead[0]).toHaveProperty('url', 'https://example.com/api');
+    expect(secondRead[0]).toHaveProperty('status', 200);
+
+    stopCapture(tabId);
+  });
+
+  test('clear=true removes only completed entries from requestIdToRequest, not in-flight ones', async () => {
+    const tabId = 1002;
+    await startCapture(tabId);
+
+    // req-completed: goes through full requestWillBeSent → responseReceived cycle
+    capturedOnEventListener?.({ tabId }, 'Network.requestWillBeSent', {
+      requestId: 'req-completed',
+      request: { url: 'https://example.com/done', method: 'GET', headers: {} },
+    });
+    capturedOnEventListener?.({ tabId }, 'Network.responseReceived', {
+      requestId: 'req-completed',
+      response: { url: 'https://example.com/done', status: 200, statusText: 'OK', headers: {}, mimeType: 'text/plain' },
+    });
+
+    // req-pending: only requestWillBeSent so far (still in-flight)
+    capturedOnEventListener?.({ tabId }, 'Network.requestWillBeSent', {
+      requestId: 'req-pending',
+      request: { url: 'https://example.com/pending', method: 'POST', headers: {} },
+    });
+
+    // Clear — completed request leaves the buffer; in-flight request stays in pendingRequests
+    const firstRead = getRequests(tabId, true);
+    expect(firstRead).toHaveLength(1);
+    expect(firstRead[0]).toHaveProperty('url', 'https://example.com/done');
+
+    // The in-flight request now receives its response — must still be captured
+    capturedOnEventListener?.({ tabId }, 'Network.responseReceived', {
+      requestId: 'req-pending',
+      response: {
+        url: 'https://example.com/pending',
+        status: 201,
+        statusText: 'Created',
+        headers: {},
+        mimeType: 'application/json',
+      },
+    });
+
+    const secondRead = getRequests(tabId, false);
+    expect(secondRead).toHaveLength(1);
+    expect(secondRead[0]).toHaveProperty('url', 'https://example.com/pending');
+    expect(secondRead[0]).toHaveProperty('status', 201);
+
+    stopCapture(tabId);
+  });
+});
+
+describe('getWsFrames clear=true', () => {
+  test('clear=true preserves wsFramesByRequestId so existing connections continue to be captured', async () => {
+    const tabId = 7001;
+    await startCapture(tabId);
+
+    // Simulate WebSocket creation
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-clear-1',
+      url: 'wss://example.com/live',
+    });
+
+    // Capture a frame before clearing
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-clear-1',
+      response: { opcode: 1, payloadData: 'before-clear', mask: false },
+    });
+
+    // Clear the frame buffer
+    const firstRead = getWsFrames(tabId, true);
+    expect(firstRead).toHaveLength(1);
+    expect(firstRead[0]).toHaveProperty('data', 'before-clear');
+
+    // Send another frame after clear — wsFramesByRequestId must still hold the entry
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameSent', {
+      requestId: 'ws-clear-1',
+      response: { opcode: 1, payloadData: 'after-clear', mask: false },
+    });
+
+    const secondRead = getWsFrames(tabId, false);
+    expect(secondRead).toHaveLength(1);
+    expect(secondRead[0]).toHaveProperty('data', 'after-clear');
+    expect(secondRead[0]).toHaveProperty('direction', 'sent');
+
+    stopCapture(tabId);
+  });
+
+  test('clear=true on multiple consecutive clears keeps the connection alive', async () => {
+    const tabId = 7002;
+    await startCapture(tabId);
+
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketCreated', {
+      requestId: 'ws-clear-2',
+      url: 'wss://example.com/stream',
+    });
+
+    // First frame, then clear
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-clear-2',
+      response: { opcode: 1, payloadData: 'msg-1', mask: false },
+    });
+    expect(getWsFrames(tabId, true)).toHaveLength(1);
+
+    // Second frame after first clear, then clear again
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-clear-2',
+      response: { opcode: 1, payloadData: 'msg-2', mask: false },
+    });
+    expect(getWsFrames(tabId, true)).toHaveLength(1);
+
+    // Third frame after second clear — connection is still alive
+    capturedOnEventListener?.({ tabId }, 'Network.webSocketFrameReceived', {
+      requestId: 'ws-clear-2',
+      response: { opcode: 1, payloadData: 'msg-3', mask: false },
+    });
+    const finalRead = getWsFrames(tabId, false);
+    expect(finalRead).toHaveLength(1);
+    expect(finalRead[0]).toHaveProperty('data', 'msg-3');
 
     stopCapture(tabId);
   });
