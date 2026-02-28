@@ -172,19 +172,21 @@ const handleSpConfirmationResponse: MessageHandler = (message, sendResponse) => 
     });
   }
   const data = message.data as Record<string, unknown> | undefined;
-  if (typeof data?.id === 'string') {
-    clearConfirmationBackgroundTimeout(data.id);
+  const id = typeof data?.id === 'string' ? data.id : undefined;
+  if (id !== undefined) {
+    clearConfirmationBackgroundTimeout(id);
   }
-  clearConfirmationBadge();
+  clearConfirmationBadge(id);
   sendResponse({ ok: true });
 };
 
 /** Handle sp:confirmationTimeout — confirmation timed out without user response */
 const handleSpConfirmationTimeout: MessageHandler = (message, sendResponse) => {
-  if (typeof message.id === 'string') {
-    clearConfirmationBackgroundTimeout(message.id);
+  const id = typeof message.id === 'string' ? message.id : undefined;
+  if (id !== undefined) {
+    clearConfirmationBackgroundTimeout(id);
   }
-  clearConfirmationBadge();
+  clearConfirmationBadge(id);
   sendResponse({ ok: true });
 };
 

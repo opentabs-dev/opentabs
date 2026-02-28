@@ -62,7 +62,7 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
   const effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : CONFIRMATION_FALLBACK_TIMEOUT_MS;
   const bgTimeoutId = setTimeout(() => {
     confirmationTimeouts.delete(id);
-    clearConfirmationBadge();
+    clearConfirmationBadge(id);
   }, effectiveTimeoutMs + CONFIRMATION_BACKGROUND_TIMEOUT_BUFFER_MS);
   confirmationTimeouts.set(id, bgTimeoutId);
 
@@ -78,8 +78,14 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
     .catch(() => {});
 };
 
-/** Decrement pending confirmation count and update badge */
-const clearConfirmationBadge = (): void => {
+/**
+ * Decrement pending confirmation count, update badge, and clear the Chrome
+ * notification for the resolved confirmation.
+ */
+const clearConfirmationBadge = (id?: string): void => {
+  if (id !== undefined) {
+    chrome.notifications.clear(`opentabs-confirm-${id}`).catch(() => {});
+  }
   pendingConfirmationCount = Math.max(0, pendingConfirmationCount - 1);
   updateConfirmationBadge();
 };
@@ -98,10 +104,11 @@ const clearConfirmationBackgroundTimeout = (id: string): void => {
   }
 };
 
-/** Reset all pending confirmation tracking (e.g., on disconnect) */
+/** Reset all pending confirmation tracking and clear all Chrome notifications (e.g., on disconnect) */
 const clearAllConfirmationBadges = (): void => {
-  for (const timeoutId of confirmationTimeouts.values()) {
+  for (const [id, timeoutId] of confirmationTimeouts.entries()) {
     clearTimeout(timeoutId);
+    chrome.notifications.clear(`opentabs-confirm-${id}`).catch(() => {});
   }
   confirmationTimeouts.clear();
   pendingConfirmationCount = 0;

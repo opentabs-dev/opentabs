@@ -196,6 +196,24 @@ describe('clearConfirmationBadge', () => {
     // Badge should still show empty (not a negative number)
     expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
   });
+
+  test('clears Chrome notification when id is provided', () => {
+    notifyConfirmationRequest({ id: 'req-1', timeoutMs: 0 });
+    mockNotificationsClear.mockClear();
+
+    clearConfirmationBadge('req-1');
+
+    expect(mockNotificationsClear).toHaveBeenCalledWith('opentabs-confirm-req-1');
+  });
+
+  test('does not call chrome.notifications.clear when no id is provided', () => {
+    notifyConfirmationRequest({ id: 'req-1', timeoutMs: 0 });
+    mockNotificationsClear.mockClear();
+
+    clearConfirmationBadge();
+
+    expect(mockNotificationsClear).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -272,5 +290,17 @@ describe('clearAllConfirmationBadges', () => {
   test('is idempotent when called with nothing pending', () => {
     expect(() => clearAllConfirmationBadges()).not.toThrow();
     expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
+  });
+
+  test('clears Chrome notifications for all pending confirmations', () => {
+    notifyConfirmationRequest({ id: 'req-1', timeoutMs: 0 });
+    notifyConfirmationRequest({ id: 'req-2', timeoutMs: 0 });
+    mockNotificationsClear.mockClear();
+
+    clearAllConfirmationBadges();
+
+    expect(mockNotificationsClear).toHaveBeenCalledWith('opentabs-confirm-req-1');
+    expect(mockNotificationsClear).toHaveBeenCalledWith('opentabs-confirm-req-2');
+    expect(mockNotificationsClear).toHaveBeenCalledTimes(2);
   });
 });
