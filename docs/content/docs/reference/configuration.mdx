@@ -240,7 +240,7 @@ Set to `true` to bypass all browser tool confirmation prompts. This disables the
 
 **This is dangerous and intended only for CI/testing environments.** In normal usage, leave this unset and use the `permissions` object to fine-tune which tools require confirmation.
 
-Can also be enabled via the `OPENTABS_SKIP_CONFIRMATION` environment variable or the `--dangerously-skip-confirmation` CLI flag.
+Can also be enabled via the `OPENTABS_SKIP_CONFIRMATION` environment variable or the `--dangerously-skip-confirmation` flag on the MCP server binary (not the `opentabs` CLI). Prefer the env var for portability.
 
 ## Plugin discovery
 
@@ -280,7 +280,7 @@ Local plugins override npm plugins of the same name. Discovery runs at server st
     <Table.Row>
       <Table.Cell className="font-medium">`OPENTABS_DEV`</Table.Cell>
       <Table.Cell>_(unset)_</Table.Cell>
-      <Table.Cell>Set to `1` to enable dev mode. Equivalent to the `--dev` CLI flag. Enables file watchers and config watching.</Table.Cell>
+      <Table.Cell>Set to `1` to enable dev mode. Equivalent to passing `--dev` to the MCP server binary (used by platform contributors via `npm run dev`). Enables file watchers and config watching.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`OPENTABS_SKIP_CONFIRMATION`</Table.Cell>

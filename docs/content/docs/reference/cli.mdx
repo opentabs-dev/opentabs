@@ -1,7 +1,7 @@
 ---
 title: CLI Commands
 description: Complete reference for the opentabs CLI — start the server, manage plugins, view logs, run diagnostics, and configure settings.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-02-28
 ---
 
 The `opentabs` CLI is the primary interface for managing the OpenTabs platform. Install it globally:
@@ -240,7 +240,7 @@ Performs the following checks:
 6. **Extension connection** — checks if the Chrome extension is connected via WebSocket
 7. **Extension installed** — verifies `~/.opentabs/extension/manifest.json` exists
 8. **Extension version** — compares installed extension version to CLI version
-9. **MCP client config** — checks Claude Code, Cursor, and OpenCode MCP configuration files for correct server entries
+9. **MCP client config** — checks Claude Code, Cursor, OpenCode, and Windsurf MCP configuration files for correct server entries
 10. **Local plugins** — for each local plugin, checks that `dist/tools.json` and `dist/adapter.iife.js` exist
 11. **npm plugins** — verifies npm-discovered plugins reported by the server are loading correctly
 
@@ -555,7 +555,7 @@ opentabs config show [options]
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`--show-secret`</Table.Cell>
-      <Table.Cell>Display the full authentication secret instead of masking it.</Table.Cell>
+      <Table.Cell>Display the full authentication secret and MCP client configurations.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>

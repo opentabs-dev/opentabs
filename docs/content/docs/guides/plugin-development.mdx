@@ -299,8 +299,8 @@ const uploaded = await postFormData<{ id: string }>("/api/upload", formData);
 
 All fetch utilities accept an optional Zod schema as the last parameter. When provided, the response is validated at runtime and the return type is inferred from the schema — no separate type annotation needed. The full signatures are:
 
-- `fetchJSON(url, init?, schema?)` — GET/DELETE without a body
-- `postJSON(url, body, init?, schema?)` — POST/PUT/PATCH with a body (same for `putJSON`, `patchJSON`, `deleteJSON`)
+- `fetchJSON(url, init?, schema?)` — GET without a body (same for `deleteJSON`)
+- `postJSON(url, body, init?, schema?)` — POST/PUT/PATCH with a body (same for `putJSON`, `patchJSON`)
 
 ```typescript
 import { fetchJSON, postJSON } from "@opentabs-dev/plugin-sdk";
@@ -371,6 +371,8 @@ import { getLocalStorage, getCookie } from "@opentabs-dev/plugin-sdk";
 const session = getLocalStorage("session_id");
 const authCookie = getCookie("auth_token");
 ```
+
+These examples cover the most commonly used utilities. For the complete list — including `fetchFromPage`, `getCurrentUrl`, `getPageTitle`, `waitForSelectorRemoval`, `querySelectorAll`, `observeDOM`, `sleep`, and all storage helpers — see the [SDK Utilities reference](/docs/sdk/utilities).
 
 ## Handle Errors
 

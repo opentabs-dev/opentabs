@@ -1986,7 +1986,7 @@ export const LifecycleSequence = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         fontWeight="bold">
-        onToolInvocationEnd(toolName, success, ms)
+        onToolInvocationEnd(toolName, success, durationMs)
       </text>
       <text
         x="100"
@@ -2158,7 +2158,7 @@ export const ErrorCategories = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         opacity="0.6">
-        ToolError.auth(msg)
+        ToolError.auth(msg, code?)
       </text>
 
       {/* ── Card 2: not_found (not retryable) ────────── */}
@@ -2244,7 +2244,7 @@ export const ErrorCategories = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         opacity="0.6">
-        ToolError.validation(msg)
+        ToolError.validation(msg, code?)
       </text>
 
       {/* ── Card 4: internal (not retryable) ─────────── */}
@@ -2287,7 +2287,7 @@ export const ErrorCategories = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         opacity="0.6">
-        ToolError.internal(msg)
+        ToolError.internal(msg, code?)
       </text>
 
       {/* ── Vertical divider ─────────────────────────── */}
@@ -2343,7 +2343,7 @@ export const ErrorCategories = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         opacity="0.6">
-        msg, retryAfterMs?)
+        msg, retryAfterMs?, code?)
       </text>
       {/* retryAfterMs note */}
       <text
@@ -2397,7 +2397,7 @@ export const ErrorCategories = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-foreground)"
         opacity="0.6">
-        ToolError.timeout(msg)
+        ToolError.timeout(msg, code?)
       </text>
       {/* transient note */}
       <text
@@ -3234,7 +3234,7 @@ export const PluginStructure = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-primary)"
         opacity="0.6">
-        {'defineTool({ name, description, input, ... })'}
+        {'defineTool({ name, description, input, output, handle })'}
       </text>
 
       <rect

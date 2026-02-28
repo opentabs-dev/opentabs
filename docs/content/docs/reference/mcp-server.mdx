@@ -1,7 +1,7 @@
 ---
 title: MCP Server
 description: HTTP endpoints, WebSocket protocol, authentication, MCP capabilities, and client configuration for the OpenTabs server.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-02-28
 ---
 
 ## HTTP Endpoints
@@ -175,7 +175,7 @@ Pass `Authorization: Bearer <secret>` to get the full payload:
   "fileWatcher": {
     "watchedPlugins": 1,
     "pendingPlugins": 0,
-    "lastPollAt": "2026-02-21T10:30:00.000Z",
+    "lastPollAt": 1740134100000,
     "pollDetections": 0
   },
   "auditSummary": {
@@ -426,7 +426,7 @@ Admin endpoints (`/reload`, `/extension/reload`) are rate-limited to 10 requests
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`extension.reload`</Table.Cell>
-      <Table.Cell>Request</Table.Cell>
+      <Table.Cell>Notification</Table.Cell>
       <Table.Cell>Signal the extension to reload (triggered by `POST /extension/reload`).</Table.Cell>
     </Table.Row>
     <Table.Row>
@@ -596,5 +596,5 @@ Add to `.cursor/mcp.json`:
 Replace `<secret>` with the value from your config:
 
 ```bash
-opentabs config show --json | jq -r .secret
+opentabs config show --json --show-secret | jq -r .secret
 ```

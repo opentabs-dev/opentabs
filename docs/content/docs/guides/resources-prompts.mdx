@@ -1,7 +1,7 @@
 ---
 title: Resources & Prompts
 description: Give AI agents browsable context with resources and reusable templates with prompts — beyond what tools alone can do.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-02-28
 ---
 
 Most plugins only need tools — actions the AI agent can invoke. But the MCP protocol defines two more capabilities that let your plugin expose **data** and **templates** to the agent. Resources are read-only data the agent can browse. Prompts are pre-built message templates the agent can render.
@@ -131,7 +131,7 @@ const channelList = defineResource({
     channels: z.array(z.object({ id: z.string(), name: z.string() })),
   }),
 
-  async read(): Promise<ResourceContent> {
+  async read(uri: string): Promise<ResourceContent> {
     const data = await fetchJSON<{ channels: { id: string; name: string }[] }>('/api/channels');
     return { uri: 'myapp://channels', text: JSON.stringify(data), mimeType: 'application/json' };
   },
@@ -425,7 +425,7 @@ const itemList = defineResource({
   name: 'Project Items',
   description: 'Returns all items in the current project',
   mimeType: 'application/json',
-  async read() {
+  async read(uri: string) {
     const data = await fetchJSON<{ items: { id: string; title: string; status: string }[] }>(
       '/api/items'
     );

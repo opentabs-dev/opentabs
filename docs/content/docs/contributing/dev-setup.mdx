@@ -1,7 +1,7 @@
 ---
 title: Development Setup
 description: Clone the repo, install dependencies, and run the full OpenTabs platform locally with hot reload.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-02-28
 ---
 
 This guide walks you through setting up the OpenTabs monorepo for local development. By the end, you'll have the MCP server, Chrome extension, and a test plugin running with hot reload.
@@ -30,7 +30,7 @@ npm run build
 
 This runs the full build pipeline:
 
-1. `tsc --build --force` — compiles all platform packages via project references
+1. `tsc --build` — compiles all platform packages via project references (incremental; use `npm run build:force` to add `--force` for a clean rebuild)
 2. Extension bundle — bundles the background script and offscreen document
 3. Side panel — builds the React side panel with Tailwind CSS
 4. Icon generation — creates extension icons from the SVG source
@@ -146,6 +146,7 @@ Run all checks before committing:
 npm run build         # Full production build
 npm run type-check    # TypeScript (tsc --build)
 npm run lint          # ESLint
+npm run format:check  # Prettier formatting check
 npm run knip          # Unused code detection
 npm run test          # Unit tests (Vitest)
 npm run test:e2e      # E2E tests (Playwright)
