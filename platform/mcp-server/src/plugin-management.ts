@@ -433,7 +433,6 @@ const removeLocalPlugin = async (state: { configWriteMutex: Promise<void> }, plu
       removed = true;
     }
   })().catch((err: unknown) => {
-    state.configWriteMutex = Promise.resolve();
     log.warn(`Failed to remove local plugin from config:`, err);
   });
 
