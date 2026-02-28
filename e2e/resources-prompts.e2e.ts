@@ -28,6 +28,7 @@ import { setupToolTest } from './helpers.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { McpClient, McpServer } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Resources
@@ -256,17 +257,19 @@ test.describe('Empty resource/prompt lists', () => {
       tools: { 'no-resources_ping': true },
     });
 
-    const server = await startMcpServer(configDir, true);
-    const client = createMcpClient(server.port, server.secret);
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
       await server.waitForHealth(h => h.status === 'ok');
 
       const resources = await client.listResources();
       expect(resources).toHaveLength(0);
     } finally {
-      await client.close();
-      await server.kill();
+      await client?.close();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -284,17 +287,19 @@ test.describe('Empty resource/prompt lists', () => {
       tools: { 'no-prompts_ping': true },
     });
 
-    const server = await startMcpServer(configDir, true);
-    const client = createMcpClient(server.port, server.secret);
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
       await server.waitForHealth(h => h.status === 'ok');
 
       const prompts = await client.listPrompts();
       expect(prompts).toHaveLength(0);
     } finally {
-      await client.close();
-      await server.kill();
+      await client?.close();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
