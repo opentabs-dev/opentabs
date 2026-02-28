@@ -284,7 +284,7 @@ Fetches a URL and parses the response as JSON. Uses the page's session cookies a
 
 ```typescript
 // Unchecked cast (backward compatible)
-function fetchJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T>;
+function fetchJSON<T>(url: string, init?: FetchFromPageOptions): Promise<T | undefined>;
 
 // Zod schema validation — validates the parsed JSON and returns the typed result
 function fetchJSON<T extends z.ZodType>(
@@ -312,7 +312,7 @@ Convenience wrapper for POST requests with a JSON body. Sets `Content-Type: appl
 
 ```typescript
 // Unchecked cast (backward compatible)
-function postJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+function postJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T | undefined>;
 
 // Zod schema validation — validates the parsed JSON and returns the typed result
 function postJSON<T extends z.ZodType>(
@@ -339,7 +339,7 @@ Convenience wrapper for POST requests with a URL-encoded form body. Sets `Conten
 
 ```typescript
 // Unchecked cast (backward compatible)
-function postForm<T>(url: string, body: Record<string, string>, init?: FetchFromPageOptions): Promise<T>;
+function postForm<T>(url: string, body: Record<string, string>, init?: FetchFromPageOptions): Promise<T | undefined>;
 
 // Zod schema validation — validates the parsed JSON and returns the typed result
 function postForm<T extends z.ZodType>(
@@ -362,7 +362,7 @@ Convenience wrapper for POST requests with a multipart/form-data body. Does **no
 
 ```typescript
 // Unchecked cast (backward compatible)
-function postFormData<T>(url: string, body: FormData, init?: FetchFromPageOptions): Promise<T>;
+function postFormData<T>(url: string, body: FormData, init?: FetchFromPageOptions): Promise<T | undefined>;
 
 // Zod schema validation — validates the parsed JSON and returns the typed result
 function postFormData<T extends z.ZodType>(
@@ -384,7 +384,7 @@ const result = await postFormData<{ ok: boolean; file: { id: string } }>('/api/f
 Convenience wrapper for PUT requests with a JSON body. Sets `Content-Type: application/json`, stringifies the body, and parses the JSON response. When a Zod schema is provided as the fourth argument, the parsed JSON is validated against it.
 
 ```typescript
-function putJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+function putJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T | undefined>;
 function putJSON<T extends z.ZodType>(
   url: string, body: unknown, init: FetchFromPageOptions | undefined, schema: T,
 ): Promise<z.infer<T>>;
@@ -402,7 +402,7 @@ const updated = await putJSON<{ ok: boolean }>('/api/users/123', {
 Convenience wrapper for PATCH requests with a JSON body. Sets `Content-Type: application/json`, stringifies the body, and parses the JSON response. When a Zod schema is provided as the fourth argument, the parsed JSON is validated against it.
 
 ```typescript
-function patchJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T>;
+function patchJSON<T>(url: string, body: unknown, init?: FetchFromPageOptions): Promise<T | undefined>;
 function patchJSON<T extends z.ZodType>(
   url: string, body: unknown, init: FetchFromPageOptions | undefined, schema: T,
 ): Promise<z.infer<T>>;
