@@ -196,20 +196,26 @@ const exportHar = defineBrowserTool({
       throw new Error(`Network capture is not active on tab ${args.tabId}. Call browser_enable_network_capture first.`);
     }
 
-    const requestsResult = (await dispatchToExtension(state, 'browser.getNetworkRequests', {
+    const requestsRaw = (await dispatchToExtension(state, 'browser.getNetworkRequests', {
       tabId: args.tabId,
       ...(args.clear !== undefined ? { clear: args.clear } : {}),
-    })) as { requests: CapturedRequest[] };
+    })) as { requests: CapturedRequest[] } | CapturedRequest[];
+    const requests = Array.isArray(requestsRaw)
+      ? requestsRaw
+      : ((requestsRaw as { requests?: CapturedRequest[] }).requests ?? []);
 
-    const entries = requestsResult.requests.map(requestToHarEntry);
+    const entries = requests.map(requestToHarEntry);
 
     if (args.includeWebSocketFrames) {
-      const framesResult = (await dispatchToExtension(state, 'browser.getWebSocketFrames', {
+      const framesRaw = (await dispatchToExtension(state, 'browser.getWebSocketFrames', {
         tabId: args.tabId,
         ...(args.clear !== undefined ? { clear: args.clear } : {}),
-      })) as { frames: CapturedWsFrame[] };
+      })) as { frames: CapturedWsFrame[] } | CapturedWsFrame[];
+      const frames = Array.isArray(framesRaw)
+        ? framesRaw
+        : ((framesRaw as { frames?: CapturedWsFrame[] }).frames ?? []);
 
-      const wsEntries = framesResult.frames.map(wsFrameToHarEntry);
+      const wsEntries = frames.map(wsFrameToHarEntry);
       entries.push(...wsEntries);
     }
 
