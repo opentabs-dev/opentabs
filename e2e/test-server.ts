@@ -10,13 +10,14 @@
  *
  * 1. **Page** — serves the HTML "app" at `/` that the browser opens.
  * 2. **Internal API** — endpoints the plugin calls via fetch:
- *      POST /api/auth.check   — readiness probe (isReady)
- *      POST /api/echo         — echo a message back
- *      POST /api/greet        — compute a greeting
- *      POST /api/list-items   — return a paginated list
- *      POST /api/status       — return server status (zero-input)
- *      POST /api/create-item  — create a new item
- *      POST /api/fail         — always returns an error
+ *      POST /api/auth.check        — readiness probe (isReady)
+ *      POST /api/echo              — echo a message back
+ *      POST /api/greet             — compute a greeting
+ *      POST /api/list-items        — return a paginated list
+ *      POST /api/status            — return server status (zero-input)
+ *      POST /api/create-item       — create a new item
+ *      POST /api/fail              — always returns an error
+ *      PUT|PATCH|DELETE|POST /api/echo-method — echo the HTTP method back
  * 3. **Control** — endpoints the test harness uses to toggle behaviour:
  *      POST /control/set-auth        — { authenticated: boolean }
  *      POST /control/set-error       — { error: boolean } (all API 500s)
@@ -694,6 +695,17 @@ const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void>
     recordInvocation(req, path, body);
     if (await maybeShortCircuit(res)) return;
     sendJson(res, { ok: true, data: 'sdk-fetch-works' });
+    return;
+  }
+
+  // --- Echo method endpoint (used by sdk_http_methods tool) ---
+  // Accepts PUT, PATCH, DELETE, POST and echoes the HTTP method back.
+  const echoMethodMethods = ['PUT', 'PATCH', 'DELETE', 'POST'];
+  if (path === '/api/echo-method' && echoMethodMethods.includes(req.method ?? '')) {
+    const body = await readBody(req);
+    recordInvocation(req, path, body);
+    if (await maybeShortCircuit(res)) return;
+    sendJson(res, { ok: true, method: req.method ?? '' });
     return;
   }
 
