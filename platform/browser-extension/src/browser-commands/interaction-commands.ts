@@ -200,29 +200,34 @@ export const handleBrowserWaitForElement = async (
         new Promise<{ found?: boolean; tagName?: string; text?: string; error?: string }>(resolve => {
           let elapsed = 0;
           const poll = setInterval(() => {
-            const el = document.querySelector(sel);
-            if (el) {
-              const htmlEl = el as HTMLElement;
-              const style = getComputedStyle(htmlEl);
-              const isVisible =
-                !vis ||
-                (style.display !== 'none' &&
-                  style.visibility !== 'hidden' &&
-                  (htmlEl.offsetParent !== null || style.position === 'fixed' || style.position === 'sticky'));
-              if (isVisible) {
-                clearInterval(poll);
-                resolve({
-                  found: true,
-                  tagName: el.tagName.toLowerCase(),
-                  text: (el.textContent || '').trim().slice(0, maxPreview),
-                });
-                return;
+            try {
+              const el = document.querySelector(sel);
+              if (el) {
+                const htmlEl = el as HTMLElement;
+                const style = getComputedStyle(htmlEl);
+                const isVisible =
+                  !vis ||
+                  (style.display !== 'none' &&
+                    style.visibility !== 'hidden' &&
+                    (htmlEl.offsetParent !== null || style.position === 'fixed' || style.position === 'sticky'));
+                if (isVisible) {
+                  clearInterval(poll);
+                  resolve({
+                    found: true,
+                    tagName: el.tagName.toLowerCase(),
+                    text: (el.textContent || '').trim().slice(0, maxPreview),
+                  });
+                  return;
+                }
               }
-            }
-            elapsed += pollMs;
-            if (elapsed >= tmo) {
+              elapsed += pollMs;
+              if (elapsed >= tmo) {
+                clearInterval(poll);
+                resolve({ error: `Timeout waiting for element: ${sel} (${tmo}ms)` });
+              }
+            } catch (err) {
               clearInterval(poll);
-              resolve({ error: `Timeout waiting for element: ${sel} (${tmo}ms)` });
+              resolve({ error: `Error checking element: ${err instanceof Error ? err.message : String(err)}` });
             }
           }, pollMs);
         }),
