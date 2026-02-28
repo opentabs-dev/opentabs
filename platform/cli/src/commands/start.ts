@@ -294,7 +294,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   process.exit(exitCode);
 };
 
-export const registerStartCommand = (program: Command): void => {
+const registerStartCommand = (program: Command): void => {
   program
     .command('start')
     .description('Start the MCP server')
@@ -310,3 +310,5 @@ Examples:
     )
     .action((_options: StartOptions, command: Command) => handleStart(command.optsWithGlobals()));
 };
+
+export { printMcpClientConfigs, registerStartCommand };

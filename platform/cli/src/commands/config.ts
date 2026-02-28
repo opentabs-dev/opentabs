@@ -2,6 +2,7 @@
  * `opentabs config` command — view and manage configuration.
  */
 
+import { printMcpClientConfigs } from './start.js';
 import {
   atomicWriteConfig,
   getConfigPath,
@@ -12,7 +13,7 @@ import {
 } from '../config.js';
 import { notifyServer } from '../notify-server.js';
 import { resolvePort } from '../parse-port.js';
-import { atomicWrite, generateSecret, toErrorMessage } from '@opentabs-dev/shared';
+import { atomicWrite, DEFAULT_PORT, generateSecret, toErrorMessage } from '@opentabs-dev/shared';
 import pc from 'picocolors';
 import { existsSync } from 'node:fs';
 import { access, mkdir, unlink } from 'node:fs/promises';
@@ -104,6 +105,15 @@ const handleConfigShow = async (options: ConfigShowOptions): Promise<void> => {
     if (displaySecret) {
       console.log('');
       console.log(`  ${pc.cyan('secret')}  ${pc.dim(displaySecret)}`);
+    }
+
+    if (options.showSecret && secret) {
+      const port = typeof config.port === 'number' ? config.port : DEFAULT_PORT;
+      const mcpUrl = `http://127.0.0.1:${port}/mcp`;
+      console.log('');
+      console.log(pc.dim('  MCP client config (add to your client):'));
+      console.log('');
+      printMcpClientConfigs(mcpUrl, secret);
     }
   }
 };
