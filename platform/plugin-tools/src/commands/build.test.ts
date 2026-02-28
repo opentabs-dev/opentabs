@@ -9,6 +9,7 @@ import {
   generateToolsManifest,
   minifySvg,
   readAndValidateIcons,
+  resolvePluginPathForComparison,
   validatePlugin,
 } from './build.js';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -929,5 +930,29 @@ describe('readAndValidateIcons', () => {
     const result = await readAndValidateIcons(tmpDir);
     expect(result.iconInactiveSvg).not.toContain('#ff0000');
     expect(result.iconInactiveSvg).not.toContain('#00ff00');
+  });
+});
+
+describe('resolvePluginPathForComparison', () => {
+  const configDir = '/home/user/.opentabs';
+
+  test('Unix absolute path is returned as-is', () => {
+    expect(resolvePluginPathForComparison('/Users/me/plugins/my-plugin', configDir)).toBe(
+      '/Users/me/plugins/my-plugin',
+    );
+  });
+
+  test('home-relative path is expanded against homedir', () => {
+    const result = resolvePluginPathForComparison('~/plugins/my-plugin', configDir);
+    expect(result).toMatch(/^\/.*\/plugins\/my-plugin$/);
+    expect(result).not.toContain('~');
+  });
+
+  test('relative path is resolved against configDir', () => {
+    expect(resolvePluginPathForComparison('my-plugin', configDir)).toBe('/home/user/.opentabs/my-plugin');
+  });
+
+  test('relative path with subdirectory components is resolved against configDir', () => {
+    expect(resolvePluginPathForComparison('../other/plugin', configDir)).toBe('/home/user/other/plugin');
   });
 });

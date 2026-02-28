@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, rmSync, statSync, watch, writeFileSync } from 'node:fs';
 import { access, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { resolve, join, relative, dirname } from 'node:path';
+import { resolve, join, relative, dirname, isAbsolute } from 'node:path';
 import type {
   ManifestTool,
   OpenTabsPlugin,
@@ -154,7 +154,7 @@ const acquireConfigLock = async (configPath: string): Promise<() => void> => {
  * Handles both absolute paths and relative paths (resolved against configDir).
  */
 const resolvePluginPathForComparison = (storedPath: string, configDir: string): string => {
-  if (storedPath.startsWith('/')) return storedPath;
+  if (isAbsolute(storedPath)) return storedPath;
   if (storedPath.startsWith('~/')) return resolve(homedir(), storedPath.slice(2));
   return resolve(configDir, storedPath);
 };
@@ -1269,6 +1269,7 @@ export {
   readAndValidateIcons,
   registerBuildCommand,
   registerInConfig,
+  resolvePluginPathForComparison,
   resolveSdkVersion,
   validatePackageJson,
   validatePlugin,
