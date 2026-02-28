@@ -93,6 +93,8 @@ Here's what each field does:
 
 Beyond tools, your plugin can also declare `resources` (read-only data the agent can browse) and `prompts` (reusable message templates). Both require the `override` keyword because they are optional properties with default values on the base class — `tools` is abstract and does not require `override`. See [Resources & Prompts](/docs/guides/resources-prompts) for the full guide.
 
+Similarly, lifecycle hooks (`onActivate`, `onDeactivate`, `onNavigate`, `onToolInvocationStart`, `onToolInvocationEnd`) require `override` because they are optional methods defined on the base class (TypeScript's `noImplicitOverride` rule enforces this). See [Lifecycle Hooks](/docs/sdk/lifecycle-hooks) for usage examples.
+
 ### Implementing isReady()
 
 `isReady()` runs in the page context, so you have access to the DOM, localStorage, and cookies. Common patterns:
