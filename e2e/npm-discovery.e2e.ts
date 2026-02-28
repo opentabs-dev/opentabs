@@ -21,6 +21,7 @@ import {
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { McpServer, McpClient } from './fixtures.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -138,8 +139,9 @@ test.describe('npm auto-discovery pipeline', () => {
     const config = configWithPlugins([], { 'npm-disc-basic_ping': true });
     writeTestConfig(configDir, config);
 
-    const server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
+    let server: McpServer | undefined;
     try {
+      server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
       const health = await server.waitForHealth(h => {
         const npmPlugin = h.pluginDetails?.find(p => p.name === 'npm-disc-basic');
         return npmPlugin !== undefined;
@@ -151,7 +153,7 @@ test.describe('npm auto-discovery pipeline', () => {
       expect(npmPlugin?.toolCount).toBe(1);
       expect(npmPlugin?.displayName).toBe('NPM npm-disc-basic');
     } finally {
-      await server.kill();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(prefixDir, { recursive: true, force: true });
     }
@@ -170,9 +172,11 @@ test.describe('npm auto-discovery pipeline', () => {
     });
     writeTestConfig(configDir, config);
 
-    const server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
-    const client = createMcpClient(server.port, server.secret);
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
 
       const health = await server.waitForHealth(h => {
@@ -192,8 +196,8 @@ test.describe('npm auto-discovery pipeline', () => {
       expect(tools.some(t => t.name === 'npm-disc-health_status')).toBe(true);
       expect(tools.some(t => t.name === 'npm-disc-health_info')).toBe(true);
     } finally {
-      await client.close();
-      await server.kill();
+      await client?.close();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(prefixDir, { recursive: true, force: true });
     }
@@ -208,9 +212,11 @@ test.describe('npm auto-discovery pipeline', () => {
     const config = configWithPlugins([], { 'npm-disc-call_echo': true });
     writeTestConfig(configDir, config);
 
-    const server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
-    const client = createMcpClient(server.port, server.secret);
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
 
       await server.waitForHealth(h => {
@@ -225,8 +231,8 @@ test.describe('npm auto-discovery pipeline', () => {
       // The error message should indicate the tab is not ready, not "unknown tool"
       expect(result.content).not.toContain('Unknown tool');
     } finally {
-      await client.close();
-      await server.kill();
+      await client?.close();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(prefixDir, { recursive: true, force: true });
     }
@@ -295,9 +301,11 @@ test.describe('npm auto-discovery pipeline', () => {
     const config = configWithPlugins();
     writeTestConfig(configDir, config);
 
-    const server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
-    const client = createMcpClient(server.port, server.secret);
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
     try {
+      server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
+      client = createMcpClient(server.port, server.secret);
       await client.initialize();
 
       const health = await server.waitForHealth(h => {
@@ -317,8 +325,8 @@ test.describe('npm auto-discovery pipeline', () => {
       expect(tools.some(t => t.name.startsWith('e2e-test_'))).toBe(true);
       expect(tools.some(t => t.name === 'e2e-test_npm-only-tool')).toBe(false);
     } finally {
-      await client.close();
-      await server.kill();
+      await client?.close();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(prefixDir, { recursive: true, force: true });
     }
@@ -334,8 +342,9 @@ test.describe('npm auto-discovery pipeline', () => {
     const config = configWithPlugins();
     writeTestConfig(configDir, config);
 
-    const server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
+    let server: McpServer | undefined;
     try {
+      server = await startMcpServer(configDir, true, undefined, npmDiscoveryEnv(prefixDir));
       const health = await server.waitForHealth(h => h.status === 'ok', 30_000);
 
       // Only local plugins should be present (the e2e-test plugin)
@@ -349,7 +358,7 @@ test.describe('npm auto-discovery pipeline', () => {
       expect(e2ePlugin).toBeDefined();
       expect(e2ePlugin?.source).toBe('local');
     } finally {
-      await server.kill();
+      await server?.kill();
       cleanupTestConfigDir(configDir);
       fs.rmSync(prefixDir, { recursive: true, force: true });
     }
