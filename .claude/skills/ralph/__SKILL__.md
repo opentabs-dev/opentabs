@@ -111,6 +111,8 @@ Multiple PRDs can be `~running` simultaneously (one per worker). This skill writ
 
 **Important:** Do NOT start implementing. Just create and publish the PRD file(s). Distributed workers will claim them from the remote queue.
 
+**Never ask for confirmation before publishing.** Always publish all PRDs immediately after writing and validating them. The user has already approved the task by requesting it — publishing is the final step, not a decision point.
+
 ---
 
 ## Step 1: Determine Target Project
