@@ -197,6 +197,16 @@ describe('validateUrlPattern', () => {
       expect(error).toContain('not a valid Chrome match pattern');
     });
   });
+
+  describe('ReDoS protection', () => {
+    test('completes in bounded time for pathological input (ReDoS protection)', () => {
+      const start = Date.now();
+      const result = validateUrlPattern('*://' + 'a'.repeat(50) + '!/path');
+      const elapsed = Date.now() - start;
+      expect(result).not.toBeNull(); // invalid host — returns error string
+      expect(elapsed).toBeLessThan(100); // must complete in under 100ms
+    });
+  });
 });
 
 describe('validatePluginName', () => {

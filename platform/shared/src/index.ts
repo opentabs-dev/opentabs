@@ -424,7 +424,7 @@ export const validateUrlPattern = (pattern: string): string | null => {
     host !== '*' &&
     !/^localhost(:\d+)?$/.test(host) &&
     !/^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(host) &&
-    !/^(\*\.)?[a-z0-9]+([-.]?[a-z0-9]+)*\.[a-z]{2,}$/i.test(host)
+    !/^(\*\.)?[a-z0-9]+([-.][a-z0-9]+)*\.[a-z]{2,}$/i.test(host)
   ) {
     return `URL pattern "${pattern}" has an invalid host "${host}"`;
   }
