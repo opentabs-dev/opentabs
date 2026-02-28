@@ -57,7 +57,7 @@ interface PromptDefinition {
       <Table.Cell className="font-medium">`name`</Table.Cell>
       <Table.Cell>`string`</Table.Cell>
       <Table.Cell>Yes</Table.Cell>
-      <Table.Cell>Prompt name (e.g., `'compose_message'`). Must be non-empty. Auto-prefixed with `<plugin>_` for MCP registration.</Table.Cell>
+      <Table.Cell>Prompt name (e.g., `'compose_message'`). Must match `^[a-z0-9][a-z0-9_-]*$`. Auto-prefixed with `<plugin>_` for MCP registration.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`description`</Table.Cell>
@@ -167,6 +167,8 @@ interface PromptMessage {
 ## Name Prefixing
 
 Prompt names are automatically prefixed with `<plugin>_` for MCP registration. A prompt named `compose_message` in a plugin named `slack` becomes `slack_compose_message` at the MCP level. You define just the unprefixed name.
+
+Prompt names must match `^[a-z0-9][a-z0-9_-]*$` — start with a lowercase letter or digit; may contain lowercase letters, digits, underscores, and hyphens.
 
 ## Example
 
