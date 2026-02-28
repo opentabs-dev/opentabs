@@ -102,6 +102,20 @@ describe('waitForSelector', () => {
     setTimeout(() => controller.abort(new Error('mid-wait abort')), 20);
     await expect(promise).rejects.toThrow('mid-wait abort');
   });
+
+  test('resolves when element is added between initial check and observer setup (TOCTOU race)', async () => {
+    const fakeEl = document.createElement('div');
+    fakeEl.id = 'race-target';
+    let callCount = 0;
+    vi.spyOn(document, 'querySelector').mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return null; // initial check: element not yet present
+      return fakeEl; // re-check after observe: element appeared in the race window
+    });
+
+    const el = await waitForSelector('#race-target', { timeout: 5000 });
+    expect(el).toBe(fakeEl);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -188,6 +202,19 @@ describe('waitForSelectorRemoval', () => {
     const promise = waitForSelectorRemoval('#persistent', { timeout: 10_000, signal: controller.signal });
     setTimeout(() => controller.abort(new Error('mid-wait removal abort')), 20);
     await expect(promise).rejects.toThrow('mid-wait removal abort');
+  });
+
+  test('resolves when element is removed between initial check and observer setup (TOCTOU race)', async () => {
+    const fakeEl = document.createElement('div');
+    fakeEl.id = 'race-removal-target';
+    let callCount = 0;
+    vi.spyOn(document, 'querySelector').mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return fakeEl; // initial check: element still present
+      return null; // re-check after observe: element was removed in the race window
+    });
+
+    await waitForSelectorRemoval('#race-removal-target', { timeout: 5000 });
   });
 });
 

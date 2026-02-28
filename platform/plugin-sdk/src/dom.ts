@@ -104,6 +104,21 @@ export const waitForSelector = <T extends Element = Element>(
       subtree: true,
       attributes: needsAttributeObservation(selector),
     });
+
+    // Re-check after observe to close the TOCTOU race window: element may have
+    // been added between the initial querySelector and observer.observe().
+    try {
+      const el = document.querySelector(selector);
+      if (el) {
+        settled = true;
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        observer.disconnect();
+        resolve(el as T);
+      }
+    } catch {
+      // querySelector errors are handled by the observer callback
+    }
   });
 };
 
@@ -186,6 +201,21 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
       subtree: true,
       attributes: needsAttributeObservation(selector),
     });
+
+    // Re-check after observe to close the TOCTOU race window: element may have
+    // been removed between the initial querySelector and observer.observe().
+    try {
+      const el = document.querySelector(selector);
+      if (!el) {
+        settled = true;
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
+        observer.disconnect();
+        resolve();
+      }
+    } catch {
+      // querySelector errors are handled by the observer callback
+    }
   });
 };
 
