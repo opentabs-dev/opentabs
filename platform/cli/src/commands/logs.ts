@@ -130,10 +130,16 @@ const followFile = async (filePath: string, initialOffset: number, filter?: stri
     });
     stream.on('error', () => {
       reading = false;
+      if (readRequested) {
+        readRequested = false;
+        setTimeout(readNewContent, 100);
+      }
     });
   };
 
   const watcher = watch(filePath, () => readNewContent());
+  // Read immediately to catch content written between tailFile and watcher setup
+  readNewContent();
 
   const cleanup = () => {
     watcher.close();
@@ -208,4 +214,4 @@ Examples:
     .action((options: LogsOptions) => handleLogs(options));
 };
 
-export { registerLogsCommand };
+export { followFile, registerLogsCommand };
