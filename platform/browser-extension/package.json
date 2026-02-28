@@ -30,7 +30,7 @@
     "@radix-ui/react-tooltip": "^1.2.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.3",
+    "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.3.7"
   },
   "devDependencies": {
