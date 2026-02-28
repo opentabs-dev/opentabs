@@ -3234,7 +3234,7 @@ export const PluginStructure = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-primary)"
         opacity="0.6">
-        {'defineTool({ name, input, output, handle })'}
+        {'defineTool({ name, description, input, ... })'}
       </text>
 
       <rect
