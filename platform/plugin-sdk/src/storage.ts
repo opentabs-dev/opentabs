@@ -2,6 +2,8 @@
 // Storage utilities for plugin authors
 // ---------------------------------------------------------------------------
 
+import { log } from './log.js';
+
 /**
  * Reads a value from localStorage. Returns null if the key is not found or
  * if storage access throws (e.g., SecurityError in sandboxed iframes).
@@ -15,14 +17,14 @@ export const getLocalStorage = (key: string): string | null => {
 };
 
 /**
- * Writes a value to localStorage. Silently fails if storage access throws
- * (e.g., SecurityError in sandboxed iframes or when storage is full).
+ * Writes a value to localStorage. Logs a warning if storage access throws
+ * (e.g., SecurityError in sandboxed iframes or QuotaExceededError when storage is full).
  */
 export const setLocalStorage = (key: string, value: string): void => {
   try {
     localStorage.setItem(key, value);
-  } catch {
-    // Silently fail on SecurityError or QuotaExceededError
+  } catch (error) {
+    log.warn(`setLocalStorage failed for key "${key}"`, error);
   }
 };
 
@@ -39,38 +41,38 @@ export const getSessionStorage = (key: string): string | null => {
 };
 
 /**
- * Writes a value to sessionStorage. Silently fails if storage access throws
- * (e.g., SecurityError in sandboxed iframes or when storage is full).
+ * Writes a value to sessionStorage. Logs a warning if storage access throws
+ * (e.g., SecurityError in sandboxed iframes or QuotaExceededError when storage is full).
  */
 export const setSessionStorage = (key: string, value: string): void => {
   try {
     sessionStorage.setItem(key, value);
-  } catch {
-    // Silently fail on SecurityError or QuotaExceededError
+  } catch (error) {
+    log.warn(`setSessionStorage failed for key "${key}"`, error);
   }
 };
 
 /**
- * Removes a key from localStorage. Silently fails if storage access throws
+ * Removes a key from localStorage. Logs a warning if storage access throws
  * (e.g., SecurityError in sandboxed iframes).
  */
 export const removeLocalStorage = (key: string): void => {
   try {
     localStorage.removeItem(key);
-  } catch {
-    // Silently fail on SecurityError
+  } catch (error) {
+    log.warn(`removeLocalStorage failed for key "${key}"`, error);
   }
 };
 
 /**
- * Removes a key from sessionStorage. Silently fails if storage access throws
+ * Removes a key from sessionStorage. Logs a warning if storage access throws
  * (e.g., SecurityError in sandboxed iframes).
  */
 export const removeSessionStorage = (key: string): void => {
   try {
     sessionStorage.removeItem(key);
-  } catch {
-    // Silently fail on SecurityError
+  } catch (error) {
+    log.warn(`removeSessionStorage failed for key "${key}"`, error);
   }
 };
 

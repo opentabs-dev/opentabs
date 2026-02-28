@@ -16,6 +16,53 @@ describe('sleep', () => {
   test('resolves with undefined', async () => {
     await sleep(10);
   });
+
+  test('rejects immediately when signal is already aborted with custom reason', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('cancelled'));
+    try {
+      await sleep(10_000, { signal: controller.signal });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('cancelled');
+    }
+  });
+
+  test('rejects promptly when signal is aborted during sleep', async () => {
+    const controller = new AbortController();
+    const start = performance.now();
+    const sleepPromise = sleep(10_000, { signal: controller.signal });
+    setTimeout(() => controller.abort(new Error('user cancelled')), 50);
+    try {
+      await sleepPromise;
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toBe('user cancelled');
+    }
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeLessThan(2_000);
+  });
+
+  test('throws DOMException when signal is aborted without custom reason', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      await sleep(10_000, { signal: controller.signal });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(DOMException);
+      expect((error as DOMException).name).toBe('AbortError');
+    }
+  });
+
+  test('behaves identically to no-signal when opts.signal is undefined', async () => {
+    const start = performance.now();
+    await sleep(50, { signal: undefined });
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeGreaterThanOrEqual(40);
+  });
 });
 
 // ---------------------------------------------------------------------------

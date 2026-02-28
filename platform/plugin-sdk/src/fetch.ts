@@ -25,6 +25,12 @@ export const httpStatusToToolError = (response: Response, message: string): Tool
     const retryAfterMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
     return ToolError.rateLimited(message, retryAfterMs);
   }
+  if (status === 400 || status === 422) {
+    return ToolError.validation(message);
+  }
+  if (status === 408) {
+    return ToolError.timeout(message);
+  }
   if (status >= 500) {
     const retryAfter = status === 503 ? response.headers.get('Retry-After') : null;
     const retryAfterMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;

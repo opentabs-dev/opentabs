@@ -85,6 +85,24 @@ beforeAll(
           return;
         }
 
+        if (url.pathname === '/error-400') {
+          res.writeHead(400);
+          res.end('Bad Request');
+          return;
+        }
+
+        if (url.pathname === '/error-408') {
+          res.writeHead(408);
+          res.end('Request Timeout');
+          return;
+        }
+
+        if (url.pathname === '/error-422') {
+          res.writeHead(422);
+          res.end('Unprocessable Entity');
+          return;
+        }
+
         if (url.pathname === '/invalid-json') {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end('this is not json');
@@ -306,6 +324,48 @@ describe('fetchFromPage', () => {
       expect(toolError.retryable).toBe(true);
       expect(toolError.retryAfterMs).toBe(60_000);
       expect(toolError.message).toContain('HTTP 503');
+    }
+  });
+
+  test('throws ToolError with validation category on 400 status', async () => {
+    try {
+      await fetchFromPage(`${baseUrl}/error-400`);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.code).toBe('VALIDATION_ERROR');
+      expect(toolError.category).toBe('validation');
+      expect(toolError.retryable).toBe(false);
+      expect(toolError.message).toContain('HTTP 400');
+    }
+  });
+
+  test('throws retryable ToolError with timeout category on 408 status', async () => {
+    try {
+      await fetchFromPage(`${baseUrl}/error-408`);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.code).toBe('TIMEOUT');
+      expect(toolError.category).toBe('timeout');
+      expect(toolError.retryable).toBe(true);
+      expect(toolError.message).toContain('HTTP 408');
+    }
+  });
+
+  test('throws ToolError with validation category on 422 status', async () => {
+    try {
+      await fetchFromPage(`${baseUrl}/error-422`);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.code).toBe('VALIDATION_ERROR');
+      expect(toolError.category).toBe('validation');
+      expect(toolError.retryable).toBe(false);
+      expect(toolError.message).toContain('HTTP 422');
     }
   });
 

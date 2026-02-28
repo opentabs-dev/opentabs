@@ -77,6 +77,31 @@ describe('waitForSelector', () => {
 
     await expect(promise).rejects.toThrow('simulated querySelector failure in callback');
   });
+
+  test('rejects immediately when signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort(new Error('pre-aborted'));
+    await expect(waitForSelector('#target', { signal: controller.signal })).rejects.toThrow('pre-aborted');
+  });
+
+  test('throws DOMException when signal is aborted without custom reason', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      await waitForSelector('#target', { signal: controller.signal });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(DOMException);
+      expect((error as DOMException).name).toBe('AbortError');
+    }
+  });
+
+  test('rejects promptly when signal is aborted mid-wait', async () => {
+    const controller = new AbortController();
+    const promise = waitForSelector('#nonexistent', { timeout: 10_000, signal: controller.signal });
+    setTimeout(() => controller.abort(new Error('mid-wait abort')), 20);
+    await expect(promise).rejects.toThrow('mid-wait abort');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -133,6 +158,36 @@ describe('waitForSelectorRemoval', () => {
     });
 
     await expect(promise).rejects.toThrow('simulated querySelector failure in removal callback');
+  });
+
+  test('rejects immediately when signal is already aborted', async () => {
+    document.body.innerHTML = '<div id="persistent">stays</div>';
+    const controller = new AbortController();
+    controller.abort(new Error('pre-aborted removal'));
+    await expect(waitForSelectorRemoval('#persistent', { signal: controller.signal })).rejects.toThrow(
+      'pre-aborted removal',
+    );
+  });
+
+  test('throws DOMException when signal is aborted without custom reason', async () => {
+    document.body.innerHTML = '<div id="persistent">stays</div>';
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      await waitForSelectorRemoval('#persistent', { signal: controller.signal });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(DOMException);
+      expect((error as DOMException).name).toBe('AbortError');
+    }
+  });
+
+  test('rejects promptly when signal is aborted mid-wait', async () => {
+    document.body.innerHTML = '<div id="persistent">stays</div>';
+    const controller = new AbortController();
+    const promise = waitForSelectorRemoval('#persistent', { timeout: 10_000, signal: controller.signal });
+    setTimeout(() => controller.abort(new Error('mid-wait removal abort')), 20);
+    await expect(promise).rejects.toThrow('mid-wait removal abort');
   });
 });
 

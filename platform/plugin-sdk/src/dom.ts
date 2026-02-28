@@ -11,6 +11,8 @@ const needsAttributeObservation = (selector: string): boolean => selector.includ
 export interface WaitForSelectorOptions {
   /** Timeout in milliseconds (default: 10000) */
   timeout?: number;
+  /** AbortSignal to cancel the wait early */
+  signal?: AbortSignal;
 }
 
 export interface ObserveDOMOptions {
@@ -32,6 +34,11 @@ export const waitForSelector = <T extends Element = Element>(
   opts?: WaitForSelectorOptions,
 ): Promise<T> => {
   const timeout = opts?.timeout ?? 10_000;
+  const signal = opts?.signal;
+
+  const abortReason = () => (signal?.reason instanceof Error ? signal.reason : new Error('waitForSelector: aborted'));
+
+  if (signal?.aborted) return Promise.reject(abortReason());
 
   return new Promise<T>((resolve, reject) => {
     let existing: Element | null;
@@ -48,9 +55,21 @@ export const waitForSelector = <T extends Element = Element>(
     }
 
     let settled = false;
+
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      observer.disconnect();
+      reject(abortReason());
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
+      signal?.removeEventListener('abort', onAbort);
       observer.disconnect();
       reject(new Error(`waitForSelector: timed out after ${timeout}ms waiting for "${selector}"`));
     }, timeout);
@@ -63,6 +82,7 @@ export const waitForSelector = <T extends Element = Element>(
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         observer.disconnect();
         reject(
           err instanceof Error ? err : new Error(`waitForSelector: querySelector threw for selector "${selector}"`),
@@ -73,6 +93,7 @@ export const waitForSelector = <T extends Element = Element>(
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         observer.disconnect();
         resolve(el as T);
       }
@@ -92,6 +113,12 @@ export const waitForSelector = <T extends Element = Element>(
  */
 export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorOptions): Promise<void> => {
   const timeout = opts?.timeout ?? 10_000;
+  const signal = opts?.signal;
+
+  const abortReason = () =>
+    signal?.reason instanceof Error ? signal.reason : new Error('waitForSelectorRemoval: aborted');
+
+  if (signal?.aborted) return Promise.reject(abortReason());
 
   return new Promise<void>((resolve, reject) => {
     let hasElement: boolean;
@@ -108,9 +135,21 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
     }
 
     let settled = false;
+
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      observer.disconnect();
+      reject(abortReason());
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
+      signal?.removeEventListener('abort', onAbort);
       observer.disconnect();
       reject(new Error(`waitForSelectorRemoval: timed out after ${timeout}ms waiting for "${selector}" to be removed`));
     }, timeout);
@@ -123,6 +162,7 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         observer.disconnect();
         reject(
           err instanceof Error
@@ -135,6 +175,7 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
         if (settled) return;
         settled = true;
         clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
         observer.disconnect();
         resolve();
       }

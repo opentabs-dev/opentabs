@@ -319,7 +319,7 @@ export type {
 // ---------------------------------------------------------------------------
 
 export { retry, sleep, waitUntil } from './timing.js';
-export type { RetryOptions, WaitUntilOptions } from './timing.js';
+export type { RetryOptions, SleepOptions, WaitUntilOptions } from './timing.js';
 
 // ---------------------------------------------------------------------------
 // SDK utilities — Storage

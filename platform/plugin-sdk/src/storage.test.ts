@@ -1,3 +1,4 @@
+import { _setLogTransport } from './log.js';
 import {
   getCookie,
   getLocalStorage,
@@ -9,6 +10,7 @@ import {
 } from './storage.js';
 import { GlobalWindow } from 'happy-dom';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import type { LogEntry } from './log.js';
 
 let win: GlobalWindow;
 
@@ -103,6 +105,57 @@ describe('setLocalStorage', () => {
       writable: true,
     });
   });
+
+  test('emits log.warn when localStorage throws SecurityError', () => {
+    const entries: LogEntry[] = [];
+    const restore = _setLogTransport(entry => entries.push(entry));
+    try {
+      Object.defineProperty(globalThis, 'localStorage', {
+        get: () => {
+          throw new DOMException('Access denied', 'SecurityError');
+        },
+        configurable: true,
+      });
+      setLocalStorage('sec-key', 'value');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.message).toContain('sec-key');
+    } finally {
+      restore();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: win.localStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  test('emits log.warn when localStorage.setItem throws QuotaExceededError', () => {
+    const entries: LogEntry[] = [];
+    const restore = _setLogTransport(entry => entries.push(entry));
+    try {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: {
+          setItem: () => {
+            throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+          },
+        },
+        configurable: true,
+        writable: true,
+      });
+      setLocalStorage('quota-key', 'value');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.message).toContain('quota-key');
+    } finally {
+      restore();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: win.localStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -133,6 +186,30 @@ describe('removeLocalStorage', () => {
       configurable: true,
       writable: true,
     });
+  });
+
+  test('emits log.warn when localStorage throws SecurityError', () => {
+    const entries: LogEntry[] = [];
+    const restore = _setLogTransport(entry => entries.push(entry));
+    try {
+      Object.defineProperty(globalThis, 'localStorage', {
+        get: () => {
+          throw new DOMException('Access denied', 'SecurityError');
+        },
+        configurable: true,
+      });
+      removeLocalStorage('rm-key');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.message).toContain('rm-key');
+    } finally {
+      restore();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: win.localStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 });
 
@@ -208,6 +285,57 @@ describe('setSessionStorage', () => {
       writable: true,
     });
   });
+
+  test('emits log.warn when sessionStorage throws SecurityError', () => {
+    const entries: LogEntry[] = [];
+    const restore = _setLogTransport(entry => entries.push(entry));
+    try {
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        get: () => {
+          throw new DOMException('Access denied', 'SecurityError');
+        },
+        configurable: true,
+      });
+      setSessionStorage('sec-key', 'value');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.message).toContain('sec-key');
+    } finally {
+      restore();
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        value: win.sessionStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+
+  test('emits log.warn when sessionStorage.setItem throws QuotaExceededError', () => {
+    const entries: LogEntry[] = [];
+    const restore = _setLogTransport(entry => entries.push(entry));
+    try {
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        value: {
+          setItem: () => {
+            throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+          },
+        },
+        configurable: true,
+        writable: true,
+      });
+      setSessionStorage('quota-key', 'value');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.message).toContain('quota-key');
+    } finally {
+      restore();
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        value: win.sessionStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -238,6 +366,30 @@ describe('removeSessionStorage', () => {
       configurable: true,
       writable: true,
     });
+  });
+
+  test('emits log.warn when sessionStorage throws SecurityError', () => {
+    const entries: LogEntry[] = [];
+    const restore = _setLogTransport(entry => entries.push(entry));
+    try {
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        get: () => {
+          throw new DOMException('Access denied', 'SecurityError');
+        },
+        configurable: true,
+      });
+      removeSessionStorage('rm-key');
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.level).toBe('warning');
+      expect(entries[0]?.message).toContain('rm-key');
+    } finally {
+      restore();
+      Object.defineProperty(globalThis, 'sessionStorage', {
+        value: win.sessionStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 });
 

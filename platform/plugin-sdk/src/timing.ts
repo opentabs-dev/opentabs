@@ -24,10 +24,38 @@ export interface WaitUntilOptions {
   signal?: AbortSignal;
 }
 
+export interface SleepOptions {
+  /** AbortSignal to cancel the sleep early */
+  signal?: AbortSignal;
+}
+
 /**
- * Returns a promise that resolves after `ms` milliseconds.
+ * Returns a promise that resolves after `ms` milliseconds. Optionally accepts
+ * an AbortSignal to cancel the sleep early.
  */
-export const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+export const sleep = (ms: number, opts?: SleepOptions): Promise<void> => {
+  const signal = opts?.signal;
+  if (!signal) return new Promise(resolve => setTimeout(resolve, ms));
+
+  if (signal.aborted)
+    return Promise.reject(
+      signal.reason instanceof Error ? signal.reason : new DOMException('sleep aborted', 'AbortError'),
+    );
+
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason instanceof Error ? signal.reason : new DOMException('sleep aborted', 'AbortError'));
+    };
+
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+};
 
 /**
  * Retries `fn` on failure up to `maxAttempts` times. Waits `delay` ms between
