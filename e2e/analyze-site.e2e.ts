@@ -262,9 +262,9 @@ test.describe('plugin_analyze_site — GraphQL API', () => {
     expect(analysis.suggestions.length).toBeGreaterThanOrEqual(1);
 
     // The generic graphql_query suggestion should be present
-    const graphqlQuerySuggestion = analysis.suggestions.find(s => s.toolName === 'graphql_query');
-    expect(graphqlQuerySuggestion).toBeDefined();
-    expect(graphqlQuerySuggestion?.approach).toContain('/graphql');
+    expect(analysis.suggestions).toContainEqual(
+      expect.objectContaining({ toolName: 'graphql_query', approach: expect.stringContaining('/graphql') }),
+    );
 
     // Named operation suggestions (gql_get_users, gql_get_items, gql_create_item)
     const gqlSuggestions = analysis.suggestions.filter(s => s.toolName.startsWith('gql_'));
@@ -417,9 +417,8 @@ test.describe('plugin_analyze_site — tRPC API', () => {
     expect(trpcEndpoint).toBeDefined();
 
     // Should detect both GET (query) and POST (mutation) tRPC calls
-    const trpcMethods = new Set(trpcEndpoints.map(e => e.method));
-    expect(trpcMethods.has('GET')).toBe(true);
-    expect(trpcMethods.has('POST')).toBe(true);
+    expect(trpcEndpoints).toContainEqual(expect.objectContaining({ method: 'GET' }));
+    expect(trpcEndpoints).toContainEqual(expect.objectContaining({ method: 'POST' }));
 
     // --- Suggestions ---
     // tRPC endpoints should generate procedure-based suggestions (trpc_<procedure>)
@@ -456,9 +455,9 @@ test.describe('plugin_analyze_site — WebSocket real-time connection', () => {
 
     // --- Suggestions ---
     // WebSocket endpoints should generate a subscribe_realtime suggestion
-    const wsSuggestion = analysis.suggestions.find(s => s.toolName === 'subscribe_realtime');
-    expect(wsSuggestion).toBeDefined();
-    expect(wsSuggestion?.approach).toContain('/ws');
+    expect(analysis.suggestions).toContainEqual(
+      expect.objectContaining({ toolName: 'subscribe_realtime', approach: expect.stringContaining('/ws') }),
+    );
 
     // --- REST API also detected ---
     // The page also makes a REST call to /websocket-app/api/config
@@ -515,10 +514,9 @@ test.describe('plugin_analyze_site — mixed auth (cookie + CSRF + Bearer)', () 
     expect(bearerMethods.length).toBeGreaterThanOrEqual(1);
 
     // --- All three auth types present ---
-    const authTypes = new Set(analysis.auth.methods.map(m => m.type));
-    expect(authTypes.has('cookie-session')).toBe(true);
-    expect(authTypes.has('csrf-token')).toBe(true);
-    expect(authTypes.has('bearer-header')).toBe(true);
+    expect(analysis.auth.methods).toContainEqual(expect.objectContaining({ type: 'cookie-session' }));
+    expect(analysis.auth.methods).toContainEqual(expect.objectContaining({ type: 'csrf-token' }));
+    expect(analysis.auth.methods).toContainEqual(expect.objectContaining({ type: 'bearer-header' }));
 
     // --- API detection ---
     // The page makes GET and POST requests to /mixed-auth/api/* endpoints
@@ -596,31 +594,27 @@ test.describe('plugin_analyze_site — suggestion generation quality', () => {
     }
 
     // --- REST endpoint GET /api/items → 'list_items' suggestion ---
-    const listItemsSuggestion = analysis.suggestions.find(s => s.toolName === 'list_items');
-    expect(listItemsSuggestion).toBeDefined();
-    if (listItemsSuggestion) {
-      // toolName follows snake_case convention
-      expect(listItemsSuggestion.toolName).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(listItemsSuggestion.approach).toContain('/api/items');
-      expect(listItemsSuggestion.complexity).toBe('low');
-    }
+    expect(analysis.suggestions).toContainEqual(
+      expect.objectContaining({
+        toolName: 'list_items',
+        approach: expect.stringContaining('/api/items'),
+        complexity: 'low',
+      }),
+    );
 
     // --- REST endpoint POST /api/items → 'create_items' suggestion ---
-    const createItemsSuggestion = analysis.suggestions.find(s => s.toolName === 'create_items');
-    expect(createItemsSuggestion).toBeDefined();
-    if (createItemsSuggestion) {
-      expect(createItemsSuggestion.toolName).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(createItemsSuggestion.approach).toContain('/api/items');
-    }
+    expect(analysis.suggestions).toContainEqual(
+      expect.objectContaining({ toolName: 'create_items', approach: expect.stringContaining('/api/items') }),
+    );
 
     // --- REST endpoint GET /api/users → 'list_users' suggestion ---
-    const listUsersSuggestion = analysis.suggestions.find(s => s.toolName === 'list_users');
-    expect(listUsersSuggestion).toBeDefined();
-    if (listUsersSuggestion) {
-      expect(listUsersSuggestion.toolName).toMatch(/^[a-z][a-z0-9_]*$/);
-      expect(listUsersSuggestion.approach).toContain('/api/users');
-      expect(listUsersSuggestion.complexity).toBe('low');
-    }
+    expect(analysis.suggestions).toContainEqual(
+      expect.objectContaining({
+        toolName: 'list_users',
+        approach: expect.stringContaining('/api/users'),
+        complexity: 'low',
+      }),
+    );
 
     // --- Suggestions are relevant to detected APIs (approach mentions specific endpoints) ---
     const restSuggestions = analysis.suggestions.filter(
