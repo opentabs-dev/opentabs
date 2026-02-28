@@ -20,9 +20,14 @@ All platform packages and plugins share the same version number (e.g., `0.0.34`)
 1. **Ask the user for the target version** (suggest patch bump as default — e.g., `0.0.34` → `0.0.35`)
 2. **Discover the current version** by reading any platform `package.json` (they are all in sync)
 3. **Update all version references** (see "Files to Update" below)
-4. **Update lock files** — run `npm install --package-lock-only` at the root. Plugin lock files cannot be updated until packages are published; note this to the user.
+4. **Update root lock file** — run `npm install --package-lock-only` at the repo root
 5. **Scan for hardcoded version strings** in source code (see "Hardcoded Version Scan")
 6. **Verify** — run `npm run build` and `npm run type-check` to confirm nothing broke
+7. **Commit and push** the version bump
+8. **Publish all platform packages** to npm in dependency order (see "Publishing" below)
+9. **Update plugin lock files** — run `npm install` in each plugin directory (now that published packages are available)
+10. **Rebuild plugins** — run `npm run build` in each plugin directory
+11. **Commit and push** the plugin lock file updates
 
 ---
 
@@ -101,20 +106,68 @@ Both must exit 0. If they fail, fix the issue before considering the bump comple
 
 ---
 
-## Post-Bump: Publishing (informational)
+## Publishing
 
-Publishing is a separate step, not part of this skill. After the version bump is committed:
+After the version bump is committed and pushed, publish all platform packages to npm.
 
-1. **Publish platform packages** in dependency order: shared → browser-extension → mcp-server → plugin-sdk → plugin-tools → cli → create-plugin
-2. **Update plugin lock files**: `cd plugins/<name> && npm install`
-3. **Rebuild plugins**: `cd plugins/<name> && npm run build`
-4. **Publish plugins** (if applicable)
+### Prerequisites
 
-Refer to `platform/cli/CLAUDE.md` for publishing instructions and the `scripts/publish.sh` script (if it exists).
+Verify npm authentication before publishing:
+
+```bash
+npm whoami   # Must return an account with write access to @opentabs-dev
+```
+
+### Publish Order
+
+Publish in strict dependency order — each package must be available on the registry before its dependents are published:
+
+```
+1. shared
+2. browser-extension
+3. mcp-server
+4. plugin-sdk
+5. plugin-tools
+6. cli
+7. create-plugin
+```
+
+### Publish Command
+
+For each package, run from its directory:
+
+```bash
+cd platform/<package> && npm publish
+```
+
+### Post-Publish: Update Plugins
+
+After all platform packages are published:
+
+1. **Update plugin lock files**: `cd plugins/<name> && npm install` (resolves `^<new-version>` from the registry)
+2. **Rebuild plugins**: `cd plugins/<name> && npm run build` (compiles with the new SDK version)
+3. **Commit and push** the updated lock files
+
+### npm Registry Propagation Delay
+
+The npm registry does not guarantee immediate availability after `npm publish`. The new version may take seconds to a few minutes to propagate across all registry endpoints. If `npm install` in a plugin fails with `ETARGET` ("No matching version found for @opentabs-dev/...@^x.y.z"), this is a propagation delay — not a real error.
+
+**Retry strategy:**
+
+1. Wait 10 seconds, then retry `npm install`
+2. If it still fails, wait 30 seconds and retry again
+3. If it fails a third time, wait 60 seconds — by this point the registry has always caught up
+4. Verify with `npm view @opentabs-dev/shared@<new-version> version` to confirm the version is visible on the registry before retrying
+
+Do not skip the plugin lock file update or commit stale lock files. The retry is worth the wait.
+
+**NEVER change npm package access levels** (public/private) without explicit user approval. All `@opentabs-dev` packages are private (`publishConfig.access: restricted`).
 
 ---
 
 ## Checklist
+
+### Version Bump
 
 - [ ] Target version confirmed with user
 - [ ] All 7 platform `package.json` version fields updated
@@ -125,3 +178,12 @@ Refer to `platform/cli/CLAUDE.md` for publishing instructions and the `scripts/p
 - [ ] Hardcoded version scan completed — no stale version strings in source code
 - [ ] `npm run build` passes
 - [ ] `npm run type-check` passes
+- [ ] Version bump committed and pushed
+
+### Publish
+
+- [ ] `npm whoami` confirms authenticated with write access
+- [ ] All 7 platform packages published in dependency order
+- [ ] Plugin lock files updated (`npm install` in each plugin, with retry for registry propagation delay)
+- [ ] Plugins rebuilt (`npm run build` in each plugin)
+- [ ] Plugin lock file updates committed and pushed
