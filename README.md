@@ -28,7 +28,7 @@ OpenTabs is a Chrome extension + MCP server with a plugin-based architecture. Pl
 
 - **Zero-configuration access** — uses your existing browser sessions. No API keys, no OAuth, no service accounts.
 - **Plugin ecosystem** — anyone can create and publish plugins as npm packages. Install globally and they're auto-discovered.
-- **36 built-in browser tools** — tab management, screenshots, DOM interaction, network capture, cookies, and more — available for every tab, no plugin required.
+- **39 built-in browser tools** — tab management, screenshots, DOM interaction, network capture, cookies, and more — available for every tab, no plugin required.
 - **Works with any MCP client** — Claude Code, Cursor, and any client that supports Streamable HTTP transport.
 - **Hot reload for developers** — the MCP server detects plugin changes automatically. Zero-restart development workflow.
 
@@ -61,10 +61,10 @@ On first run, this creates `~/.opentabs/`, generates an auth secret, and install
 Get your auth secret:
 
 ```bash
-opentabs config show --json | jq -r .secret
+opentabs config show --json --show-secret | jq -r .secret
 ```
 
-Add the server to your MCP client. For Claude Code (`~/.claude.json` — merge into `"mcpServers"`):
+Add the server to your MCP client. For Claude Code (`~/.claude/settings/mcp.json` — merge into `"mcpServers"`):
 
 ```json
 {
@@ -84,8 +84,7 @@ Add the server to your MCP client. For Claude Code (`~/.claude.json` — merge i
 
 ```bash
 opentabs plugin search
-npm install -g opentabs-plugin-slack
-opentabs start
+opentabs plugin install slack
 ```
 
 ### Verify
@@ -95,7 +94,7 @@ opentabs status
 opentabs doctor
 ```
 
-You're ready. Your AI agent can now use all registered plugin tools and the 36 built-in browser tools.
+You're ready. Your AI agent can now use all registered plugin tools and the 39 built-in browser tools.
 
 ## Building a Plugin
 
@@ -120,10 +119,10 @@ This compiles your plugin, generates the adapter bundle and tool manifest, regis
 ### Develop with hot reload
 
 ```bash
-opentabs start --dev
+npm run dev
 ```
 
-Dev mode watches your plugin's `dist/` directory and reloads automatically when you rebuild.
+This watches your plugin source and rebuilds on every change. Each build notifies the running server via `POST /reload`, so your changes are picked up automatically — no server restart needed.
 
 See the [Plugin Development guide](https://opentabs.ai/docs/guides/plugin-development) for a complete walkthrough.
 
