@@ -1,6 +1,6 @@
 import { getTextContent, observeDOM, querySelectorAll, waitForSelector, waitForSelectorRemoval } from './dom.js';
 import { GlobalWindow } from 'happy-dom';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 let win: GlobalWindow;
 
@@ -11,6 +11,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   win.close();
 });
 
@@ -53,6 +54,29 @@ describe('waitForSelector', () => {
       'waitForSelector: timed out after 100ms waiting for "#nonexistent"',
     );
   });
+
+  test('rejects immediately with descriptive error for invalid CSS selector', async () => {
+    await expect(waitForSelector('[invalid')).rejects.toThrow('waitForSelector: invalid CSS selector "[invalid"');
+  });
+
+  test('rejects and cleans up timer and observer when querySelector throws in observer callback', async () => {
+    let callCount = 0;
+    vi.spyOn(document, 'querySelector').mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return null; // initial check: element not found, set up observer
+      throw new Error('simulated querySelector failure in callback');
+    });
+
+    const promise = waitForSelector('#target', { timeout: 5000 });
+
+    // Trigger a mutation so the observer callback fires
+    queueMicrotask(() => {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+    });
+
+    await expect(promise).rejects.toThrow('simulated querySelector failure in callback');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -83,6 +107,33 @@ describe('waitForSelectorRemoval', () => {
       'waitForSelectorRemoval: timed out after 100ms waiting for "#persistent" to be removed',
     );
   });
+
+  test('rejects immediately with descriptive error for invalid CSS selector', async () => {
+    await expect(waitForSelectorRemoval('[invalid')).rejects.toThrow(
+      'waitForSelectorRemoval: invalid CSS selector "[invalid"',
+    );
+  });
+
+  test('rejects and cleans up timer and observer when querySelector throws in observer callback', async () => {
+    document.body.innerHTML = '<div id="target">content</div>';
+
+    let callCount = 0;
+    vi.spyOn(document, 'querySelector').mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return document.getElementById('target'); // initial check: element found
+      throw new Error('simulated querySelector failure in removal callback');
+    });
+
+    const promise = waitForSelectorRemoval('#target', { timeout: 5000 });
+
+    // Trigger a mutation so the observer callback fires
+    queueMicrotask(() => {
+      const div = document.createElement('span');
+      document.body.appendChild(div);
+    });
+
+    await expect(promise).rejects.toThrow('simulated querySelector failure in removal callback');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -100,6 +151,10 @@ describe('querySelectorAll', () => {
   test('returns empty array when no elements match', () => {
     document.body.innerHTML = '';
     expect(querySelectorAll('.nothing')).toEqual([]);
+  });
+
+  test('returns empty array for invalid CSS selector', () => {
+    expect(querySelectorAll('[invalid')).toEqual([]);
   });
 });
 
@@ -121,6 +176,10 @@ describe('getTextContent', () => {
   test('returns empty string for element with only whitespace', () => {
     document.body.innerHTML = '<p id="empty">   </p>';
     expect(getTextContent('#empty')).toBe('');
+  });
+
+  test('returns null for invalid CSS selector', () => {
+    expect(getTextContent('[invalid')).toBeNull();
   });
 });
 
@@ -155,5 +214,9 @@ describe('observeDOM', () => {
     expect(() => observeDOM('#nonexistent', () => {})).toThrow(
       'observeDOM: no element found for selector "#nonexistent"',
     );
+  });
+
+  test('throws descriptive error for invalid CSS selector', () => {
+    expect(() => observeDOM('[invalid', () => {})).toThrow('observeDOM: invalid CSS selector "[invalid"');
   });
 });

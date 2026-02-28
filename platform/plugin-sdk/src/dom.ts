@@ -34,7 +34,14 @@ export const waitForSelector = <T extends Element = Element>(
   const timeout = opts?.timeout ?? 10_000;
 
   return new Promise<T>((resolve, reject) => {
-    const existing = document.querySelector(selector);
+    let existing: Element | null;
+    try {
+      existing = document.querySelector(selector);
+    } catch {
+      reject(new Error(`waitForSelector: invalid CSS selector "${selector}"`));
+      return;
+    }
+
     if (existing) {
       resolve(existing as T);
       return;
@@ -49,7 +56,19 @@ export const waitForSelector = <T extends Element = Element>(
     }, timeout);
 
     const observer = new MutationObserver(() => {
-      const el = document.querySelector(selector);
+      let el: Element | null;
+      try {
+        el = document.querySelector(selector);
+      } catch (err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        observer.disconnect();
+        reject(
+          err instanceof Error ? err : new Error(`waitForSelector: querySelector threw for selector "${selector}"`),
+        );
+        return;
+      }
       if (el) {
         if (settled) return;
         settled = true;
@@ -75,7 +94,15 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
   const timeout = opts?.timeout ?? 10_000;
 
   return new Promise<void>((resolve, reject) => {
-    if (!document.querySelector(selector)) {
+    let hasElement: boolean;
+    try {
+      hasElement = !!document.querySelector(selector);
+    } catch {
+      reject(new Error(`waitForSelectorRemoval: invalid CSS selector "${selector}"`));
+      return;
+    }
+
+    if (!hasElement) {
       resolve();
       return;
     }
@@ -89,7 +116,22 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
     }, timeout);
 
     const observer = new MutationObserver(() => {
-      if (!document.querySelector(selector)) {
+      let el: Element | null;
+      try {
+        el = document.querySelector(selector);
+      } catch (err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        observer.disconnect();
+        reject(
+          err instanceof Error
+            ? err
+            : new Error(`waitForSelectorRemoval: querySelector threw for selector "${selector}"`),
+        );
+        return;
+      }
+      if (!el) {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
@@ -108,16 +150,27 @@ export const waitForSelectorRemoval = (selector: string, opts?: WaitForSelectorO
 
 /**
  * Typed wrapper around `document.querySelectorAll` that returns a real array.
+ * Returns an empty array if the selector is invalid.
  */
-export const querySelectorAll = <T extends Element = Element>(selector: string): T[] =>
-  Array.from(document.querySelectorAll<T>(selector));
+export const querySelectorAll = <T extends Element = Element>(selector: string): T[] => {
+  try {
+    return Array.from(document.querySelectorAll<T>(selector));
+  } catch {
+    return [];
+  }
+};
 
 /**
  * Returns the trimmed `textContent` of the first element matching `selector`,
- * or `null` if no element is found.
+ * or `null` if no element is found or the selector is invalid.
  */
 export const getTextContent = (selector: string): string | null => {
-  const el = document.querySelector(selector);
+  let el: Element | null;
+  try {
+    el = document.querySelector(selector);
+  } catch {
+    return null;
+  }
   if (!el) return null;
   const text = el.textContent as string | null;
   return text === null ? null : text.trim();
@@ -132,7 +185,13 @@ export const observeDOM = (
   callback: (mutations: MutationRecord[], observer: MutationObserver) => void,
   options?: ObserveDOMOptions,
 ): (() => void) => {
-  const target = document.querySelector(selector);
+  let target: Element | null;
+  try {
+    target = document.querySelector(selector);
+  } catch {
+    throw new Error(`observeDOM: invalid CSS selector "${selector}"`);
+  }
+
   if (!target) {
     throw new Error(`observeDOM: no element found for selector "${selector}"`);
   }
