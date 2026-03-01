@@ -11,6 +11,7 @@ import { failingTool } from './tools/failing-tool.js';
 import { getStatus } from './tools/get-status.js';
 import { greet } from './tools/greet.js';
 import { listItems } from './tools/list-items.js';
+import { logBulk } from './tools/log-bulk.js';
 import { logLevels } from './tools/log-levels.js';
 import { sdkFetchJson } from './tools/sdk-fetch-json.js';
 import { sdkGetLocalStorage } from './tools/sdk-get-local-storage.js';
@@ -87,6 +88,7 @@ class E2eTestPlugin extends OpenTabsPlugin {
     errorValidation,
     errorTimeout,
     errorInternal,
+    logBulk,
     logLevels,
     sdkWaitForSelector,
     sdkFetchJson,
