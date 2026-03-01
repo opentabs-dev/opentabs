@@ -5,7 +5,7 @@ storybook-static
 playwright-report
 test-results
 plugins
-.ralph/worktrees
+.ralph
 .claude/worktrees
 .tmp
 docs/.next
