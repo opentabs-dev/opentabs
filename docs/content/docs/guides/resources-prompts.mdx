@@ -1,7 +1,7 @@
 ---
 title: Resources & Prompts
 description: Give AI agents browsable context with resources and reusable templates with prompts — beyond what tools alone can do.
-lastUpdated: 2026-02-28
+lastUpdated: 2026-03-01
 ---
 
 Most plugins only need tools — actions the AI agent can invoke. But the MCP protocol defines two more capabilities that let your plugin expose **data** and **templates** to the agent. Resources are read-only data the agent can browse. Prompts are pre-built message templates the agent can render.
@@ -497,14 +497,14 @@ const createItem = defineTool({
 class TrackerPlugin extends OpenTabsPlugin {
   readonly name = 'tracker';
   readonly version = '1.0.0';
-  override readonly displayName = 'Project Tracker';
+  readonly displayName = 'Project Tracker';
   readonly description = 'Manage project items';
   readonly urlPatterns = ['*://tracker.example.com/*'];
   readonly tools: ToolDefinition[] = [createItem];
   override readonly resources: ResourceDefinition[] = [itemList];
   override readonly prompts: PromptDefinition[] = [statusReport];
 
-  override async isReady(): Promise<boolean> {
+  async isReady(): Promise<boolean> {
     return document.querySelector('.app-loaded') !== null;
   }
 }

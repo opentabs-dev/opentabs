@@ -61,7 +61,7 @@ class MyAppPlugin extends OpenTabsPlugin {
   readonly name = 'my-app';
   readonly version = '0.0.1';
   readonly description = 'My first OpenTabs plugin';
-  override readonly displayName = 'My App';
+  readonly displayName = 'My App';
   readonly urlPatterns = ['*://*.example.com/*'];
   readonly tools: ToolDefinition[] = [getPageTitle];
 
