@@ -11,7 +11,7 @@
  */
 
 import { installExtension } from './setup.js';
-import { ensureAuthSecret, getConfigDir, getLogFilePath, getPidFilePath } from '../config.js';
+import { ensureAuthSecret, getConfigDir, getLogFilePath, getPidFilePath, readAuthSecret } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import { isWindows, platformExec, toErrorMessage } from '@opentabs-dev/shared';
 import pc from 'picocolors';
@@ -257,6 +257,18 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   const port = resolvePort(options);
 
+  if (options.showConfig) {
+    const secret = await readAuthSecret();
+    if (secret === null) {
+      console.error(pc.red('Error: No auth secret found. Run `opentabs start` to initialize.'));
+      process.exit(1);
+    }
+    console.log(pc.dim('  MCP client config (add to your client):'));
+    console.log('');
+    printMcpClientConfigs(`http://127.0.0.1:${port}/mcp`, secret);
+    process.exit(0);
+  }
+
   if (await isPortInUse(port)) {
     console.error(pc.red(`Error: Port ${port} is already in use.`));
     console.error(
@@ -284,15 +296,9 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   console.log(`${label('Log file:')}${logFilePath}`);
   console.log('');
 
-  if (isFirstTime || options.showConfig) {
+  if (isFirstTime) {
     const extensionDest = resolve(configDir, 'extension');
-    if (isFirstTime) {
-      printFirstTimeInstructions(extensionDest, port, secret);
-    } else {
-      console.log(pc.dim('  MCP client config (add to your client):'));
-      console.log('');
-      printMcpClientConfigs(`http://127.0.0.1:${port}/mcp`, secret, true);
-    }
+    printFirstTimeInstructions(extensionDest, port, secret);
   } else {
     console.log(pc.dim(`  Run ${pc.bold('opentabs config show --show-secret')} to see MCP client configuration.`));
     console.log('');
