@@ -69,6 +69,26 @@ const handleStop = async (options: StopOptions): Promise<void> => {
       return;
     }
 
+    // Verify the process is an OpenTabs server via health check to guard against PID recycling
+    const port = resolvePort(options);
+    const healthUrl = `http://${DEFAULT_HOST}:${port}/health`;
+    const secret = await readAuthSecret();
+    const healthHeaders: Record<string, string> = {};
+    if (secret) healthHeaders['Authorization'] = `Bearer ${secret}`;
+
+    try {
+      const res = await fetch(healthUrl, { headers: healthHeaders, signal: AbortSignal.timeout(2_000) });
+      if (!res.headers.get('x-opentabs-version')) {
+        await unlink(pidPath).catch(() => {});
+        console.log('Server is not running (stale PID file cleaned up).');
+        return;
+      }
+    } catch {
+      await unlink(pidPath).catch(() => {});
+      console.log('Server is not running (stale PID file cleaned up).');
+      return;
+    }
+
     process.kill(pid, 'SIGTERM');
 
     const exited = await waitForExit(pid, 5_000);
