@@ -128,4 +128,60 @@ test.describe('Plugin logging — full pipeline', () => {
 
     await page.close();
   });
+
+  test('log buffer enforces 1000-entry circular limit', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Use log_bulk to emit 1100 entries in a single tool call, exceeding
+    // the 1000-entry circular buffer limit without hitting rate limits.
+    const overflowPrefix = `overflow-${Date.now()}`;
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_bulk', {
+      prefix: overflowPrefix,
+      count: 1100,
+    });
+
+    // Wait for the buffer to stabilize at the 1000-entry cap.
+    await mcpServer.waitForHealth(h => {
+      const buf = h.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+      return buf >= 1000;
+    }, 30_000);
+
+    const health = await mcpServer.health();
+    const bufferSize = health?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+    expect(bufferSize).toBeLessThanOrEqual(1000);
+    expect(bufferSize).toBe(1000);
+
+    // Emit more entries to verify the buffer wraps (doesn't stop accepting).
+    const markerPrefix = `overflow-marker-${Date.now()}`;
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_bulk', {
+      prefix: markerPrefix,
+      count: 10,
+    });
+
+    // Wait for the new entries to arrive in the buffer.
+    await mcpServer.waitForHealth(h => {
+      const buf = h.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+      return buf >= 1000;
+    }, 10_000);
+
+    const healthAfter = await mcpServer.health();
+    const bufferAfter = healthAfter?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
+
+    // Buffer is still at capacity (didn't grow beyond 1000).
+    expect(bufferAfter).toBeLessThanOrEqual(1000);
+    // Buffer is still full (new entries replaced old ones, not dropped).
+    expect(bufferAfter).toBe(1000);
+
+    // Verify the marker entries made it into server logs (buffer accepted them).
+    await waitForLog(mcpServer, `${markerPrefix} entry-9`, 5_000);
+
+    await page.close();
+  });
 });

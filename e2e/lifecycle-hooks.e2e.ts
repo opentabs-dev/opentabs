@@ -121,6 +121,52 @@ test.describe('Lifecycle hooks', () => {
     expect(urls).toEqual(expect.arrayContaining([expect.stringContaining('/replaced-path')]));
   });
 
+  test('onNavigate fires on popstate (browser back)', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Capture the original URL before pushing state
+    const originalUrl = await page.evaluate(() => window.location.href);
+
+    // Clear any URLs recorded during setup
+    await page.evaluate(() => {
+      (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls = [];
+    });
+
+    // Push a history entry — this itself fires onNavigate, so we clear again after
+    await page.evaluate(() => history.pushState({}, '', '/popstate-target'));
+
+    // Clear URLs triggered by the pushState call
+    await page.evaluate(() => {
+      (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls = [];
+    });
+
+    // Go back — this fires a popstate event, which the adapter listens to and
+    // calls plugin.onNavigate with the restored URL. The popstate event fires
+    // asynchronously after history.back() returns, so waitFor handles it.
+    await page.evaluate(() => history.back());
+
+    await waitFor(
+      async () => {
+        const urls = await page.evaluate(() => (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls);
+        return Array.isArray(urls) && urls.length > 0;
+      },
+      10_000,
+      200,
+      'onNavigate hook to record popstate URL',
+    );
+
+    const urls = await page.evaluate(
+      () => (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls as string[],
+    );
+    // After going back, the URL should be the original URL (without /popstate-target)
+    expect(urls).toEqual(expect.arrayContaining([expect.stringContaining(originalUrl)]));
+  });
+
   test('onToolInvocationStart and onToolInvocationEnd fire around tool calls', async ({
     mcpServer,
     testServer,
