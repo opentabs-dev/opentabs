@@ -19,11 +19,37 @@ type PluginState = ConfigStatePlugin;
 /** Failed plugin state as displayed in the side panel */
 type FailedPluginState = ConfigStateFailedPlugin;
 
+/** npm registry search result for a plugin package */
+interface PluginSearchResult {
+  name: string;
+  description: string;
+  version: string;
+  author: string;
+  isOfficial: boolean;
+}
+
+/** Result returned after a successful plugin install or update */
+interface PluginInstallResult {
+  ok: true;
+  plugin: {
+    name: string;
+    displayName: string;
+    version: string;
+    toolCount: number;
+  };
+}
+
 /** Returns true if a tool's displayName, name, or description matches the filter string */
 const matchesTool = (tool: PluginState['tools'][number], filterLower: string): boolean =>
   tool.displayName.toLowerCase().includes(filterLower) ||
   tool.name.toLowerCase().includes(filterLower) ||
   tool.description.toLowerCase().includes(filterLower);
+
+/** Returns true if a plugin's displayName, name, or any tool matches the filter string */
+const matchesPlugin = (plugin: PluginState, filterLower: string): boolean =>
+  plugin.displayName.toLowerCase().includes(filterLower) ||
+  plugin.name.toLowerCase().includes(filterLower) ||
+  plugin.tools.some(tool => matchesTool(tool, filterLower));
 
 /** Timeout for pending JSON-RPC requests relayed through the background script (ms) */
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -141,6 +167,22 @@ const setToolEnabled = (plugin: string, tool: string, enabled: boolean): Promise
 const setAllToolsEnabled = (plugin: string, enabled: boolean): Promise<unknown> =>
   sendRequest('config.setAllToolsEnabled', { plugin, enabled });
 
+/** Search npm registry for plugins matching the given query */
+const searchPlugins = (query: string): Promise<{ results: PluginSearchResult[] }> =>
+  sendRequest('plugin.search', { query }) as Promise<{ results: PluginSearchResult[] }>;
+
+/** Install a plugin by package name */
+const installPlugin = (name: string): Promise<PluginInstallResult> =>
+  sendRequest('plugin.install', { name }) as Promise<PluginInstallResult>;
+
+/** Remove an installed plugin by name */
+const removePlugin = (name: string): Promise<{ ok: true }> =>
+  sendRequest('plugin.remove', { name }) as Promise<{ ok: true }>;
+
+/** Update an installed plugin to the latest registry version */
+const updatePlugin = (name: string): Promise<PluginInstallResult> =>
+  sendRequest('plugin.updateFromRegistry', { name }) as Promise<PluginInstallResult>;
+
 /** Send a confirmation response to the MCP server via the background script (fire-and-forget) */
 const sendConfirmationResponse = (
   id: string,
@@ -157,13 +199,18 @@ const sendConfirmationResponse = (
     });
 };
 
-export type { FailedPluginState, PluginState };
+export type { FailedPluginState, PluginInstallResult, PluginSearchResult, PluginState };
 export {
   getConnectionState,
   fetchConfigState,
+  matchesPlugin,
   matchesTool,
   setToolEnabled,
   setAllToolsEnabled,
+  searchPlugins,
+  installPlugin,
+  removePlugin,
+  updatePlugin,
   handleServerResponse,
   rejectAllPending,
   sendConfirmationResponse,
