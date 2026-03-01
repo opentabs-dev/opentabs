@@ -663,7 +663,7 @@ const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void>
     const errorMessage = typeof body.error_message === 'string' ? body.error_message : 'This tool always fails';
     sendJson(res, {
       ok: false,
-      error: errorCode,
+      error: errorMessage,
       error_code: errorCode,
       error_message: errorMessage,
     });
