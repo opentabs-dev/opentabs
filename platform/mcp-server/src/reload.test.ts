@@ -284,6 +284,27 @@ describe('performReload', () => {
     expect(state.sessionPermissions.some(r => r.tool === 'old-plugin_removed_tool')).toBe(false);
   });
 
+  test('preserves session permission rules for browser tools across reloads', async () => {
+    const pluginDir = createPluginDir(configDir, 'my-plugin');
+    writeConfig(configDir, [pluginDir]);
+
+    state.sessionPermissions = [
+      // Rule for a browser tool — should be preserved (browser tools are not in registry.toolLookup)
+      { tool: 'browser_execute_script', domain: 'example.com', scope: 'tool_domain' } as SessionPermissionRule,
+      // Rule for a plugin tool that still exists — should be kept
+      { tool: 'my-plugin_test_tool', domain: 'example.com', scope: 'tool_domain' } as SessionPermissionRule,
+      // Rule for a plugin tool that no longer exists — should be pruned
+      { tool: 'old-plugin_removed_tool', domain: 'example.com', scope: 'tool_domain' } as SessionPermissionRule,
+    ];
+
+    await performReload(state, [], emptyTransports(), false);
+
+    expect(state.sessionPermissions).toHaveLength(2);
+    expect(state.sessionPermissions.some(r => r.tool === 'browser_execute_script')).toBe(true);
+    expect(state.sessionPermissions.some(r => r.tool === 'my-plugin_test_tool')).toBe(true);
+    expect(state.sessionPermissions.some(r => r.tool === 'old-plugin_removed_tool')).toBe(false);
+  });
+
   test('notifies MCP sessions of tool list changes on hot reload', async () => {
     let notifyCalled = 0;
     const srv = {

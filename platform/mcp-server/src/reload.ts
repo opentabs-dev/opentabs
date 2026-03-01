@@ -123,9 +123,12 @@ const pruneStaleState = (state: ServerState): void => {
 
   // Prune session permission rules for tools that no longer exist in the registry.
   // Rules with tool=null (domain_all scope) are kept — they reference a domain, not a specific tool.
+  // Browser tool names (e.g., browser_execute_script) are never in registry.toolLookup (which only
+  // contains plugin tools), so they are checked separately against cachedBrowserTools.
+  const validBrowserToolNames = new Set(state.cachedBrowserTools.map(c => c.name));
   const prevSessionPermissionsLength = state.sessionPermissions.length;
   state.sessionPermissions = state.sessionPermissions.filter(
-    rule => rule.tool === null || state.registry.toolLookup.has(rule.tool),
+    rule => rule.tool === null || state.registry.toolLookup.has(rule.tool) || validBrowserToolNames.has(rule.tool),
   );
   const prunedSessionPermissions = prevSessionPermissionsLength - state.sessionPermissions.length;
   if (prunedSessionPermissions > 0) {
