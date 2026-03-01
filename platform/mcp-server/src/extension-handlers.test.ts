@@ -9,7 +9,7 @@ import {
   rejectAllPendingConfirmations,
 } from './extension-handlers.js';
 import { clearAllLogs, getLogs } from './log-buffer.js';
-import { createState, DISPATCH_TIMEOUT_MS, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
+import { createState, DISPATCH_TIMEOUT_MS, MAX_DISPATCH_TIMEOUT_MS, MAX_SESSION_PERMISSIONS } from './state.js';
 import { afterEach, beforeEach, describe, expect, vi, test } from 'vitest';
 import type { McpCallbacks } from './extension-handlers.js';
 import type { PendingConfirmation, PendingDispatch, RegisteredPlugin, SessionPermissionRule } from './state.js';
@@ -183,6 +183,31 @@ describe('handleConfirmationResponse', () => {
     expect(pending.resolved).toBe('allow_once');
     // Suppress unused variable lint
     void timerCleared;
+  });
+
+  test('sessionPermissions is capped at MAX_SESSION_PERMISSIONS — oldest entries are dropped', () => {
+    const state = createState();
+
+    // Pre-fill to the cap with distinct tool_domain rules
+    for (let i = 0; i < MAX_SESSION_PERMISSIONS; i++) {
+      const pending = createPendingConfirmation({ tool: `plugin_tool_${i}`, domain: `example-${i}.com` });
+      state.pendingConfirmations.set(`cap-${i}`, pending);
+      handleConfirmationResponse(state, { id: `cap-${i}`, decision: 'allow_always', scope: 'tool_domain' });
+    }
+
+    expect(state.sessionPermissions).toHaveLength(MAX_SESSION_PERMISSIONS);
+
+    // Add one more — the oldest entry should be dropped
+    const overflowPending = createPendingConfirmation({ tool: 'plugin_overflow', domain: 'overflow.com' });
+    state.pendingConfirmations.set('cap-overflow', overflowPending);
+    handleConfirmationResponse(state, { id: 'cap-overflow', decision: 'allow_always', scope: 'tool_domain' });
+
+    expect(state.sessionPermissions).toHaveLength(MAX_SESSION_PERMISSIONS);
+    // The newest entry should be present
+    const last = state.sessionPermissions[MAX_SESSION_PERMISSIONS - 1] as SessionPermissionRule;
+    expect(last.tool).toBe('plugin_overflow');
+    // The oldest entry (tool_0) should have been dropped
+    expect(state.sessionPermissions.some(r => r.tool === 'plugin_tool_0')).toBe(false);
   });
 });
 

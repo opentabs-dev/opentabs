@@ -273,6 +273,17 @@ export const appendAuditEntry = (state: ServerState, entry: AuditEntry): void =>
   void appendAuditEntryToDisk(entry);
 };
 
+/** Maximum entries retained in the session permissions array */
+export const MAX_SESSION_PERMISSIONS = 500;
+
+/** Push a session permission rule, trimming oldest entries beyond MAX_SESSION_PERMISSIONS. */
+export const pushSessionPermission = (state: ServerState, rule: SessionPermissionRule): void => {
+  state.sessionPermissions.push(rule);
+  if (state.sessionPermissions.length > MAX_SESSION_PERMISSIONS) {
+    state.sessionPermissions.splice(0, state.sessionPermissions.length - MAX_SESSION_PERMISSIONS);
+  }
+};
+
 /** Server state singleton — shared across hot reloads via globalThis */
 export interface ServerState {
   /**

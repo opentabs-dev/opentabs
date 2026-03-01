@@ -120,6 +120,17 @@ const pruneStaleState = (state: ServerState): void => {
       state.activeNetworkCaptures.delete(tabId);
     }
   }
+
+  // Prune session permission rules for tools that no longer exist in the registry.
+  // Rules with tool=null (domain_all scope) are kept — they reference a domain, not a specific tool.
+  const prevSessionPermissionsLength = state.sessionPermissions.length;
+  state.sessionPermissions = state.sessionPermissions.filter(
+    rule => rule.tool === null || state.registry.toolLookup.has(rule.tool),
+  );
+  const prunedSessionPermissions = prevSessionPermissionsLength - state.sessionPermissions.length;
+  if (prunedSessionPermissions > 0) {
+    log.info(`Pruned ${prunedSessionPermissions} stale session permission rule(s)`);
+  }
 };
 
 /** Arguments for the shared reload core */

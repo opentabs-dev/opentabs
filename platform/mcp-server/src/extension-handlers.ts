@@ -18,6 +18,7 @@ import {
   prefixedToolName,
   isToolEnabled,
   isBrowserToolEnabled,
+  pushSessionPermission,
   DISPATCH_TIMEOUT_MS,
   MAX_DISPATCH_TIMEOUT_MS,
 } from './state.js';
@@ -575,7 +576,7 @@ const handleConfirmationResponse = (state: ServerState, params: Record<string, u
       r => r.tool === rule.tool && r.domain === rule.domain && r.scope === rule.scope,
     );
     if (!isDuplicate) {
-      state.sessionPermissions.push(rule);
+      pushSessionPermission(state, rule);
     }
   }
 
