@@ -1036,4 +1036,107 @@ describe('handlePluginToolCall', () => {
     const entry = (vi.mocked(appendAuditEntry).mock.calls[0] as unknown[])[1] as Record<string, unknown>;
     expect(entry.success).toBe(false);
   });
+
+  test('tabId is stripped from args before Ajv validation', async () => {
+    vi.mocked(dispatchToExtension).mockResolvedValue({ output: {} });
+    const state = createMockState();
+    const validate = vi.fn().mockReturnValue(true);
+    const lookup = createMockLookup({ validate });
+    const extra = createMockExtra();
+
+    await handlePluginToolCall(
+      state,
+      'testplugin_test_action',
+      { channel: '#general', tabId: 42 },
+      'testplugin',
+      'test_action',
+      lookup,
+      extra,
+    );
+
+    // Ajv validate should have been called with args that do NOT contain tabId
+    expect(validate).toHaveBeenCalledTimes(1);
+    const validatedArgs = validate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(validatedArgs).toHaveProperty('channel', '#general');
+    expect(validatedArgs).not.toHaveProperty('tabId');
+  });
+
+  test('tabId is threaded as top-level param to dispatchToExtension', async () => {
+    vi.mocked(dispatchToExtension).mockResolvedValue({ output: {} });
+    const state = createMockState();
+    const lookup = createMockLookup();
+    const extra = createMockExtra();
+
+    await handlePluginToolCall(
+      state,
+      'testplugin_test_action',
+      { key: 'val', tabId: 123 },
+      'testplugin',
+      'test_action',
+      lookup,
+      extra,
+    );
+
+    expect(dispatchToExtension).toHaveBeenCalledWith(
+      state,
+      'tool.dispatch',
+      expect.objectContaining({
+        plugin: 'testplugin',
+        tool: 'test_action',
+        input: { key: 'val' },
+        tabId: 123,
+      }) as Record<string, unknown>,
+      expect.any(Object) as Record<string, unknown>,
+    );
+  });
+
+  test('tabId is omitted from dispatch params when not present in args', async () => {
+    vi.mocked(dispatchToExtension).mockResolvedValue({ output: {} });
+    const state = createMockState();
+    const lookup = createMockLookup();
+    const extra = createMockExtra();
+
+    await handlePluginToolCall(
+      state,
+      'testplugin_test_action',
+      { key: 'val' },
+      'testplugin',
+      'test_action',
+      lookup,
+      extra,
+    );
+
+    const dispatchCall = vi.mocked(dispatchToExtension).mock.calls[0];
+    const dispatchParams = dispatchCall?.[2] as Record<string, unknown>;
+    expect(dispatchParams).not.toHaveProperty('tabId');
+    expect(dispatchParams).toMatchObject({
+      plugin: 'testplugin',
+      tool: 'test_action',
+      input: { key: 'val' },
+    });
+  });
+
+  test('non-numeric tabId is ignored (not extracted, not stripped)', async () => {
+    vi.mocked(dispatchToExtension).mockResolvedValue({ output: {} });
+    const state = createMockState();
+    const validate = vi.fn().mockReturnValue(true);
+    const lookup = createMockLookup({ validate });
+    const extra = createMockExtra();
+
+    await handlePluginToolCall(
+      state,
+      'testplugin_test_action',
+      { tabId: 'not-a-number' },
+      'testplugin',
+      'test_action',
+      lookup,
+      extra,
+    );
+
+    // Non-numeric tabId is deleted from args before validation (delete is unconditional after extract)
+    // but the extract yields undefined, so tabId is not sent to extension
+    const dispatchCall = vi.mocked(dispatchToExtension).mock.calls[0];
+    const dispatchParams = dispatchCall?.[2] as Record<string, unknown>;
+    expect(dispatchParams).not.toHaveProperty('tabId');
+  });
 });

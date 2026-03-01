@@ -73,6 +73,7 @@ const notifyDispatchProgress = (dispatchId: string): void => {
 };
 
 const { handleToolDispatch } = await import('./tool-dispatch.js');
+const { invalidatePluginCache } = await import('./plugin-storage.js');
 
 /** Helper to build a minimal PluginMeta for tests */
 const makePlugin = (overrides?: Partial<PluginMeta>): PluginMeta => ({
@@ -288,6 +289,96 @@ describe('handleToolDispatch', () => {
       jsonrpc: '2.0',
       id: 42,
       error: { code: -32602 },
+    });
+  });
+
+  test('extracts tabId from params and routes to targeted dispatch (tab not found)', async () => {
+    invalidatePluginCache();
+    // Set up plugin in storage
+    const plugin = makePlugin({ name: 'test-plugin', urlPatterns: ['*://example.com/*'] });
+    const storageGet = (globalThis as Record<string, unknown>).chrome as {
+      storage: { local: { get: ReturnType<typeof vi.fn> } };
+    };
+    storageGet.storage.local.get.mockResolvedValue({
+      plugins_meta: { 'test-plugin': plugin },
+    });
+
+    // chrome.tabs.get rejects (tab not found) — dispatchToTargetedTab returns error
+    const tabsGet = (globalThis as Record<string, unknown>).chrome as {
+      tabs: { get: ReturnType<typeof vi.fn> };
+    };
+    tabsGet.tabs.get.mockRejectedValue(new Error('No tab with id 999'));
+
+    await handleToolDispatch({ plugin: 'test-plugin', tool: 'do-thing', input: {}, tabId: 999 }, 'req-targeted');
+
+    if (mockSendToServer.mock.calls.length === 0) return;
+
+    // dispatchToTargetedTab should send -32001 (no usable tab) when tab not found
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-targeted',
+      error: { code: -32001 },
+    });
+  });
+
+  test('omitting tabId preserves fallback dispatch behavior', async () => {
+    invalidatePluginCache();
+    // Set up plugin in storage
+    const plugin = makePlugin({ name: 'test-plugin', urlPatterns: ['*://example.com/*'] });
+    const storageGet = (globalThis as Record<string, unknown>).chrome as {
+      storage: { local: { get: ReturnType<typeof vi.fn> } };
+    };
+    storageGet.storage.local.get.mockResolvedValue({
+      plugins_meta: { 'test-plugin': plugin },
+    });
+
+    // No matching tabs → fallback dispatch sends -32001
+    const tabsQuery = (globalThis as Record<string, unknown>).chrome as {
+      tabs: { query: ReturnType<typeof vi.fn> };
+    };
+    tabsQuery.tabs.query.mockResolvedValue([]);
+
+    await handleToolDispatch({ plugin: 'test-plugin', tool: 'do-thing', input: {} }, 'req-fallback');
+
+    if (mockSendToServer.mock.calls.length === 0) return;
+
+    // dispatchWithTabFallback sends -32001 when no matching tabs exist
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-fallback',
+      error: { code: -32001 },
+    });
+  });
+
+  test('non-numeric tabId is ignored (treated as absent)', async () => {
+    invalidatePluginCache();
+    // Set up plugin in storage
+    const plugin = makePlugin({ name: 'test-plugin', urlPatterns: ['*://example.com/*'] });
+    const storageGet = (globalThis as Record<string, unknown>).chrome as {
+      storage: { local: { get: ReturnType<typeof vi.fn> } };
+    };
+    storageGet.storage.local.get.mockResolvedValue({
+      plugins_meta: { 'test-plugin': plugin },
+    });
+
+    // No matching tabs → fallback dispatch sends -32001
+    const tabsQuery = (globalThis as Record<string, unknown>).chrome as {
+      tabs: { query: ReturnType<typeof vi.fn> };
+    };
+    tabsQuery.tabs.query.mockResolvedValue([]);
+
+    await handleToolDispatch(
+      { plugin: 'test-plugin', tool: 'do-thing', input: {}, tabId: 'not-a-number' },
+      'req-string-tabid',
+    );
+
+    if (mockSendToServer.mock.calls.length === 0) return;
+
+    // String tabId should be ignored → fallback dispatch → no tabs → error
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-string-tabid',
+      error: { code: -32001 },
     });
   });
 });

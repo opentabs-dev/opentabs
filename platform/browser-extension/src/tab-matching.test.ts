@@ -304,6 +304,29 @@ describe('findAllMatchingTabs', () => {
   });
 });
 
+describe('findAllMatchingTabs — tab title passthrough', () => {
+  test('returns tab title from chrome.tabs.Tab objects', async () => {
+    const tab1 = { id: 1, active: true, windowId: FOCUSED_WINDOW_ID, title: 'My Document' } as chrome.tabs.Tab;
+    const tab2 = { id: 2, active: false, windowId: OTHER_WINDOW_ID, title: 'Another Doc' } as chrome.tabs.Tab;
+
+    queryResults.set('*://example.com/*', [tab1, tab2]);
+
+    const result = await findAllMatchingTabs(makePlugin(['*://example.com/*']));
+    expect(result).toHaveLength(2);
+    expect(result[0]?.title).toBe('My Document');
+    expect(result[1]?.title).toBe('Another Doc');
+  });
+
+  test('returns undefined title when chrome.tabs.Tab has no title', async () => {
+    const tab = { id: 1, active: false, windowId: OTHER_WINDOW_ID } as chrome.tabs.Tab;
+    queryResults.set('*://example.com/*', [tab]);
+
+    const result = await findAllMatchingTabs(makePlugin(['*://example.com/*']));
+    expect(result).toHaveLength(1);
+    expect(result[0]?.title).toBeUndefined();
+  });
+});
+
 describe('findMatchingTab', () => {
   test('returns the highest-ranked matching tab when multiple tabs match', async () => {
     const activeFocused = makeTab(1, { active: true, windowId: FOCUSED_WINDOW_ID });

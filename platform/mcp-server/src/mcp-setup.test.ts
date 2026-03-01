@@ -536,6 +536,120 @@ describe('getEnabledToolsList — tool entry shape', () => {
   });
 });
 
+describe('getEnabledToolsList — tabId schema injection', () => {
+  test('plugin tools have tabId injected into inputSchema properties', () => {
+    const state = createState();
+    state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
+
+    const tools = getEnabledToolsList(state);
+
+    expect(tools).toHaveLength(1);
+    const schema = tools[0]?.inputSchema as Record<string, unknown>;
+    const properties = schema.properties as Record<string, unknown>;
+    expect(properties.tabId).toBeDefined();
+    const tabIdDef = properties.tabId as { type: string; description: string };
+    expect(tabIdDef.type).toBe('integer');
+    expect(tabIdDef.description).toContain('Target a specific browser tab');
+  });
+
+  test('tabId description mentions browser_list_tabs and plugin_list_tabs', () => {
+    const state = createState();
+    state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
+
+    const tools = getEnabledToolsList(state);
+
+    const schema = tools[0]?.inputSchema as Record<string, unknown>;
+    const properties = schema.properties as Record<string, unknown>;
+    const tabIdDef = properties.tabId as { description: string };
+    expect(tabIdDef.description).toContain('browser_list_tabs');
+    expect(tabIdDef.description).toContain('plugin_list_tabs');
+  });
+
+  test('tabId injection does not mutate the original ManifestTool input_schema', () => {
+    const state = createState();
+    const plugin = createPlugin('slack', ['send_message']);
+    state.registry = buildRegistry([plugin], []);
+
+    // Capture the original schema BEFORE calling getEnabledToolsList
+    const originalTool = plugin.tools[0];
+    if (!originalTool) throw new Error('Expected at least one tool');
+    const originalSchema = originalTool.input_schema;
+    const originalProperties = originalSchema.properties as Record<string, unknown> | undefined;
+
+    // Call getEnabledToolsList which injects tabId into a clone
+    getEnabledToolsList(state);
+
+    // Original schema must NOT have tabId
+    if (originalProperties) {
+      expect(originalProperties.tabId).toBeUndefined();
+    }
+    // Verify the original schema object is unmodified
+    expect(originalSchema).toEqual({ type: 'object' });
+  });
+
+  test('tabId is NOT added to required array', () => {
+    const state = createState();
+    const plugin: RegisteredPlugin = {
+      ...createPlugin('slack', ['send_message']),
+      tools: [
+        {
+          name: 'send_message',
+          displayName: 'Send Message',
+          description: 'Send a message',
+          icon: 'wrench',
+          input_schema: {
+            type: 'object',
+            properties: { channel: { type: 'string' } },
+            required: ['channel'],
+          },
+          output_schema: { type: 'object' },
+        },
+      ],
+    };
+    state.registry = buildRegistry([plugin], []);
+
+    const tools = getEnabledToolsList(state);
+
+    const schema = tools[0]?.inputSchema as Record<string, unknown>;
+    const required = schema.required as string[] | undefined;
+    // tabId should NOT be in the required array
+    expect(required).not.toContain('tabId');
+    // Original required fields are preserved
+    expect(required).toContain('channel');
+  });
+
+  test('browser tools do NOT have tabId injected', () => {
+    const state = createState();
+    state.browserTools = [createBrowserTool('browser_list_tabs', 'List tabs')];
+    rebuildCachedBrowserTools(state);
+
+    const tools = getEnabledToolsList(state);
+
+    expect(tools).toHaveLength(1);
+    const schema = tools[0]?.inputSchema as Record<string, unknown>;
+    const properties = schema.properties as Record<string, unknown> | undefined;
+    if (properties) {
+      expect(properties.tabId).toBeUndefined();
+    }
+  });
+
+  test('multiple plugin tools each get independent tabId injection', () => {
+    const state = createState();
+    state.registry = buildRegistry([createPlugin('slack', ['send_message', 'read_messages'])], []);
+
+    const tools = getEnabledToolsList(state);
+
+    expect(tools).toHaveLength(2);
+    for (const tool of tools) {
+      const properties = tool.inputSchema.properties as Record<string, unknown>;
+      expect(properties.tabId).toBeDefined();
+      const tabIdDef = properties.tabId as { type: string; description: string };
+      expect(tabIdDef.type).toBe('integer');
+      expect(tabIdDef.description).toContain('Target a specific browser tab');
+    }
+  });
+});
+
 describe('checkToolCallable', () => {
   test('returns ok with correct pluginName and toolName when tool exists and is enabled', () => {
     const state = createState();

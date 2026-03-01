@@ -232,6 +232,54 @@ describe('handleResourceRead', () => {
       error: { code: -32001 },
     });
   });
+
+  test('routes to targeted dispatch when tabId is present', async () => {
+    const plugin = makePlugin();
+    setupPluginAndTab(plugin, 100, 'https://example.com/page');
+
+    mockExecuteScript.mockResolvedValue([
+      { result: { type: 'success', output: { uri: 'test://r', text: 'targeted content' } } },
+    ]);
+
+    await handleResourceRead({ plugin: 'test-plugin', uri: 'opentabs+test://resource', tabId: 100 }, 'req-targeted');
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-targeted',
+      result: { output: { uri: 'test://r', text: 'targeted content' } },
+    });
+  });
+
+  test('targeted dispatch returns error when tab does not exist', async () => {
+    const plugin = makePlugin();
+    const pluginsIndex: Record<string, PluginMeta> = { [plugin.name]: plugin };
+    mockStorageLocalGet.mockResolvedValue({ plugins_meta: pluginsIndex });
+    mockTabsGet.mockRejectedValue(new Error('No tab with id 999'));
+
+    await handleResourceRead({ plugin: 'test-plugin', uri: 'opentabs+test://resource', tabId: 999 }, 'req-notfound');
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-notfound',
+      error: { code: -32001 },
+    });
+  });
+
+  test('targeted dispatch returns error when tab URL does not match plugin patterns', async () => {
+    const plugin = makePlugin();
+    const pluginsIndex: Record<string, PluginMeta> = { [plugin.name]: plugin };
+    mockStorageLocalGet.mockResolvedValue({ plugins_meta: pluginsIndex });
+    // Tab exists but URL doesn't match plugin's urlPatterns
+    mockTabsGet.mockResolvedValue({ id: 200, url: 'https://other-site.com/page' } as chrome.tabs.Tab);
+
+    await handleResourceRead({ plugin: 'test-plugin', uri: 'opentabs+test://resource', tabId: 200 }, 'req-mismatch');
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-mismatch',
+      error: { code: -32003 },
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -431,6 +479,52 @@ describe('handlePromptGet', () => {
       jsonrpc: '2.0',
       id: 'req-11',
       error: { code: -32001 },
+    });
+  });
+
+  test('routes to targeted dispatch when tabId is present', async () => {
+    const plugin = makePlugin();
+    setupPluginAndTab(plugin, 100, 'https://example.com/page');
+
+    const promptOutput = { messages: [{ role: 'user', content: { type: 'text', text: 'Targeted' } }] };
+    mockExecuteScript.mockResolvedValue([{ result: { type: 'success', output: promptOutput } }]);
+
+    await handlePromptGet({ plugin: 'test-plugin', prompt: 'summarize', tabId: 100 }, 'req-targeted');
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-targeted',
+      result: { output: promptOutput },
+    });
+  });
+
+  test('targeted dispatch returns error when tab does not exist', async () => {
+    const plugin = makePlugin();
+    const pluginsIndex: Record<string, PluginMeta> = { [plugin.name]: plugin };
+    mockStorageLocalGet.mockResolvedValue({ plugins_meta: pluginsIndex });
+    mockTabsGet.mockRejectedValue(new Error('No tab with id 999'));
+
+    await handlePromptGet({ plugin: 'test-plugin', prompt: 'summarize', tabId: 999 }, 'req-notfound');
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-notfound',
+      error: { code: -32001 },
+    });
+  });
+
+  test('targeted dispatch returns error when tab URL does not match plugin patterns', async () => {
+    const plugin = makePlugin();
+    const pluginsIndex: Record<string, PluginMeta> = { [plugin.name]: plugin };
+    mockStorageLocalGet.mockResolvedValue({ plugins_meta: pluginsIndex });
+    mockTabsGet.mockResolvedValue({ id: 200, url: 'https://other-site.com/page' } as chrome.tabs.Tab);
+
+    await handlePromptGet({ plugin: 'test-plugin', prompt: 'summarize', tabId: 200 }, 'req-mismatch');
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-mismatch',
+      error: { code: -32003 },
     });
   });
 });
