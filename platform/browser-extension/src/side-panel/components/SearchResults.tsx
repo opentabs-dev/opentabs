@@ -63,9 +63,7 @@ const SearchResults = ({
   // Filter browser tools that match the search
   const hasBrowserToolMatches =
     browserTools.length > 0 &&
-    (!filterLower ||
-      'browser tools'.includes(filterLower) ||
-      browserTools.some(t => matchesBrowserTool(t, filterLower)));
+    (!filterLower || 'browser'.includes(filterLower) || browserTools.some(t => matchesBrowserTool(t, filterLower)));
 
   // Filter out npm results whose short name matches an already-installed plugin's short name
   const installedShortNames = new Set(plugins.map(p => extractShortName(p.name)));
