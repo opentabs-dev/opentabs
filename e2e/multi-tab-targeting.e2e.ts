@@ -457,32 +457,50 @@ test.describe('Multi-tab targeting — mixed readiness', () => {
     // Open second tab to the same test server
     const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
 
-    // Wait for both tabs to be tracked and ready
-    const initialPlugins = await waitForTabCount(mcpClient.callTool.bind(mcpClient), 2);
-    const initialEntry = initialPlugins[0];
+    // Wait for both tabs to be tracked AND ready. waitForTabCount only
+    // checks tabs.length >= 2, but a newly-tracked tab may still be in its
+    // readiness probe phase. Poll until every tab reports ready:true.
+    let initialEntry: PluginTabsEntry | undefined;
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        initialEntry = data[0];
+        return initialEntry !== undefined && initialEntry.tabs.length === 2 && initialEntry.tabs.every(t => t.ready);
+      },
+      15_000,
+      500,
+      'plugin_list_tabs to report 2 tabs both ready:true',
+    );
     if (!initialEntry) throw new Error('Expected plugin entry in plugin_list_tabs response');
     expect(initialEntry.tabs.length).toBe(2);
     expect(initialEntry.tabs.every(t => t.ready)).toBe(true);
 
-    // Override isReady on page2 to return false. This monkey-patches the
-    // adapter's isReady function in the page's MAIN world without replacing
-    // the adapter itself.
-    await page2.evaluate(() => {
-      const ot = (globalThis as Record<string, unknown>).__openTabs as
-        | { adapters?: Record<string, { isReady?: () => Promise<boolean> }> }
-        | undefined;
-      if (ot?.adapters?.['e2e-test']) {
-        ot.adapters['e2e-test'].isReady = () => Promise.resolve(false);
-      }
+    // Intercept auth.check requests on page2 so the adapter's isReady()
+    // returns false. page.route() is per-page and survives reloads, so
+    // page1's auth.check calls are unaffected.
+    await page2.route('**/api/auth.check', route => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false }),
+      });
     });
 
-    // Trigger a readiness re-probe by navigating the hash on page2. A hash
-    // change fires chrome.tabs.onUpdated with changeInfo.url, which calls
-    // checkTabChanged → computePluginTabState → probeTabReadiness — without
-    // re-injecting the adapter IIFE (that only happens on status='complete').
-    await page2.evaluate(() => {
-      window.location.hash = '#probe-trigger';
-    });
+    // Reload page2 to trigger adapter re-injection and readiness re-probe.
+    // The fresh adapter's isReady() calls fetch('/api/auth.check') which
+    // Playwright intercepts, returning { ok: false }.
+    await page2.reload({ waitUntil: 'load' });
+    await page2.waitForFunction(
+      () => {
+        const ot = (globalThis as Record<string, unknown>).__openTabs as
+          | { adapters?: Record<string, unknown> }
+          | undefined;
+        return ot?.adapters?.['e2e-test'] !== undefined;
+      },
+      { timeout: 10_000 },
+    );
 
     // Poll plugin_list_tabs until we see mixed readiness: one tab ready:true,
     // one tab ready:false
@@ -616,6 +634,99 @@ test.describe('Multi-tab targeting — concurrent targeted dispatches', () => {
 
     await page1.close();
     await page2.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 11: plugin_list_tabs updates in real-time as tabs open and close
+// ---------------------------------------------------------------------------
+
+test.describe('Multi-tab targeting — real-time tab tracking', () => {
+  test('plugin_list_tabs reflects tab opens and closes in real-time', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    // Step 1: Open tab 1 → verify plugin_list_tabs shows 1 tab
+    const page1 = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+    const plugins1 = await waitForTabCount(mcpClient.callTool.bind(mcpClient), 1);
+    const entry1 = plugins1[0];
+    if (!entry1) throw new Error('Expected plugin entry after opening tab 1');
+    expect(entry1.state).toBe('ready');
+    expect(entry1.tabs.length).toBe(1);
+    const tab1 = entry1.tabs[0];
+    if (!tab1) throw new Error('Expected tab entry for tab 1');
+    expect(tab1.ready).toBe(true);
+    const tab1Id = tab1.tabId;
+
+    // Step 2: Open tab 2 → verify shows 2 tabs with distinct IDs
+    const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
+    const plugins2 = await waitForTabCount(mcpClient.callTool.bind(mcpClient), 2);
+    const entry2 = plugins2[0];
+    if (!entry2) throw new Error('Expected plugin entry after opening tab 2');
+    expect(entry2.state).toBe('ready');
+    expect(entry2.tabs.length).toBe(2);
+    const tabIds2 = entry2.tabs.map(t => t.tabId);
+    expect(new Set(tabIds2).size).toBe(2);
+    // Tab 1's ID should still be present
+    expect(tabIds2).toContain(tab1Id);
+    const tab2Id = tabIds2.find(id => id !== tab1Id);
+    if (tab2Id === undefined) throw new Error('Could not determine tab 2 ID');
+
+    // Step 3: Close tab 1 → verify shows 1 tab with tab 2's ID
+    await page1.close();
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const entry = data[0];
+        return entry !== undefined && entry.tabs.length === 1;
+      },
+      15_000,
+      500,
+      'plugin_list_tabs to report 1 tab after closing tab 1',
+    );
+
+    // Verify the remaining tab is specifically tab 2
+    const result3 = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+    expect(result3.isError).toBe(false);
+    const plugins3 = JSON.parse(result3.content) as PluginTabsEntry[];
+    const entry3 = plugins3[0];
+    if (!entry3) throw new Error('Expected plugin entry after closing tab 1');
+    expect(entry3.state).toBe('ready');
+    expect(entry3.tabs.length).toBe(1);
+    const remainingTab = entry3.tabs[0];
+    if (!remainingTab) throw new Error('Expected remaining tab entry');
+    expect(remainingTab.tabId).toBe(tab2Id);
+    expect(remainingTab.ready).toBe(true);
+
+    // Step 4: Close tab 2 → verify state becomes 'closed'
+    await page2.close();
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const entry = data[0];
+        return entry !== undefined && entry.state === 'closed';
+      },
+      15_000,
+      500,
+      'plugin_list_tabs to report state:closed after closing all tabs',
+    );
+
+    // Final verification: state is closed with empty tabs array
+    const result4 = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+    expect(result4.isError).toBe(false);
+    const plugins4 = JSON.parse(result4.content) as PluginTabsEntry[];
+    const entry4 = plugins4[0];
+    if (!entry4) throw new Error('Expected plugin entry after closing all tabs');
+    expect(entry4.state).toBe('closed');
+    expect(entry4.tabs.length).toBe(0);
   });
 });
 
