@@ -1,7 +1,7 @@
 ---
 title: CLI Commands
 description: Complete reference for the opentabs CLI — start the server, manage plugins, view logs, run diagnostics, and configure settings.
-lastUpdated: 2026-02-28
+lastUpdated: 2026-03-01
 ---
 
 The `opentabs` CLI is the primary interface for managing the OpenTabs platform. Install it globally:
@@ -654,7 +654,22 @@ opentabs config set <key> [value]
   </Table.Body>
 </Table>
 
-Running `opentabs config set tool.` (with a trailing dot and no value) lists all available tool names from the running server.
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Flag</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`-f, --force`</Table.Cell>
+      <Table.Cell>Allow `localPlugins.add` to register paths that do not yet exist on disk.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Running `opentabs config set tool.` (with a trailing dot and no value) lists all available tool names from the running server. Running `opentabs config set browser-tool.` (with a trailing dot and no value) lists all available browser tool names from the running server.
 
 ```bash
 # Disable a plugin tool
@@ -671,6 +686,9 @@ opentabs config set port 3000
 
 # Register a local plugin
 opentabs config set localPlugins.add /path/to/my-plugin
+
+# Register a local plugin path that does not yet exist
+opentabs config set localPlugins.add /future/path/my-plugin --force
 
 # Unregister a local plugin
 opentabs config set localPlugins.remove /path/to/my-plugin

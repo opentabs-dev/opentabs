@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Solutions for common OpenTabs issues — connection problems, plugin state issues, timeouts, diagnostics, and build errors.
-lastUpdated: 2026-02-28
+lastUpdated: 2026-03-01
 ---
 
 ## First steps
@@ -221,7 +221,7 @@ The Chrome extension does not auto-reload. After rebuilding:
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`curl http://localhost:9515/health`</Table.Cell>
-      <Table.Cell>Direct health check (no CLI needed). Without a Bearer token, returns only `status`, `version`, and `extensionConnected`. Pass `-H "Authorization: Bearer <secret>"` for the full payload.</Table.Cell>
+      <Table.Cell>Direct health check (no CLI needed). Without a Bearer token, returns only `{"status": "ok"}`. Pass `-H "Authorization: Bearer <secret>"` for the full payload including `version` and `extensionConnected`.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>

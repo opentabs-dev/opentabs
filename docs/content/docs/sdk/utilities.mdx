@@ -1,7 +1,7 @@
 ---
 title: Utilities
 description: API reference for all SDK utility functions — DOM, Fetch, Storage, Page State, and Timing helpers for plugin authors.
-lastUpdated: 2026-02-28
+lastUpdated: 2026-03-01
 ---
 
 The plugin SDK ships utility functions that run in the browser page context, reducing boilerplate for common plugin operations. All utilities are exported from `@opentabs-dev/plugin-sdk`.
@@ -447,6 +447,7 @@ Maps an HTTP error response to a `ToolError` with the appropriate category. Stat
 | 400, 422 | `validation` | `false` | |
 | 408 | `timeout` | `true` | |
 | 429 | `rate_limit` | `true` | Parses `Retry-After` header into `retryAfterMs` |
+| 4xx (other) | — | `false` | Other client errors not individually listed above |
 | 503 | `internal` | `true` | Parses `Retry-After` header into `retryAfterMs` |
 | 5xx (other) | `internal` | `true` | Server errors are retryable |
 | Other | `internal` | `false` | Not retryable |

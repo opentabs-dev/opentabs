@@ -1,7 +1,7 @@
 ---
 title: Plugin Development
 description: Build an OpenTabs plugin from scratch — scaffold, define tools, use SDK utilities, test with hot reload, and publish to npm.
-lastUpdated: 2026-02-28
+lastUpdated: 2026-03-01
 ---
 
 This guide walks you through creating an OpenTabs plugin from scratch. By the end, you'll have a working plugin that gives AI agents access to a web application through the user's browser.
@@ -68,7 +68,7 @@ This creates a standalone npm package with everything you need:
 
 <PluginStructure />
 
-The scaffolder also auto-registers the plugin in `~/.opentabs/config.json` so the MCP server discovers it immediately.
+The plugin is registered in `~/.opentabs/config.json` during the first `npm run build` (which runs `opentabs-plugin build`).
 
 ## Understand the Plugin Class
 

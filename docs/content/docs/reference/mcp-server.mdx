@@ -1,7 +1,7 @@
 ---
 title: MCP Server
 description: HTTP endpoints, WebSocket protocol, authentication, MCP capabilities, and client configuration for the OpenTabs server.
-lastUpdated: 2026-02-28
+lastUpdated: 2026-03-01
 ---
 
 ## HTTP Endpoints
@@ -588,7 +588,25 @@ Add to `.cursor/mcp.json`:
 {
   "mcpServers": {
     "opentabs": {
+      "type": "http",
       "url": "http://127.0.0.1:9515/mcp",
+      "headers": {
+        "Authorization": "Bearer <secret>"
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "opentabs": {
+      "serverUrl": "http://127.0.0.1:9515/mcp",
       "headers": {
         "Authorization": "Bearer <secret>"
       }
