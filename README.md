@@ -58,26 +58,13 @@ On first run, this creates `~/.opentabs/`, generates an auth secret, and install
 
 ### Configure your MCP client
 
-Get your auth secret:
+When `opentabs start` runs for the first time, it prints ready-to-copy MCP client config blocks with your auth secret pre-filled — for Claude Code and other clients. Copy the config block from your terminal output and paste it into your MCP client's config file.
+
+To see the config blocks again later:
 
 ```bash
-opentabs config show --json --show-secret | jq -r .secret
-```
-
-Add the server to your MCP client. For Claude Code (`~/.claude/settings/mcp.json` — merge into `"mcpServers"`):
-
-```json
-{
-  "mcpServers": {
-    "opentabs": {
-      "type": "streamable-http",
-      "url": "http://127.0.0.1:9515/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_SECRET_HERE"
-      }
-    }
-  }
-}
+opentabs start --show-config      # print config blocks and exit
+opentabs config show --show-secret  # show full config including the secret
 ```
 
 ### Install a plugin
