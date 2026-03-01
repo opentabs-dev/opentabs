@@ -91,8 +91,7 @@ const checkServerHealth = async (
     }
     const data = (await res.json()) as Record<string, unknown>;
     if (typeof data.version !== 'string' || typeof data.toolCount !== 'number') {
-      const portSuffix = port !== 9515 ? ` --port ${port}` : '';
-      const hint = `Start it with: opentabs start${portSuffix}`;
+      const hint = `Stop the other service on port ${port}, or use a different port: opentabs start --port <number>`;
       return {
         result: warn('MCP server', `another service is running on port ${port} (not OpenTabs)`, hint),
         data: null,

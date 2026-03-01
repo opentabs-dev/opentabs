@@ -251,6 +251,54 @@ describe('checkServerHealth', () => {
       await server.close();
     }
   });
+
+  test('another service hint tells user to stop the service, not just start opentabs', async () => {
+    const server = await createTestServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok' }));
+    });
+    const port = server.port;
+    try {
+      const { result } = await checkServerHealth(port);
+      expect(result.ok).toBe(false);
+      expect(result.hint).toBeDefined();
+      expect(result.hint).toContain('Stop the other service');
+      expect(result.hint).toContain('different port');
+      expect(result.hint).not.toContain('Start it with');
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('another service hint does not suggest starting on the occupied port', async () => {
+    const server = await createTestServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok' }));
+    });
+    const port = server.port;
+    try {
+      const { result } = await checkServerHealth(port);
+      // The hint must not include the occupied port as a --port flag value
+      expect(result.hint).not.toMatch(new RegExp(`--port ${port}(?!\\d)`));
+    } finally {
+      await server.close();
+    }
+  });
+
+  test('not reachable hint still says Start it with: opentabs start', async () => {
+    const { result } = await checkServerHealth(19998);
+    expect(result.ok).toBe(false);
+    expect(result.hint).toContain('Start it with');
+    expect(result.hint).toContain('opentabs start');
+  });
+
+  test('not reachable hint includes --port flag only for non-default port', async () => {
+    const { result: defaultResult } = await checkServerHealth(9515);
+    expect(defaultResult.hint).not.toContain('--port');
+
+    const { result: nonDefaultResult } = await checkServerHealth(19997);
+    expect(nonDefaultResult.hint).toContain('--port 19997');
+  });
 });
 
 // ---------------------------------------------------------------------------
