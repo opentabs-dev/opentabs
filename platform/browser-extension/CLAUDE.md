@@ -140,7 +140,24 @@ The MCP server port is configured in the side panel footer, stored in `chrome.st
 
 ### Side Panel Empty States
 
-When the side panel has 0 plugins, it shows a simple "No Plugins Installed" card directing users to `opentabs plugin`. Connection state takes priority over plugin count. The side panel distinguishes two disconnect states: (1) **Connection refused** (server unreachable) — shows "Cannot Reach MCP Server" with `opentabs start --port <N>` where N is the configured port, and (2) **Authentication failed** (HTTP 401 from secret mismatch) — shows "Authentication Failed" with instructions to reload the extension from `chrome://extensions/`. The disconnect reason flows from the offscreen document through the background script to the side panel via `disconnectReason` fields on connection state messages.
+The browser tools card renders immediately on mount from `BROWSER_TOOLS_CATALOG` (a static catalog generated at build time from `@opentabs-dev/shared/browser-tools-catalog`). This means the side panel always has content when connected — there is no "No Plugins Installed" empty state. Connection state takes priority: the side panel distinguishes two disconnect states: (1) **Connection refused** (server unreachable) — shows "Cannot Reach MCP Server" with `opentabs start --port <N>` where N is the configured port, and (2) **Authentication failed** (HTTP 401 from secret mismatch) — shows "Authentication Failed" with instructions to reload the extension from `chrome://extensions/`. The disconnect reason flows from the offscreen document through the background script to the side panel via `disconnectReason` fields on connection state messages.
+
+### Side Panel Import Constraints (CSP)
+
+The side panel runs inside a Chrome extension context with strict Content Security Policy. **Node.js built-in modules (`node:fs`, `node:os`, `node:path`, etc.) are blocked by CSP and will crash the side panel silently (blank page).**
+
+When importing from shared packages (e.g., `@opentabs-dev/shared`), **never use the barrel import** if the barrel re-exports modules that use Node.js APIs. esbuild bundles the entire barrel, including transitive Node.js dependencies, even if you only import a pure-data export. Use **subpath imports** to target the specific module:
+
+```ts
+// WRONG — pulls in cross-platform.js which uses node:fs/promises, node:os, node:path
+import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared';
+
+// CORRECT — imports only the pure-data catalog module
+import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared/browser-tools-catalog';
+
+// SAFE — type-only imports are erased at compile time and never reach the bundler
+import type { TabState } from '@opentabs-dev/shared';
+```
 
 ### Debugger Permission
 

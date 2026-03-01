@@ -131,6 +131,15 @@ The root `CLAUDE.md` says "run every check including `npm run test:e2e`" for eve
 
 Playwright reports tests as "flaky" when they fail on the first attempt but pass on retry (configured via `retries: 1` in `playwright.config.ts`). **Flaky tests are passing tests.** Playwright exits 0 when all tests ultimately pass, including retried ones. Trust the exit code — do not re-run the entire E2E suite because the output mentions "flaky". Only re-run if the exit code is non-zero (meaning a test failed even after retries).
 
+### Diagnosing E2E failures: build artifacts matter
+
+E2E tests for the Chrome extension side panel run against the **built extension bundle** installed at `~/.opentabs/extension/`, not against source files. When E2E tests fail, keep this in mind:
+
+- **Reverting source changes does not change the built bundle.** If you revert your source edits to test whether a failure is "pre-existing", you must also `npm run build` to rebuild the extension. Otherwise both runs (with and without your changes) execute the same broken bundle, and you falsely conclude the failure is pre-existing.
+- **Always rebuild before re-running E2E tests.** After any source change that affects the extension (side panel, background script, offscreen), run `npm run build` before `npm run test:e2e`. The E2E infrastructure does NOT automatically rebuild the extension.
+- **Side panel barrel imports can pull in Node.js code.** The side panel runs in a Chrome extension context with strict CSP — `node:fs`, `node:os`, `node:path` etc. are blocked. If you import from a barrel (e.g., `@opentabs-dev/shared`) that re-exports modules using Node.js APIs, **esbuild bundles the entire barrel** including those Node.js modules, and the side panel crashes silently (blank page). Use subpath imports (e.g., `@opentabs-dev/shared/browser-tools-catalog`) to import only the specific module you need, bypassing the barrel.
+- **A blank side panel in E2E means a JS crash.** If all side panel E2E tests fail with `toBeVisible` timeouts and the side panel is blank, the cause is almost always a runtime error in the bundle (CSP violation, missing dependency, syntax error). Check the browser console for errors — do not assume infrastructure flakiness.
+
 ### E2E process isolation
 
 Ralph manages process isolation — your worktree has its own process group, and ralph kills all your child processes (Chromium, test servers) when you finish. Port conflicts are impossible (`PORT=0` everywhere).
