@@ -526,7 +526,7 @@ const generateInactiveIcon = (svgContent: string): string => {
         return `${propPrefix}${converted}`;
       });
     }
-    return fullMatch.replace(styleValue, newStyle);
+    return fullMatch.replace(styleValue, () => newStyle);
   });
 
   // Convert colors in <style> blocks
