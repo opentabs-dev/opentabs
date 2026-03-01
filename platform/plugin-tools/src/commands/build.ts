@@ -12,6 +12,7 @@ import {
   ADAPTER_SOURCE_MAP_FILENAME,
   TOOLS_FILENAME,
   atomicWrite,
+  DEFAULT_HOST,
   DEFAULT_PORT,
   getConfigDir,
   getConfigPath,
@@ -254,7 +255,7 @@ const notifyServer = async (): Promise<void> => {
   if (!Number.isFinite(port) || port < 1 || port > 65535) return;
 
   try {
-    const res = await fetch(`http://localhost:${port}/reload`, {
+    const res = await fetch(`http://${DEFAULT_HOST}:${port}/reload`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret}` },
       signal: AbortSignal.timeout(5_000),
