@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/browser-extension",
-  "version": "0.0.41",
+  "version": "0.0.42",
   "type": "module",
   "files": [
     "manifest.json",
