@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "restricted"
   },
-  "version": "0.0.45",
+  "version": "0.0.46",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -41,10 +41,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.45"
+    "@opentabs-dev/plugin-sdk": "^0.0.46"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.45",
+    "@opentabs-dev/plugin-tools": "^0.0.46",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
