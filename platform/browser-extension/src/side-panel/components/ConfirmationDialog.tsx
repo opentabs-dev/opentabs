@@ -62,7 +62,7 @@ const AllowAlwaysButton = ({ domain, onSelect }: { domain: string | null; onSele
       </Button>
     </Menu.Trigger>
     <Menu.Content side="top" align="end">
-      <Menu.Item onSelect={() => onSelect('tool_domain')}>For this tool on this domain</Menu.Item>
+      {domain && <Menu.Item onSelect={() => onSelect('tool_domain')}>For this tool on this domain</Menu.Item>}
       <Menu.Item onSelect={() => onSelect('tool_all')}>For this tool everywhere</Menu.Item>
       {domain && <Menu.Item onSelect={() => onSelect('domain_all')}>For all tools on {domain}</Menu.Item>}
     </Menu.Content>

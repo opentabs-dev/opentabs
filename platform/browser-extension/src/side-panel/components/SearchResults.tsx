@@ -39,6 +39,7 @@ const matchesBrowserTool = (tool: BrowserToolState, filterLower: string): boolea
 
 const SearchResults = ({
   plugins,
+  failedPlugins,
   browserTools,
   activeTools,
   setPlugins,
@@ -60,6 +61,13 @@ const SearchResults = ({
   // Filter installed plugins using matchesPlugin (name + displayName + tools)
   const installedMatches = filterLower ? plugins.filter(p => matchesPlugin(p, filterLower)) : plugins;
 
+  // Filter failed plugins by specifier or error message
+  const failedMatches = filterLower
+    ? failedPlugins.filter(
+        p => p.specifier.toLowerCase().includes(filterLower) || p.error.toLowerCase().includes(filterLower),
+      )
+    : failedPlugins;
+
   // Filter browser tools that match the search
   const hasBrowserToolMatches =
     browserTools.length > 0 &&
@@ -69,7 +77,7 @@ const SearchResults = ({
   const installedShortNames = new Set(plugins.map(p => extractShortName(p.name)));
   const availableResults = npmResults.filter(r => !installedShortNames.has(extractShortName(r.name)));
 
-  const hasInstalledResults = installedMatches.length > 0 || hasBrowserToolMatches;
+  const hasInstalledResults = installedMatches.length > 0 || failedMatches.length > 0 || hasBrowserToolMatches;
   const showNoResults = toolFilter && !hasInstalledResults && !npmSearching && availableResults.length === 0;
 
   return (
@@ -91,7 +99,7 @@ const SearchResults = ({
           )}
           <PluginList
             plugins={installedMatches}
-            failedPlugins={[]}
+            failedPlugins={failedMatches}
             activeTools={activeTools}
             setPlugins={setPlugins}
             toolFilter=""

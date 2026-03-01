@@ -3,6 +3,7 @@ import { Alert } from './retro/Alert';
 import { Badge } from './retro/Badge';
 import { Button } from './retro/Button';
 import { Loader } from './retro/Loader';
+import { extractShortName } from '../bridge';
 import type { PluginSearchResult } from '../bridge';
 
 interface NpmPluginCardProps {
@@ -12,16 +13,8 @@ interface NpmPluginCardProps {
   onInstall: () => void;
 }
 
-/**
- * Derives a display name from an npm package name for use as the avatar letter.
- * "@opentabs-dev/opentabs-plugin-slack" → "slack"
- * "some-package" → "some-package"
- */
-const deriveDisplayName = (packageName: string): string =>
-  (packageName.split('/').pop() ?? packageName).replace(/^opentabs-plugin-/, '');
-
 const NpmPluginCard = ({ plugin, installing, error, onInstall }: NpmPluginCardProps) => {
-  const displayName = deriveDisplayName(plugin.name);
+  const displayName = extractShortName(plugin.name);
 
   return (
     <div className="border-border bg-card space-y-2 rounded border-2 p-3 shadow-md transition-all hover:shadow-sm">
