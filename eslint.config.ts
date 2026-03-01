@@ -1,13 +1,11 @@
-import { fixupConfigRules } from '@eslint/compat';
-import { FlatCompat } from '@eslint/eslintrc';
 import js from '@eslint/js';
 import { flatConfigs as importXFlatConfig } from 'eslint-plugin-import-x';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import reactPlugin from 'eslint-plugin-react';
+import reactHooks from 'eslint-plugin-react-hooks';
 import { browser, es2020, node } from 'globals';
 import { configs as tseslintConfigs, parser as tseslintParser } from 'typescript-eslint';
-import type { FixupConfigArray } from '@eslint/compat';
 import type { Linter } from 'eslint';
 
 const config: Linter.Config[] = [
@@ -22,7 +20,7 @@ const config: Linter.Config[] = [
   // fixture API that triggers false positives from the hooks plugin.
   {
     files: ['**/*.tsx'],
-    ...fixupConfigRules(new FlatCompat().extends('plugin:react-hooks/recommended-latest') as FixupConfigArray)[0],
+    ...reactHooks.configs.flat['recommended-latest'],
   },
   {
     files: ['**/*.{ts,tsx}'],

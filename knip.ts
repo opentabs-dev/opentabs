@@ -7,7 +7,6 @@ const config: KnipConfig = {
       ignoreDependencies: [
         // Peer dependencies required by ESLint plugins at runtime
         '@typescript-eslint/parser',
-        'eslint-plugin-react-hooks',
         // Referenced as Babel preset/plugin strings in build-side-panel.ts config, not as imports
         '@babel/preset-react',
         '@babel/preset-typescript',
