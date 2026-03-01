@@ -89,32 +89,32 @@ This builds the `e2e-test` plugin automatically, then runs Playwright.
 **All quality checks at once:**
 
 ```bash
-npm run check       # build + lint + format + knip + unit tests
+npm run check       # build + lint + format:check + knip + unit tests
 npm run check:everything   # everything above + E2E tests + docs checks + plugin checks
 ```
 
-| Command                    | What it does                                                    |
-| -------------------------- | --------------------------------------------------------------- |
-| `npm run build`            | Production build (tsc + extension, incremental)                 |
-| `npm run build:force`      | Full clean rebuild (non-incremental)                            |
-| `npm run build:docs`       | Build docs site                                                 |
-| `npm run build:plugins`    | Build all plugins (install + build each)                        |
-| `npm run type-check`       | Incremental TypeScript compilation (tsc --build)                |
-| `npm run lint`             | ESLint                                                          |
-| `npm run format:check`     | Prettier formatting                                             |
-| `npm run knip`             | Unused exports and dependencies                                 |
-| `npm run test`             | Unit tests (Vitest)                                             |
-| `npm run test:e2e`         | E2E tests (builds e2e-test plugin + Playwright)                 |
-| `npm run check`            | All root checks (build + lint + format + knip + unit tests)     |
-| `npm run check:everything` | Everything: root + E2E + docs + plugins                         |
-| `npm run check:docs`       | Docs quality checks (build + type-check + lint + knip + format) |
-| `npm run check:plugins`    | Plugin quality checks (type-check + lint + format)              |
-| `npm run dev`              | Full dev mode (tsc watch + MCP server + extension)              |
-| `npm run dev:mcp`          | MCP server only with hot reload                                 |
-| `npm run dev:docs`         | Docs dev server                                                 |
-| `npm run storybook`        | Storybook dev server (extension components)                     |
-| `npm run clean`            | Remove all build artifacts                                      |
-| `npm run clean:all`        | Remove build artifacts + node_modules everywhere                |
+| Command                    | What it does                                                      |
+| -------------------------- | ----------------------------------------------------------------- |
+| `npm run build`            | Production build (tsc + extension, incremental)                   |
+| `npm run build:force`      | Full clean rebuild (non-incremental)                              |
+| `npm run build:docs`       | Build docs site                                                   |
+| `npm run build:plugins`    | Build all plugins (install + build each)                          |
+| `npm run type-check`       | Incremental TypeScript compilation (tsc --build)                  |
+| `npm run lint`             | ESLint                                                            |
+| `npm run format:check`     | Prettier formatting                                               |
+| `npm run knip`             | Unused exports and dependencies                                   |
+| `npm run test`             | Unit tests (Vitest)                                               |
+| `npm run test:e2e`         | E2E tests (builds e2e-test plugin + Playwright)                   |
+| `npm run check`            | All root checks (build + lint + format:check + knip + unit tests) |
+| `npm run check:everything` | Everything: root + E2E + docs + plugins                           |
+| `npm run check:docs`       | Docs quality checks (build + type-check + lint + knip + format)   |
+| `npm run check:plugins`    | Plugin quality checks (type-check + lint + format)                |
+| `npm run dev`              | Full dev mode (tsc watch + MCP server + extension)                |
+| `npm run dev:mcp`          | MCP server only with hot reload                                   |
+| `npm run dev:docs`         | Docs dev server                                                   |
+| `npm run storybook`        | Storybook dev server (extension components)                       |
+| `npm run clean`            | Remove all build artifacts                                        |
+| `npm run clean:all`        | Remove build artifacts + node_modules everywhere                  |
 
 All checks must pass before merging.
 
