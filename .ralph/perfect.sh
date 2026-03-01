@@ -34,7 +34,7 @@ ts() {
 ts_prefix() {
   local tag="$1"
   while IFS= read -r line; do
-    printf "%s ${CYAN}[%-20s]${RESET} %s\n" "$(ts)" "$tag" "$line"
+    printf "%s ${CYAN}[%s]${RESET} %s\n" "$(ts)" "$tag" "$line"
   done
 }
 
@@ -71,6 +71,22 @@ done
 echo ""
 echo -e "$(ts) ${BOLD}All ${#SCRIPTS[@]} scripts launched. Output streaming below.${RESET}"
 echo ""
+
+# Kill all child processes on SIGINT/SIGTERM so claude sessions don't orphan.
+cleanup() {
+  echo ""
+  echo -e "$(ts) ${YELLOW}Interrupted — killing all scripts...${RESET}"
+  # Kill entire process group of each background pipeline.
+  for pid in "${PIDS[@]}"; do
+    kill -TERM -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+  done
+  # Belt-and-suspenders: kill all children of this shell.
+  kill 0 2>/dev/null || true
+  wait 2>/dev/null || true
+  echo -e "$(ts) ${YELLOW}All scripts killed.${RESET}"
+  exit 130
+}
+trap cleanup SIGINT SIGTERM
 
 # Wait for all background pipelines and track failures.
 FAILED=0
