@@ -18,6 +18,7 @@ playwright-report/
 !/.ralph/perfect-docs.sh
 !/.ralph/perfect-extension.sh
 !/.ralph/perfect-backend.sh
+!/.ralph/perfect-cli-platform-contributor.sh
 !/.ralph/perfect-cli-plugin-developer.sh
 !/.ralph/perfect-cli-user.sh
 !/.ralph/perfect-e2e.sh
