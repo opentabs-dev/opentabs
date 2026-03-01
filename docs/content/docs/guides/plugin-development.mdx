@@ -115,17 +115,17 @@ Similarly, lifecycle hooks (`onActivate`, `onDeactivate`, `onNavigate`, `onToolI
 ```typescript
 // Check for an auth token in localStorage
 async isReady(): Promise<boolean> {
-  return localStorage.getItem("session_token") !== null;
+  return localStorage.getItem('session_token') !== null;
 }
 
 // Check for a DOM element that only appears after login
 async isReady(): Promise<boolean> {
-  return document.querySelector("[data-user-id]") !== null;
+  return document.querySelector('[data-user-id]') !== null;
 }
 
 // Check for an auth cookie
 async isReady(): Promise<boolean> {
-  return document.cookie.includes("auth=");
+  return document.cookie.includes('auth=');
 }
 ```
 
@@ -134,11 +134,11 @@ The extension gives `isReady()` 5 seconds to resolve. If it takes longer, the ta
 For pages that load asynchronously, you can wait for authentication to complete:
 
 ```typescript
-import { waitUntil } from "@opentabs-dev/plugin-sdk";
+import { waitUntil } from '@opentabs-dev/plugin-sdk';
 
 async isReady(): Promise<boolean> {
   try {
-    await waitUntil(() => localStorage.getItem("token") !== null, {
+    await waitUntil(() => localStorage.getItem('token') !== null, {
       timeout: 3000,
     });
     return true;
@@ -153,41 +153,32 @@ async isReady(): Promise<boolean> {
 Each tool lives in its own file under `src/tools/`. Use `defineTool()` to create one:
 
 ```typescript
-import { defineTool } from "@opentabs-dev/plugin-sdk";
-import { z } from "zod";
+import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { z } from 'zod';
 
 export const getItems = defineTool({
-  name: "get_items",
-  displayName: "Get Items",
-  description: "Retrieve items from the current workspace.",
-  icon: "list",
+  name: 'get_items',
+  displayName: 'Get Items',
+  description: 'Retrieve items from the current workspace.',
+  icon: 'list',
   input: z.object({
-    limit: z
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .optional()
-      .describe("Maximum items to return (default 20, max 100)"),
-    status: z
-      .enum(["active", "archived"])
-      .optional()
-      .describe("Filter by status"),
+    limit: z.number().int().min(1).max(100).optional().describe('Maximum items to return (default 20, max 100)'),
+    status: z.enum(['active', 'archived']).optional().describe('Filter by status'),
   }),
   output: z.object({
     items: z.array(
       z.object({
-        id: z.string().describe("Item ID"),
-        title: z.string().describe("Item title"),
-        status: z.string().describe("Current status"),
+        id: z.string().describe('Item ID'),
+        title: z.string().describe('Item title'),
+        status: z.string().describe('Current status'),
       }),
     ),
   }),
-  handle: async (params) => {
-    const response = await fetch("/api/items?" + new URLSearchParams({
+  handle: async params => {
+    const response = await fetch('/api/items?' + new URLSearchParams({
       limit: String(params.limit ?? 20),
       ...(params.status && { status: params.status }),
-    }), { credentials: "include" });
+    }), { credentials: 'include' });
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -223,19 +214,19 @@ Tool descriptions are how AI agents decide which tool to use. Write them like yo
 
 ```typescript
 // Bad — too vague
-description: "Gets data from the page."
+description: 'Gets data from the page.'
 
 // Good — specific and actionable
-description: "List channels in the workspace. Returns channel ID, name, topic, and member count. Use the cursor parameter for pagination."
+description: 'List channels in the workspace. Returns channel ID, name, topic, and member count. Use the cursor parameter for pagination.'
 ```
 
 Include parameter descriptions on every field — AI agents use them to fill in the right values:
 
 ```typescript
 input: z.object({
-  channel: z.string().min(1).describe("Channel ID (e.g., C01234567)"),
-  text: z.string().min(1).describe("Message text — supports Slack mrkdwn formatting"),
-  thread_ts: z.string().optional().describe("Thread timestamp to reply in a thread"),
+  channel: z.string().min(1).describe('Channel ID (e.g., C01234567)'),
+  text: z.string().min(1).describe('Message text — supports Slack mrkdwn formatting'),
+  thread_ts: z.string().optional().describe('Thread timestamp to reply in a thread'),
 }),
 ```
 
@@ -244,9 +235,9 @@ input: z.object({
 Import your tools and add them to the `tools` array in your plugin class:
 
 ```typescript
-import { getItems } from "./tools/get-items.js";
-import { createItem } from "./tools/create-item.js";
-import { deleteItem } from "./tools/delete-item.js";
+import { getItems } from './tools/get-items.js';
+import { createItem } from './tools/create-item.js';
+import { deleteItem } from './tools/delete-item.js';
 
 class MyAppPlugin extends OpenTabsPlugin {
   // ...
@@ -263,33 +254,33 @@ The plugin SDK provides utility functions that reduce boilerplate for common ope
 Use `fetchJSON` and `postJSON` instead of raw `fetch` — they include credentials automatically, handle timeouts, and throw structured `ToolError` on failure:
 
 ```typescript
-import { fetchJSON, postJSON, ToolError } from "@opentabs-dev/plugin-sdk";
+import { fetchJSON, postJSON, ToolError } from '@opentabs-dev/plugin-sdk';
 
 // GET request — returns parsed JSON
-const data = await fetchJSON<{ items: Item[] }>("/api/items?limit=20");
-if (!data) throw ToolError.internal("No data returned");
+const data = await fetchJSON<{ items: Item[] }>('/api/items?limit=20');
+if (!data) throw ToolError.internal('No data returned');
 
 // POST request — stringifies body, sets Content-Type
-const result = await postJSON<{ id: string }>("/api/items", {
-  title: "New item",
-  status: "active",
+const result = await postJSON<{ id: string }>('/api/items', {
+  title: 'New item',
+  status: 'active',
 });
-if (!result) throw ToolError.internal("No data returned");
+if (!result) throw ToolError.internal('No data returned');
 ```
 
 The SDK also provides `putJSON`, `patchJSON`, and `deleteJSON` for other HTTP methods. `putJSON` and `patchJSON` follow the same signature as `postJSON` — `deleteJSON` omits the body parameter:
 
 ```typescript
-import { putJSON, patchJSON, deleteJSON } from "@opentabs-dev/plugin-sdk";
+import { putJSON, patchJSON, deleteJSON } from '@opentabs-dev/plugin-sdk';
 
 // PUT — full replace
-await putJSON("/api/items/abc123", { title: "Updated", status: "archived" });
+await putJSON('/api/items/abc123', { title: 'Updated', status: 'archived' });
 
 // PATCH — partial update
-await patchJSON("/api/items/abc123", { status: "archived" });
+await patchJSON('/api/items/abc123', { status: 'archived' });
 
 // DELETE — no body
-await deleteJSON("/api/items/abc123");
+await deleteJSON('/api/items/abc123');
 ```
 
 ### Form submissions
@@ -300,18 +291,18 @@ Use `postForm` and `postFormData` when the API expects form-encoded or multipart
 - **`postFormData(url, body, init?)`** — POST with `multipart/form-data` body. `body` is `FormData`. Useful for file uploads.
 
 ```typescript
-import { postForm, postFormData } from "@opentabs-dev/plugin-sdk";
+import { postForm, postFormData } from '@opentabs-dev/plugin-sdk';
 
 // URL-encoded form
-const result = await postForm<{ success: boolean }>("/api/submit", {
-  name: "test",
-  value: "42",
+const result = await postForm<{ success: boolean }>('/api/submit', {
+  name: 'test',
+  value: '42',
 });
 
 // Multipart form data (file uploads)
 const formData = new FormData();
-formData.append("file", blob, "upload.png");
-const uploaded = await postFormData<{ id: string }>("/api/upload", formData);
+formData.append('file', blob, 'upload.png');
+const uploaded = await postFormData<{ id: string }>('/api/upload', formData);
 ```
 
 ### Runtime response validation
@@ -322,21 +313,16 @@ All fetch utilities accept an optional Zod schema as the last parameter. When pr
 - `postJSON(url, body, init?, schema?)` — POST/PUT/PATCH with a body (same for `putJSON`, `patchJSON`)
 
 ```typescript
-import { fetchJSON, postJSON } from "@opentabs-dev/plugin-sdk";
-import { z } from "zod";
+import { fetchJSON, postJSON } from '@opentabs-dev/plugin-sdk';
+import { z } from 'zod';
 
 const itemSchema = z.object({ id: z.string(), title: z.string() });
 
 // Return type is inferred as { id: string; title: string }[]
-const items = await fetchJSON("/api/items", undefined, z.array(itemSchema));
+const items = await fetchJSON('/api/items', undefined, z.array(itemSchema));
 
 // For methods that take a body, schema is the 4th argument (after the optional init)
-const created = await postJSON(
-  "/api/items",
-  { title: "New item" },
-  undefined,
-  itemSchema,
-);
+const created = await postJSON('/api/items', { title: 'New item' }, undefined, itemSchema);
 ```
 
 If validation fails, the fetch helper throws a `ToolError` with a structured validation error. See the [Utilities reference](/docs/sdk/utilities) for the full API.
@@ -346,13 +332,13 @@ If validation fails, the fetch helper throws a `ToolError` with a structured val
 Use `waitForSelector` when the page loads asynchronously:
 
 ```typescript
-import { waitForSelector, getTextContent } from "@opentabs-dev/plugin-sdk";
+import { waitForSelector, getTextContent } from '@opentabs-dev/plugin-sdk';
 
 // Wait up to 10s for the dashboard to load
-const dashboard = await waitForSelector(".dashboard-loaded");
+const dashboard = await waitForSelector('.dashboard-loaded');
 
 // Get text content from an element
-const username = getTextContent(".user-profile-name");
+const username = getTextContent('.user-profile-name');
 ```
 
 ### Retry on failure
@@ -360,12 +346,9 @@ const username = getTextContent(".user-profile-name");
 Use `retry` for flaky operations:
 
 ```typescript
-import { retry } from "@opentabs-dev/plugin-sdk";
+import { retry } from '@opentabs-dev/plugin-sdk';
 
-const data = await retry(
-  () => fetchJSON("/api/items"),
-  { maxAttempts: 3, delay: 1000, backoff: true },
-);
+const data = await retry(() => fetchJSON('/api/items'), { maxAttempts: 3, delay: 1000, backoff: true });
 ```
 
 ### Read page state
@@ -373,10 +356,10 @@ const data = await retry(
 Use `getPageGlobal` to safely access deeply nested globals:
 
 ```typescript
-import { getPageGlobal } from "@opentabs-dev/plugin-sdk";
+import { getPageGlobal } from '@opentabs-dev/plugin-sdk';
 
 // Safe deep access — returns undefined if any segment is missing
-const token = getPageGlobal("app.config.apiToken") as string | undefined;
+const token = getPageGlobal('app.config.apiToken') as string | undefined;
 ```
 
 ### Storage helpers
@@ -384,11 +367,11 @@ const token = getPageGlobal("app.config.apiToken") as string | undefined;
 Use the storage utilities for safe access to localStorage and cookies:
 
 ```typescript
-import { getLocalStorage, getCookie } from "@opentabs-dev/plugin-sdk";
+import { getLocalStorage, getCookie } from '@opentabs-dev/plugin-sdk';
 
 // Returns null instead of throwing on SecurityError
-const session = getLocalStorage("session_id");
-const authCookie = getCookie("auth_token");
+const session = getLocalStorage('session_id');
+const authCookie = getCookie('auth_token');
 ```
 
 These examples cover the most commonly used utilities. For the complete list — including `fetchFromPage`, `getCurrentUrl`, `getPageTitle`, `waitForSelectorRemoval`, `querySelectorAll`, `observeDOM`, `sleep`, and all storage helpers — see the [SDK Utilities reference](/docs/sdk/utilities).
@@ -398,21 +381,21 @@ These examples cover the most commonly used utilities. For the complete list —
 Use `ToolError` for structured errors that AI agents can understand and act on:
 
 ```typescript
-import { ToolError } from "@opentabs-dev/plugin-sdk";
+import { ToolError } from '@opentabs-dev/plugin-sdk';
 
-handle: async (params) => {
+handle: async params => {
   const response = await fetch(`/api/items/${params.id}`, {
-    credentials: "include",
+    credentials: 'include',
   });
 
   if (response.status === 401) {
-    throw ToolError.auth("Not authenticated — please log in to My App");
+    throw ToolError.auth('Not authenticated — please log in to My App');
   }
   if (response.status === 404) {
     throw ToolError.notFound(`Item ${params.id} not found`);
   }
   if (response.status === 429) {
-    throw ToolError.rateLimited("Too many requests", 2000);
+    throw ToolError.rateLimited('Too many requests', 2000);
   }
 
   // ...
@@ -426,13 +409,13 @@ handle: async (params) => {
 Use `log` from the SDK to send structured logs through the platform:
 
 ```typescript
-import { log, fetchJSON, ToolError } from "@opentabs-dev/plugin-sdk";
+import { log, fetchJSON, ToolError } from '@opentabs-dev/plugin-sdk';
 
-handle: async (params) => {
-  log.info("Fetching items", { limit: params.limit });
-  const data = await fetchJSON<{ items: { id: string; name: string }[] }>("/api/items");
-  if (!data) throw ToolError.internal("No data returned");
-  log.debug("Got response", { count: data.items.length });
+handle: async params => {
+  log.info('Fetching items', { limit: params.limit });
+  const data = await fetchJSON<{ items: { id: string; name: string }[] }>('/api/items');
+  if (!data) throw ToolError.internal('No data returned');
+  log.debug('Got response', { count: data.items.length });
   return { items: data.items };
 };
 ```
@@ -450,13 +433,13 @@ Tool schemas are serialized to JSON Schema for the MCP protocol. Keep them seria
 ```typescript
 z.string()
   .url()
-  .refine((val) => {
+  .refine(val => {
     try {
-      return new URL(val).hostname.endsWith(".example.com");
+      return new URL(val).hostname.endsWith('.example.com');
     } catch {
       return false;
     }
-  }, "Must be an example.com URL");
+  }, 'Must be an example.com URL');
 ```
 
 ## Build and Test

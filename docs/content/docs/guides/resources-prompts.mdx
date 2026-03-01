@@ -201,12 +201,10 @@ const summarizeThread = definePrompt({
     // Fetch the thread data from the page context
     const response = await fetch(
       `/api/conversations.replies?channel=${channel}&ts=${threadTs}`,
-      { credentials: 'include' }
+      { credentials: 'include' },
     );
     const data = await response.json();
-    const messages = data.messages
-      .map((m: { user: string; text: string }) => `${m.user}: ${m.text}`)
-      .join('\n');
+    const messages = data.messages.map((m: { user: string; text: string }) => `${m.user}: ${m.text}`).join('\n');
 
     return [
       {
@@ -424,11 +422,7 @@ import {
   ToolError,
   log,
 } from '@opentabs-dev/plugin-sdk';
-import type {
-  ToolDefinition,
-  ResourceDefinition,
-  PromptDefinition,
-} from '@opentabs-dev/plugin-sdk';
+import type { ToolDefinition, ResourceDefinition, PromptDefinition } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
 // A resource that lists project items
@@ -438,9 +432,7 @@ const itemList = defineResource({
   description: 'Returns all items in the current project',
   mimeType: 'application/json',
   async read() {
-    const data = await fetchJSON<{ items: { id: string; title: string; status: string }[] }>(
-      '/api/items'
-    );
+    const data = await fetchJSON<{ items: { id: string; title: string; status: string }[] }>('/api/items');
     if (!data) {
       return { uri: 'tracker://items', text: '[]', mimeType: 'application/json' };
     }
@@ -456,19 +448,13 @@ const itemList = defineResource({
 const statusReport = definePrompt({
   name: 'status_report',
   description: 'Generates a prompt to create a project status report',
-  arguments: [
-    { name: 'period', description: 'Report period (e.g., "this week")', required: true },
-  ],
+  arguments: [{ name: 'period', description: 'Report period (e.g., "this week")', required: true }],
   async render(args) {
-    const data = await fetchJSON<{ items: { title: string; status: string }[] }>(
-      '/api/items'
-    );
+    const data = await fetchJSON<{ items: { title: string; status: string }[] }>('/api/items');
     if (!data) {
       throw ToolError.internal('Failed to load items');
     }
-    const summary = data.items
-      .map(item => `- [${item.status}] ${item.title}`)
-      .join('\n');
+    const summary = data.items.map(item => `- [${item.status}] ${item.title}`).join('\n');
 
     return [
       {
@@ -498,7 +484,7 @@ const createItem = defineTool({
   async handle(params) {
     const item = await fetchJSON<{ id: string; title: string; url: string }>(
       '/api/items',
-      { method: 'POST', body: JSON.stringify(params) }
+      { method: 'POST', body: JSON.stringify(params) },
     );
     if (!item) {
       throw ToolError.internal('Failed to create item');
