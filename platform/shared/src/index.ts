@@ -322,6 +322,11 @@ export interface ConfigSetBrowserToolEnabledParams {
   enabled: boolean;
 }
 
+/** config.setAllBrowserToolsEnabled request params */
+export interface ConfigSetAllBrowserToolsEnabledParams {
+  enabled: boolean;
+}
+
 /** extension.reload request: server → extension (no params needed) */
 export type ExtensionReloadParams = Record<string, never>;
 

@@ -23,6 +23,7 @@ interface SearchResultsProps {
   onUpdate?: (pluginName: string) => void;
   onRemove?: (pluginName: string) => void;
   removingPlugins?: Set<string>;
+  pluginErrors?: Map<string, string>;
   serverVersion?: string;
 }
 
@@ -51,6 +52,7 @@ const SearchResults = ({
   onUpdate,
   onRemove,
   removingPlugins,
+  pluginErrors,
   serverVersion,
 }: SearchResultsProps) => {
   const filterLower = toolFilter.toLowerCase();
@@ -98,6 +100,7 @@ const SearchResults = ({
             onUpdate={onUpdate}
             onRemove={onRemove}
             removingPlugins={removingPlugins}
+            pluginErrors={pluginErrors}
           />
         </div>
       )}

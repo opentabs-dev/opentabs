@@ -192,6 +192,10 @@ const setAllToolsEnabled = (plugin: string, enabled: boolean): Promise<unknown> 
 const setBrowserToolEnabled = (tool: string, enabled: boolean): Promise<unknown> =>
   sendRequest('config.setBrowserToolEnabled', { tool, enabled });
 
+/** Toggle all browser tools' enabled state in a single batch request */
+const setAllBrowserToolsEnabled = (enabled: boolean): Promise<unknown> =>
+  sendRequest('config.setAllBrowserToolsEnabled', { enabled });
+
 /** Search npm registry for plugins matching the given query */
 const searchPlugins = (query: string): Promise<{ results: PluginSearchResult[] }> =>
   sendRequest('plugin.search', { query }) as Promise<{ results: PluginSearchResult[] }>;
@@ -234,6 +238,7 @@ export {
   setToolEnabled,
   setAllToolsEnabled,
   setBrowserToolEnabled,
+  setAllBrowserToolsEnabled,
   searchPlugins,
   installPlugin,
   removePlugin,

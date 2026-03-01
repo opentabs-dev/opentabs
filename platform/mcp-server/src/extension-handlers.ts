@@ -26,6 +26,7 @@ import { version } from './version.js';
 import type { PluginLogEntry } from './log-buffer.js';
 import type { RegisteredPlugin, ServerState, TabMapping, ConfirmationScope, SessionPermissionRule } from './state.js';
 import type {
+  ConfigSetAllBrowserToolsEnabledParams,
   ConfigSetAllToolsEnabledParams,
   ConfigSetBrowserToolEnabledParams,
   ConfigSetToolEnabledParams,
@@ -431,6 +432,40 @@ const handleConfigSetBrowserToolEnabled = (
   });
 };
 
+const handleConfigSetAllBrowserToolsEnabled = (
+  state: ServerState,
+  params: Record<string, unknown> | undefined,
+  id: string | number,
+  callbacks: McpCallbacks,
+): void => {
+  if (!params) {
+    sendJsonRpcError(state, id, -32602, 'Missing params');
+    return;
+  }
+
+  const allBrowserToolsParams = params as Partial<ConfigSetAllBrowserToolsEnabledParams>;
+  const enabled = allBrowserToolsParams.enabled;
+
+  if (typeof enabled !== 'boolean') {
+    sendJsonRpcError(state, id, -32602, 'Invalid params: expected enabled (boolean)');
+    return;
+  }
+
+  for (const tool of state.cachedBrowserTools) {
+    state.browserToolPolicy[tool.name] = enabled;
+  }
+  callbacks.onToolConfigChanged();
+  callbacks.onBrowserToolPolicyPersist();
+
+  sendToExtension(state, { jsonrpc: '2.0', method: 'plugins.changed', params: {} });
+
+  sendToExtension(state, {
+    jsonrpc: '2.0',
+    result: { ok: true },
+    id,
+  });
+};
+
 // --- Tool progress handler ---
 
 /**
@@ -737,6 +772,7 @@ export {
   handleConfigSetToolEnabled,
   handleConfigSetAllToolsEnabled,
   handleConfigSetBrowserToolEnabled,
+  handleConfigSetAllBrowserToolsEnabled,
   handlePluginSearch,
   handlePluginInstall,
   handlePluginUpdateFromRegistry,

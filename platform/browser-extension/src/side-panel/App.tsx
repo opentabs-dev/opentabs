@@ -18,6 +18,7 @@ import { Accordion } from './components/retro/Accordion.js';
 import { Input } from './components/retro/Input.js';
 import { Tooltip } from './components/retro/Tooltip.js';
 import { SearchResults } from './components/SearchResults.js';
+import { ERROR_DISPLAY_DURATION_MS } from './constants.js';
 import { useServerNotifications } from './hooks/useServerNotifications.js';
 import { Search, X } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
@@ -42,10 +43,13 @@ const App = () => {
   const [installingPlugins, setInstallingPlugins] = useState<Set<string>>(new Set());
   const [removingPlugins, setRemovingPlugins] = useState<Set<string>>(new Set());
   const [installErrors, setInstallErrors] = useState<Map<string, string>>(new Map());
+  const [pluginErrors, setPluginErrors] = useState<Map<string, string>>(new Map());
 
   const lastFetchRef = useRef(0);
+  const pluginErrorTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const pendingTabStates = useRef<Map<string, TabState>>(new Map());
   const npmSearchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const npmSearchCounter = useRef(0);
 
   const connectedRef = useRef(connected);
   const loadingRef = useRef(loading);
@@ -65,6 +69,43 @@ const App = () => {
     pendingTabStates,
   });
 
+  useEffect(
+    () => () => {
+      for (const timer of pluginErrorTimers.current.values()) clearTimeout(timer);
+    },
+    [],
+  );
+
+  const showPluginError = (pluginName: string, message: string) => {
+    const existing = pluginErrorTimers.current.get(pluginName);
+    if (existing) clearTimeout(existing);
+    setPluginErrors(prev => new Map(prev).set(pluginName, message));
+    pluginErrorTimers.current.set(
+      pluginName,
+      setTimeout(() => {
+        setPluginErrors(prev => {
+          const next = new Map(prev);
+          next.delete(pluginName);
+          return next;
+        });
+        pluginErrorTimers.current.delete(pluginName);
+      }, ERROR_DISPLAY_DURATION_MS),
+    );
+  };
+
+  const clearPluginError = (pluginName: string) => {
+    const existing = pluginErrorTimers.current.get(pluginName);
+    if (existing) {
+      clearTimeout(existing);
+      pluginErrorTimers.current.delete(pluginName);
+    }
+    setPluginErrors(prev => {
+      const next = new Map(prev);
+      next.delete(pluginName);
+      return next;
+    });
+  };
+
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     clearTimeout(npmSearchTimer.current);
@@ -74,16 +115,23 @@ const App = () => {
       return;
     }
     setNpmSearching(true);
+    const searchId = ++npmSearchCounter.current;
     npmSearchTimer.current = setTimeout(() => {
       searchPlugins(query)
         .then(result => {
-          setNpmResults(result.results);
+          if (npmSearchCounter.current === searchId) {
+            setNpmResults(result.results);
+          }
         })
         .catch(() => {
-          setNpmResults([]);
+          if (npmSearchCounter.current === searchId) {
+            setNpmResults([]);
+          }
         })
         .finally(() => {
-          setNpmSearching(false);
+          if (npmSearchCounter.current === searchId) {
+            setNpmSearching(false);
+          }
         });
     }, 400);
   };
@@ -115,6 +163,7 @@ const App = () => {
   };
 
   const handleRemove = (pluginName: string) => {
+    clearPluginError(pluginName);
     setRemovingPlugins(prev => new Set(prev).add(pluginName));
     removePlugin(pluginName)
       .then(() => {
@@ -124,18 +173,20 @@ const App = () => {
           return next;
         });
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setRemovingPlugins(prev => {
           const next = new Set(prev);
           next.delete(pluginName);
           return next;
         });
+        showPluginError(pluginName, err instanceof Error ? err.message : String(err));
       });
   };
 
   const handleUpdate = (pluginName: string) => {
-    updatePlugin(pluginName).catch(() => {
-      // plugins.changed notification will refresh the list on success
+    clearPluginError(pluginName);
+    updatePlugin(pluginName).catch((err: unknown) => {
+      showPluginError(pluginName, err instanceof Error ? err.message : String(err));
     });
   };
 
@@ -264,7 +315,10 @@ const App = () => {
     };
 
     chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
+    return () => {
+      clearTimeout(npmSearchTimer.current);
+      chrome.runtime.onMessage.removeListener(listener);
+    };
   }, [handleNotification]);
 
   const handleConfirmationRespond = (
@@ -346,6 +400,7 @@ const App = () => {
               onUpdate={handleUpdate}
               onRemove={handleRemove}
               removingPlugins={removingPlugins}
+              pluginErrors={pluginErrors}
               serverVersion={serverVersion}
             />
           ) : hasContent ? (
@@ -369,6 +424,7 @@ const App = () => {
                 onUpdate={handleUpdate}
                 onRemove={handleRemove}
                 removingPlugins={removingPlugins}
+                pluginErrors={pluginErrors}
               />
             </>
           ) : null}

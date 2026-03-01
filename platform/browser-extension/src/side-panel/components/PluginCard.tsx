@@ -24,6 +24,7 @@ const PluginCard = ({
   onRemove,
   updatingPlugin,
   removingPlugin,
+  actionError,
 }: {
   plugin: PluginState;
   activeTools: Set<string>;
@@ -33,6 +34,7 @@ const PluginCard = ({
   onRemove?: () => void;
   updatingPlugin?: boolean;
   removingPlugin?: boolean;
+  actionError?: string | null;
 }) => {
   const [toggleError, setToggleError] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -160,6 +162,11 @@ const PluginCard = ({
       {toggleError && (
         <Alert status="error" className="mx-3 mb-1 px-2 py-1 text-[11px]">
           {toggleError}
+        </Alert>
+      )}
+      {actionError && (
+        <Alert status="error" className="mx-3 mb-1 px-2 py-1 text-[11px]">
+          {actionError}
         </Alert>
       )}
 

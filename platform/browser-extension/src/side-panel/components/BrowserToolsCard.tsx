@@ -4,7 +4,7 @@ import { Alert } from './retro/Alert.js';
 import { Badge } from './retro/Badge.js';
 import { Switch } from './retro/Switch.js';
 import { ToolRow } from './ToolRow.js';
-import { setBrowserToolEnabled } from '../bridge.js';
+import { setBrowserToolEnabled, setAllBrowserToolsEnabled } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ChevronDown, Globe } from 'lucide-react';
@@ -54,8 +54,7 @@ const BrowserToolsCard = ({
       preToggleRef.current = prev;
       return prev.map(t => ({ ...t, enabled: checked }));
     });
-    const promises = tools.filter(t => t.enabled !== checked).map(t => setBrowserToolEnabled(t.name, checked));
-    void Promise.all(promises).catch(() => {
+    void setAllBrowserToolsEnabled(checked).catch(() => {
       if (toggleCounter.current === myVersion) {
         onToolsChange(() => preToggleRef.current);
       }
