@@ -207,6 +207,9 @@ const grayToHex = (gray: number): string => {
   return `#${hexPair}${hexPair}${hexPair}`;
 };
 
+/** Parse a single RGB component: integer (0-255) or percentage string (e.g. "50%") → 0-255 */
+const parseRgbComponent = (s: string): number => (s.endsWith('%') ? Math.round(parseFloat(s) * 2.55) : parseInt(s, 10));
+
 /**
  * Parse a CSS color value into [R, G, B] or null if not a recognizable color.
  * Returns null for passthrough values (none, currentColor, etc.) and url() references.
@@ -225,21 +228,24 @@ const parseColor = (value: string): [number, number, number] | null => {
   if (trimmedValue.startsWith('#')) return parseHex(trimmedValue);
 
   // rgb()/rgba() — legacy comma-separated syntax: rgb(R, G, B) or rgba(R, G, B, A)
-  const rgbMatch = lowerValue.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  // Components may be integers (0-255) or percentages (0%-100%)
+  const rgbMatch = lowerValue.match(/^rgba?\(\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*(\d+%?)/);
   if (rgbMatch) {
-    return [parseInt(rgbMatch[1] ?? '0', 10), parseInt(rgbMatch[2] ?? '0', 10), parseInt(rgbMatch[3] ?? '0', 10)];
+    return [
+      parseRgbComponent(rgbMatch[1] ?? '0'),
+      parseRgbComponent(rgbMatch[2] ?? '0'),
+      parseRgbComponent(rgbMatch[3] ?? '0'),
+    ];
   }
 
   // rgb()/rgba() — modern CSS Color Level 4 space-separated syntax: rgb(R G B) or rgb(R G B / A)
   // Components may be integers (0-255) or percentages (0%-100%)
   const modernRgbMatch = lowerValue.match(/^rgba?\(\s*([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+%?)(?:\s*\/\s*[\d.]+%?)?\s*\)$/);
   if (modernRgbMatch) {
-    const parseComponent = (s: string): number =>
-      s.endsWith('%') ? Math.round(parseFloat(s) * 2.55) : parseInt(s, 10);
     return [
-      parseComponent(modernRgbMatch[1] ?? '0'),
-      parseComponent(modernRgbMatch[2] ?? '0'),
-      parseComponent(modernRgbMatch[3] ?? '0'),
+      parseRgbComponent(modernRgbMatch[1] ?? '0'),
+      parseRgbComponent(modernRgbMatch[2] ?? '0'),
+      parseRgbComponent(modernRgbMatch[3] ?? '0'),
     ];
   }
 
@@ -440,23 +446,23 @@ const convertColorToGray = (value: string): string => {
     return `${fn}(${hue} 0% ${lightness}%${rest})`;
   }
 
-  // rgba — convert and preserve alpha
-  const rgbaMatch = lowerValue.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([\d.]+)\s*\)/);
+  // rgba() — legacy comma-separated with optional percentage components: rgba(R, G, B, A)
+  const rgbaMatch = lowerValue.match(/^rgba\(\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*([\d.]+)\s*\)/);
   if (rgbaMatch) {
-    const red = parseInt(rgbaMatch[1] ?? '0', 10);
-    const green = parseInt(rgbaMatch[2] ?? '0', 10);
-    const blue = parseInt(rgbaMatch[3] ?? '0', 10);
+    const red = parseRgbComponent(rgbaMatch[1] ?? '0');
+    const green = parseRgbComponent(rgbaMatch[2] ?? '0');
+    const blue = parseRgbComponent(rgbaMatch[3] ?? '0');
     const alpha = rgbaMatch[4] ?? '1';
     const gray = toLuminanceGray(red, green, blue);
     return `rgba(${gray}, ${gray}, ${gray}, ${alpha})`;
   }
 
-  // rgb() — legacy comma-separated: rgb(R, G, B)
-  const rgbMatch = lowerValue.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/);
+  // rgb() — legacy comma-separated with optional percentage components: rgb(R, G, B)
+  const rgbMatch = lowerValue.match(/^rgb\(\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*(\d+%?)\s*\)/);
   if (rgbMatch) {
-    const red = parseInt(rgbMatch[1] ?? '0', 10);
-    const green = parseInt(rgbMatch[2] ?? '0', 10);
-    const blue = parseInt(rgbMatch[3] ?? '0', 10);
+    const red = parseRgbComponent(rgbMatch[1] ?? '0');
+    const green = parseRgbComponent(rgbMatch[2] ?? '0');
+    const blue = parseRgbComponent(rgbMatch[3] ?? '0');
     const gray = toLuminanceGray(red, green, blue);
     return grayToHex(gray);
   }
@@ -466,11 +472,9 @@ const convertColorToGray = (value: string): string => {
     /^rgba?\(\s*([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+%?)(?:\s*\/\s*([\d.]+%?))?\s*\)$/,
   );
   if (modernRgbConvertMatch) {
-    const parseComponent = (s: string): number =>
-      s.endsWith('%') ? Math.round(parseFloat(s) * 2.55) : parseInt(s, 10);
-    const red = parseComponent(modernRgbConvertMatch[1] ?? '0');
-    const green = parseComponent(modernRgbConvertMatch[2] ?? '0');
-    const blue = parseComponent(modernRgbConvertMatch[3] ?? '0');
+    const red = parseRgbComponent(modernRgbConvertMatch[1] ?? '0');
+    const green = parseRgbComponent(modernRgbConvertMatch[2] ?? '0');
+    const blue = parseRgbComponent(modernRgbConvertMatch[3] ?? '0');
     const alpha = modernRgbConvertMatch[4];
     const gray = toLuminanceGray(red, green, blue);
     if (alpha !== undefined) {

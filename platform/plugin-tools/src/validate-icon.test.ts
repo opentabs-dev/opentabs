@@ -414,6 +414,25 @@ describe('validateInactiveIconColors', () => {
     const result = validateInactiveIconColors(svg);
     expect(result.valid).toBe(false);
   });
+
+  // -- Legacy comma-separated percentage rgb() syntax --
+
+  test('fill="rgb(100%, 0%, 0%)" (legacy comma percentage syntax, saturated red) fails', () => {
+    const svg = svgWrap('<rect fill="rgb(100%, 0%, 0%)"/>');
+    const result = validateInactiveIconColors(svg);
+    expect(result.valid).toBe(false);
+  });
+
+  test('fill="rgba(100%, 0%, 0%, 0.5)" (legacy comma percentage syntax with alpha, saturated) fails', () => {
+    const svg = svgWrap('<rect fill="rgba(100%, 0%, 0%, 0.5)"/>');
+    const result = validateInactiveIconColors(svg);
+    expect(result.valid).toBe(false);
+  });
+
+  test('fill="rgb(50%, 50%, 50%)" (legacy comma percentage syntax, achromatic) passes', () => {
+    const svg = svgWrap('<rect fill="rgb(50%, 50%, 50%)"/>');
+    expect(validateInactiveIconColors(svg)).toEqual({ valid: true });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -856,6 +875,27 @@ describe('generateInactiveIcon', () => {
     const svg = svgWrap(
       '<rect fill="rgb(255 0 0)"/>' + '<circle fill="rgb(0 255 0 / 0.8)"/>' + '<path stroke="rgb(100% 0% 0%)"/>',
     );
+    const inactive = generateInactiveIcon(svg);
+    expect(validateInactiveIconColors(inactive)).toEqual({ valid: true });
+  });
+
+  // -- Legacy comma-separated percentage rgb() syntax --
+
+  test('fill="rgb(100%, 0%, 0%)" (legacy comma percentage syntax) → #363636', () => {
+    // R=round(100*2.55)=255, G=0, B=0 → gray=round(0.2126*255)=54 → #363636
+    const svg = svgWrap('<rect fill="rgb(100%, 0%, 0%)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#363636"');
+  });
+
+  test('fill="rgba(100%, 0%, 0%, 0.5)" (legacy comma percentage syntax with alpha) → rgba(54, 54, 54, 0.5)', () => {
+    const svg = svgWrap('<rect fill="rgba(100%, 0%, 0%, 0.5)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="rgba(54, 54, 54, 0.5)"');
+  });
+
+  test('generateInactiveIcon output with legacy comma percentage syntax passes validateInactiveIconColors', () => {
+    const svg = svgWrap('<rect fill="rgb(100%, 0%, 0%)"/>' + '<circle fill="rgba(0%, 100%, 0%, 0.8)"/>');
     const inactive = generateInactiveIcon(svg);
     expect(validateInactiveIconColors(inactive)).toEqual({ valid: true });
   });
