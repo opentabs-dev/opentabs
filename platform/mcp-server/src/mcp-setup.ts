@@ -106,6 +106,7 @@ const rebuildCachedBrowserTools = (state: ServerState): void => {
     return {
       name: bt.name,
       description: bt.description,
+      ...(bt.icon ? { icon: bt.icon } : {}),
       inputSchema: schema,
       tool: bt,
     };

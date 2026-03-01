@@ -296,6 +296,7 @@ const handleConfigGetState = (state: ServerState, id: string | number): void => 
       name: ct.name,
       description: ct.description,
       enabled: isBrowserToolEnabled(state, ct.name),
+      ...(ct.icon ? { icon: ct.icon } : {}),
     }));
 
   sendToExtension(state, {

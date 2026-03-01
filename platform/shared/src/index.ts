@@ -293,6 +293,8 @@ export interface ConfigStateBrowserTool {
   name: string;
   description: string;
   enabled: boolean;
+  /** Lucide icon name (kebab-case) for the side panel */
+  icon?: string;
 }
 
 /** config.getState result */

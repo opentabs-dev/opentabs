@@ -146,6 +146,7 @@ export interface ToolLookupEntry {
 export interface CachedBrowserTool {
   name: string;
   description: string;
+  icon?: string;
   inputSchema: Record<string, unknown>;
   tool: BrowserToolDefinition;
 }
