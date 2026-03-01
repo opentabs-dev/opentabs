@@ -245,12 +245,12 @@ const refreshWsUrl = async (): Promise<DisconnectReason | undefined> => {
   if ('reason' in result) return result.reason;
 
   const res = result.response;
-  if (res.ok) {
-    const wsInfo = (await res.json()) as { wsUrl?: string };
-    if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '' && wsInfo.wsUrl !== mcpServerUrl) {
-      if (isValidWsOrigin(wsInfo.wsUrl, httpBase)) {
-        mcpServerUrl = wsInfo.wsUrl;
-      }
+  if (!res.ok) return 'connection_refused';
+
+  const wsInfo = (await res.json()) as { wsUrl?: string };
+  if (typeof wsInfo.wsUrl === 'string' && wsInfo.wsUrl !== '' && wsInfo.wsUrl !== mcpServerUrl) {
+    if (isValidWsOrigin(wsInfo.wsUrl, httpBase)) {
+      mcpServerUrl = wsInfo.wsUrl;
     }
   }
   return undefined;
