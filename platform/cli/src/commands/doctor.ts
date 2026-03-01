@@ -251,7 +251,7 @@ const defaultMcpClientLocations = (): McpClientLocation[] => {
   const cwd = process.cwd();
   const cwdIsProject = isCwdProjectDirectory();
   return [
-    { name: 'Claude Code', path: join(home, '.claude', 'settings', 'mcp.json') },
+    { name: 'Claude Code', path: join(home, '.claude.json') },
     { name: 'Cursor', path: join(home, '.cursor', 'mcp.json') },
     ...(cwdIsProject ? [{ name: 'Cursor', path: join(cwd, '.cursor', 'mcp.json') }] : []),
     { name: 'OpenCode', path: join(home, '.config', 'opencode', 'opencode.json') },
