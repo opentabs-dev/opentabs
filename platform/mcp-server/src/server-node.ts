@@ -170,32 +170,55 @@ const handleHttpRequest = (
   void run();
 };
 
+/** Per-request upgrade state communicated between the 'upgrade' event handler and adapter.upgrade() */
+interface UpgradeContext {
+  requested: boolean;
+  headers?: HeadersInit;
+}
+
 /**
  * Handle a WebSocket upgrade by running the fetch handler (which calls
  * adapter.upgrade()), then completing the upgrade via the ws library.
+ *
+ * Each upgrade gets its own adapter instance that closes over a per-request
+ * UpgradeContext, so concurrent upgrades cannot corrupt each other's state.
  */
 const handleWsUpgradeEvent = (
   options: NodeServerOptions,
-  adapter: ServerAdapter,
   wss: WebSocketServer,
-  getUpgradeContext: () => { requested: boolean; headers?: HeadersInit } | null,
-  setUpgradeContext: (ctx: { requested: boolean; headers?: HeadersInit } | null) => void,
-  setPendingHeaders: (headers: Record<string, string>) => void,
+  pendingHeadersByReq: Map<IncomingMessage, Record<string, string>>,
   req: IncomingMessage,
   socket: Duplex,
   head: Buffer,
 ): void => {
   const run = async (): Promise<void> => {
+    // Per-request upgrade context — only this upgrade's adapter reads/writes it
+    let upgradeCtx: UpgradeContext | null = { requested: false };
+
+    const perRequestAdapter: ServerAdapter = {
+      upgrade: (_webReq: Request, opts: { data: unknown; headers?: HeadersInit }): boolean => {
+        if (upgradeCtx) {
+          upgradeCtx.requested = true;
+          upgradeCtx.headers = opts.headers;
+          return true;
+        }
+        return false;
+      },
+      timeout: (): void => {
+        // Node.js http server uses socket-level timeouts. The default is
+        // sufficient — long-running MCP responses keep the socket open as
+        // long as data is being written.
+      },
+    };
+
     try {
-      setUpgradeContext({ requested: false });
-
       const webReq = toWebRequest(req, null);
-      await options.fetch(webReq, adapter);
+      await options.fetch(webReq, perRequestAdapter);
 
-      const ctx = getUpgradeContext();
-      setUpgradeContext(null);
+      const ctx = upgradeCtx;
+      upgradeCtx = null;
 
-      if (!ctx?.requested) {
+      if (!ctx.requested) {
         socket.destroy();
         return;
       }
@@ -208,7 +231,7 @@ const handleWsUpgradeEvent = (
         for (const [key, value] of h) {
           headerMap[key] = value;
         }
-        setPendingHeaders(headerMap);
+        pendingHeadersByReq.set(req, headerMap);
       }
 
       wss.handleUpgrade(req, socket, head, ws => {
@@ -236,7 +259,8 @@ const handleWsUpgradeEvent = (
       });
     } catch (err) {
       log.error('Unhandled error in WebSocket upgrade handler:', err);
-      setUpgradeContext(null);
+      upgradeCtx = null;
+      pendingHeadersByReq.delete(req);
       socket.destroy();
     }
   };
@@ -261,6 +285,11 @@ const createNodeServer = (options: NodeServerOptions): Promise<NodeServer> =>
       maxPayload: MAX_BODY_SIZE,
     });
 
+    // Per-request header map keyed by the IncomingMessage that triggered the
+    // upgrade. The 'headers' event receives the request as its second parameter,
+    // so each upgrade retrieves its own custom headers without race conditions.
+    const pendingHeadersByReq = new Map<IncomingMessage, Record<string, string>>();
+
     // The ws library emits 'headers' with the raw header lines just before
     // sending the 101 response. We use this to inject custom headers
     // from the route handler's upgrade call.
@@ -268,59 +297,30 @@ const createNodeServer = (options: NodeServerOptions): Promise<NodeServer> =>
     // Sec-WebSocket-Protocol is intentionally excluded here: ws selects the
     // protocol automatically (first value from the client's requested list),
     // so injecting it again would produce a duplicate header.
-    let pendingUpgradeHeaders: Record<string, string> = {};
-    wss.on('headers', (headers: string[]) => {
-      for (const [key, value] of Object.entries(pendingUpgradeHeaders)) {
-        if (key.toLowerCase() !== 'sec-websocket-protocol') {
-          headers.push(`${key}: ${value}`);
+    wss.on('headers', (headers: string[], request: IncomingMessage) => {
+      const pending = pendingHeadersByReq.get(request);
+      if (pending) {
+        for (const [key, value] of Object.entries(pending)) {
+          if (key.toLowerCase() !== 'sec-websocket-protocol') {
+            headers.push(`${key}: ${value}`);
+          }
         }
+        pendingHeadersByReq.delete(request);
       }
-      pendingUpgradeHeaders = {};
     });
 
-    /**
-     * Mutable ref set during upgrade event processing. The adapter.upgrade()
-     * method reads/writes this to communicate upgrade intent back to the
-     * 'upgrade' event handler.
-     */
-    let upgradeContext: { requested: boolean; headers?: HeadersInit } | null = null;
-
-    const adapter: ServerAdapter = {
-      upgrade: (_req: Request, opts: { data: unknown; headers?: HeadersInit }): boolean => {
-        if (upgradeContext) {
-          upgradeContext.requested = true;
-          upgradeContext.headers = opts.headers;
-          return true;
-        }
-        return false;
-      },
-      timeout: (): void => {
-        // Node.js http server uses socket-level timeouts. The default is
-        // sufficient — long-running MCP responses keep the socket open as
-        // long as data is being written.
-      },
+    // HTTP requests use a shared adapter — they never call upgrade()
+    const httpAdapter: ServerAdapter = {
+      upgrade: (): boolean => false,
+      timeout: (): void => {},
     };
 
     const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-      handleHttpRequest(options, adapter, req, res);
+      handleHttpRequest(options, httpAdapter, req, res);
     });
 
     httpServer.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-      handleWsUpgradeEvent(
-        options,
-        adapter,
-        wss,
-        () => upgradeContext,
-        ctx => {
-          upgradeContext = ctx;
-        },
-        headers => {
-          pendingUpgradeHeaders = headers;
-        },
-        req,
-        socket,
-        head,
-      );
+      handleWsUpgradeEvent(options, wss, pendingHeadersByReq, req, socket, head);
     });
 
     httpServer.on('error', (err: NodeJS.ErrnoException) => {
