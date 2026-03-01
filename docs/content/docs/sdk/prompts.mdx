@@ -1,7 +1,7 @@
 ---
 title: Prompts
 description: API reference for definePrompt — define reusable prompt templates that AI agents can render with arguments.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-03-01
 ---
 
 Prompts let your plugin expose reusable message templates that AI agents can render with structured arguments. When an agent calls `prompts/get`, your prompt's `render()` function runs in the browser page context and returns an array of messages.
@@ -28,6 +28,20 @@ function definePrompt<TArgs extends z.ZodObject<z.ZodRawShape>>(
 ```
 
 When you pass an `args` Zod schema, the `render()` function receives a typed object inferred from the schema instead of a plain `Record<string, string>`. The `arguments` metadata array is auto-generated from the schema during build if not explicitly provided.
+
+## `TypedPromptConfig<TArgs>`
+
+Configuration object for the typed overload of `definePrompt`. The key difference from `PromptDefinition` is that `render()` receives a typed object inferred from the `args` Zod schema instead of `Record<string, string>`.
+
+```typescript
+interface TypedPromptConfig<TArgs extends z.ZodObject<z.ZodRawShape>> {
+  name: string;
+  description?: string;
+  args: TArgs;
+  arguments?: PromptArgument[];
+  render(args: z.infer<TArgs>): Promise<PromptMessage[]>;
+}
+```
 
 ## `PromptDefinition`
 
