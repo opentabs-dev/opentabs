@@ -47,7 +47,7 @@ const channelList = defineResource({
 });
 ```
 
-The `uri` parameter can be omitted when the resource serves a single URI. Include it when your `read()` function needs to dispatch based on the URI value — for example, a resource template that matches multiple URIs and fetches different data depending on which one was requested.
+The `uri` property uniquely identifies the resource (e.g., `slack://channels`). The `read()` handler receives this URI, which is useful for resource templates that fetch different data based on the URI.
 
 ### ResourceDefinition Properties
 
