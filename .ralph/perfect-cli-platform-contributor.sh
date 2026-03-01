@@ -188,7 +188,30 @@ Record exit codes for every command. Note any that fail.
    "
    ```
 
-### Phase 7: Test tsconfig coverage
+### Phase 7: Test root-user specific issues
+
+1. **Check if running as root** — Docker containers run as root by default:
+   ```bash
+   docker exec opentabs-platform-contributor-test whoami
+   ```
+
+2. **Check if chmod-based tests fail as root**:
+   ```bash
+   docker exec -w /root/opentabs opentabs-platform-contributor-test bash -c "
+     npx vitest run platform/mcp-server/src/config.test.ts 2>&1 | tail -20
+   "
+   ```
+   If running as root, the "saveConfig error propagation" tests will fail because root bypasses file permissions.
+
+3. **Verify the issue** — confirm that root can write to chmod-400 files:
+   ```bash
+   docker exec opentabs-platform-contributor-test bash -c "
+     touch /tmp/testperm && chmod 000 /tmp/testperm && echo 'test' > /tmp/testperm; echo EXIT:\$?
+     rm /tmp/testperm
+   "
+   ```
+
+### Phase 8: Test tsconfig coverage
 
 1. Create a new `.ts` file OUTSIDE of `src/` in a platform package and verify it's type-checked:
    ```bash
@@ -208,17 +231,18 @@ Record exit codes for every command. Note any that fail.
    "
    ```
 
-### Phase 8: Test documentation accuracy
+### Phase 9: Test documentation accuracy
 
 Compare what you experienced against CONTRIBUTING.md:
 
 1. Does the command reference table accurately describe what each script does?
-2. Does `npm run type-check` description match reality (check for --noEmit claim)?
+2. Does `npm run type-check` description match reality?
 3. Are the E2E test instructions clear and accurate?
 4. Does the debugging section cover all relevant tools?
-5. Is the pre-commit/pre-push hook description accurate?
+5. Is the pre-commit hook description accurate? Compare `.husky/pre-commit` against what CONTRIBUTING.md claims. Does it really run knip?
+6. Is the pre-push hook description accurate? Compare `.husky/pre-push` against what CONTRIBUTING.md claims.
 
-### Phase 9: Test git hooks (if possible)
+### Phase 10: Test git hooks (if possible)
 
 1. Initialize git in the copy and verify husky hooks are set up:
    ```bash
@@ -230,7 +254,7 @@ Compare what you experienced against CONTRIBUTING.md:
    "
    ```
 
-### Phase 10: Cleanup
+### Phase 11: Cleanup
 
 ```bash
 docker stop opentabs-platform-contributor-test
@@ -254,13 +278,17 @@ For each step, evaluate from a first-time platform contributor's perspective:
 
 These are frictions that HAVE been observed. Verify they still exist and add any new ones:
 
-1. **`.prettierignore` missing docs build artifacts** — When `docs/.next/`, `docs/.content-collections/`, or `docs/next-env.d.ts` exist, `npm run format:check` fails because these generated files aren't in `.prettierignore`. This breaks `npm run check` for any contributor who has built or run the docs site.
+1. **[FIXED in 0.0.38] `.prettierignore` missing docs build artifacts** — docs/.next, docs/.content-collections, docs/next-env.d.ts are now excluded in .prettierignore. Verify format:check passes even when docs build artifacts exist.
 
-2. **CONTRIBUTING.md type-check description is wrong** — Line 102 says `npm run type-check` uses `--noEmit` (no file emission), but the actual script is `tsc --build` which DOES emit files. This confuses contributors about the build pipeline.
+2. **[FIXED in 0.0.38] CONTRIBUTING.md type-check description** — Now correctly says "Incremental TypeScript compilation (tsc --build)". Verify the description is accurate.
 
-3. **dev-proxy SIGTERM E2E test fails in Docker** — The `e2e/dev-proxy.e2e.ts` "SIGTERM kills worker and proxy exits cleanly" test consistently fails in Docker. It waits only 500ms for worker processes to die after SIGTERM, but Docker's process cleanup is slower than native macOS.
+3. **config.test.ts unit tests fail as root in Docker** — 4 tests in the "saveConfig error propagation" describe block use `chmod` to simulate write failures, but root bypasses POSIX file permissions. This causes `npm run test` and `npm run check` to fail in any Docker container running as root. The tests are at `platform/mcp-server/src/config.test.ts` lines ~261-344.
 
-4. **`npm run build` always rebuilds extension bundle** — Even for TypeScript-only changes, `npm run build` regenerates the extension esbuild bundle (~2s), icons (~0.3s), and installs the extension (~0.2s). There's no `npm run build:ts` for fast TypeScript-only builds. The `npm run type-check` command does just `tsc --build` but the name implies checking not building.
+4. **dev-proxy SIGTERM E2E test fails in Docker** — The `e2e/dev-proxy.e2e.ts` "SIGTERM kills worker and proxy exits cleanly" test consistently fails in Docker. The worker process becomes a zombie (state Z, <defunct>) after the proxy exits. Docker containers without --init have no init process to reap zombies, so process.kill(pid, 0) succeeds on the zombie PID indefinitely. The prior polling fix (5s) does not help because the issue is zombie reaping, not timing.
+
+5. **CONTRIBUTING.md claims pre-commit runs knip** — Line 129 says pre-commit "Runs `knip`" but the actual `.husky/pre-commit` only runs lint-staged + ralph file rejection. No knip on pre-commit.
+
+6. **`npm run build` always rebuilds extension bundle** — Even for TypeScript-only changes, `npm run build` regenerates the extension esbuild bundle (~2s), icons (~0.3s), and installs the extension (~0.2s). There's no `npm run build:ts` for fast TypeScript-only builds. (LOW severity — not worth a PRD, just a known trade-off.)
 
 ## Step 5: Create PRD(s) using the ralph skill
 
