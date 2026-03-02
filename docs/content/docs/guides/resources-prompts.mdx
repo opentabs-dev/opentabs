@@ -39,7 +39,7 @@ const channelList = defineResource({
     const data = await response.json();
 
     return {
-      uri: 'slack://channels',
+      uri,
       text: JSON.stringify(data.channels),
       mimeType: 'application/json',
     };
@@ -136,9 +136,9 @@ const channelList = defineResource({
   async read(uri: string): Promise<ResourceContent> {
     const data = await fetchJSON<{ channels: { id: string; name: string }[] }>('/api/channels');
     if (!data) {
-      return { uri: 'myapp://channels', text: '[]', mimeType: 'application/json' };
+      return { uri, text: '[]', mimeType: 'application/json' };
     }
-    return { uri: 'myapp://channels', text: JSON.stringify(data), mimeType: 'application/json' };
+    return { uri, text: JSON.stringify(data), mimeType: 'application/json' };
   },
 });
 ```
@@ -435,10 +435,10 @@ const itemList = defineResource({
   async read(uri: string) {
     const data = await fetchJSON<{ items: { id: string; title: string; status: string }[] }>('/api/items');
     if (!data) {
-      return { uri: 'tracker://items', text: '[]', mimeType: 'application/json' };
+      return { uri, text: '[]', mimeType: 'application/json' };
     }
     return {
-      uri: 'tracker://items',
+      uri,
       text: JSON.stringify(data.items),
       mimeType: 'application/json',
     };
