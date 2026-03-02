@@ -30,7 +30,11 @@ const isAdapterPresent = async (tabId: number, pluginName: string): Promise<bool
   }
 };
 
-/** Read the adapter hash from the page for a given plugin. Returns undefined on failure. */
+/**
+ * Read the adapter hash from the page for a given plugin. Returns undefined on failure.
+ * Property name must match ADAPTER_HASH_PROP ('__adapterHash') from constants.ts.
+ * Cannot reference the constant inside the func — executeScript func is a serialized closure.
+ */
 const readAdapterHash = async (tabId: number, pluginName: string): Promise<string | undefined> => {
   try {
     const results = await chrome.scripting.executeScript({

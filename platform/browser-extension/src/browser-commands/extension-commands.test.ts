@@ -18,6 +18,7 @@ vi.mock('../sanitize-error.js', () => ({
 }));
 
 vi.mock('../constants.js', () => ({
+  ADAPTER_HASH_PROP: '__adapterHash',
   buildWsUrl: (port: number) => `ws://localhost:${port}/ws`,
   DEFAULT_LOG_LIMIT: 100,
   DEFAULT_SERVER_PORT: 9515,
@@ -77,6 +78,7 @@ Object.assign(globalThis, {
 });
 
 // Import after mocking
+const { ADAPTER_HASH_PROP } = await import('../constants.js');
 const { getPluginMeta } = await import('../plugin-storage.js');
 const { findAllMatchingTabs } = await import('../tab-matching.js');
 const { handleExtensionCheckAdapter, handleBrowserExecuteScript, handleExtensionGetSidePanel } =
@@ -177,6 +179,34 @@ describe('handleExtensionCheckAdapter', () => {
       id: 'req-4',
       error: { code: -32602, message: 'Plugin not found: "nonexistent"' },
     });
+  });
+
+  test('adapter inspection func reads __adapterHash (not __hash)', async () => {
+    vi.mocked(getPluginMeta).mockResolvedValueOnce({
+      name: 'test-plugin',
+      version: '1.0.0',
+      displayName: 'Test Plugin',
+      urlPatterns: ['https://example.com/*'],
+      trustTier: 'local',
+      tools: [],
+    } as Awaited<ReturnType<typeof getPluginMeta>>);
+    vi.mocked(findAllMatchingTabs).mockResolvedValueOnce([{ id: 200, url: 'https://example.com' } as chrome.tabs.Tab]);
+
+    mockExecuteScript
+      .mockResolvedValueOnce([{ result: { adapterPresent: true, adapterHash: 'abc', toolCount: 0, toolNames: [] } }])
+      .mockResolvedValueOnce([{ result: true }]);
+
+    await handleExtensionCheckAdapter({ plugin: 'test-plugin' }, 'req-hash-prop');
+
+    // The first executeScript call is the adapter inspection — verify its func references __adapterHash
+    const firstCall = mockExecuteScript.mock.calls[0] as unknown[];
+    const opts = firstCall[0] as { func: (...args: unknown[]) => unknown };
+    const funcSource = opts.func.toString();
+    expect(funcSource).toContain(ADAPTER_HASH_PROP);
+    // Verify the old typo (__hash without the adapter prefix) is not present.
+    // Replace all occurrences of ADAPTER_HASH_PROP first to avoid false positives.
+    const withoutAdapterHash = funcSource.replaceAll(ADAPTER_HASH_PROP, '');
+    expect(withoutAdapterHash).not.toContain('__hash');
   });
 
   test('clears isReady timeout when executeScript resolves before IS_READY_TIMEOUT_MS', async () => {

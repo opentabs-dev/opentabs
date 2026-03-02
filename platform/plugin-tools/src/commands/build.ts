@@ -1112,6 +1112,8 @@ const runBuild = async (projectDir: string): Promise<void> => {
   // leading/trailing newlines) so it does not shift line numbers in the .map
   // file. The sourceMappingURL comment is placed last so source map tooling
   // finds it at the end of the file, as required by the source map spec.
+  // The '__adapterHash' property name must match ADAPTER_HASH_PROP in
+  // platform/browser-extension/src/constants.ts.
   const hashAndFreeze = `(function(){var o=(globalThis).__openTabs;if(o&&o.adapters&&o.adapters[${JSON.stringify(plugin.name)}]){var a=o.adapters[${JSON.stringify(plugin.name)}];a.__adapterHash=${JSON.stringify(adapterHash)};if(a.tools&&Array.isArray(a.tools)){for(var i=0;i<a.tools.length;i++){Object.freeze(a.tools[i]);}Object.freeze(a.tools);}Object.freeze(a);Object.defineProperty(o.adapters,${JSON.stringify(plugin.name)},{value:a,writable:false,configurable:false,enumerable:true});Object.defineProperty(o,"adapters",{value:o.adapters,writable:false,configurable:false});}})();`;
   await writeFile(iifePath, iifeContent + hashAndFreeze + sourceMappingUrlSuffix, 'utf-8');
   const iifeSize = (await stat(iifePath)).size;

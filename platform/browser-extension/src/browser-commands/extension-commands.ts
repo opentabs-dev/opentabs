@@ -231,9 +231,11 @@ export const handleExtensionCheckAdapter = async (
                 }
               }
             }
+            // Property name must match ADAPTER_HASH_PROP ('__adapterHash') from constants.ts.
+            // Cannot reference the constant here — executeScript func is a serialized closure.
             return {
               adapterPresent: true,
-              adapterHash: typeof adapter.__hash === 'string' ? adapter.__hash : null,
+              adapterHash: typeof adapter.__adapterHash === 'string' ? adapter.__adapterHash : null,
               toolCount: toolNames.length,
               toolNames,
             };

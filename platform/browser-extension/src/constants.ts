@@ -71,6 +71,17 @@ export const EXEC_POLL_INTERVAL_MS = 50;
 export const EXEC_RESULT_TRUNCATION_LIMIT = 50_000;
 /** Default entry limit for browser_get_logs when no limit param is provided */
 export const DEFAULT_LOG_LIMIT = 100;
+/**
+ * Property name used to store the content hash on injected adapters.
+ * Set by the hashAndFreeze snippet in plugin-tools build (platform/plugin-tools/src/commands/build.ts).
+ * Read by readAdapterHash (iife-injection.ts) and extension.checkAdapter (extension-commands.ts).
+ *
+ * NOTE: executeScript `func` callbacks are serialized closures and cannot reference
+ * module-scope variables. Code inside `func` must use the string literal '__adapterHash'
+ * directly. Keep this constant in sync with those literals.
+ */
+export const ADAPTER_HASH_PROP = '__adapterHash';
+
 /** Matches lowercase alphanumeric plugin names with optional hyphen separators (e.g., "slack", "e2e-test") */
 export const VALID_PLUGIN_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** Validate a plugin name against the expected format */
