@@ -729,11 +729,17 @@ const handleRotateSecret = async (options: RotateSecretOptions): Promise<void> =
         console.log(pc.green('Secret rotated successfully.'));
         console.log('The server has picked up the new secret and the extension will reload automatically.');
         console.log(pc.dim('Update MCP client configs (Claude Code, OpenCode, etc.) with the new secret.'));
+        console.log(
+          pc.dim('Run `opentabs config show --show-secret` to see MCP client configuration with the new secret.'),
+        );
         return;
       }
       console.log(pc.green('Secret rotated in auth.json.'));
       console.log(pc.yellow(`Could not notify running server (HTTP ${res.status}).`));
       console.log('Restart the MCP server for changes to take effect.');
+      console.log(
+        pc.dim('Run `opentabs config show --show-secret` to see MCP client configuration with the new secret.'),
+      );
     } catch (err: unknown) {
       console.log(pc.green('Secret rotated in auth.json.'));
       if (isConnectionRefused(err)) {
@@ -741,10 +747,16 @@ const handleRotateSecret = async (options: RotateSecretOptions): Promise<void> =
       } else {
         console.log(pc.yellow('Could not reach MCP server. Restart it for changes to take effect.'));
       }
+      console.log(
+        pc.dim('Run `opentabs config show --show-secret` to see MCP client configuration with the new secret.'),
+      );
     }
   } else {
     console.log(pc.green('Secret rotated in auth.json.'));
     console.log('Restart the MCP server for changes to take effect.');
+    console.log(
+      pc.dim('Run `opentabs config show --show-secret` to see MCP client configuration with the new secret.'),
+    );
   }
 };
 
