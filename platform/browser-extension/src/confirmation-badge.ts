@@ -1,5 +1,13 @@
+import { isSidePanelOpen } from './side-panel-toggle.js';
+
 /** Pending confirmation count for badge tracking */
 let pendingConfirmationCount = 0;
+
+/** Single notification ID for the consolidated confirmation notification */
+const NOTIFICATION_ID = 'opentabs-confirmation';
+
+/** Tool/domain info for each pending confirmation, used for notification content */
+const pendingConfirmationInfo = new Map<string, { tool: string; domain: string | null }>();
 
 /**
  * Background-side timeouts keyed by confirmation id. When the side panel is
@@ -42,6 +50,40 @@ const updateConfirmationBadge = (): void => {
 };
 
 /**
+ * Sync the Chrome desktop notification with the current confirmation state.
+ * Shows a single consolidated notification — tool info for 1 pending, count
+ * for multiple. Clears the notification when no confirmations are pending or
+ * the side panel is open (the dialog is already visible).
+ */
+const syncConfirmationNotification = (): void => {
+  if (pendingConfirmationCount <= 0 || isSidePanelOpen()) {
+    chrome.notifications.clear(NOTIFICATION_ID).catch(() => {});
+    return;
+  }
+
+  let message: string;
+  if (pendingConfirmationCount === 1 && pendingConfirmationInfo.size === 1) {
+    const info = pendingConfirmationInfo.values().next().value as { tool: string; domain: string | null };
+    message = info.domain ? `${info.tool} on ${info.domain}` : info.tool;
+  } else if (pendingConfirmationCount > 1) {
+    message = `${pendingConfirmationCount} tools awaiting approval`;
+  } else {
+    message = '1 tool awaiting approval';
+  }
+
+  chrome.notifications
+    .create(NOTIFICATION_ID, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
+      title: 'OpenTabs \u2014 Approval Required',
+      message,
+      priority: 2,
+      requireInteraction: true,
+    })
+    .catch(() => {});
+};
+
+/**
  * Show badge and Chrome notification when a confirmation request arrives.
  * The badge count persists until confirmations are resolved via clearConfirmationBadge().
  * Sets a background timeout so the badge clears automatically if the side panel
@@ -49,7 +91,7 @@ const updateConfirmationBadge = (): void => {
  */
 const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
   const tool = typeof params.tool === 'string' ? params.tool : 'unknown tool';
-  const domain = typeof params.domain === 'string' ? params.domain : 'unknown domain';
+  const domain = typeof params.domain === 'string' ? params.domain : null;
   const id = typeof params.id === 'string' ? params.id : String(Date.now());
   const timeoutMs = typeof params.timeoutMs === 'number' ? params.timeoutMs : 0;
 
@@ -66,6 +108,8 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
     updateConfirmationBadge();
   }
 
+  pendingConfirmationInfo.set(id, { tool, domain });
+
   // Set a background timeout slightly longer than the server-side timeout so
   // the badge clears automatically when the side panel is closed and cannot
   // send sp:confirmationResponse or sp:confirmationTimeout. Uses a fallback
@@ -80,20 +124,11 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
   }, effectiveTimeoutMs + CONFIRMATION_BACKGROUND_TIMEOUT_BUFFER_MS);
   confirmationTimeouts.set(id, bgTimeoutId);
 
-  chrome.notifications
-    .create(`opentabs-confirm-${id}`, {
-      type: 'basic',
-      iconUrl: chrome.runtime.getURL('icons/icon-128.png'),
-      title: 'OpenTabs: Approval Required',
-      message: `${tool} on ${domain} — Click to open side panel`,
-      priority: 2,
-      requireInteraction: true,
-    })
-    .catch(() => {});
+  syncConfirmationNotification();
 };
 
 /**
- * Decrement pending confirmation count, update badge, and clear the Chrome
+ * Decrement pending confirmation count, update badge, and sync the Chrome
  * notification for the resolved confirmation.
  *
  * When an id is provided, this function is idempotent — calling it twice with
@@ -112,10 +147,11 @@ const clearConfirmationBadge = (id?: string): void => {
       return;
     }
     clearedConfirmationIds.add(id);
-    chrome.notifications.clear(`opentabs-confirm-${id}`).catch(() => {});
+    pendingConfirmationInfo.delete(id);
   }
   pendingConfirmationCount = Math.max(0, pendingConfirmationCount - 1);
   updateConfirmationBadge();
+  syncConfirmationNotification();
   // Prune the id when no background timeout is pending — without a pending
   // timeout, no timeout callback can race, so the entry is no longer needed.
   if (id !== undefined && !confirmationTimeouts.has(id)) {
@@ -140,16 +176,17 @@ const clearConfirmationBackgroundTimeout = (id: string): void => {
   }
 };
 
-/** Reset all pending confirmation tracking and clear all Chrome notifications (e.g., on disconnect) */
+/** Reset all pending confirmation tracking and clear the notification (e.g., on disconnect) */
 const clearAllConfirmationBadges = (): void => {
-  for (const [id, timeoutId] of confirmationTimeouts.entries()) {
+  for (const [, timeoutId] of confirmationTimeouts.entries()) {
     clearTimeout(timeoutId);
-    chrome.notifications.clear(`opentabs-confirm-${id}`).catch(() => {});
   }
   confirmationTimeouts.clear();
   clearedConfirmationIds.clear();
+  pendingConfirmationInfo.clear();
   pendingConfirmationCount = 0;
   updateConfirmationBadge();
+  chrome.notifications.clear(NOTIFICATION_ID).catch(() => {});
 };
 
 /**
@@ -159,7 +196,7 @@ const clearAllConfirmationBadges = (): void => {
  */
 const initConfirmationBadge = (): void => {
   chrome.notifications.onClicked.addListener(notificationId => {
-    if (notificationId.startsWith('opentabs-confirm-')) {
+    if (notificationId === NOTIFICATION_ID) {
       chrome.windows
         .getCurrent()
         .then(w => {

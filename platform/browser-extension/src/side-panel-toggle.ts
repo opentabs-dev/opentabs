@@ -34,6 +34,13 @@ const restoreOpenWindows = (): void => {
     });
 };
 
+/**
+ * Whether the side panel is open in any Chrome window. Returns true when at
+ * least one window has the side panel visible (Chrome 141+ only — on older
+ * Chrome, always returns false since onOpened/onClosed are unavailable).
+ */
+export const isSidePanelOpen = (): boolean => openWindows.size > 0;
+
 /** Initialize side panel toggle behavior and register Chrome event listeners */
 export const initSidePanelToggle = (): void => {
   // Take manual control of the side panel so we can open/close it on action click.

@@ -1,6 +1,18 @@
 import { vi, describe, expect, test, beforeEach, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
+// Hoisted mocks — vi.hoisted runs before vi.mock factories
+// ---------------------------------------------------------------------------
+
+const { mockIsSidePanelOpen } = vi.hoisted(() => ({
+  mockIsSidePanelOpen: vi.fn<() => boolean>().mockReturnValue(false),
+}));
+
+vi.mock('./side-panel-toggle.js', () => ({
+  isSidePanelOpen: mockIsSidePanelOpen,
+}));
+
+// ---------------------------------------------------------------------------
 // Chrome API mocks — set up before importing the module under test so the
 // module initialises against the stubs.
 // ---------------------------------------------------------------------------
@@ -26,6 +38,8 @@ const mockGetURL = vi.fn((path: string) => `chrome-extension://fake-id/${path}`)
   },
 };
 
+const NOTIFICATION_ID = 'opentabs-confirmation';
+
 const {
   notifyConfirmationRequest,
   clearConfirmationBadge,
@@ -45,6 +59,7 @@ beforeEach(() => {
   mockSetBadgeBackgroundColor.mockClear();
   mockNotificationsCreate.mockClear();
   mockNotificationsClear.mockClear();
+  mockIsSidePanelOpen.mockReturnValue(false);
 });
 
 afterEach(() => {
@@ -75,27 +90,60 @@ describe('notifyConfirmationRequest', () => {
     expect(mockSetBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#ffdb33' });
   });
 
-  test('creates a Chrome notification with correct fields', () => {
+  test('creates a consolidated notification with tool and domain', () => {
     notifyConfirmationRequest({ id: 'my-id', tool: 'someAction', domain: 'work.example.com', timeoutMs: 0 });
 
     expect(mockNotificationsCreate).toHaveBeenCalledWith(
-      'opentabs-confirm-my-id',
+      NOTIFICATION_ID,
       expect.objectContaining({
         type: 'basic',
-        title: 'OpenTabs: Approval Required',
-        message: 'someAction on work.example.com — Click to open side panel',
+        title: 'OpenTabs \u2014 Approval Required',
+        message: 'someAction on work.example.com',
         requireInteraction: true,
       }),
     );
   });
 
-  test('uses fallback strings when tool/domain are not strings', () => {
+  test('shows tool name without domain when domain is not a string', () => {
+    notifyConfirmationRequest({ id: 'req-x', tool: 'myTool', timeoutMs: 0 });
+
+    expect(mockNotificationsCreate).toHaveBeenCalledWith(
+      NOTIFICATION_ID,
+      expect.objectContaining({ message: 'myTool' }),
+    );
+  });
+
+  test('uses fallback tool name when tool is not a string', () => {
     notifyConfirmationRequest({ id: 'req-x', timeoutMs: 0 });
 
     expect(mockNotificationsCreate).toHaveBeenCalledWith(
-      'opentabs-confirm-req-x',
-      expect.objectContaining({ message: 'unknown tool on unknown domain — Click to open side panel' }),
+      NOTIFICATION_ID,
+      expect.objectContaining({ message: 'unknown tool' }),
     );
+  });
+
+  test('shows count message when multiple confirmations are pending', () => {
+    notifyConfirmationRequest({ id: 'req-1', tool: 'toolA', domain: 'a.com', timeoutMs: 0 });
+    mockNotificationsCreate.mockClear();
+
+    notifyConfirmationRequest({ id: 'req-2', tool: 'toolB', domain: 'b.com', timeoutMs: 0 });
+
+    expect(mockNotificationsCreate).toHaveBeenCalledWith(
+      NOTIFICATION_ID,
+      expect.objectContaining({ message: '2 tools awaiting approval' }),
+    );
+  });
+
+  test('does not show notification when side panel is open', () => {
+    mockIsSidePanelOpen.mockReturnValue(true);
+
+    notifyConfirmationRequest({ id: 'req-1', tool: 'doSomething', domain: 'example.com', timeoutMs: 0 });
+
+    // Badge is still updated
+    expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '1' });
+    // Notification is cleared (not created)
+    expect(mockNotificationsCreate).not.toHaveBeenCalled();
+    expect(mockNotificationsClear).toHaveBeenCalledWith(NOTIFICATION_ID);
   });
 
   test('sets background timeout when timeoutMs is positive', () => {
@@ -197,22 +245,28 @@ describe('clearConfirmationBadge', () => {
     expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
   });
 
-  test('clears Chrome notification when id is provided', () => {
+  test('clears consolidated notification when count reaches zero with id', () => {
     notifyConfirmationRequest({ id: 'req-1', timeoutMs: 0 });
     mockNotificationsClear.mockClear();
 
     clearConfirmationBadge('req-1');
 
-    expect(mockNotificationsClear).toHaveBeenCalledWith('opentabs-confirm-req-1');
+    // syncConfirmationNotification clears the single notification when count is 0
+    expect(mockNotificationsClear).toHaveBeenCalledWith(NOTIFICATION_ID);
   });
 
-  test('does not call chrome.notifications.clear when no id is provided', () => {
-    notifyConfirmationRequest({ id: 'req-1', timeoutMs: 0 });
-    mockNotificationsClear.mockClear();
+  test('updates notification to show remaining tool when one of two is cleared', () => {
+    notifyConfirmationRequest({ id: 'req-1', tool: 'toolA', domain: 'a.com', timeoutMs: 0 });
+    notifyConfirmationRequest({ id: 'req-2', tool: 'toolB', domain: 'b.com', timeoutMs: 0 });
+    mockNotificationsCreate.mockClear();
 
-    clearConfirmationBadge();
+    clearConfirmationBadge('req-1');
 
-    expect(mockNotificationsClear).not.toHaveBeenCalled();
+    // Notification should now show the single remaining tool
+    expect(mockNotificationsCreate).toHaveBeenCalledWith(
+      NOTIFICATION_ID,
+      expect.objectContaining({ message: 'toolB on b.com' }),
+    );
   });
 
   test('calling twice with the same id decrements count only once', () => {
@@ -408,15 +462,53 @@ describe('clearAllConfirmationBadges', () => {
     expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
   });
 
-  test('clears Chrome notifications for all pending confirmations', () => {
+  test('clears the consolidated notification', () => {
     notifyConfirmationRequest({ id: 'req-1', timeoutMs: 0 });
     notifyConfirmationRequest({ id: 'req-2', timeoutMs: 0 });
     mockNotificationsClear.mockClear();
 
     clearAllConfirmationBadges();
 
-    expect(mockNotificationsClear).toHaveBeenCalledWith('opentabs-confirm-req-1');
-    expect(mockNotificationsClear).toHaveBeenCalledWith('opentabs-confirm-req-2');
-    expect(mockNotificationsClear).toHaveBeenCalledTimes(2);
+    expect(mockNotificationsClear).toHaveBeenCalledWith(NOTIFICATION_ID);
+    expect(mockNotificationsClear).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Side panel open — notification suppression
+// ---------------------------------------------------------------------------
+
+describe('side panel open suppression', () => {
+  test('suppresses notification when side panel opens after confirmations were pending', () => {
+    // Confirmation arrives while panel is closed
+    notifyConfirmationRequest({ id: 'req-1', tool: 'toolA', domain: 'a.com', timeoutMs: 0 });
+    expect(mockNotificationsCreate).toHaveBeenCalledTimes(1);
+
+    // Side panel opens, user resolves confirmation
+    mockIsSidePanelOpen.mockReturnValue(true);
+    mockNotificationsCreate.mockClear();
+    mockNotificationsClear.mockClear();
+
+    clearConfirmationBadge('req-1');
+
+    // Notification cleared (not re-created) because panel is open
+    expect(mockNotificationsClear).toHaveBeenCalledWith(NOTIFICATION_ID);
+    expect(mockNotificationsCreate).not.toHaveBeenCalled();
+  });
+
+  test('shows notification when side panel closes and new confirmation arrives', () => {
+    mockIsSidePanelOpen.mockReturnValue(true);
+    notifyConfirmationRequest({ id: 'req-1', tool: 'toolA', domain: 'a.com', timeoutMs: 0 });
+    expect(mockNotificationsCreate).not.toHaveBeenCalled();
+
+    // Side panel closes, new confirmation arrives
+    mockIsSidePanelOpen.mockReturnValue(false);
+    notifyConfirmationRequest({ id: 'req-2', tool: 'toolB', domain: 'b.com', timeoutMs: 0 });
+
+    // Now notification shows count because 2 are pending
+    expect(mockNotificationsCreate).toHaveBeenCalledWith(
+      NOTIFICATION_ID,
+      expect.objectContaining({ message: '2 tools awaiting approval' }),
+    );
   });
 });
