@@ -285,6 +285,13 @@ const prepareForReinjection = async (tabId: number): Promise<void> => {
  *   (default), tabs that already have the adapter are skipped.
  * @param adapterHash - Expected content hash for post-injection integrity check
  * @param adapterFile - Relative path to the content-hashed adapter file (e.g., "adapters/my-plugin-a1b2c3d4.js")
+ * @param skipIfHashMatches - When provided alongside `forceReinject`, skip
+ *   re-injection on tabs where the adapter is already present and its
+ *   `__adapterHash` matches this value. Used by sync.full to avoid
+ *   re-injecting unchanged adapters on WebSocket reconnect. Must NOT be
+ *   used by plugin.update (the embedded hash is computed before the
+ *   hashAndFreeze snippet is appended, so it can match even when the
+ *   file content has changed).
  * @returns Tab IDs where injection succeeded
  */
 const injectPluginIntoMatchingTabs = async (
@@ -293,6 +300,7 @@ const injectPluginIntoMatchingTabs = async (
   forceReinject = false,
   adapterHash?: string,
   adapterFile?: string,
+  skipIfHashMatches?: string,
 ): Promise<number[]> => {
   if (!isSafePluginName(pluginName)) {
     console.warn(`[opentabs] Skipping injection for unsafe plugin name: ${pluginName}`);
@@ -306,6 +314,16 @@ const injectPluginIntoMatchingTabs = async (
     tabIds.map(async tabId => {
       if (!forceReinject && (await isAdapterPresent(tabId, pluginName))) {
         return tabId;
+      }
+
+      // When skipIfHashMatches is provided (sync.full reconnect scenario),
+      // check if the adapter is already present with a matching hash.
+      // If so, skip injection entirely — the adapter code hasn't changed.
+      if (forceReinject && skipIfHashMatches) {
+        const existingHash = await readAdapterHash(tabId, pluginName);
+        if (existingHash === skipIfHashMatches) {
+          return tabId;
+        }
       }
 
       // Replace frozen __openTabs/adapters with mutable copies so the new

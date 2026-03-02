@@ -279,9 +279,21 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
   // injection is independent and involves cross-process IPC, so parallelizing
   // avoids O(N × round-trip) latency on sync.full with many plugins.
   // Using allSettled so one failed injection does not block tab state sync.
+  //
+  // Pass skipIfHashMatches so that tabs with an already-injected adapter
+  // whose hash matches the sync payload are skipped. This eliminates
+  // Chrome executeScript pipeline saturation during WebSocket reconnects
+  // where the adapter code hasn't changed.
   const injectionResults = await Promise.allSettled(
     metas.map(meta =>
-      injectPluginIntoMatchingTabs(meta.name, meta.urlPatterns, true, meta.adapterHash, meta.adapterFile),
+      injectPluginIntoMatchingTabs(
+        meta.name,
+        meta.urlPatterns,
+        true,
+        meta.adapterHash,
+        meta.adapterFile,
+        meta.adapterHash,
+      ),
     ),
   );
   for (const result of injectionResults) {

@@ -228,3 +228,173 @@ describe('injectLogRelay nonce management', () => {
     expect(nonces.size).toBe(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// skipIfHashMatches — hash-based injection skip for sync.full reconnect
+// ---------------------------------------------------------------------------
+
+describe('skipIfHashMatches', () => {
+  beforeEach(() => {
+    mockTabsQuery.mockReset();
+    mockExecuteScript.mockReset();
+  });
+
+  /**
+   * Helper: configure mockExecuteScript to return `preInjectionHash` for the
+   * first readAdapterHash call per tab (the skipIfHashMatches check), and
+   * return the `adapterHash` argument (the expected hash) for subsequent
+   * reads (verifyAdapterHash after file injection).
+   */
+  const setupHashMock = (preInjectionHash: string | undefined, postInjectionHash?: string) => {
+    const fileInjections: Array<{ tabId: number; files: string[] }> = [];
+    // Track per-tab whether file injection has occurred (so post-injection
+    // readAdapterHash returns the "newly injected" hash).
+    const injectedTabs = new Set<number>();
+
+    mockExecuteScript.mockImplementation((raw: unknown) => {
+      const injection = raw as Record<string, unknown>;
+      const target = injection['target'] as { tabId: number } | undefined;
+      const tabId = target?.tabId ?? -1;
+
+      // File-based injection (injectAdapterFile)
+      if (injection['files']) {
+        fileInjections.push({ tabId, files: injection['files'] as string[] });
+        injectedTabs.add(tabId);
+        return Promise.resolve([{ result: undefined }]);
+      }
+
+      // readAdapterHash / isAdapterPresent: MAIN world func with a single pluginName arg
+      const world = injection['world'] as string | undefined;
+      const args = injection['args'] as unknown[] | undefined;
+      if (world === 'MAIN' && injection['func'] && args?.length === 1 && typeof args[0] === 'string') {
+        // After file injection, return the post-injection hash for verifyAdapterHash
+        if (injectedTabs.has(tabId) && postInjectionHash !== undefined) {
+          return Promise.resolve([{ result: postInjectionHash }]);
+        }
+        return Promise.resolve([{ result: preInjectionHash }]);
+      }
+
+      // All other func-based calls (log relay, prepareForReinjection, etc.)
+      return Promise.resolve([{ result: undefined }]);
+    });
+
+    return { fileInjections };
+  };
+
+  test('skips injection when adapter hash matches skipIfHashMatches', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 10 } as chrome.tabs.Tab]);
+    const { fileInjections } = setupHashMock('abc123');
+
+    const result = await injectPluginIntoMatchingTabs(
+      'slack',
+      ['*://slack.com/*'],
+      true, // forceReinject
+      'abc123', // adapterHash
+      undefined, // adapterFile
+      'abc123', // skipIfHashMatches
+    );
+
+    expect(result).toEqual([10]);
+    // No file-based injection should have occurred
+    expect(fileInjections).toHaveLength(0);
+  });
+
+  test('proceeds with injection when adapter hash does not match skipIfHashMatches', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 10 } as chrome.tabs.Tab]);
+    const { fileInjections } = setupHashMock('old-hash', 'new-hash');
+
+    const result = await injectPluginIntoMatchingTabs(
+      'slack',
+      ['*://slack.com/*'],
+      true, // forceReinject
+      'new-hash', // adapterHash
+      undefined, // adapterFile
+      'new-hash', // skipIfHashMatches
+    );
+
+    expect(result).toEqual([10]);
+    // File injection should have happened since hashes differ
+    expect(fileInjections).toHaveLength(1);
+    expect(fileInjections[0]?.tabId).toBe(10);
+  });
+
+  test('proceeds with injection when adapter has no hash (not yet injected)', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 10 } as chrome.tabs.Tab]);
+    const { fileInjections } = setupHashMock(undefined, 'abc123');
+
+    const result = await injectPluginIntoMatchingTabs(
+      'slack',
+      ['*://slack.com/*'],
+      true, // forceReinject
+      'abc123', // adapterHash
+      undefined, // adapterFile
+      'abc123', // skipIfHashMatches
+    );
+
+    expect(result).toEqual([10]);
+    // File injection should have happened since readAdapterHash returned undefined
+    expect(fileInjections).toHaveLength(1);
+  });
+
+  test('does not skip when skipIfHashMatches is not provided (plugin.update path)', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 10 } as chrome.tabs.Tab]);
+    const { fileInjections } = setupHashMock('abc123');
+
+    const result = await injectPluginIntoMatchingTabs(
+      'slack',
+      ['*://slack.com/*'],
+      true, // forceReinject
+      'abc123', // adapterHash
+      undefined, // adapterFile
+      // skipIfHashMatches NOT provided — simulates plugin.update
+    );
+
+    expect(result).toEqual([10]);
+    // File injection should have happened even though hash matches,
+    // because skipIfHashMatches was not provided
+    expect(fileInjections).toHaveLength(1);
+  });
+
+  test('skips some tabs and injects others based on individual hash checks', async () => {
+    mockTabsQuery.mockResolvedValue([{ id: 10 } as chrome.tabs.Tab, { id: 20 } as chrome.tabs.Tab]);
+
+    const fileInjections: number[] = [];
+    const injectedTabs = new Set<number>();
+
+    mockExecuteScript.mockImplementation((raw: unknown) => {
+      const injection = raw as Record<string, unknown>;
+      const target = injection['target'] as { tabId: number } | undefined;
+      const tabId = target?.tabId ?? -1;
+
+      if (injection['files']) {
+        fileInjections.push(tabId);
+        injectedTabs.add(tabId);
+        return Promise.resolve([{ result: undefined }]);
+      }
+
+      const world = injection['world'] as string | undefined;
+      const args = injection['args'] as unknown[] | undefined;
+      if (world === 'MAIN' && injection['func'] && args?.length === 1 && typeof args[0] === 'string') {
+        // After file injection, verifyAdapterHash should see the new hash
+        if (injectedTabs.has(tabId)) return Promise.resolve([{ result: 'abc123' }]);
+        // Tab 10 has the matching hash (will be skipped); tab 20 has a stale hash
+        return Promise.resolve([{ result: tabId === 10 ? 'abc123' : 'stale-hash' }]);
+      }
+
+      return Promise.resolve([{ result: undefined }]);
+    });
+
+    const result = await injectPluginIntoMatchingTabs(
+      'slack',
+      ['*://slack.com/*'],
+      true,
+      'abc123',
+      undefined,
+      'abc123',
+    );
+
+    expect(result).toEqual([10, 20]);
+    // Only tab 20 should have been injected (tab 10 was skipped due to matching hash)
+    expect(fileInjections).toEqual([20]);
+  });
+});
