@@ -23,6 +23,7 @@ const {
   mockClearTabStateCache,
   mockStopReadinessPoll,
   mockGetLastKnownStates,
+  mockLoadLastKnownStateFromSession,
   mockClearAllConfirmationBadges,
   mockClearConfirmationBackgroundTimeout,
   mockClearConfirmationBadge,
@@ -31,12 +32,14 @@ const {
   mockGetAllPluginMeta,
   mockGetServerStateCache,
   mockClearServerStateCache,
+  mockLoadServerStateCacheFromSession,
 } = vi.hoisted(() => ({
   mockSendToServer: vi.fn<(data: unknown) => void>(),
   mockForwardToSidePanel: vi.fn(),
   mockClearTabStateCache: vi.fn(),
   mockStopReadinessPoll: vi.fn(),
   mockGetLastKnownStates: vi.fn(() => new Map<string, string>()),
+  mockLoadLastKnownStateFromSession: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockClearAllConfirmationBadges: vi.fn(),
   mockClearConfirmationBackgroundTimeout: vi.fn(),
   mockClearConfirmationBadge: vi.fn(),
@@ -57,6 +60,7 @@ const {
     serverVersion: undefined,
   })),
   mockClearServerStateCache: vi.fn(),
+  mockLoadServerStateCacheFromSession: vi.fn<() => Promise<void>>(() => Promise.resolve()),
 }));
 
 vi.mock('./messaging.js', () => ({
@@ -68,6 +72,7 @@ vi.mock('./tab-state.js', () => ({
   clearTabStateCache: mockClearTabStateCache,
   stopReadinessPoll: mockStopReadinessPoll,
   getLastKnownStates: mockGetLastKnownStates,
+  loadLastKnownStateFromSession: mockLoadLastKnownStateFromSession,
 }));
 
 vi.mock('./confirmation-badge.js', () => ({
@@ -91,6 +96,7 @@ vi.mock('./plugin-storage.js', () => ({
 vi.mock('./server-state-cache.js', () => ({
   getServerStateCache: mockGetServerStateCache,
   clearServerStateCache: mockClearServerStateCache,
+  loadServerStateCacheFromSession: mockLoadServerStateCacheFromSession,
 }));
 
 // ---------------------------------------------------------------------------
@@ -603,15 +609,14 @@ describe('handleBgGetFullState', () => {
 
     const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
     expect(result.plugins).toHaveLength(1);
-    expect(result.plugins).toEqual([
-      expect.objectContaining({
-        name: 'test-plugin',
-        tabState: 'ready',
-        source: 'npm',
-        sdkVersion: '2.0.0',
-        tools: [expect.objectContaining({ enabled: false })],
-      }),
-    ]);
+    expect(result.plugins[0]).toMatchObject({
+      name: 'test-plugin',
+      tabState: 'ready',
+      source: 'npm',
+      sdkVersion: '2.0.0',
+    });
+    expect(result.plugins[0]?.tools).toHaveLength(1);
+    expect(result.plugins[0]?.tools[0]).toMatchObject({ enabled: false });
   });
 
   test('defaults tool enabled to true when server cache is empty', async () => {
@@ -632,12 +637,153 @@ describe('handleBgGetFullState', () => {
 
     const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
     expect(result.plugins).toHaveLength(1);
-    expect(result.plugins).toEqual([
-      expect.objectContaining({
-        source: 'local',
-        tabState: 'closed',
-        tools: [expect.objectContaining({ enabled: true })],
-      }),
-    ]);
+    expect(result.plugins[0]).toMatchObject({
+      source: 'local',
+      tabState: 'closed',
+    });
+    expect(result.plugins[0]?.tools).toHaveLength(1);
+    expect(result.plugins[0]?.tools[0]).toMatchObject({ enabled: true });
+  });
+
+  test('loads from session storage on service worker wake (connected but empty caches)', async () => {
+    // Simulate service worker wake: wsConnected=true but in-memory caches are empty
+    handleWsState({ connected: true }, () => {});
+    vi.clearAllMocks();
+
+    // Both caches return empty (simulating post-wake state)
+    mockGetLastKnownStates.mockReturnValue(new Map());
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: undefined,
+    });
+
+    // After session load, caches will be populated
+    mockLoadLastKnownStateFromSession.mockImplementationOnce(() => {
+      // Simulate session storage populating the lastKnownState cache
+      mockGetLastKnownStates.mockReturnValue(
+        new Map([
+          [
+            'restored-plugin',
+            JSON.stringify({
+              state: 'ready',
+              tabs: [{ tabId: 5, url: 'https://restored.com', title: 'Restored', ready: true }],
+            }),
+          ],
+        ]),
+      );
+      return Promise.resolve();
+    });
+
+    mockLoadServerStateCacheFromSession.mockImplementationOnce(() => {
+      // Simulate session storage populating the server state cache
+      mockGetServerStateCache.mockReturnValue({
+        plugins: [
+          {
+            name: 'restored-plugin',
+            displayName: 'Restored Plugin',
+            version: '1.0.0',
+            trustTier: 'community',
+            source: 'npm',
+            tabState: 'closed',
+            urlPatterns: [],
+            sdkVersion: '2.0.0',
+            tools: [{ name: 'tool_a', displayName: 'Tool A', description: 'desc', enabled: false }],
+          },
+        ],
+        failedPlugins: [],
+        browserTools: [{ name: 'screenshot', description: 'Take a screenshot', enabled: true }],
+        serverVersion: '3.0.0',
+      });
+      return Promise.resolve();
+    });
+
+    mockGetAllPluginMeta.mockResolvedValueOnce({
+      'restored-plugin': {
+        name: 'restored-plugin',
+        displayName: 'Restored Plugin',
+        version: '1.0.0',
+        trustTier: 'community',
+        urlPatterns: [],
+        tools: [{ name: 'tool_a', displayName: 'Tool A', description: 'desc' }],
+      },
+    });
+
+    const sendResponse = vi.fn();
+    handleBgGetFullState({}, sendResponse);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    // Session storage loaders should have been called
+    expect(mockLoadLastKnownStateFromSession).toHaveBeenCalledOnce();
+    expect(mockLoadServerStateCacheFromSession).toHaveBeenCalledOnce();
+
+    const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
+    expect(result.connected).toBe(true);
+    expect(result.serverVersion).toBe('3.0.0');
+    expect(result.plugins).toHaveLength(1);
+    expect(result.plugins[0]).toMatchObject({
+      name: 'restored-plugin',
+      tabState: 'ready',
+      source: 'npm',
+      sdkVersion: '2.0.0',
+    });
+    expect(result.plugins[0]?.tools).toHaveLength(1);
+    expect(result.plugins[0]?.tools[0]).toMatchObject({ enabled: false });
+  });
+
+  test('does NOT load from session storage when already connected with populated caches', async () => {
+    handleWsState({ connected: true }, () => {});
+    vi.clearAllMocks();
+
+    // Caches already populated — no session load needed
+    mockGetLastKnownStates.mockReturnValue(
+      new Map([['existing-plugin', JSON.stringify({ state: 'ready', tabs: [] })]]),
+    );
+    mockGetServerStateCache.mockReturnValue({
+      plugins: [
+        {
+          name: 'existing-plugin',
+          displayName: 'Existing',
+          version: '1.0.0',
+          trustTier: 'local',
+          source: 'local',
+          tabState: 'ready',
+          urlPatterns: [],
+          tools: [],
+        },
+      ],
+      failedPlugins: [],
+      browserTools: [],
+      serverVersion: '1.0.0',
+    });
+
+    mockGetAllPluginMeta.mockResolvedValueOnce({
+      'existing-plugin': {
+        name: 'existing-plugin',
+        displayName: 'Existing',
+        version: '1.0.0',
+        trustTier: 'local',
+        urlPatterns: [],
+        tools: [],
+      },
+    });
+
+    const sendResponse = vi.fn();
+    handleBgGetFullState({}, sendResponse);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    expect(mockLoadLastKnownStateFromSession).not.toHaveBeenCalled();
+    expect(mockLoadServerStateCacheFromSession).not.toHaveBeenCalled();
+  });
+
+  test('does NOT load from session storage when disconnected with empty caches', async () => {
+    // wsConnected is false (from beforeEach), caches are empty — this is normal disconnect state, not wake
+    const sendResponse = vi.fn();
+    handleBgGetFullState({}, sendResponse);
+    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
+
+    expect(mockLoadLastKnownStateFromSession).not.toHaveBeenCalled();
+    expect(mockLoadServerStateCacheFromSession).not.toHaveBeenCalled();
   });
 });

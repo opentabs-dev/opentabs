@@ -7,8 +7,13 @@ import { buildWsUrl, SERVER_PORT_KEY, WS_CONNECTED_KEY } from './constants.js';
 import { handleServerMessage } from './message-router.js';
 import { forwardToSidePanel, sendToServer } from './messaging.js';
 import { getAllPluginMeta } from './plugin-storage.js';
-import { clearServerStateCache, getServerStateCache } from './server-state-cache.js';
-import { clearTabStateCache, getLastKnownStates, stopReadinessPoll } from './tab-state.js';
+import { clearServerStateCache, getServerStateCache, loadServerStateCacheFromSession } from './server-state-cache.js';
+import {
+  clearTabStateCache,
+  getLastKnownStates,
+  loadLastKnownStateFromSession,
+  stopReadinessPoll,
+} from './tab-state.js';
 import { notifyDispatchProgress } from './tool-dispatch.js';
 import type { DisconnectReason, InternalMessage, PluginTabStateInfo } from './extension-messages.js';
 import type { ConfigStatePlugin, TabState } from '@opentabs-dev/shared';
@@ -119,9 +124,20 @@ const handleBgGetConnectionState: MessageHandler = (_message, sendResponse) => {
  */
 const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
   (async () => {
+    // Read caches once for the wake detection check
+    let tabStates = getLastKnownStates();
+    let serverCache = getServerStateCache();
+
+    // Wake detection: if the service worker was suspended, in-memory caches
+    // are empty but wsConnected may still be true (restored from session storage).
+    // Reload caches from session storage before merging.
+    if (wsConnected && tabStates.size === 0 && serverCache.plugins.length === 0) {
+      await Promise.all([loadLastKnownStateFromSession(), loadServerStateCacheFromSession()]);
+      tabStates = getLastKnownStates();
+      serverCache = getServerStateCache();
+    }
+
     const metaIndex = await getAllPluginMeta();
-    const serverCache = getServerStateCache();
-    const tabStates = getLastKnownStates();
 
     // Build a lookup from server cache plugins by name for O(1) merge
     const serverPluginMap = new Map<string, ConfigStatePlugin>();
