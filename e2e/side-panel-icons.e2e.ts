@@ -92,7 +92,7 @@ test.describe('Icon pipeline — side panel rendering', () => {
 
       await sidePanelPage.close();
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
       await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
@@ -178,7 +178,7 @@ test.describe('Icon pipeline — side panel rendering', () => {
       await sidePanelPage.close();
       await appTab.close();
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
       await server.kill();
       await testServer.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
@@ -241,7 +241,7 @@ test.describe('Icon pipeline — side panel rendering', () => {
 
       await sidePanelPage.close();
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
       await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
       fs.rmSync(tmpDir, { recursive: true, force: true });

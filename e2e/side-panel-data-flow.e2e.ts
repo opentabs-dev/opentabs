@@ -78,7 +78,7 @@ test.describe('Side panel data flow — connection status', () => {
 
       await sidePanelPage.close();
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
       // server.kill() is safe to call multiple times
       await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
@@ -197,7 +197,7 @@ test.describe('Side panel data flow — tab state changes', () => {
 
       await sidePanelPage.close();
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
       await server.kill();
       await testServer.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
@@ -338,7 +338,7 @@ test.describe('Side panel data flow — tab state changes', () => {
       await sidePanelPage.close();
       await appTab.close();
     } finally {
-      await context.close();
+      await context.close().catch(() => {});
       await server.kill();
       await testServer.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
@@ -446,8 +446,8 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       await sidePanelPage.close();
       await appTab.close();
     } finally {
-      await mcpClient.close();
-      await context.close();
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
       await server.kill();
       await testServer.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
