@@ -90,11 +90,12 @@ npx tsx scripts/publish.ts 0.0.17
 The script:
 
 1. Verifies npm authentication via `npm whoami`
-2. Runs `npm run build` to compile all packages
-3. Bumps `"version"` in all seven `platform/*/package.json` files
-4. Updates cross-references between packages (e.g., `plugin-sdk` depends on `shared`)
-5. Runs `npm run build` again with the new versions
-6. Publishes in dependency order: `shared` → `browser-extension` → `mcp-server` → `plugin-sdk` → `plugin-tools` → `cli` → `create-plugin`
+2. Bumps `"version"` in all seven `platform/*/package.json` files
+3. Deletes the lockfile, runs `npm install`, and runs `npm run build:force` to sync lockfile and rebuild with the new versions
+4. Publishes in dependency order: `shared` → `browser-extension` → `mcp-server` → `plugin-sdk` → `plugin-tools` → `cli` → `create-plugin`
+5. Updates plugin `@opentabs-dev/*` dependencies to `^version` and rebuilds each plugin
+6. Generates a changelog from `git log` since the previous tag
+7. Creates a release commit and tag (`v<version>`)
 
 Six packages use `"publishConfig": { "access": "restricted" }` explicitly. `browser-extension` omits `publishConfig` but is still restricted — npm defaults to restricted access for scoped packages. Only `@opentabs-dev` org members can install any of them.
 
