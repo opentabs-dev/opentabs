@@ -17,7 +17,7 @@ All platform packages and plugins share the same version number (e.g., `0.0.34`)
 
 ## The Job
 
-1. **Ask the user for the target version** (suggest patch bump as default — e.g., `0.0.34` → `0.0.35`)
+1. **Determine the target version** — discover the current version by reading any platform `package.json` (they are all in sync). For **patch bumps**, proceed immediately without asking the user (e.g., `0.0.34` → `0.0.35`). For **minor or major bumps**, confirm the target version with the user before proceeding.
 2. **Discover the current version** by reading any platform `package.json` (they are all in sync)
 3. **Update all version references** (see "Files to Update" below)
 4. **Update root lock file** — run `npm install --package-lock-only` at the repo root
