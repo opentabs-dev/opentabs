@@ -49,6 +49,18 @@ These packages all have a `"version"` field that must be bumped:
 
 **Edit:** Change `"version": "<old>"` to `"version": "<new>"` in each file.
 
+### Chrome Extension Manifest
+
+The Chrome extension manifest version must match the platform version:
+
+| File                                       | Field       |
+| ------------------------------------------ | ----------- |
+| `platform/browser-extension/manifest.json` | `"version"` |
+
+**Edit:** Change `"version": "<old>"` to `"version": "<new>"`.
+
+Chrome's `manifest.json` `version` field uses the same `x.y.z` format as `package.json`. This ensures the installed extension version stays in sync with the platform.
+
 ### Plugins (version field + dependency ranges in `package.json`)
 
 Plugins are standalone (not in the npm workspace). They reference platform packages with `^x.y.z` semver ranges.
@@ -179,6 +191,7 @@ Do not skip the plugin lock file update or commit stale lock files. The retry is
 
 - [ ] Target version confirmed with user
 - [ ] All 7 platform `package.json` version fields updated
+- [ ] Chrome extension `manifest.json` version updated
 - [ ] All plugin `package.json` version fields updated
 - [ ] All plugin `@opentabs-dev/plugin-sdk` dependency ranges updated
 - [ ] All plugin `@opentabs-dev/plugin-tools` devDependency ranges updated

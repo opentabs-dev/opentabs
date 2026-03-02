@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/shared",
-  "version": "0.0.50",
+  "version": "0.0.51",
   "type": "module",
   "exports": {
     ".": {

@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/create-plugin",
-  "version": "0.0.50",
+  "version": "0.0.51",
   "engines": {
     "node": ">= 22.0.0"
   },
