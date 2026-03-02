@@ -10,6 +10,22 @@ Build a production-ready OpenTabs plugin for any web application. This skill gui
 - The `opentabs` CLI is installed globally
 - The MCP server is running (`opentabs start` or `npm run dev:mcp`)
 
+### Browser Tool Permissions
+
+Plugin development requires heavy use of browser tools (`browser_execute_script`, `browser_navigate_tab`, `browser_get_tab_content`, etc.) for exploring the target web app. By default, many of these tools require human approval in the Chrome extension side panel, with a 30-second timeout that blocks the AI agent.
+
+**Before starting, ask the user if they want to enable `--dangerously-skip-permissions`** to bypass all confirmation dialogs during the development session. This dramatically speeds up the exploration and testing phases.
+
+Three ways to enable it:
+
+1. Restart the MCP server: `opentabs start --dangerously-skip-permissions`
+2. Set the env var: `OPENTABS_SKIP_PERMISSIONS=1`
+3. Add to `~/.opentabs/config.json`: `{ "skipPermissions": true }`
+
+**Warn the user**: this disables all human-in-the-loop safety for browser tool operations. It should only be used during active plugin development sessions and disabled afterward.
+
+If the user declines, plan for confirmation timeouts when using browser tools — use read-only tools like `opentabs_plugin_list_tabs` (no confirmation needed) where possible, and batch browser tool calls to minimize the number of approvals needed.
+
 ---
 
 ## Phase 1: Research the Codebase
