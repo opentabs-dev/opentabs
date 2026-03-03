@@ -68,7 +68,7 @@ const EXTENSION_DIR = path.join(ROOT, 'platform/browser-extension');
 const SERVER_DIST_DIR = path.join(ROOT, 'platform/mcp-server/dist');
 const TEST_SERVER_ENTRY = path.join(ROOT, 'e2e/test-server.ts');
 const STRICT_CSP_SERVER_ENTRY = path.join(ROOT, 'e2e/strict-csp-test-server.ts');
-const CROSS_ORIGIN_SERVER_ENTRY = path.join(ROOT, 'e2e/cross-origin-test-server.ts');
+
 const ANALYZE_SITE_SERVER_ENTRY = path.join(ROOT, 'e2e/analyze-site-test-server.ts');
 const E2E_TEST_PLUGIN_DIR = path.join(ROOT, 'plugins/e2e-test');
 const MCP_SERVER_PKG_PATH = path.join(ROOT, 'platform/mcp-server/package.json');
@@ -787,10 +787,6 @@ const startStrictCspServer = (): Promise<TestServer> =>
 const startAnalyzeSiteServer = (): Promise<TestServer> =>
   startServerProcess(ANALYZE_SITE_SERVER_ENTRY, 'Analyze-site server');
 
-/** Start the cross-origin test server (e2e/cross-origin-test-server.ts) on an ephemeral port. */
-const startCrossOriginServer = (): Promise<TestServer> =>
-  startServerProcess(CROSS_ORIGIN_SERVER_ENTRY, 'Cross-origin server');
-
 // ---------------------------------------------------------------------------
 // Extension context — per-test copy with correct MCP port
 // ---------------------------------------------------------------------------
@@ -1369,8 +1365,6 @@ interface TestFixtures {
   testServer: TestServer;
   /** Strict-CSP test web server on an OS-assigned port (`script-src 'none'`). */
   strictCspServer: TestServer;
-  /** Cross-origin test server on an OS-assigned port (for fetchViaBackground E2E tests). */
-  crossOriginServer: TestServer;
   /** Chromium browser context with the extension configured for this test's MCP port. */
   extensionContext: BrowserContext;
   /** The extension's service-worker / background page. */
@@ -1413,15 +1407,6 @@ const test = base.extend<TestFixtures>({
 
   strictCspServer: async ({ browserName: _ }, use) => {
     const srv = await startStrictCspServer();
-    try {
-      await use(srv);
-    } finally {
-      await srv.kill();
-    }
-  },
-
-  crossOriginServer: async ({ browserName: _ }, use) => {
-    const srv = await startCrossOriginServer();
     try {
       await use(srv);
     } finally {
@@ -1564,7 +1549,6 @@ export {
   createMcpClient,
   startTestServer,
   startStrictCspServer,
-  startCrossOriginServer,
   startAnalyzeSiteServer,
   startMcpServer,
   createExtensionCopy,
