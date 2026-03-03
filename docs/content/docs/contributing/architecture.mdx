@@ -1,7 +1,7 @@
 ---
 title: Architecture
 description: How the MCP server, Chrome extension, and plugins work together to give AI agents access to web applications.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-02
 ---
 
 OpenTabs has three main components: the **MCP server** (discovers plugins and dispatches requests), the **Chrome extension** (injects plugin adapters into browser tabs), and **plugins** (define tools that run in the page context). All communication uses JSON-RPC 2.0.
@@ -440,7 +440,7 @@ Tools not in the tier map default to `interact` as a safe middle ground.
 4. **Tool tier default** — `observe` → `allow`, `interact` → `ask`, `sensitive` → `ask`
 5. **`trustedDomains` match** — upgrades `ask` to `allow` (does **not** override `deny`)
 
-Session permission rules (created by "Allow Always" actions) are checked before the evaluation chain. If a matching session rule exists, the tool is auto-allowed without running the chain. The `skipConfirmation` config flag bypasses the entire evaluation — all tools are auto-allowed.
+Session permission rules (created by "Allow Always" actions) are checked before the evaluation chain. If a matching session rule exists, the tool is auto-allowed without running the chain. The `skipPermissions` config flag bypasses the entire evaluation — all tools are auto-allowed.
 
 ### Confirmation System
 

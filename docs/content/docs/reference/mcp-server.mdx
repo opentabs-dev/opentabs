@@ -1,7 +1,7 @@
 ---
 title: MCP Server
 description: HTTP endpoints, WebSocket protocol, authentication, MCP capabilities, and client configuration for the OpenTabs server.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-02
 ---
 
 ## HTTP Endpoints
@@ -203,7 +203,7 @@ Key fields:
 - `pluginDetails[].logBufferSize` — number of log entries in the per-plugin ring buffer
 - `failedPlugins` — plugins that failed to load (path + error message)
 - `disabledBrowserTools` — browser tool names that have been disabled via config
-- `confirmationBypassed` — whether the confirmation prompt system is skipped (via `skipConfirmation` config or `OPENTABS_SKIP_CONFIRMATION` env var)
+- `confirmationBypassed` — whether the confirmation prompt system is skipped (via `skipPermissions` config or `OPENTABS_SKIP_PERMISSIONS` env var)
 - `lastReloadTimestamp` — milliseconds since epoch of the last plugin reload (0 if never reloaded)
 - `lastReloadDurationMs` — how long the last reload took in milliseconds
 - `stateSchemaVersion` — internal state schema version number

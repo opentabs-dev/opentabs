@@ -1,7 +1,7 @@
 ---
 title: CLI Commands
 description: Complete reference for the opentabs CLI — start the server, manage plugins, view logs, run diagnostics, and configure settings.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-02
 ---
 
 The `opentabs` CLI is the primary interface for managing the OpenTabs platform. Install it globally:
@@ -68,6 +68,11 @@ opentabs start [options]
       <Table.Cell className="font-medium">`--show-config`</Table.Cell>
       <Table.Cell>—</Table.Cell>
       <Table.Cell>Print full MCP client configuration even on subsequent runs. By default, MCP client config is only shown on first run.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--dangerously-skip-permissions`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+      <Table.Cell>Bypass all browser tool confirmation dialogs. **WARNING:** sensitive operations (cookies, storage, script execution) will execute without human approval. For CI and testing environments only.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>

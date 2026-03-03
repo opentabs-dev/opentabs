@@ -1,7 +1,7 @@
 ---
 title: Configuration
 description: Reference for the ~/.opentabs/config.json configuration file, environment variables, and directory structure.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-02
 ---
 
 ## Config file location
@@ -55,7 +55,7 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell>CLI-side port setting, persisted by `opentabs config set port`. Used as a fallback by CLI commands when neither `--port` nor `OPENTABS_PORT` is set. The MCP server itself reads its port from the `PORT` environment variable, set by `opentabs start`.</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`skipConfirmation`</Table.Cell>
+      <Table.Cell className="font-medium">`skipPermissions`</Table.Cell>
       <Table.Cell className="*:text-xs">`boolean`</Table.Cell>
       <Table.Cell className="*:text-xs">`undefined`</Table.Cell>
       <Table.Cell>Skip all browser tool confirmation prompts. **Dangerous** — disables the human-in-the-loop safety check. Intended for CI/testing only.</Table.Cell>
@@ -234,13 +234,13 @@ Example — allow screenshots everywhere, require confirmation for script execut
 }
 ```
 
-### skipConfirmation
+### skipPermissions
 
 Set to `true` to bypass all browser tool confirmation prompts. This disables the human-in-the-loop safety check entirely — all tools run without asking for approval, even on sensitive domains.
 
 **This is dangerous and intended only for CI/testing environments.** In normal usage, leave this unset and use the `permissions` object to fine-tune which tools require confirmation.
 
-Can also be enabled via the `OPENTABS_SKIP_CONFIRMATION` environment variable or the `--dangerously-skip-confirmation` flag on the MCP server binary (not the `opentabs` CLI). Prefer the env var for portability.
+Can also be enabled via the `OPENTABS_SKIP_PERMISSIONS` environment variable or the `--dangerously-skip-permissions` flag on `opentabs start`. Prefer the env var for portability. The legacy names `OPENTABS_SKIP_CONFIRMATION`, `--dangerously-skip-confirmation`, and `skipConfirmation` are still accepted as aliases.
 
 ## Plugin discovery
 
@@ -283,9 +283,9 @@ Local plugins override npm plugins of the same name. Discovery runs at server st
       <Table.Cell>Set to `1` to enable dev mode. Equivalent to passing `--dev` to the MCP server binary (used by platform contributors via `npm run dev`). Enables file watchers and config watching.</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`OPENTABS_SKIP_CONFIRMATION`</Table.Cell>
+      <Table.Cell className="font-medium">`OPENTABS_SKIP_PERMISSIONS`</Table.Cell>
       <Table.Cell>_(unset)_</Table.Cell>
-      <Table.Cell>Set to `1` to bypass all browser tool confirmation prompts. Equivalent to `--dangerously-skip-confirmation` or `skipConfirmation: true` in config. For CI/testing only.</Table.Cell>
+      <Table.Cell>Set to `1` to bypass all browser tool confirmation prompts. Equivalent to `--dangerously-skip-permissions` or `skipPermissions: true` in config. For CI/testing only. The legacy name `OPENTABS_SKIP_CONFIRMATION` is still accepted as an alias.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`OPENTABS_LOG_LEVEL`</Table.Cell>
