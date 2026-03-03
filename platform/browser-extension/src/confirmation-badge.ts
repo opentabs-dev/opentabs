@@ -1,13 +1,25 @@
 import { isSidePanelOpen } from './side-panel-toggle.js';
 
+/** Full params stored for each pending confirmation request */
+interface PendingConfirmationParams {
+  id: string;
+  tool: string;
+  domain: string | null;
+  tabId?: number;
+  paramsPreview: string;
+  timeoutMs: number;
+  /** Timestamp (Date.now()) when the background received the confirmation request */
+  receivedAt: number;
+}
+
 /** Pending confirmation count for badge tracking */
 let pendingConfirmationCount = 0;
 
 /** Single notification ID for the consolidated confirmation notification */
 const NOTIFICATION_ID = 'opentabs-confirmation';
 
-/** Tool/domain info for each pending confirmation, used for notification content */
-const pendingConfirmationInfo = new Map<string, { tool: string; domain: string | null }>();
+/** Full confirmation params for each pending confirmation, keyed by confirmation id */
+const pendingConfirmations = new Map<string, PendingConfirmationParams>();
 
 /**
  * Background-side timeouts keyed by confirmation id. When the side panel is
@@ -62,8 +74,8 @@ const syncConfirmationNotification = (): void => {
   }
 
   let message: string;
-  if (pendingConfirmationCount === 1 && pendingConfirmationInfo.size === 1) {
-    const info = pendingConfirmationInfo.values().next().value as { tool: string; domain: string | null };
+  if (pendingConfirmationCount === 1 && pendingConfirmations.size === 1) {
+    const info = pendingConfirmations.values().next().value as PendingConfirmationParams;
     message = info.domain ? `${info.tool} on ${info.domain}` : info.tool;
   } else if (pendingConfirmationCount > 1) {
     message = `${pendingConfirmationCount} tools awaiting approval`;
@@ -93,7 +105,10 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
   const tool = typeof params.tool === 'string' ? params.tool : 'unknown tool';
   const domain = typeof params.domain === 'string' ? params.domain : null;
   const id = typeof params.id === 'string' ? params.id : String(Date.now());
+  const tabId = typeof params.tabId === 'number' ? params.tabId : undefined;
+  const paramsPreview = typeof params.paramsPreview === 'string' ? params.paramsPreview : '';
   const timeoutMs = typeof params.timeoutMs === 'number' ? params.timeoutMs : 0;
+  const receivedAt = Date.now();
 
   // If this id already has a pending timeout, clear it and don't increment the
   // count — the count was already incremented when the first request arrived.
@@ -108,7 +123,7 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
     updateConfirmationBadge();
   }
 
-  pendingConfirmationInfo.set(id, { tool, domain });
+  pendingConfirmations.set(id, { id, tool, domain, tabId, paramsPreview, timeoutMs, receivedAt });
 
   // Set a background timeout slightly longer than the server-side timeout so
   // the badge clears automatically when the side panel is closed and cannot
@@ -147,7 +162,7 @@ const clearConfirmationBadge = (id?: string): void => {
       return;
     }
     clearedConfirmationIds.add(id);
-    pendingConfirmationInfo.delete(id);
+    pendingConfirmations.delete(id);
   }
   pendingConfirmationCount = Math.max(0, pendingConfirmationCount - 1);
   updateConfirmationBadge();
@@ -183,7 +198,7 @@ const clearAllConfirmationBadges = (): void => {
   }
   confirmationTimeouts.clear();
   clearedConfirmationIds.clear();
-  pendingConfirmationInfo.clear();
+  pendingConfirmations.clear();
   pendingConfirmationCount = 0;
   updateConfirmationBadge();
   chrome.notifications.clear(NOTIFICATION_ID).catch(() => {});
@@ -210,10 +225,15 @@ const initConfirmationBadge = (): void => {
   });
 };
 
+/** Returns an array of all pending confirmation params */
+const getPendingConfirmations = (): PendingConfirmationParams[] => [...pendingConfirmations.values()];
+
 export {
   notifyConfirmationRequest,
   clearConfirmationBadge,
   clearConfirmationBackgroundTimeout,
   clearAllConfirmationBadges,
   initConfirmationBadge,
+  getPendingConfirmations,
 };
+export type { PendingConfirmationParams };

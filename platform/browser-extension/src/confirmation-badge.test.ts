@@ -45,6 +45,7 @@ const {
   clearConfirmationBadge,
   clearConfirmationBackgroundTimeout,
   clearAllConfirmationBadges,
+  getPendingConfirmations,
 } = await import('./confirmation-badge.js');
 
 // ---------------------------------------------------------------------------
@@ -510,5 +511,71 @@ describe('side panel open suppression', () => {
       NOTIFICATION_ID,
       expect.objectContaining({ message: '2 tools awaiting approval' }),
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getPendingConfirmations
+// ---------------------------------------------------------------------------
+
+describe('getPendingConfirmations', () => {
+  test('returns correct entries after notifyConfirmationRequest calls and entries are removed after clearConfirmationBadge', () => {
+    notifyConfirmationRequest({
+      id: 'req-1',
+      tool: 'toolA',
+      domain: 'a.com',
+      tabId: 42,
+      paramsPreview: '{"url":"https://a.com"}',
+      timeoutMs: 5000,
+    });
+    notifyConfirmationRequest({
+      id: 'req-2',
+      tool: 'toolB',
+      domain: null,
+      paramsPreview: '',
+      timeoutMs: 3000,
+    });
+
+    const pending = getPendingConfirmations();
+    expect(pending).toHaveLength(2);
+
+    const first = pending.find(c => c.id === 'req-1');
+    expect(first).toMatchObject({
+      id: 'req-1',
+      tool: 'toolA',
+      domain: 'a.com',
+      tabId: 42,
+      paramsPreview: '{"url":"https://a.com"}',
+      timeoutMs: 5000,
+    });
+    expect(first?.receivedAt).toBeTypeOf('number');
+
+    const second = pending.find(c => c.id === 'req-2');
+    expect(second).toMatchObject({
+      id: 'req-2',
+      tool: 'toolB',
+      domain: null,
+      paramsPreview: '',
+      timeoutMs: 3000,
+    });
+
+    // Clear one — only the other remains
+    clearConfirmationBadge('req-1');
+    const afterClear = getPendingConfirmations();
+    expect(afterClear).toHaveLength(1);
+    expect(afterClear[0]?.id).toBe('req-2');
+  });
+
+  test('returns empty array after clearAllConfirmationBadges', () => {
+    notifyConfirmationRequest({ id: 'req-1', tool: 'toolA', domain: 'a.com', timeoutMs: 0 });
+    notifyConfirmationRequest({ id: 'req-2', tool: 'toolB', domain: 'b.com', timeoutMs: 0 });
+
+    clearAllConfirmationBadges();
+
+    expect(getPendingConfirmations()).toEqual([]);
+  });
+
+  test('returns empty array when no confirmations are pending', () => {
+    expect(getPendingConfirmations()).toEqual([]);
   });
 });
