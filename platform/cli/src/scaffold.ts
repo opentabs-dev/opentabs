@@ -53,32 +53,40 @@ const singleQuote = (value: string): string => `'${value.replace(/\\/g, '\\\\').
 // --- Template generation ---
 
 /**
- * Resolve the version of @opentabs-dev packages for scaffolded plugins.
+ * Resolve version strings from the installed @opentabs-dev/plugin-sdk package.json.
  *
  * All @opentabs-dev packages are published at the same version. The SDK is a
  * direct dependency of the CLI, so `import.meta.resolve` reliably finds it
- * even in global installs. We read its version once and use it for all
- * @opentabs-dev dependencies in the scaffolded package.json.
+ * even in global installs. We read its package.json once to extract the
+ * @opentabs-dev version and the zod peer dependency version, using both in
+ * the scaffolded package.json.
  */
-const resolveOpenTabsVersion = async (): Promise<string> => {
+const resolvePluginSdkVersions = async (): Promise<{ openTabsVersion: string; zodVersion: string }> => {
   try {
     const entryUrl = import.meta.resolve('@opentabs-dev/plugin-sdk');
     const entryDir = dirname(new URL(entryUrl).pathname);
     const pkg: unknown = JSON.parse(await readFile(join(entryDir, '..', 'package.json'), 'utf-8'));
-    if (pkg !== null && typeof pkg === 'object' && 'version' in pkg && typeof pkg.version === 'string') {
-      return `^${pkg.version}`;
+    if (pkg === null || typeof pkg !== 'object') {
+      return { openTabsVersion: '*', zodVersion: '*' };
     }
+    const openTabsVersion = 'version' in pkg && typeof pkg.version === 'string' ? `^${pkg.version}` : '*';
+    const peerDeps =
+      'peerDependencies' in pkg && pkg.peerDependencies !== null && typeof pkg.peerDependencies === 'object'
+        ? (pkg.peerDependencies as Record<string, unknown>)
+        : {};
+    const zodVersion = typeof peerDeps.zod === 'string' ? peerDeps.zod : '*';
+    return { openTabsVersion, zodVersion };
   } catch {
     // Resolution failed
   }
-  return '*';
+  return { openTabsVersion: '*', zodVersion: '*' };
 };
 
 const generatePackageJson = async (args: ScaffoldArgs, urlPattern: string): Promise<string> => {
   const displayName = args.display ?? toTitleCase(args.name);
   const desc = args.description ?? `OpenTabs plugin for ${displayName}`;
 
-  const openTabsVersion = await resolveOpenTabsVersion();
+  const { openTabsVersion, zodVersion } = await resolvePluginSdkVersions();
 
   const pkg = {
     name: `opentabs-plugin-${args.name}`,
@@ -119,8 +127,9 @@ const generatePackageJson = async (args: ScaffoldArgs, urlPattern: string): Prom
     devDependencies: {
       '@biomejs/biome': '2.4.5',
       '@opentabs-dev/plugin-tools': openTabsVersion,
+      jiti: '^2.6.1',
       typescript: '^5.9.3',
-      zod: '^4.0.0',
+      zod: zodVersion,
     },
   };
   return `${JSON.stringify(pkg, null, 2)}\n`;
@@ -421,6 +430,10 @@ class ${toPascalCase(args.name)}Plugin extends OpenTabsPlugin {
   //   const token = iframe.contentWindow?.localStorage.getItem('token') ?? null;
   //   document.body.removeChild(iframe);
   //   return token !== null;
+  //
+  // For apps with HttpOnly cookie auth (e.g. Notion), detect via a non-HttpOnly indicator cookie:
+  //   return document.cookie.includes('user_id=');
+  //   // HttpOnly session cookies are sent automatically with credentials: 'include'
   async isReady(): Promise<boolean> {
     return false;
   }
