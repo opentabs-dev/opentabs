@@ -72,11 +72,17 @@ test.describe('Icon pipeline — side panel rendering', () => {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-icon-svg-'));
     writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
 
-    const server = await startMcpServer(configDir, true);
-    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
-    setupAdapterSymlink(configDir, extensionDir);
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
 
     try {
+      server = await startMcpServer(configDir, true);
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
       await waitForExtensionConnected(server);
       await waitForLog(server, 'tab.syncAll received', 15_000);
 
@@ -92,9 +98,9 @@ test.describe('Icon pipeline — side panel rendering', () => {
 
       await sidePanelPage.close();
     } finally {
-      await context.close().catch(() => {});
-      await server.kill();
-      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      await context?.close().catch(() => {});
+      await server?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
   });
@@ -110,12 +116,19 @@ test.describe('Icon pipeline — side panel rendering', () => {
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-icon-inactive-'));
     writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
 
-    const server = await startMcpServer(configDir, true);
-    const testServer = await startTestServer();
-    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
-    setupAdapterSymlink(configDir, extensionDir);
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let testServer: Awaited<ReturnType<typeof startTestServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
 
     try {
+      server = await startMcpServer(configDir, true);
+      testServer = await startTestServer();
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
       await waitForExtensionConnected(server);
       await waitForLog(server, 'tab.syncAll received', 15_000);
 
@@ -136,6 +149,7 @@ test.describe('Icon pipeline — side panel rendering', () => {
       await appTab.goto(testServer.url, { waitUntil: 'load' });
 
       // Poll /health with auth headers to get pluginDetails
+      const serverPort = server.port;
       const authHeaders: Record<string, string> = {};
       if (server.secret) authHeaders.Authorization = `Bearer ${server.secret}`;
 
@@ -143,7 +157,7 @@ test.describe('Icon pipeline — side panel rendering', () => {
         .poll(
           async () => {
             try {
-              const res = await fetch(`http://localhost:${server.port}/health`, {
+              const res = await fetch(`http://localhost:${serverPort}/health`, {
                 headers: authHeaders,
                 signal: AbortSignal.timeout(3_000),
               });
@@ -178,10 +192,10 @@ test.describe('Icon pipeline — side panel rendering', () => {
       await sidePanelPage.close();
       await appTab.close();
     } finally {
-      await context.close().catch(() => {});
-      await server.kill();
-      await testServer.kill();
-      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      await context?.close().catch(() => {});
+      await server?.kill();
+      await testServer?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
   });
@@ -208,11 +222,17 @@ test.describe('Icon pipeline — side panel rendering', () => {
       tools,
     });
 
-    const server = await startMcpServer(configDir, true);
-    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
-    setupAdapterSymlink(configDir, extensionDir);
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
 
     try {
+      server = await startMcpServer(configDir, true);
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
       await waitForExtensionConnected(server);
       await waitForLog(server, 'tab.syncAll received', 15_000);
 
@@ -241,9 +261,9 @@ test.describe('Icon pipeline — side panel rendering', () => {
 
       await sidePanelPage.close();
     } finally {
-      await context.close().catch(() => {});
-      await server.kill();
-      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      await context?.close().catch(() => {});
+      await server?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
       fs.rmSync(tmpDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
