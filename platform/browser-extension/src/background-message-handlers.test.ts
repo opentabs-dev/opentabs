@@ -707,6 +707,9 @@ describe('handleBgGetFullState', () => {
         iconInactiveSvg: '<svg>light-inactive</svg>',
         iconDarkSvg: '<svg>dark</svg>',
         iconDarkInactiveSvg: '<svg>dark-inactive</svg>',
+        sourcePath: '/private/path/to/plugin',
+        adapterHash: 'abc123',
+        adapterFile: 'adapter.iife.js',
       },
     });
 
@@ -741,13 +744,19 @@ describe('handleBgGetFullState', () => {
 
     const result = sendResponse.mock.calls.at(0)?.at(0) as FullStateResponse;
     expect(result.plugins).toHaveLength(1);
-    expect(result.plugins[0]).toMatchObject({
+    const outputPlugin = result.plugins[0]!;
+    expect(outputPlugin).toMatchObject({
       name: 'icon-plugin',
       iconSvg: '<svg>light</svg>',
       iconInactiveSvg: '<svg>light-inactive</svg>',
       iconDarkSvg: '<svg>dark</svg>',
       iconDarkInactiveSvg: '<svg>dark-inactive</svg>',
     });
+
+    // Internal-only PluginMeta fields must NOT leak to the side panel
+    expect(outputPlugin).not.toHaveProperty('sourcePath');
+    expect(outputPlugin).not.toHaveProperty('adapterHash');
+    expect(outputPlugin).not.toHaveProperty('adapterFile');
   });
 
   test('defaults tool enabled to true when server cache is empty', async () => {

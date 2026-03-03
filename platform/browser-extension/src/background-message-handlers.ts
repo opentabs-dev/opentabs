@@ -203,16 +203,21 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
         };
       });
 
+      // Spread meta to inherit all display-relevant fields (name, displayName,
+      // version, trustTier, urlPatterns, icon variants, etc.) so new fields
+      // added to PluginMeta flow through automatically without manual
+      // enumeration. Exclude internal-only fields and override tools (merged
+      // with enabled state), tabState (from live tab cache), and server-only
+      // fields (source, sdkVersion, update).
+      const {
+        tools: _metaTools,
+        sourcePath: _sourcePath,
+        adapterHash: _adapterHash,
+        adapterFile: _adapterFile,
+        ...metaFields
+      } = meta;
       return {
-        name: meta.name,
-        displayName: meta.displayName,
-        version: meta.version,
-        trustTier: meta.trustTier,
-        urlPatterns: meta.urlPatterns,
-        iconSvg: meta.iconSvg,
-        iconInactiveSvg: meta.iconInactiveSvg,
-        iconDarkSvg: meta.iconDarkSvg,
-        iconDarkInactiveSvg: meta.iconDarkInactiveSvg,
+        ...metaFields,
         tools,
         tabState,
         source: serverPlugin?.source ?? 'local',
