@@ -106,7 +106,11 @@ const handleWsState: MessageHandler = (message, sendResponse) => {
 
 /** Handle ws:message — relay a JSON-RPC message from the MCP server */
 const handleWsMessage: MessageHandler = (message, sendResponse) => {
-  handleServerMessage(message.data as Record<string, unknown>);
+  try {
+    handleServerMessage(message.data as Record<string, unknown>);
+  } catch (err) {
+    console.error('[opentabs:background] handleServerMessage threw:', err);
+  }
   sendResponse({ ok: true });
 };
 

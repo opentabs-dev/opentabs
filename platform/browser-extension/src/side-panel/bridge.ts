@@ -21,7 +21,7 @@ type PluginState = Omit<ConfigStatePlugin, 'tools'> & { tools?: WireToolDef[] };
 /** Failed plugin state as displayed in the side panel */
 type FailedPluginState = ConfigStateFailedPlugin;
 
-/** Browser tool state as displayed in the side panel (matches config.getState response) */
+/** Browser tool state as displayed in the side panel (matches bg:getFullState response) */
 type BrowserToolState = ConfigStateBrowserTool;
 
 /** npm registry search result for a plugin package */

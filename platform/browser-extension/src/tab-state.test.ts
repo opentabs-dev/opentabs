@@ -976,3 +976,43 @@ describe('flushLastKnownStateToSession', () => {
     expect(mockStorageSessionSet).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// getAggregateState
+// ---------------------------------------------------------------------------
+
+describe('getAggregateState', () => {
+  test('returns closed for valid closed state', () => {
+    const serialized = JSON.stringify({ state: 'closed', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('returns ready for valid ready state', () => {
+    const serialized = JSON.stringify({ state: 'ready', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('ready');
+  });
+
+  test('returns unavailable for valid unavailable state', () => {
+    const serialized = JSON.stringify({ state: 'unavailable', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('unavailable');
+  });
+
+  test('falls back to closed for corrupted state value', () => {
+    const serialized = JSON.stringify({ state: 'hacked', tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('falls back to closed when state is a number', () => {
+    const serialized = JSON.stringify({ state: 42, tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('falls back to closed when state field is missing', () => {
+    const serialized = JSON.stringify({ tabs: [] });
+    expect(getAggregateState(serialized)).toBe('closed');
+  });
+
+  test('falls back to closed for invalid JSON', () => {
+    expect(getAggregateState('not-json')).toBe('closed');
+  });
+});

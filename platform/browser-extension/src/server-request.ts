@@ -70,7 +70,7 @@ const consumeServerResponse = (data: Record<string, unknown>): boolean => {
   pendingRequests.delete(id);
   clearTimeout(pending.timerId);
 
-  if ('error' in data) {
+  if (data.error !== undefined && data.error !== null) {
     const err = data.error as { message?: string };
     pending.reject(new Error(err.message ?? 'Unknown server error'));
   } else {

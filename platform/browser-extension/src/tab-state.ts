@@ -312,8 +312,9 @@ const loadLastKnownStateFromSession = async (): Promise<void> => {
 /** Extract the aggregate TabState from a serialized cache entry. */
 const getAggregateState = (serialized: string): TabState => {
   try {
-    const parsed = JSON.parse(serialized) as { state: TabState };
-    return parsed.state;
+    const parsed = JSON.parse(serialized) as { state: string };
+    const validStates = new Set<string>(['closed', 'unavailable', 'ready']);
+    return validStates.has(parsed.state) ? (parsed.state as TabState) : 'closed';
   } catch {
     return 'closed';
   }

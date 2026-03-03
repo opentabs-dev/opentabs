@@ -166,6 +166,17 @@ describe('consumeServerResponse', () => {
 
     await expect(promise).resolves.toBe('first');
   });
+
+  test('resolves (not rejects) when error key is present but undefined', async () => {
+    const promise = sendServerRequest('test.method');
+    const sentData = mockSendToServer.mock.calls[0]?.[0] as Record<string, unknown>;
+    const requestId = sentData.id as number;
+
+    const consumed = consumeServerResponse({ jsonrpc: '2.0', error: undefined, result: 'ok', id: requestId });
+
+    expect(consumed).toBe(true);
+    await expect(promise).resolves.toBe('ok');
+  });
 });
 
 // ---------------------------------------------------------------------------

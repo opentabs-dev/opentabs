@@ -143,6 +143,7 @@ const mockRuntimeSendMessage = vi.fn(() => Promise.resolve());
 
 const {
   handleWsState,
+  handleWsMessage,
   handlePluginLogs,
   handleToolProgress,
   handleSpConfirmationResponse,
@@ -1254,5 +1255,32 @@ describe('handleBgUpdatePlugin', () => {
 
     await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
     expect(sendResponse).toHaveBeenCalledWith(result);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleWsMessage
+// ---------------------------------------------------------------------------
+
+describe('handleWsMessage', () => {
+  test('relays message data to handleServerMessage and calls sendResponse', () => {
+    const sendResponse = vi.fn();
+    const data = { jsonrpc: '2.0', method: 'plugins.changed', params: {} };
+
+    handleWsMessage({ data }, sendResponse);
+
+    expect(mockHandleServerMessage).toHaveBeenCalledWith(data);
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
+  });
+
+  test('calls sendResponse even when handleServerMessage throws', () => {
+    mockHandleServerMessage.mockImplementationOnce(() => {
+      throw new Error('handleServerMessage failed');
+    });
+
+    const sendResponse = vi.fn();
+    handleWsMessage({ data: { jsonrpc: '2.0', method: 'bad.method' } }, sendResponse);
+
+    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
   });
 });
