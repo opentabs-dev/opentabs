@@ -298,6 +298,13 @@ export interface ConfigSetToolEnabledParams {
   enabled: boolean;
 }
 
+/** config.setToolsEnabled request params */
+export interface ConfigSetToolsEnabledParams {
+  plugin: string;
+  tools: string[];
+  enabled: boolean;
+}
+
 /** config.setAllToolsEnabled request params */
 export interface ConfigSetAllToolsEnabledParams {
   plugin: string;
