@@ -516,6 +516,60 @@ test.describe('Confirmation notification — badge lifecycle', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Confirmation dialog — late side panel open (panel closed when request arrives)
+// ---------------------------------------------------------------------------
+
+test.describe('Confirmation dialog — late side panel open', () => {
+  test('confirmation dialog appears when side panel opens after request arrived while closed', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const sw = await getBackgroundWorker(extensionContext);
+    const nonTrustedUrl = testServer.url.replace('localhost', '127.0.0.2');
+
+    // Do NOT open the side panel yet — the confirmation request should arrive
+    // while the panel is closed, and be hydrated when the panel opens later.
+
+    // Call a sensitive-tier tool on a non-trusted domain. This blocks waiting
+    // for confirmation. Concurrently, poll for the badge, open the panel,
+    // verify the dialog, and approve it.
+    const [result] = await Promise.all([
+      mcpClient.callTool('browser_get_cookies', { url: nonTrustedUrl }, { timeout: 35_000 }),
+      (async () => {
+        // Poll until badge text becomes "1" (confirmation arrived at background).
+        await waitFor(async () => (await getBadgeText(sw)) === '1', 15_000, 200, 'badge text === "1"');
+
+        // Now open the side panel — it should hydrate the pending confirmation
+        // from bg:getFullState and show the dialog.
+        const sidePanel = await openSidePanel(extensionContext);
+
+        // Wait for the confirmation dialog to appear.
+        await waitForConfirmationDialog(sidePanel);
+
+        // Verify the dialog shows the correct tool name and domain.
+        const dialogEl = sidePanel.locator('[role="alert"]');
+        await expect(dialogEl.getByText('browser_get_cookies')).toBeVisible();
+        await expect(dialogEl.getByText('127.0.0.2', { exact: true })).toBeVisible();
+
+        // Approve the confirmation to unblock the tool call.
+        await sidePanel.getByRole('button', { name: 'Allow Once' }).click();
+      })(),
+    ]);
+
+    // The tool should have completed successfully after approval.
+    expect(result.isError).toBe(false);
+
+    // Badge should clear back to empty after confirmation is resolved.
+    await waitFor(async () => (await getBadgeText(sw)) === '', 10_000, 200, 'badge text === ""');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // browserToolPolicy — disabling a browser tool via configuration
 // ---------------------------------------------------------------------------
 
