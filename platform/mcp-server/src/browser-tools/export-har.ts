@@ -229,9 +229,7 @@ const exportHar = defineBrowserTool({
         'browser.getNetworkRequests (clear)',
       );
 
-      entries.length = 0;
-      entries.push(...clearRequests.map(requestToHarEntry));
-
+      let clearWsEntries: ReturnType<typeof wsFrameToHarEntry>[] = [];
       if (args.includeWebSocketFrames) {
         const clearFramesRaw = await dispatchToExtension(state, 'browser.getWebSocketFrames', {
           tabId: args.tabId,
@@ -242,9 +240,15 @@ const exportHar = defineBrowserTool({
           'frames',
           'browser.getWebSocketFrames (clear)',
         );
-
-        entries.push(...clearFrames.map(wsFrameToHarEntry));
+        clearWsEntries = clearFrames.map(wsFrameToHarEntry);
       }
+
+      // Both clearing fetches succeeded — replace entries with the cleared data.
+      // This happens after all clearing fetches so that if the WS clear fails,
+      // entries still holds the original non-clearing fetch results.
+      entries.length = 0;
+      entries.push(...clearRequests.map(requestToHarEntry));
+      entries.push(...clearWsEntries);
     }
 
     // Sort all entries by startedDateTime for chronological order

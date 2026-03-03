@@ -69,6 +69,26 @@ describe('exportHar clear-after-fetch ordering', () => {
     });
   });
 
+  test('entries are not wiped when WebSocket clear fetch fails after HTTP clear succeeds', async () => {
+    const state = createState();
+    state.activeNetworkCaptures.add(13);
+
+    const request = { url: 'https://example.com', method: 'GET', timestamp: 1000 };
+    const wsFrame = { url: 'wss://example.com', direction: 'received', data: 'hello', opcode: 1, timestamp: 2000 };
+
+    mockDispatchToExtension.mockResolvedValueOnce([request]); // getNetworkRequests fetch
+    mockDispatchToExtension.mockResolvedValueOnce({ frames: [wsFrame] }); // getWebSocketFrames fetch
+    mockDispatchToExtension.mockResolvedValueOnce([request]); // getNetworkRequests clear
+    mockDispatchToExtension.mockRejectedValueOnce(new Error('WS clear failed')); // getWebSocketFrames clear
+
+    await expect(exportHar.handler({ tabId: 13, clear: true, includeWebSocketFrames: true }, state)).rejects.toThrow(
+      'WS clear failed',
+    );
+
+    // All four dispatches were made (both non-clearing and both clearing fetches)
+    expect(mockDispatchToExtension).toHaveBeenCalledTimes(4);
+  });
+
   test('HTTP buffer is cleared after fetch succeeds when clear: true without WebSocket frames', async () => {
     const state = createState();
     state.activeNetworkCaptures.add(12);
