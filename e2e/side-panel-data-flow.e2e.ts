@@ -457,4 +457,111 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       cleanupTestConfigDir(configDir);
     }
   });
+
+  test('shows activity indicator on browser tool invocation', async () => {
+    // 1. Setup: MCP server + extension + MCP client (no test server needed
+    // for browser tools — they execute server-side, not via adapters)
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const prefixedToolNames = readPluginToolNames();
+    const tools: Record<string, boolean> = {};
+    for (const t of prefixedToolNames) {
+      tools[t] = true;
+    }
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-bt-anim-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    const server = await startMcpServer(configDir, true);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    const mcpClient = createMcpClient(server.port, server.secret);
+
+    try {
+      // 2. Wait for extension to connect
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // 3. Initialize MCP client
+      await mcpClient.initialize();
+
+      // 4. Open side panel and verify Browser card is visible
+      const sidePanelPage = await openSidePanel(context);
+      await sidePanelPage.reload({ waitUntil: 'load' });
+      await expect(sidePanelPage.getByText('Browser')).toBeVisible({ timeout: 15_000 });
+
+      // Expand the Browser accordion to show tool rows
+      const browserCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Browser' });
+      await browserCard.click();
+
+      // Verify a browser tool row is visible (e.g., "List Tabs")
+      await expect(sidePanelPage.getByText('List Tabs', { exact: true })).toBeVisible({ timeout: 5_000 });
+
+      // 5. Install a MutationObserver to detect the activity flash class.
+      // Browser tools execute in milliseconds, so the activity indicator may
+      // appear and disappear too quickly for Playwright's polling assertions.
+      // A MutationObserver captures every class mutation, reliably detecting
+      // even sub-frame flashes.
+      await sidePanelPage.evaluate(() => {
+        (window as unknown as Record<string, unknown>).__activityFlashSeen = false;
+        const observer = new MutationObserver(mutations => {
+          for (const m of mutations) {
+            if (m.type === 'childList' || (m.type === 'attributes' && m.attributeName === 'class')) {
+              const target = m.target as HTMLElement;
+              if (target.classList.contains('animate-activity-flash')) {
+                (window as unknown as Record<string, unknown>).__activityFlashSeen = true;
+              }
+              // Check added nodes (the dot is conditionally rendered)
+              for (const node of m.addedNodes) {
+                if (node instanceof HTMLElement && node.classList.contains('animate-activity-flash')) {
+                  (window as unknown as Record<string, unknown>).__activityFlashSeen = true;
+                }
+              }
+            }
+          }
+        });
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class'],
+        });
+        (window as unknown as Record<string, unknown>).__activityObserver = observer;
+      });
+
+      // 6. Call a browser tool
+      const result = await mcpClient.callTool('browser_list_tabs');
+      expect(result.isError).toBe(false);
+
+      // 7. Verify the MutationObserver detected the activity flash class.
+      // Poll briefly in case the end notification arrives slightly after
+      // the MCP response (the WebSocket notification and HTTP response
+      // travel independent paths).
+      await expect
+        .poll(() => sidePanelPage.evaluate(() => (window as unknown as Record<string, boolean>).__activityFlashSeen), {
+          timeout: 5_000,
+          message: 'Activity flash class was never observed on any element',
+        })
+        .toBe(true);
+
+      // 8. Verify activity indicator disappears after the tool call.
+      // The animate-activity-flash element should no longer be in the DOM
+      // (or should have transitioned to animate-activity-fade-out).
+      await expect(sidePanelPage.locator('.animate-activity-flash')).toBeHidden({ timeout: 10_000 });
+
+      // Clean up the observer
+      await sidePanelPage.evaluate(() => {
+        const obs = (window as unknown as Record<string, MutationObserver>).__activityObserver;
+        obs?.disconnect();
+      });
+
+      await sidePanelPage.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
 });
