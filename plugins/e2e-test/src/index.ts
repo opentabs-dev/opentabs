@@ -26,48 +26,8 @@ import { errorCustomCode } from './tools/error-custom-code.js';
 import { sdkRemoveStorage } from './tools/sdk-remove-storage.js';
 import { sdkSetSessionStorage } from './tools/sdk-set-session-storage.js';
 import { sdkHttpMethods } from './tools/sdk-http-methods.js';
-import { OpenTabsPlugin, defineResource, definePrompt } from '@opentabs-dev/plugin-sdk';
-import type { ToolDefinition, ResourceDefinition, PromptDefinition } from '@opentabs-dev/plugin-sdk';
-import { z } from 'zod';
-
-const testResource = defineResource({
-  uri: 'test://items',
-  name: 'Test Items',
-  description: 'Returns the list of items from the test server page',
-  mimeType: 'application/json',
-  async read() {
-    const data = await testApi<{ items: Array<{ id: string; name: string }>; total: number }>('/api/list-items', {});
-    return {
-      uri: 'test://items',
-      text: JSON.stringify({ items: data.items, total: data.total }),
-      mimeType: 'application/json',
-    };
-  },
-});
-
-const testPrompt = definePrompt({
-  name: 'greet',
-  description: 'Generates a greeting message',
-  arguments: [{ name: 'name', description: 'The name to greet', required: true }],
-  async render(args) {
-    const name = args['name'] ?? 'World';
-    return [{ role: 'user', content: { type: 'text', text: `Hello, ${name}!` } }];
-  },
-});
-
-/** Typed prompt that uses a Zod `args` schema for auto-generated argument metadata. */
-const typedGreetPrompt = definePrompt({
-  name: 'typed_greet',
-  description: 'A typed greeting prompt with Zod args schema',
-  args: z.object({
-    name: z.string().describe('Name to greet'),
-    formal: z.string().optional().describe('Whether to use formal greeting'),
-  }),
-  async render(args) {
-    const greeting = args.formal === 'true' ? `Dear ${args.name}` : `Hey ${args.name}`;
-    return [{ role: 'user', content: { type: 'text', text: `${greeting}!` } }];
-  },
-});
+import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
+import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 
 class E2eTestPlugin extends OpenTabsPlugin {
   readonly name = 'e2e-test';
@@ -103,8 +63,6 @@ class E2eTestPlugin extends OpenTabsPlugin {
     sdkSetSessionStorage,
     sdkHttpMethods,
   ];
-  override readonly resources: ResourceDefinition[] = [testResource];
-  override readonly prompts: PromptDefinition[] = [testPrompt, typedGreetPrompt];
 
   constructor() {
     super();

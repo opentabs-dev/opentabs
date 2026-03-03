@@ -28,14 +28,8 @@ import { mkdirSync, readFileSync, rmSync, statSync, watch, writeFileSync } from 
 import { access, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { resolve, join, relative, dirname, isAbsolute } from 'node:path';
-import type {
-  ManifestTool,
-  OpenTabsPlugin,
-  PromptDefinition,
-  ResourceDefinition,
-  ToolDefinition,
-} from '@opentabs-dev/plugin-sdk';
-import type { ManifestPrompt, ManifestPromptArgument, ManifestResource, PluginPackageJson } from '@opentabs-dev/shared';
+import type { ManifestTool, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { PluginPackageJson } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import type { Plugin as EsbuildPlugin } from 'esbuild';
 import type { FSWatcher } from 'node:fs';
@@ -364,88 +358,7 @@ const validatePlugin = (plugin: OpenTabsPlugin): string[] => {
     }
   }
 
-  // Resources (optional)
-  if (plugin.resources && plugin.resources.length > 0) {
-    const resourceUris = new Set<string>();
-    for (const resource of plugin.resources) {
-      if (resource.uri.length === 0) {
-        errors.push('Resource URI is required');
-      }
-      if (resource.name.length === 0) {
-        errors.push(`Resource "${resource.uri || '(unnamed)'}" is missing a name`);
-      }
-      if (resource.uri.length > 0 && resourceUris.has(resource.uri)) {
-        errors.push(`Duplicate resource URI "${resource.uri}"`);
-      }
-      if (resource.uri.length > 0) resourceUris.add(resource.uri);
-    }
-  }
-
-  // Prompts (optional)
-  if (plugin.prompts && plugin.prompts.length > 0) {
-    const PROMPT_NAME_REGEX = /^[a-z0-9][a-z0-9_-]*$/;
-    const promptNames = new Set<string>();
-    for (const prompt of plugin.prompts) {
-      if (prompt.name.length === 0) {
-        errors.push('Prompt name is required');
-      } else if (!PROMPT_NAME_REGEX.test(prompt.name)) {
-        errors.push(
-          `Prompt name "${prompt.name}" must match [a-z0-9_-]+ pattern (lowercase alphanumeric with underscores and hyphens)`,
-        );
-      }
-      if (prompt.arguments) {
-        for (const arg of prompt.arguments) {
-          if (arg.name.length === 0) {
-            errors.push(`Prompt "${prompt.name || '(unnamed)'}" has an argument with an empty name`);
-          }
-        }
-      }
-      if (prompt.name.length > 0 && promptNames.has(prompt.name)) {
-        errors.push(`Duplicate prompt name "${prompt.name}"`);
-      }
-      if (prompt.name.length > 0) promptNames.add(prompt.name);
-    }
-  }
-
   return errors;
-};
-
-/**
- * Print non-fatal warnings for resource and prompt definitions that have
- * structural issues (e.g., wrong field types). These checks complement
- * validatePlugin's hard errors — they catch soft issues that should not
- * block the build but indicate likely developer mistakes.
- */
-const warnResourcesAndPrompts = (plugin: OpenTabsPlugin): void => {
-  const warnings: string[] = [];
-
-  if (plugin.resources) {
-    for (const resource of plugin.resources) {
-      const label = resource.uri || resource.name || '(unnamed)';
-      if (resource.description !== undefined && typeof resource.description !== 'string') {
-        warnings.push(`Resource "${label}" has invalid description: must be a string`);
-      }
-      if (resource.mimeType !== undefined && typeof resource.mimeType !== 'string') {
-        warnings.push(`Resource "${label}" has invalid mimeType: must be a string`);
-      }
-    }
-  }
-
-  if (plugin.prompts) {
-    for (const prompt of plugin.prompts) {
-      const label = prompt.name || '(unnamed)';
-      if (prompt.description !== undefined && typeof prompt.description !== 'string') {
-        warnings.push(`Prompt "${label}" has invalid description: must be a string`);
-      }
-      if (typeof prompt.render !== 'function') {
-        warnings.push(`Prompt "${label}" is missing a render function`);
-      }
-    }
-  }
-
-  for (const w of warnings) {
-    console.warn(pc.yellow(`Warning: ${w}`));
-  }
 };
 
 const convertToolSchemas = (tool: ToolDefinition) => {
@@ -565,8 +478,6 @@ interface PluginManifestOutput {
   iconSvg?: string;
   iconInactiveSvg?: string;
   tools: ManifestTool[];
-  resources: ManifestResource[];
-  prompts: ManifestPrompt[];
 }
 
 /**
@@ -594,51 +505,6 @@ const generateToolsManifest = (plugin: OpenTabsPlugin): ManifestTool[] =>
       input_schema: inputSchema,
       output_schema: outputSchema,
     };
-  });
-
-/** Extract serializable resource metadata from plugin resource definitions */
-const generateResourcesManifest = (resources: ResourceDefinition[]): ManifestResource[] =>
-  resources.map(r => {
-    const entry: ManifestResource = { uri: r.uri, name: r.name };
-    if (r.description !== undefined) entry.description = r.description;
-    if (r.mimeType !== undefined) entry.mimeType = r.mimeType;
-    return entry;
-  });
-
-/**
- * Extract argument metadata from a Zod object schema. Each key becomes an
- * argument entry. The description is taken from the field's `.description`
- * metadata (set via `.describe()`). A field is required if it is not optional.
- */
-const extractArgsFromSchema = (schema: z.ZodObject<z.ZodRawShape>): ManifestPromptArgument[] => {
-  const shape = schema.shape as Record<string, z.ZodType>;
-  return Object.entries(shape).map(([name, fieldSchema]) => {
-    const arg: ManifestPromptArgument = { name };
-    const desc = (fieldSchema as { description?: string }).description;
-    if (desc !== undefined) arg.description = desc;
-    arg.required = !fieldSchema.safeParse(undefined).success;
-    return arg;
-  });
-};
-
-/** Extract serializable prompt metadata from plugin prompt definitions */
-const generatePromptsManifest = (prompts: PromptDefinition[]): ManifestPrompt[] =>
-  prompts.map(p => {
-    const entry: ManifestPrompt = { name: p.name };
-    if (p.description !== undefined) entry.description = p.description;
-    if (p.arguments !== undefined) {
-      // Explicit arguments take priority
-      entry.arguments = p.arguments.map(a => {
-        const arg: ManifestPromptArgument = { name: a.name };
-        if (a.description !== undefined) arg.description = a.description;
-        if (a.required !== undefined) arg.required = a.required;
-        return arg;
-      });
-    } else if (p.args !== undefined) {
-      // Auto-generate arguments metadata from the Zod schema
-      entry.arguments = extractArgsFromSchema(p.args);
-    }
-    return entry;
   });
 
 /**
@@ -672,14 +538,12 @@ const resolveSdkVersion = async (projectDir: string): Promise<string> => {
   return version;
 };
 
-/** Generate the full manifest (tools + resources + prompts) for dist/tools.json */
+/** Generate the full manifest (tools) for dist/tools.json */
 const generateManifest = (plugin: OpenTabsPlugin, sdkVersion: string, icons?: IconResult): PluginManifestOutput => ({
   sdkVersion,
   ...(icons?.iconSvg ? { iconSvg: icons.iconSvg } : {}),
   ...(icons?.iconInactiveSvg ? { iconInactiveSvg: icons.iconInactiveSvg } : {}),
   tools: generateToolsManifest(plugin),
-  resources: generateResourcesManifest(plugin.resources ?? []),
-  prompts: generatePromptsManifest(plugin.prompts ?? []),
 });
 
 /**
@@ -1063,9 +927,6 @@ const runBuild = async (projectDir: string): Promise<void> => {
     throw new Error(`Validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`);
   }
 
-  // Warn about non-fatal resource/prompt definition issues
-  warnResourcesAndPrompts(plugin);
-
   // Hint: warn if isReady() unconditionally returns false (default scaffold value)
   try {
     const ready = await plugin.isReady();
@@ -1136,17 +997,13 @@ const runBuild = async (projectDir: string): Promise<void> => {
   console.log(pc.dim('Resolving SDK version...'));
   const sdkVersion = await resolveSdkVersion(projectDir);
 
-  // Step 6: Generate dist/tools.json (tool schemas + resource/prompt metadata + icons)
+  // Step 6: Generate dist/tools.json (tool schemas + icons)
   console.log(pc.dim(`Generating ${TOOLS_FILENAME}...`));
   const manifest = generateManifest(plugin, sdkVersion, icons);
   const toolsJsonPath = join(distDir, TOOLS_FILENAME);
   await writeFile(toolsJsonPath, JSON.stringify(manifest, null, 2) + '\n', 'utf-8');
   const toolCount = manifest.tools.length;
-  const resourceCount = manifest.resources.length;
-  const promptCount = manifest.prompts.length;
   const parts = [`${toolCount} tool${toolCount === 1 ? '' : 's'}`];
-  if (resourceCount > 0) parts.push(`${resourceCount} resource${resourceCount === 1 ? '' : 's'}`);
-  if (promptCount > 0) parts.push(`${promptCount} prompt${promptCount === 1 ? '' : 's'}`);
   console.log(`  Written: ${pc.bold(`dist/${TOOLS_FILENAME}`)} (${parts.join(', ')})`);
 
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
@@ -1287,8 +1144,6 @@ export {
   formatBytes,
   formatTimestamp,
   generateManifest,
-  generatePromptsManifest,
-  generateResourcesManifest,
   generateToolsManifest,
   minifySvg,
   notifyServer,
@@ -1299,5 +1154,4 @@ export {
   resolveSdkVersion,
   validatePackageJson,
   validatePlugin,
-  warnResourcesAndPrompts,
 };

@@ -305,14 +305,10 @@ describe('create-opentabs-plugin CLI', () => {
             input_schema: Record<string, unknown>;
             output_schema: Record<string, unknown>;
           }>;
-          resources: unknown[];
-          prompts: unknown[];
         };
 
         // Verify manifest has top-level structure
         expect(Array.isArray(manifest.tools)).toBe(true);
-        expect(Array.isArray(manifest.resources)).toBe(true);
-        expect(Array.isArray(manifest.prompts)).toBe(true);
 
         // Verify tools array has at least one tool with required fields
         expect(manifest.tools.length).toBeGreaterThan(0);

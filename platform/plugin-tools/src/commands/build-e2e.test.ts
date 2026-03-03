@@ -138,16 +138,12 @@ describe('opentabs-plugin build E2E', () => {
           input_schema: Record<string, unknown>;
           output_schema: Record<string, unknown>;
         }>;
-        resources: unknown[];
-        prompts: unknown[];
       };
 
       // Verify manifest has top-level structure
       expect(typeof manifest.sdkVersion).toBe('string');
       expect(manifest.sdkVersion).toMatch(/^\d+\.\d+\.\d+/);
       expect(Array.isArray(manifest.tools)).toBe(true);
-      expect(Array.isArray(manifest.resources)).toBe(true);
-      expect(Array.isArray(manifest.prompts)).toBe(true);
 
       // Verify tools array has expected structure
       expect(manifest.tools.length).toBeGreaterThanOrEqual(1);

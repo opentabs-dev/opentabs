@@ -4,8 +4,6 @@ import {
   formatBytes,
   formatTimestamp,
   generateManifest,
-  generatePromptsManifest,
-  generateResourcesManifest,
   generateToolsManifest,
   minifySvg,
   readAndValidateIcons,
@@ -18,13 +16,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type {
-  LucideIconName,
-  OpenTabsPlugin,
-  PromptDefinition,
-  ResourceDefinition,
-  ToolDefinition,
-} from '@opentabs-dev/plugin-sdk';
+import type { LucideIconName, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 
 /** Write a file to the temp directory, awaiting the result. */
 const writeTestFile = async (path: string, content: string): Promise<void> => {
@@ -410,230 +402,6 @@ describe('formatTimestamp', () => {
 });
 
 // ---------------------------------------------------------------------------
-// validatePlugin — resource validation
-// ---------------------------------------------------------------------------
-
-describe('validatePlugin — resources', () => {
-  const makeResource = (overrides: Partial<ResourceDefinition> = {}): ResourceDefinition =>
-    ({
-      uri: 'test://items',
-      name: 'Test Items',
-      read: () => Promise.resolve({ uri: 'test://items', text: '[]' }),
-      ...overrides,
-    }) as ResourceDefinition;
-
-  test('valid plugin with resources passes validation', () => {
-    expect(validatePlugin(makePlugin({ resources: [makeResource()] }))).toEqual([]);
-  });
-
-  test('plugin with no resources passes validation', () => {
-    expect(validatePlugin(makePlugin())).toEqual([]);
-  });
-
-  test('rejects resource with empty URI', () => {
-    const errors = validatePlugin(makePlugin({ resources: [makeResource({ uri: '' })] }));
-    expect(errors.some(e => e.includes('Resource URI is required'))).toBe(true);
-  });
-
-  test('rejects resource with empty name', () => {
-    const errors = validatePlugin(makePlugin({ resources: [makeResource({ name: '' })] }));
-    expect(errors.some(e => e.includes('missing a name'))).toBe(true);
-  });
-
-  test('rejects duplicate resource URIs', () => {
-    const errors = validatePlugin(
-      makePlugin({ resources: [makeResource({ uri: 'test://a' }), makeResource({ uri: 'test://a' })] }),
-    );
-    expect(errors.some(e => e.includes('Duplicate resource URI'))).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// validatePlugin — prompt validation
-// ---------------------------------------------------------------------------
-
-describe('validatePlugin — prompts', () => {
-  const makePrompt = (overrides: Partial<PromptDefinition> = {}): PromptDefinition => ({
-    name: 'greet',
-    render: () => Promise.resolve([{ role: 'user', content: { type: 'text', text: 'Hello' } }]),
-    ...overrides,
-  });
-
-  test('valid plugin with prompts passes validation', () => {
-    expect(validatePlugin(makePlugin({ prompts: [makePrompt()] }))).toEqual([]);
-  });
-
-  test('plugin with no prompts passes validation', () => {
-    expect(validatePlugin(makePlugin())).toEqual([]);
-  });
-
-  test('rejects prompt with empty name', () => {
-    const errors = validatePlugin(makePlugin({ prompts: [makePrompt({ name: '' })] }));
-    expect(errors.some(e => e.includes('Prompt name is required'))).toBe(true);
-  });
-
-  test('rejects prompt name with uppercase letters', () => {
-    const errors = validatePlugin(makePlugin({ prompts: [makePrompt({ name: 'MyPrompt' })] }));
-    expect(errors.some(e => e.includes('must match'))).toBe(true);
-  });
-
-  test('accepts prompt names with hyphens and underscores', () => {
-    expect(validatePlugin(makePlugin({ prompts: [makePrompt({ name: 'my-prompt' })] }))).toEqual([]);
-    expect(validatePlugin(makePlugin({ prompts: [makePrompt({ name: 'my_prompt' })] }))).toEqual([]);
-  });
-
-  test('rejects prompt with empty argument name', () => {
-    const errors = validatePlugin(makePlugin({ prompts: [makePrompt({ arguments: [{ name: '' }] })] }));
-    expect(errors.some(e => e.includes('empty name'))).toBe(true);
-  });
-
-  test('rejects duplicate prompt names', () => {
-    const errors = validatePlugin(
-      makePlugin({ prompts: [makePrompt({ name: 'greet' }), makePrompt({ name: 'greet' })] }),
-    );
-    expect(errors.some(e => e.includes('Duplicate prompt name'))).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// generateResourcesManifest
-// ---------------------------------------------------------------------------
-
-describe('generateResourcesManifest', () => {
-  test('extracts serializable resource metadata', () => {
-    const resources: ResourceDefinition[] = [
-      {
-        uri: 'test://items',
-        name: 'Items',
-        description: 'List of items',
-        mimeType: 'application/json',
-        read: () => Promise.resolve({ uri: 'test://items', text: '[]' }),
-      },
-    ];
-    const result = generateResourcesManifest(resources);
-    expect(result).toEqual([
-      { uri: 'test://items', name: 'Items', description: 'List of items', mimeType: 'application/json' },
-    ]);
-  });
-
-  test('omits undefined optional fields', () => {
-    const resources: ResourceDefinition[] = [
-      {
-        uri: 'test://data',
-        name: 'Data',
-        read: () => Promise.resolve({ uri: 'test://data', text: '' }),
-      },
-    ];
-    const result = generateResourcesManifest(resources);
-    expect(result).toEqual([{ uri: 'test://data', name: 'Data' }]);
-    expect(result[0]).not.toHaveProperty('description');
-    expect(result[0]).not.toHaveProperty('mimeType');
-  });
-
-  test('returns empty array for empty input', () => {
-    expect(generateResourcesManifest([])).toEqual([]);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// generatePromptsManifest
-// ---------------------------------------------------------------------------
-
-describe('generatePromptsManifest', () => {
-  test('extracts serializable prompt metadata', () => {
-    const prompts: PromptDefinition[] = [
-      {
-        name: 'greet',
-        description: 'Greet someone',
-        arguments: [{ name: 'name', description: 'Who to greet', required: true }],
-        render: () => Promise.resolve([{ role: 'user', content: { type: 'text' as const, text: 'Hi' } }]),
-      },
-    ];
-    const result = generatePromptsManifest(prompts);
-    expect(result).toEqual([
-      {
-        name: 'greet',
-        description: 'Greet someone',
-        arguments: [{ name: 'name', description: 'Who to greet', required: true }],
-      },
-    ]);
-  });
-
-  test('omits undefined optional fields', () => {
-    const prompts: PromptDefinition[] = [
-      {
-        name: 'simple',
-        render: () => Promise.resolve([{ role: 'user', content: { type: 'text' as const, text: 'Hi' } }]),
-      },
-    ];
-    const result = generatePromptsManifest(prompts);
-    expect(result).toEqual([{ name: 'simple' }]);
-    expect(result[0]).not.toHaveProperty('description');
-    expect(result[0]).not.toHaveProperty('arguments');
-  });
-
-  test('returns empty array for empty input', () => {
-    expect(generatePromptsManifest([])).toEqual([]);
-  });
-
-  test('auto-generates arguments from Zod args schema', () => {
-    const prompts: PromptDefinition[] = [
-      {
-        name: 'typed',
-        description: 'Typed prompt',
-        args: z.object({
-          name: z.string().describe('The name'),
-          count: z.number().optional().describe('How many'),
-        }),
-        render: () => Promise.resolve([{ role: 'user', content: { type: 'text' as const, text: 'Hi' } }]),
-      },
-    ];
-    const result = generatePromptsManifest(prompts);
-    expect(result).toEqual([
-      {
-        name: 'typed',
-        description: 'Typed prompt',
-        arguments: [
-          { name: 'name', description: 'The name', required: true },
-          { name: 'count', description: 'How many', required: false },
-        ],
-      },
-    ]);
-  });
-
-  test('explicit arguments take priority over args schema', () => {
-    const prompts: PromptDefinition[] = [
-      {
-        name: 'explicit',
-        args: z.object({ name: z.string() }),
-        arguments: [{ name: 'name', description: 'Custom', required: true }],
-        render: () => Promise.resolve([{ role: 'user', content: { type: 'text' as const, text: 'Hi' } }]),
-      },
-    ];
-    const result = generatePromptsManifest(prompts);
-    expect(result).toEqual([
-      {
-        name: 'explicit',
-        arguments: [{ name: 'name', description: 'Custom', required: true }],
-      },
-    ]);
-  });
-
-  test('args schema without descriptions omits description field', () => {
-    const prompts: PromptDefinition[] = [
-      {
-        name: 'no_desc',
-        args: z.object({ value: z.string() }),
-        render: () => Promise.resolve([{ role: 'user', content: { type: 'text' as const, text: 'Hi' } }]),
-      },
-    ];
-    const result = generatePromptsManifest(prompts);
-    expect(result).toEqual([{ name: 'no_desc', arguments: [{ name: 'value', required: true }] }]);
-    expect(result[0]?.arguments?.[0]).not.toHaveProperty('description');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // deriveDisplayName
 // ---------------------------------------------------------------------------
 
@@ -708,20 +476,11 @@ describe('generateToolsManifest — displayName and icon defaults', () => {
 // ---------------------------------------------------------------------------
 
 describe('generateManifest', () => {
-  test('produces { sdkVersion, tools, resources, prompts } structure', () => {
+  test('produces { sdkVersion, tools } structure', () => {
     const plugin = makePlugin({ tools: [makeRealTool()] });
     const manifest = generateManifest(plugin, '0.0.10');
     expect(manifest.sdkVersion).toBe('0.0.10');
     expect(Array.isArray(manifest.tools)).toBe(true);
-    expect(Array.isArray(manifest.resources)).toBe(true);
-    expect(Array.isArray(manifest.prompts)).toBe(true);
-  });
-
-  test('resources and prompts default to empty arrays when plugin has none', () => {
-    const plugin = makePlugin({ tools: [makeRealTool()] });
-    const manifest = generateManifest(plugin, '0.0.10');
-    expect(manifest.resources).toEqual([]);
-    expect(manifest.prompts).toEqual([]);
   });
 
   test('includes iconSvg and iconInactiveSvg when icons are provided', () => {
