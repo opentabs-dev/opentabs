@@ -257,19 +257,7 @@ const executeToolOnTab = async (
                   name: string;
                   handle(
                     params: unknown,
-                    context?: {
-                      reportProgress(opts: { progress: number; total: number; message?: string }): void;
-                      fetchViaBackground(
-                        url: string,
-                        init?: { method?: string; headers?: HeadersInit; body?: BodyInit | null },
-                      ): Promise<{
-                        status: number;
-                        statusText: string;
-                        headers: Record<string, string>;
-                        body: string;
-                        ok: boolean;
-                      }>;
-                    },
+                    context?: { reportProgress(opts: { progress: number; total: number; message?: string }): void },
                   ): Promise<unknown>;
                 }>;
               }
@@ -320,10 +308,10 @@ const executeToolOnTab = async (
         return { type: 'error' as const, code: -32603, message: `Tool "${tName}" not found in adapter "${pName}"` };
       }
 
-      // Create ToolHandlerContext with reportProgress and fetchViaBackground.
-      // Both fire CustomEvents on the document that are relayed to the background
-      // service worker by ISOLATED world bridge scripts.
-      let fetchCounter = 0;
+      // Create ToolHandlerContext with reportProgress that fires a CustomEvent
+      // on the document. The ISOLATED world content script listens for this event
+      // and relays it to the background service worker. Missing progress/total
+      // default to 0 for indeterminate progress reporting.
       const context = {
         reportProgress(opts: { progress?: number; total?: number; message?: string }) {
           try {
@@ -340,65 +328,6 @@ const executeToolOnTab = async (
           } catch {
             // Fire-and-forget — progress reporting errors must not affect tool execution
           }
-        },
-        fetchViaBackground(
-          url: string,
-          init?: { method?: string; headers?: HeadersInit; body?: BodyInit | null },
-        ): Promise<{
-          status: number;
-          statusText: string;
-          headers: Record<string, string>;
-          body: string;
-          ok: boolean;
-        }> {
-          return new Promise((resolve, reject) => {
-            const requestId = `${dId}:${fetchCounter++}`;
-            const responseEvent = `opentabs:fetch-proxy:response:${requestId}`;
-            const timeout = setTimeout(() => {
-              document.removeEventListener(responseEvent, handler);
-              reject(new Error('Fetch proxy timeout after 30s'));
-            }, 30_000);
-            const handler = (e: Event) => {
-              clearTimeout(timeout);
-              document.removeEventListener(responseEvent, handler);
-              const detail = (e as CustomEvent).detail as {
-                status: number;
-                statusText: string;
-                headers: Record<string, string>;
-                body: string;
-                error?: string;
-              };
-              if (detail.error) {
-                reject(new Error(detail.error));
-                return;
-              }
-              resolve({
-                status: detail.status,
-                statusText: detail.statusText,
-                headers: detail.headers,
-                body: detail.body,
-                ok: detail.status >= 200 && detail.status < 300,
-              });
-            };
-            document.addEventListener(responseEvent, handler);
-            // Build a plain headers object from whatever HeadersInit was provided
-            let headersObj: Record<string, string> = {};
-            if (init?.headers) {
-              headersObj = Object.fromEntries(new Headers(init.headers).entries());
-            }
-            document.dispatchEvent(
-              new CustomEvent(`opentabs:fetch-proxy:request:${dId}`, {
-                detail: {
-                  requestId,
-                  url,
-                  method: init?.method ?? 'GET',
-                  headers: headersObj,
-                  body: typeof init?.body === 'string' ? init.body : init?.body ? JSON.stringify(init.body) : undefined,
-                  pluginName: pName,
-                },
-              }),
-            );
-          });
         },
       };
 

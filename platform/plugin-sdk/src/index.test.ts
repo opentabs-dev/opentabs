@@ -245,7 +245,6 @@ describe('ToolHandlerContext', () => {
       reportProgress: opts => {
         progressCalls.push(opts);
       },
-      fetchViaBackground: () => Promise.reject(new Error('not implemented in test')),
     };
 
     const tool = defineTool({
@@ -277,7 +276,6 @@ describe('ToolHandlerContext', () => {
       reportProgress: () => {
         throw new Error('progress handler error');
       },
-      fetchViaBackground: () => Promise.reject(new Error('not implemented in test')),
     };
 
     const tool = defineTool({
@@ -335,7 +333,6 @@ describe('ToolHandlerContext', () => {
       reportProgress: opts => {
         progressCalls.push(opts);
       },
-      fetchViaBackground: () => Promise.reject(new Error('not implemented in test')),
     };
 
     const tool = defineTool({

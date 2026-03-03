@@ -24,26 +24,10 @@ export interface ProgressOptions {
   message?: string;
 }
 
-/** Response from a cross-origin fetch routed through the extension background service worker. */
-export interface FetchProxyResponse {
-  status: number;
-  statusText: string;
-  headers: Record<string, string>;
-  body: string;
-  ok: boolean;
-}
-
 /** Context object injected into tool handlers at runtime by the adapter. */
 export interface ToolHandlerContext {
   /** Report incremental progress during a long-running operation. Fire-and-forget. */
   reportProgress(opts: ProgressOptions): void;
-  /**
-   * Make a cross-origin fetch request routed through the extension background
-   * service worker. The background attaches HttpOnly cookies automatically,
-   * bypassing the MV3 limitation where MAIN world fetch doesn't send cookies
-   * for cross-origin requests.
-   */
-  fetchViaBackground(url: string, init?: RequestInit): Promise<FetchProxyResponse>;
 }
 
 // ---------------------------------------------------------------------------
