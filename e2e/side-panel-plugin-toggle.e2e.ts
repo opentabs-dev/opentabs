@@ -155,8 +155,8 @@ test.describe('Side panel — tool toggle', () => {
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       await pluginCard.click();
 
-      // Verify tool rows are visible (displayName is primary text; description is in tooltip)
-      await expect(sidePanelPage.getByText('Echo')).toBeVisible({ timeout: 5_000 });
+      // Verify tool rows are visible (displayName is primary text; description is inline below)
+      await expect(sidePanelPage.getByText('Echo', { exact: true })).toBeVisible({ timeout: 5_000 });
 
       // Find the toggle for the 'echo' tool.
       // Each ToolRow has an aria-label "Toggle <name> tool" on its switch button.

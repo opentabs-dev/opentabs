@@ -121,6 +121,10 @@ const setToolEnabled = (plugin: string, tool: string, enabled: boolean): Promise
 const setAllToolsEnabled = (plugin: string, enabled: boolean): Promise<unknown> =>
   sendBgMessage({ type: 'bg:setAllToolsEnabled', plugin, enabled });
 
+/** Toggle a subset of tools for a plugin */
+const setToolsEnabled = (plugin: string, tools: string[], enabled: boolean): Promise<unknown> =>
+  sendBgMessage({ type: 'bg:setToolsEnabled', plugin, tools, enabled });
+
 /** Toggle a browser tool's enabled state */
 const setBrowserToolEnabled = (tool: string, enabled: boolean): Promise<unknown> =>
   sendBgMessage({ type: 'bg:setBrowserToolEnabled', tool, enabled });
@@ -183,5 +187,6 @@ export {
   setAllToolsEnabled,
   setBrowserToolEnabled,
   setToolEnabled,
+  setToolsEnabled,
   updatePlugin,
 };

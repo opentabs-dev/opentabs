@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { PluginState, WireToolDef } from '../bridge.js';
-import { matchesTool, setAllToolsEnabled, setToolEnabled } from '../bridge.js';
+import { matchesTool, setAllToolsEnabled, setToolEnabled, setToolsEnabled } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
 import { PluginIcon } from './PluginIcon.js';
 import { PluginMenu } from './PluginMenu.js';
@@ -87,12 +87,16 @@ const PluginCard = ({
 
   const handleToggleGroup = (groupTools: WireToolDef[], checked: boolean) => {
     const myVersion = ++toggleCounter.current;
-    const toolNames = new Set(groupTools.map(t => t.name));
+    const groupToolNames = new Set(groupTools.map(t => t.name));
     updatePluginTools(prev => {
       preToggleRef.current = prev;
-      return prev.map(t => (toolNames.has(t.name) ? { ...t, enabled: checked } : t));
+      return prev.map(t => (groupToolNames.has(t.name) ? { ...t, enabled: checked } : t));
     });
-    void Promise.all(groupTools.map(t => setToolEnabled(plugin.name, t.name, checked))).catch(() => {
+    void setToolsEnabled(
+      plugin.name,
+      groupTools.map(t => t.name),
+      checked,
+    ).catch(() => {
       if (toggleCounter.current === myVersion) {
         updatePluginTools(() => preToggleRef.current);
       }

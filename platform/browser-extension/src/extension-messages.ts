@@ -132,6 +132,14 @@ export interface BgSetAllToolsEnabledMessage {
   enabled: boolean;
 }
 
+/** Side panel → Background: toggle a subset of tools for a plugin */
+export interface BgSetToolsEnabledMessage {
+  type: 'bg:setToolsEnabled';
+  plugin: string;
+  tools: string[];
+  enabled: boolean;
+}
+
 /** Side panel → Background: toggle a browser tool's enabled state */
 export interface BgSetBrowserToolEnabledMessage {
   type: 'bg:setBrowserToolEnabled';
@@ -186,6 +194,7 @@ export type InternalMessage =
   | BgGetFullStateMessage
   | BgSetToolEnabledMessage
   | BgSetAllToolsEnabledMessage
+  | BgSetToolsEnabledMessage
   | BgSetBrowserToolEnabledMessage
   | BgSetAllBrowserToolsEnabledMessage
   | BgSearchPluginsMessage

@@ -10,6 +10,7 @@ import type {
   ConfigSetAllToolsEnabledParams,
   ConfigSetBrowserToolEnabledParams,
   ConfigSetToolEnabledParams,
+  ConfigSetToolsEnabledParams,
   ConfigStateResult,
   JsonRpcError,
   JsonRpcNotification,
@@ -413,6 +414,62 @@ const handleConfigSetAllToolsEnabled = (
   });
 };
 
+const handleConfigSetToolsEnabled = (
+  state: ServerState,
+  params: Record<string, unknown> | undefined,
+  id: string | number,
+  callbacks: McpCallbacks,
+): void => {
+  if (!params) {
+    sendJsonRpcError(state, id, -32602, 'Missing params');
+    return;
+  }
+
+  const toolsEnabledParams = params as Partial<ConfigSetToolsEnabledParams>;
+  const pluginName = toolsEnabledParams.plugin;
+  const tools = toolsEnabledParams.tools;
+  const enabled = toolsEnabledParams.enabled;
+
+  if (typeof pluginName !== 'string' || !Array.isArray(tools) || typeof enabled !== 'boolean') {
+    sendJsonRpcError(
+      state,
+      id,
+      -32602,
+      'Invalid params: expected plugin (string), tools (string[]), enabled (boolean)',
+    );
+    return;
+  }
+
+  const plugin = state.registry.plugins.get(pluginName);
+  if (!plugin) {
+    sendJsonRpcError(state, id, -32602, `Plugin not found: ${pluginName}`);
+    return;
+  }
+
+  const pluginToolNames = new Set(plugin.tools.map(t => t.name));
+  for (const tool of tools) {
+    if (typeof tool !== 'string' || !pluginToolNames.has(tool)) {
+      sendJsonRpcError(state, id, -32602, `Tool not found: ${tool} in plugin ${pluginName}`);
+      return;
+    }
+  }
+
+  for (const tool of tools) {
+    const prefixed = prefixedToolName(pluginName, tool);
+    state.toolConfig[prefixed] = enabled;
+  }
+  callbacks.onToolConfigChanged();
+  callbacks.onToolConfigPersist();
+
+  sendToExtension(state, { jsonrpc: '2.0', method: 'plugins.changed', params: { ...buildConfigStatePayload(state) } });
+
+  sendToExtension(state, {
+    jsonrpc: '2.0',
+    result: { ok: true },
+    id,
+  });
+};
+
 const handleConfigSetBrowserToolEnabled = (
   state: ServerState,
   params: Record<string, unknown> | undefined,
@@ -800,6 +857,7 @@ export {
   handleConfigGetState,
   handleConfigSetToolEnabled,
   handleConfigSetAllToolsEnabled,
+  handleConfigSetToolsEnabled,
   handleConfigSetBrowserToolEnabled,
   handleConfigSetAllBrowserToolsEnabled,
   handlePluginSearch,

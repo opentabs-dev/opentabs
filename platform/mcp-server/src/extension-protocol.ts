@@ -25,6 +25,7 @@ import {
   handleConfigSetAllToolsEnabled,
   handleConfigSetBrowserToolEnabled,
   handleConfigSetToolEnabled,
+  handleConfigSetToolsEnabled,
   handleConfirmationResponse,
   handlePluginCheckUpdates,
   handlePluginInstall,
@@ -421,6 +422,11 @@ const handleExtensionMessage = (
 
   if (method === 'config.setAllToolsEnabled' && id !== undefined) {
     handleConfigSetAllToolsEnabled(state, params, id, callbacks);
+    return;
+  }
+
+  if (method === 'config.setToolsEnabled' && id !== undefined) {
+    handleConfigSetToolsEnabled(state, params, id, callbacks);
     return;
   }
 
