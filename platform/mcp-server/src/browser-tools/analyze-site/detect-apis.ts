@@ -382,8 +382,8 @@ const detectPrimaryApiBaseUrl = (endpoints: ApiEndpoint[]): string | undefined =
   for (const [prefix, count] of prefixCounts) {
     if (count < minCount) continue;
     const depth = prefix.split('/').length;
-    // Prefer deeper prefixes with sufficient coverage, break ties by count
-    if (depth > bestDepth || (depth === bestDepth && count > bestCount)) {
+    // Prefer prefixes with higher endpoint coverage, break ties by depth
+    if (count > bestCount || (count === bestCount && depth > bestDepth)) {
       bestDepth = depth;
       bestCount = count;
       bestPrefix = prefix;

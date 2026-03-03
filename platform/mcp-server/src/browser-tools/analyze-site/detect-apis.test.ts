@@ -643,6 +643,18 @@ describe('detectApis', () => {
       ]);
       expect(result.primaryApiBaseUrl).toBe('https://api.example.com/api/v1');
     });
+
+    test('prefers prefix with higher endpoint count over deeper prefix with fewer endpoints', () => {
+      // origin (count=3, depth=3) vs /v1 (count=2, depth=4): /v1 is deeper but covers fewer endpoints.
+      // Old depth-first algorithm: /v1 (depth=4) wins over origin (depth=3) — WRONG, only 2/3 covered.
+      // New count-first algorithm: origin (count=3) wins over /v1 (count=2) — CORRECT.
+      const result = detectApis([
+        req({ url: 'https://api.example.com/v1/users', method: 'GET', mimeType: 'application/json', status: 200 }),
+        req({ url: 'https://api.example.com/v1/items', method: 'GET', mimeType: 'application/json', status: 200 }),
+        req({ url: 'https://api.example.com/health', method: 'GET', mimeType: 'application/json', status: 200 }),
+      ]);
+      expect(result.primaryApiBaseUrl).toBe('https://api.example.com');
+    });
   });
 
   // -----------------------------------------------------------------------
