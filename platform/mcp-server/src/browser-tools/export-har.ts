@@ -7,6 +7,7 @@
  */
 
 import { defineBrowserTool } from './definition.js';
+import { validateDispatchResult } from './dispatch-utils.js';
 import { dispatchToExtension } from '../extension-protocol.js';
 import { version } from '../version.js';
 import { z } from 'zod';
@@ -200,22 +201,14 @@ const exportHar = defineBrowserTool({
     // Fetch without clearing first. If includeWebSocketFrames is true and the second
     // fetch fails, the HTTP request data would already be lost if we cleared during the
     // first fetch. Only issue the clear commands after all fetches succeed.
-    const requestsRaw = (await dispatchToExtension(state, 'browser.getNetworkRequests', {
-      tabId: args.tabId,
-    })) as { requests: CapturedRequest[] } | CapturedRequest[];
-    const requests = Array.isArray(requestsRaw)
-      ? requestsRaw
-      : ((requestsRaw as { requests?: CapturedRequest[] }).requests ?? []);
+    const requestsRaw = await dispatchToExtension(state, 'browser.getNetworkRequests', { tabId: args.tabId });
+    const requests = validateDispatchResult<CapturedRequest>(requestsRaw, 'requests', 'browser.getNetworkRequests');
 
     const entries = requests.map(requestToHarEntry);
 
     if (args.includeWebSocketFrames) {
-      const framesRaw = (await dispatchToExtension(state, 'browser.getWebSocketFrames', {
-        tabId: args.tabId,
-      })) as { frames: CapturedWsFrame[] } | CapturedWsFrame[];
-      const frames = Array.isArray(framesRaw)
-        ? framesRaw
-        : ((framesRaw as { frames?: CapturedWsFrame[] }).frames ?? []);
+      const framesRaw = await dispatchToExtension(state, 'browser.getWebSocketFrames', { tabId: args.tabId });
+      const frames = validateDispatchResult<CapturedWsFrame>(framesRaw, 'frames', 'browser.getWebSocketFrames');
 
       const wsEntries = frames.map(wsFrameToHarEntry);
       entries.push(...wsEntries);
@@ -226,25 +219,29 @@ const exportHar = defineBrowserTool({
     // that arrived between the first fetch and now), so we replace the initial results
     // with the clearing fetch's response to avoid losing those in-flight requests.
     if (args.clear) {
-      const clearRequestsRaw = (await dispatchToExtension(state, 'browser.getNetworkRequests', {
+      const clearRequestsRaw = await dispatchToExtension(state, 'browser.getNetworkRequests', {
         tabId: args.tabId,
         clear: true,
-      })) as { requests: CapturedRequest[] } | CapturedRequest[];
-      const clearRequests = Array.isArray(clearRequestsRaw)
-        ? clearRequestsRaw
-        : ((clearRequestsRaw as { requests?: CapturedRequest[] }).requests ?? []);
+      });
+      const clearRequests = validateDispatchResult<CapturedRequest>(
+        clearRequestsRaw,
+        'requests',
+        'browser.getNetworkRequests (clear)',
+      );
 
       entries.length = 0;
       entries.push(...clearRequests.map(requestToHarEntry));
 
       if (args.includeWebSocketFrames) {
-        const clearFramesRaw = (await dispatchToExtension(state, 'browser.getWebSocketFrames', {
+        const clearFramesRaw = await dispatchToExtension(state, 'browser.getWebSocketFrames', {
           tabId: args.tabId,
           clear: true,
-        })) as { frames: CapturedWsFrame[] } | CapturedWsFrame[];
-        const clearFrames = Array.isArray(clearFramesRaw)
-          ? clearFramesRaw
-          : ((clearFramesRaw as { frames?: CapturedWsFrame[] }).frames ?? []);
+        });
+        const clearFrames = validateDispatchResult<CapturedWsFrame>(
+          clearFramesRaw,
+          'frames',
+          'browser.getWebSocketFrames (clear)',
+        );
 
         entries.push(...clearFrames.map(wsFrameToHarEntry));
       }

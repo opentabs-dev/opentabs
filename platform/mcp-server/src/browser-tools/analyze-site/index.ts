@@ -14,6 +14,7 @@ import { deduplicateFrameworkProbes, detectFramework } from './detect-framework.
 import { detectGlobals } from './detect-globals.js';
 import { detectStorage } from './detect-storage.js';
 import { dispatchToExtension, writeExecFile, deleteExecFile } from '../../extension-protocol.js';
+import { validateDispatchResult } from '../dispatch-utils.js';
 import type { ApiAnalysis, ApiEndpoint, WsFrame } from './detect-apis.js';
 import type {
   AuthAnalysis,
@@ -946,31 +947,23 @@ const analyzeSite = async (
     // Step 6: Get captured network requests
     let networkRequests: NetworkRequest[] = [];
     try {
-      const networkResult = (await dispatchToExtension(state, 'browser.getNetworkRequests', {
+      const networkResult = await dispatchToExtension(state, 'browser.getNetworkRequests', {
         tabId,
         clear: true,
-      })) as { requests: NetworkRequest[] } | NetworkRequest[];
-      networkRequests = Array.isArray(networkResult)
-        ? networkResult
-        : ((networkResult as { requests?: NetworkRequest[] }).requests ?? []);
+      });
+      networkRequests = validateDispatchResult<NetworkRequest>(networkResult, 'requests', 'browser.getNetworkRequests');
     } catch {
-      // Partial analysis: network requests unavailable
-      try {
-        await dispatchToExtension(state, 'browser.disableNetworkCapture', { tabId });
-      } catch {
-        // Best-effort cleanup — ignore errors
-      }
-      state.activeNetworkCaptures.delete(tabId);
+      // Partial analysis: network requests unavailable — finally block handles cleanup
     }
 
     // Get captured WebSocket frames
     let wsFrames: WsFrame[] = [];
     try {
-      const wsResult = (await dispatchToExtension(state, 'browser.getWebSocketFrames', {
+      const wsResult = await dispatchToExtension(state, 'browser.getWebSocketFrames', {
         tabId,
         clear: true,
-      })) as { frames: WsFrame[] } | WsFrame[];
-      wsFrames = Array.isArray(wsResult) ? wsResult : ((wsResult as { frames?: WsFrame[] }).frames ?? []);
+      });
+      wsFrames = validateDispatchResult<WsFrame>(wsResult, 'frames', 'browser.getWebSocketFrames');
     } catch {
       // Partial analysis: WebSocket frames unavailable
     }
@@ -978,10 +971,8 @@ const analyzeSite = async (
     // Get cookies via extension API (includes HttpOnly cookies)
     let cookies: CookieEntry[] = [];
     try {
-      const cookieResult = (await dispatchToExtension(state, 'browser.getCookies', { url })) as {
-        cookies?: CookieEntry[];
-      } | null;
-      cookies = cookieResult?.cookies ?? [];
+      const cookieResult = await dispatchToExtension(state, 'browser.getCookies', { url });
+      cookies = validateDispatchResult<CookieEntry>(cookieResult, 'cookies', 'browser.getCookies');
     } catch {
       // Partial analysis: cookie data unavailable
     }

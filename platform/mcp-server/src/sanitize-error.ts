@@ -22,6 +22,14 @@ const sanitizeErrorMessage = (message: string): string => {
     .replace(/\/[a-z][a-z0-9._-]*(?:\/[a-z0-9._-]+)+/gi, '[PATH]')
     // localhost with optional port
     .replace(/localhost(?::\d+)?/gi, '[LOCALHOST]')
+    // Bracket-wrapped IPv6 addresses: [::1], [fe80::1], [2001:db8::1], [fe80::1%eth0]
+    // Requires at least one colon inside brackets to avoid matching array indices like [0]
+    .replace(/\[[0-9a-fA-F]*:[0-9a-fA-F:]*(?:%[^\]]+)?\]/g, '[IP]')
+    // Compressed IPv6 addresses (containing ::): ::1, fe80::1, 2001:db8::1, ::ffff:192.168.1.1
+    // Must run before IPv4 regex to consume mixed IPv6/IPv4 addresses like ::ffff:192.168.1.1 whole.
+    // Structure: zero or more colon-terminated hex groups, an optional final pre-:: hex group (no
+    // trailing colon), the :: marker, then the rest of the address.
+    .replace(/(?:[0-9a-fA-F]{1,4}:)*[0-9a-fA-F]{0,4}::(?:[0-9a-fA-F:.]+)?/g, '[IP]')
     // IPv4 addresses
     .replace(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/g, '[IP]');
 

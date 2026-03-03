@@ -102,6 +102,46 @@ describe('sanitizeErrorMessage', () => {
     });
   });
 
+  describe('IPv6 sanitization', () => {
+    test('replaces bracket-wrapped loopback [::1]', () => {
+      expect(sanitizeErrorMessage('Connection refused [::1]:3000')).toBe('Connection refused [IP]:3000');
+    });
+
+    test('replaces bracket-wrapped link-local [fe80::1]', () => {
+      expect(sanitizeErrorMessage('Failed to connect to [fe80::1]')).toBe('Failed to connect to [IP]');
+    });
+
+    test('replaces bracket-wrapped general IPv6 [2001:db8::1]', () => {
+      expect(sanitizeErrorMessage('Address [2001:db8::1] unreachable')).toBe('Address [IP] unreachable');
+    });
+
+    test('replaces unbracketed loopback ::1', () => {
+      expect(sanitizeErrorMessage('ECONNREFUSED ::1')).toBe('ECONNREFUSED [IP]');
+    });
+
+    test('replaces link-local fe80::1', () => {
+      expect(sanitizeErrorMessage('connect ECONNREFUSED fe80::1')).toBe('connect ECONNREFUSED [IP]');
+    });
+
+    test('replaces compressed IPv6 2001:db8::1', () => {
+      expect(sanitizeErrorMessage('Host 2001:db8::1 not found')).toBe('Host [IP] not found');
+    });
+
+    test('replaces mixed IPv6/IPv4 ::ffff:192.168.1.1 in full', () => {
+      expect(sanitizeErrorMessage('Mapped address ::ffff:192.168.1.1')).toBe('Mapped address [IP]');
+    });
+
+    test('does not replace array indices like [0]', () => {
+      expect(sanitizeErrorMessage("Cannot read property '[0]' of undefined")).toBe(
+        "Cannot read property '[0]' of undefined",
+      );
+    });
+
+    test('does not replace unbracketed text without ::', () => {
+      expect(sanitizeErrorMessage('version: 1.2.3')).toBe('version: 1.2.3');
+    });
+  });
+
   describe('multiple replacements', () => {
     test('sanitizes multiple sensitive patterns in one message', () => {
       const input = 'Error at /home/user/app.js connecting to localhost:8080 via 10.0.0.1';
