@@ -22,6 +22,7 @@ import { readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'esbuild';
 import { build } from 'esbuild';
+import { DEV_RELOAD_PORT } from '../../scripts/dev-reload-constants.ts';
 
 const base = import.meta.dirname;
 
@@ -54,7 +55,7 @@ const isDev = process.env.OPENTABS_DEV === '1';
 let devBgBanner = '';
 if (isDev) {
   const clientPath = join(base, 'src/dev/reload-background.js');
-  devBgBanner = readFileSync(clientPath, 'utf-8').replace('__DEV_RELOAD_PORT__', '18515');
+  devBgBanner = readFileSync(clientPath, 'utf-8').replace('__DEV_RELOAD_PORT__', String(DEV_RELOAD_PORT));
 }
 
 /**

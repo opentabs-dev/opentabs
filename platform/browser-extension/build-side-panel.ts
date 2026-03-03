@@ -8,6 +8,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from 'esbuild';
 import babel from 'esbuild-plugin-babel';
+import { DEV_RELOAD_PORT } from '../../scripts/dev-reload-constants.ts';
 
 const base = import.meta.dirname;
 const outdir = join(base, 'dist/side-panel');
@@ -23,7 +24,7 @@ const isDev = process.env.OPENTABS_DEV === '1';
 let devBanner = '';
 if (isDev) {
   const clientPath = join(base, 'src/dev/reload-client.js');
-  devBanner = readFileSync(clientPath, 'utf-8').replace('__DEV_RELOAD_PORT__', '18515');
+  devBanner = readFileSync(clientPath, 'utf-8').replace('__DEV_RELOAD_PORT__', String(DEV_RELOAD_PORT));
 }
 
 // Remove previous bundle to guarantee no stale output survives
