@@ -3,6 +3,7 @@
  * Uses esbuild to bundle React + JSX into a single file for the Chrome extension.
  */
 
+import { readFileSync } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { build } from 'esbuild';
@@ -11,6 +12,19 @@ import babel from 'esbuild-plugin-babel';
 const base = import.meta.dirname;
 const outdir = join(base, 'dist/side-panel');
 const outfile = join(outdir, 'side-panel.js');
+
+const isDev = process.env.OPENTABS_DEV === '1';
+
+// In dev mode, prepend the dev reload WebSocket client to the bundle.
+// The client connects to the relay server and refreshes the page on
+// DO_UPDATE signals, enabling hot UI reload without chrome.runtime.reload().
+// The banner is injected as raw text (not processed by esbuild), so the
+// __DEV_RELOAD_PORT__ placeholder is replaced via string substitution.
+let devBanner = '';
+if (isDev) {
+  const clientPath = join(base, 'src/dev/reload-client.js');
+  devBanner = readFileSync(clientPath, 'utf-8').replace('__DEV_RELOAD_PORT__', '18515');
+}
 
 // Remove previous bundle to guarantee no stale output survives
 await unlink(outfile).catch(() => {});
@@ -30,6 +44,7 @@ await build({
   define: {
     'process.env.NODE_ENV': '"production"',
   },
+  banner: devBanner ? { js: devBanner } : undefined,
   plugins: [
     babel({
       filter: /\.[jt]sx?$/,

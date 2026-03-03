@@ -18,7 +18,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { unlinkSync } from 'node:fs';
+import { readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Plugin } from 'esbuild';
 import { build } from 'esbuild';
@@ -44,6 +44,18 @@ for (const f of [bgPath, offscreenPath, tsbuildinfo]) {
   }
 }
 execSync('npx tsc --build', { cwd: base, stdio: 'inherit' });
+
+const isDev = process.env.OPENTABS_DEV === '1';
+
+// In dev mode, prepend the dev reload WebSocket client to the background bundle.
+// The client connects to the relay server and triggers chrome.runtime.reload()
+// on DO_UPDATE signals with id 'extension'. The banner is injected as raw text
+// (not processed by esbuild), so __DEV_RELOAD_PORT__ is replaced via string substitution.
+let devBgBanner = '';
+if (isDev) {
+  const clientPath = join(base, 'src/dev/reload-background.js');
+  devBgBanner = readFileSync(clientPath, 'utf-8').replace('__DEV_RELOAD_PORT__', '18515');
+}
 
 /**
  * esbuild plugin that marks `node:*` imports as external with no side effects.
@@ -73,6 +85,11 @@ let failed = false;
 
 for (const { entrypoint, outfile, label } of entries) {
   try {
+    // Only inject the dev reload client into the background bundle — the
+    // offscreen document does not need its own reload client since it is
+    // destroyed when the extension reloads.
+    const banner = label === 'background' && devBgBanner ? { js: devBgBanner } : undefined;
+
     // Bundling resolves bare specifiers (e.g., @opentabs-dev/shared) and
     // relative imports into a single self-contained file.
     // chrome.* APIs are globals — they don't need to be imported/resolved.
@@ -85,6 +102,7 @@ for (const { entrypoint, outfile, label } of entries) {
       minify: false,
       // Write directly to the exact output path, overwriting the tsc-produced file.
       allowOverwrite: true,
+      banner,
       plugins: [stubNodeBuiltins],
     });
 
