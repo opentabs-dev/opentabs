@@ -413,7 +413,10 @@ import { mapMessage, messageSchema } from "./schemas.js";
 export const sendMessage = defineTool({
   name: "send_message", // snake_case, auto-prefixed with plugin name
   displayName: "Send Message", // Title Case
-  description: "Send a message to a channel", // clear for AI agents
+  description:
+    "Send a message to a Slack channel or thread. " +
+    "Supports Slack mrkdwn formatting.", // detailed for MCP AI clients — this is what Claude sees
+  summary: "Send a message to a channel or thread", // short, human-readable — shown in the side panel UI
   icon: "send", // valid Lucide icon name
   input: z.object({
     channel: z.string().describe("Channel ID to send the message to"), // .describe() on EVERY field
@@ -599,6 +602,8 @@ After building the plugin, update this file (`__SKILL__.md`) with any new patter
 
 - **One file per tool** in `src/tools/`
 - **Every Zod field gets `.describe()`** — this is what AI agents see in the tool schema
+- **`description` is for MCP AI clients** — write a detailed, informative description that helps Claude (or other AI agents) understand when and how to use the tool. Include parameter semantics, supported formats, and behavioral notes. This is what appears in the MCP `tools/list` response.
+- **`summary` is for humans in the side panel** — write a short (under 80 chars), plain-English sentence. The side panel tooltip and inline description show `summary` when available, falling back to `description`. Every tool must have both fields.
 - **Defensive mapping** with fallback defaults (`data.field ?? ''`) — never trust API response shapes
 - **`context` parameter is optional**: `handle: async (params, context?) => { ... }`
 - **Tools return objects**, never raw primitives
