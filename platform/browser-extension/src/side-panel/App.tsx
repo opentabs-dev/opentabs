@@ -1,6 +1,6 @@
 import type { ToolPermission } from '@opentabs-dev/shared';
 import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared/browser-tools-catalog';
-import { Search, X } from 'lucide-react';
+import { Search, ShieldOff, X } from 'lucide-react';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 import { useEffect, useRef, useState } from 'react';
 import type { DisconnectReason, InternalMessage } from '../extension-messages.js';
@@ -26,7 +26,6 @@ import { DisconnectedState, LoadingState } from './components/EmptyStates.js';
 import { Footer } from './components/Footer.js';
 import { PluginList } from './components/PluginList.js';
 import { Accordion } from './components/retro/Accordion.js';
-import { Alert } from './components/retro/Alert.js';
 import { Input } from './components/retro/Input.js';
 import { Tooltip } from './components/retro/Tooltip.js';
 import { SearchResults } from './components/SearchResults.js';
@@ -347,13 +346,12 @@ const App = () => {
       <div className="flex h-screen flex-col overflow-hidden text-foreground">
         {connected && <ConfirmationDialog confirmations={pendingConfirmations} onRespond={handleConfirmationRespond} />}
         {skipPermissions && (
-          <Alert status="warning" className="mx-4 mt-2 px-3 py-2">
-            <div className="font-head text-xs uppercase">Approval prompts bypassed</div>
-            <div className="mt-0.5 text-[11px] leading-tight">
-              Ask-mode tools execute without confirmation. Disabled tools remain off.
-            </div>
-            <div className="mt-1 font-mono text-[10px] opacity-70">--dangerously-skip-permissions</div>
-          </Alert>
+          <div className="flex shrink-0 items-center gap-2 border-border border-b bg-accent/40 px-4 py-1.5">
+            <ShieldOff className="h-3.5 w-3.5 shrink-0 text-accent-foreground/70" />
+            <span className="text-[11px] text-accent-foreground leading-tight">
+              AI won't ask before running tools. Off tools stay off.
+            </span>
+          </div>
         )}
         {showSearchBar && (
           <div className="shrink-0 px-4 pt-4 pb-2">
