@@ -5,6 +5,7 @@ export const sdkGetPageGlobal = defineTool({
   name: 'sdk_get_page_global',
   displayName: 'SDK Get Page Global',
   description: 'Tests sdk.getPageGlobal — reads a deep property from globalThis using dot-notation path',
+  summary: 'Test SDK getPageGlobal',
   icon: 'wrench',
   input: z.object({
     path: z.string().describe('Dot-notation path to the global property (e.g., "__sdkTestGlobal.nested.value")'),

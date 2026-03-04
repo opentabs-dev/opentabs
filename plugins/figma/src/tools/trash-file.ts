@@ -8,6 +8,7 @@ export const trashFile = defineTool({
   name: 'trash_file',
   displayName: 'Trash File',
   description: 'Move a Figma file to the trash. Trashed files can be restored.',
+  summary: 'Move a file to the trash',
   icon: 'trash-2',
   group: 'Files',
   input: z.object({

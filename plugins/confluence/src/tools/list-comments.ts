@@ -7,6 +7,7 @@ export const listComments = defineTool({
   name: 'list_comments',
   displayName: 'List Comments',
   description: 'List footer comments on a Confluence page with optional pagination',
+  summary: 'List comments on a page',
   icon: 'message-square',
   group: 'Comments',
   input: z.object({

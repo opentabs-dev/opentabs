@@ -5,6 +5,7 @@ export const logBulk = defineTool({
   name: 'log_bulk',
   displayName: 'Log Bulk',
   description: 'Emits a configurable number of log entries for E2E testing of the log buffer overflow behavior',
+  summary: 'Emit bulk log entries',
   icon: 'wrench',
   input: z.object({
     prefix: z.string().describe('A unique prefix to identify log messages from this invocation'),

@@ -36,6 +36,7 @@ export const listRecentFiles = defineTool({
   name: 'list_recent_files',
   displayName: 'List Recent Files',
   description: 'List recently accessed Figma files and prototypes',
+  summary: 'List recently accessed files',
   icon: 'clock',
   group: 'Files',
   input: z.object({}),

@@ -8,6 +8,7 @@ export const noDisplayName = defineTool({
   name: 'no_display_name',
   displayName: 'No Display Name',
   description: 'Minimal tool for E2E testing',
+  summary: 'Minimal test tool',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({ ok: z.boolean() }),

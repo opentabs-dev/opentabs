@@ -7,6 +7,7 @@ export const failingTool = defineTool({
   displayName: 'Failing Tool',
   description:
     'A tool that always fails — calls a server endpoint that returns an error, testing ToolError propagation through the full dispatch stack',
+  summary: 'A tool that always fails',
   icon: 'wrench',
   group: 'Data',
   input: z.object({

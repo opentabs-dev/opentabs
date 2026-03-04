@@ -7,6 +7,7 @@ export const createComment = defineTool({
   name: 'create_comment',
   displayName: 'Create Comment',
   description: 'Add a footer comment to a Confluence page. The comment body uses storage format (HTML).',
+  summary: 'Add a comment to a page',
   icon: 'message-square-plus',
   group: 'Comments',
   input: z.object({

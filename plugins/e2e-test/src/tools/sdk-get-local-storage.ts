@@ -5,6 +5,7 @@ export const sdkGetLocalStorage = defineTool({
   name: 'sdk_get_local_storage',
   displayName: 'SDK Get Local Storage',
   description: 'Tests sdk.getLocalStorage — reads a value from localStorage using the SDK utility',
+  summary: 'Test SDK getLocalStorage',
   icon: 'wrench',
   input: z.object({
     key: z.string().describe('The localStorage key to read'),

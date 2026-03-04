@@ -6,6 +6,7 @@ export const errorRateLimited = defineTool({
   displayName: 'Error: Rate Limited',
   description:
     'Always throws ToolError.rateLimited() with retryAfterMs — tests structured rate limit error propagation',
+  summary: 'Throw a rate-limited error',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({}),

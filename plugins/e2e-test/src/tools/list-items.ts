@@ -7,6 +7,7 @@ export const listItems = defineTool({
   displayName: 'List Items',
   description:
     "List items from the test server with optional pagination — mirrors patterns like Slack's conversations.list",
+  summary: 'List items with pagination',
   icon: 'wrench',
   group: 'Data',
   input: z.object({

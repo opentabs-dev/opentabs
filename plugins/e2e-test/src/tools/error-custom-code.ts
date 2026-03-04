@@ -5,6 +5,7 @@ export const errorCustomCode = defineTool({
   name: 'error_custom_code',
   displayName: 'Error: Custom Code',
   description: 'Throws ToolError with custom error codes — tests custom code propagation',
+  summary: 'Throw an error with a custom code',
   icon: 'alert-triangle',
   input: z.object({
     factory: z

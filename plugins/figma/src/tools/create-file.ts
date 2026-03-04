@@ -8,6 +8,7 @@ export const createFile = defineTool({
   name: 'create_file',
   displayName: 'Create File',
   description: 'Create a new Figma design file in a specified folder',
+  summary: 'Create a new design file',
   icon: 'file-plus',
   group: 'Files',
   input: z.object({

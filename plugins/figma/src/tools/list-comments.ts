@@ -8,6 +8,7 @@ export const listComments = defineTool({
   name: 'list_comments',
   displayName: 'List Comments',
   description: 'List all comments on a Figma file',
+  summary: 'List comments on a file',
   icon: 'message-square',
   group: 'Comments',
   input: z.object({

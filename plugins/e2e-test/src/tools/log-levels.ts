@@ -6,6 +6,7 @@ export const logLevels = defineTool({
   displayName: 'Log Levels',
   description:
     'Emits one log entry at each level (debug, info, warning, error) for E2E testing of the plugin logging pipeline',
+  summary: 'Emit one log at each level',
   icon: 'wrench',
   input: z.object({
     prefix: z.string().describe('A unique prefix to identify log messages from this invocation'),

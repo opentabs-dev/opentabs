@@ -8,6 +8,7 @@ export const listTeams = defineTool({
   name: 'list_teams',
   displayName: 'List Teams',
   description: 'List all Figma teams the current user belongs to',
+  summary: 'List teams the user belongs to',
   icon: 'users',
   group: 'Teams',
   input: z.object({}),

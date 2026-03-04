@@ -7,6 +7,7 @@ export const listSpaces = defineTool({
   name: 'list_spaces',
   displayName: 'List Spaces',
   description: 'List Confluence spaces with optional pagination',
+  summary: 'List available spaces',
   icon: 'layout-grid',
   group: 'Spaces',
   input: z.object({

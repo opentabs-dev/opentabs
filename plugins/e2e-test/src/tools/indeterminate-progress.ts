@@ -6,6 +6,7 @@ export const indeterminateProgress = defineTool({
   displayName: 'Indeterminate Progress',
   description:
     'Reports progress without total for indeterminate operations. Used for E2E testing of the indeterminate progress pipeline.',
+  summary: 'Report indeterminate progress',
   icon: 'loader',
   input: z.object({}),
   output: z.object({

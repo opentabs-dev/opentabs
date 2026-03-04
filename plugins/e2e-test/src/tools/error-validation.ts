@@ -5,6 +5,7 @@ export const errorValidation = defineTool({
   name: 'error_validation',
   displayName: 'Error: Validation',
   description: 'Always throws ToolError.validation() — tests structured validation error propagation',
+  summary: 'Throw a validation error',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({}),

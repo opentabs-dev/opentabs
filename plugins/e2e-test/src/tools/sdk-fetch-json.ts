@@ -5,6 +5,7 @@ export const sdkFetchJson = defineTool({
   name: 'sdk_fetch_json',
   displayName: 'SDK Fetch JSON',
   description: 'Tests sdk.fetchJSON — fetches JSON from the test server using the SDK utility',
+  summary: 'Test SDK fetchJSON',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({

@@ -23,6 +23,7 @@ export const getPageChildren = defineTool({
   name: 'get_page_children',
   displayName: 'Get Page Children',
   description: 'List the child pages of a Confluence page. Useful for navigating the page tree.',
+  summary: 'List child pages of a page',
   icon: 'folder-tree',
   group: 'Pages',
   input: z.object({

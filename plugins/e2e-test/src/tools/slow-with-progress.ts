@@ -6,6 +6,7 @@ export const slowWithProgress = defineTool({
   displayName: 'Slow With Progress',
   description:
     'Sleeps for a configurable duration and reports progress at regular intervals. Used for E2E testing of the progress notification pipeline.',
+  summary: 'Sleep and report progress',
   icon: 'timer',
   input: z.object({
     durationMs: z.number().describe('Total duration of the operation in milliseconds'),

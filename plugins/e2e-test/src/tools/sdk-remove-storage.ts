@@ -11,6 +11,7 @@ export const sdkRemoveStorage = defineTool({
   name: 'sdk_remove_storage',
   displayName: 'SDK Remove Storage',
   description: 'Tests storage removal — removes a key from localStorage or sessionStorage',
+  summary: 'Test SDK storage removal',
   icon: 'trash',
   input: z.object({
     storageType: z.enum(['local', 'session']).describe('Which storage to remove from'),

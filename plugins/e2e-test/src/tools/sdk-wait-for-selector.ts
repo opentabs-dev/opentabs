@@ -5,6 +5,7 @@ export const sdkWaitForSelector = defineTool({
   name: 'sdk_wait_for_selector',
   displayName: 'SDK Wait For Selector',
   description: 'Tests sdk.waitForSelector — waits for a DOM element matching the given selector',
+  summary: 'Test SDK waitForSelector',
   icon: 'wrench',
   input: z.object({
     selector: z.string().describe('CSS selector to wait for'),

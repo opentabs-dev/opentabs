@@ -7,6 +7,7 @@ export const getSpace = defineTool({
   name: 'get_space',
   displayName: 'Get Space',
   description: 'Get detailed information about a specific Confluence space by its ID',
+  summary: 'Get a space by ID',
   icon: 'folder-open',
   group: 'Spaces',
   input: z.object({

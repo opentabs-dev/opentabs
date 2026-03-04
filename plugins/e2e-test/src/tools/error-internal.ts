@@ -5,6 +5,7 @@ export const errorInternal = defineTool({
   name: 'error_internal',
   displayName: 'Error: Internal',
   description: 'Always throws ToolError.internal() — tests structured internal error propagation',
+  summary: 'Throw an internal error',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({}),

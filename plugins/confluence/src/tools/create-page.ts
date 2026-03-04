@@ -7,6 +7,7 @@ export const createPage = defineTool({
   name: 'create_page',
   displayName: 'Create Page',
   description: 'Create a new Confluence page in a space. The body content uses Confluence storage format (HTML).',
+  summary: 'Create a new page',
   icon: 'file-plus',
   group: 'Pages',
   input: z.object({

@@ -8,6 +8,7 @@ export const updatePage = defineTool({
   displayName: 'Update Page',
   description:
     'Update an existing Confluence page. Requires the current version number (get it from get_page). The body uses Confluence storage format (HTML).',
+  summary: 'Update an existing page',
   icon: 'file-pen',
   group: 'Pages',
   input: z.object({

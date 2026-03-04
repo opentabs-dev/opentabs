@@ -5,6 +5,7 @@ export const sdkSetSessionStorage = defineTool({
   name: 'sdk_set_session_storage',
   displayName: 'SDK Set Session Storage',
   description: 'Tests setSessionStorage and getSessionStorage — writes a value then reads it back',
+  summary: 'Test SDK session storage',
   icon: 'wrench',
   input: z.object({
     key: z.string().describe('The sessionStorage key to write'),

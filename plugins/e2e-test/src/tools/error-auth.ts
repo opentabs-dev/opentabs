@@ -5,6 +5,7 @@ export const errorAuth = defineTool({
   name: 'error_auth',
   displayName: 'Error: Auth',
   description: 'Always throws ToolError.auth() — tests structured auth error propagation',
+  summary: 'Throw an auth error',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({}),

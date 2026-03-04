@@ -7,6 +7,7 @@ export const listLabels = defineTool({
   name: 'list_labels',
   displayName: 'List Labels',
   description: 'List labels attached to a Confluence page',
+  summary: 'List labels on a page',
   icon: 'tag',
   group: 'Labels',
   input: z.object({

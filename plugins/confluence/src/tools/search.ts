@@ -8,6 +8,7 @@ export const search = defineTool({
   displayName: 'Search',
   description:
     'Search Confluence content using CQL (Confluence Query Language). Examples: \'type=page AND text~"meeting"\', \'type=page AND space="SD" ORDER BY lastmodified DESC\', \'type=page AND title~"design"\'. See https://developer.atlassian.com/cloud/confluence/cql-fields/ for full CQL reference.',
+  summary: 'Search content using CQL',
   icon: 'search',
   group: 'Search',
   input: z.object({

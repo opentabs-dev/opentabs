@@ -8,6 +8,7 @@ export const getFile = defineTool({
   name: 'get_file',
   displayName: 'Get File',
   description: 'Get detailed metadata for a specific Figma file by its file key',
+  summary: 'Get metadata for a file',
   icon: 'file',
   group: 'Files',
   input: z.object({

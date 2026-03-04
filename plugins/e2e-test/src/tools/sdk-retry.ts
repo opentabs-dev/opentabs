@@ -5,6 +5,7 @@ export const sdkRetry = defineTool({
   name: 'sdk_retry',
   displayName: 'SDK Retry',
   description: 'Tests sdk.retry — calls a flaky endpoint that fails the first 3 times, then succeeds',
+  summary: 'Test SDK retry utility',
   icon: 'wrench',
   input: z.object({}),
   output: z.object({

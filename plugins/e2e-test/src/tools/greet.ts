@@ -6,6 +6,7 @@ export const greet = defineTool({
   name: 'greet',
   displayName: 'Greet',
   description: 'Greet a person by name — tests input→output transformation via the server',
+  summary: 'Greet a person by name',
   icon: 'wrench',
   group: 'Basic',
   input: z.object({

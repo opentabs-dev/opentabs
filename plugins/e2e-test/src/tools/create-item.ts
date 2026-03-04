@@ -7,6 +7,7 @@ export const createItem = defineTool({
   displayName: 'Create Item',
   description:
     "Create a new item on the test server — tests write operations (similar to Slack's conversations.create)",
+  summary: 'Create a new item',
   icon: 'wrench',
   group: 'Data',
   input: z.object({

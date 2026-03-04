@@ -8,6 +8,7 @@ export const listPages = defineTool({
   displayName: 'List Pages',
   description:
     'List Confluence pages. Optionally filter by space ID and sort by modified date. Returns paginated results.',
+  summary: 'List pages in a space',
   icon: 'files',
   group: 'Pages',
   input: z.object({

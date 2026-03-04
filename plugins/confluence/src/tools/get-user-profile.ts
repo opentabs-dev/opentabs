@@ -27,6 +27,7 @@ export const getUserProfile = defineTool({
   displayName: 'Get User Profile',
   description:
     'Get a Confluence user profile by account ID. If no account ID is provided, returns the current user profile.',
+  summary: 'Get a user profile',
   icon: 'user',
   group: 'Users',
   input: z.object({

@@ -6,6 +6,7 @@ export const sdkFetchErrorCategories = defineTool({
   displayName: 'SDK Fetch Error Categories',
   description:
     'Fetches an endpoint and throws a categorized ToolError based on the HTTP status code, testing error propagation through the dispatch chain',
+  summary: 'Test fetch error categorization',
   icon: 'wrench',
   input: z.object({
     endpoint: z.string().describe('The relative URL to fetch (e.g., /api/status-code/401 or /api/slow-forever)'),

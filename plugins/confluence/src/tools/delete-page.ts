@@ -6,6 +6,7 @@ export const deletePage = defineTool({
   name: 'delete_page',
   displayName: 'Delete Page',
   description: 'Delete a Confluence page by its ID. The page is moved to trash and can be restored.',
+  summary: 'Delete a page by ID',
   icon: 'file-x',
   group: 'Pages',
   input: z.object({

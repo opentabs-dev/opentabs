@@ -6,6 +6,7 @@ export const getStatus = defineTool({
   name: 'get_status',
   displayName: 'Get Status',
   description: "Get the current status of the test server — tests zero-input tools (similar to Slack's auth.test)",
+  summary: 'Get test server status',
   icon: 'wrench',
   group: 'Basic',
   input: z.object({}),

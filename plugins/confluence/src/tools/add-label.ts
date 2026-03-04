@@ -7,6 +7,7 @@ export const addLabel = defineTool({
   name: 'add_label',
   displayName: 'Add Label',
   description: 'Add a label to a Confluence page',
+  summary: 'Add a label to a page',
   icon: 'tag',
   group: 'Labels',
   input: z.object({

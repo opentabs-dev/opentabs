@@ -1,0 +1,65 @@
+{
+  "project": "OpenTabs Platform",
+  "description": "Add summary field to all tool definitions in the Figma (10 tools), Confluence (14 tools), and e2e-test (27 tools) plugins.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add summary to all Figma plugin tool definitions",
+      "description": "As a user, I want all 10 Figma plugin tools to have short human-readable summaries so the side panel shows concise descriptions.",
+      "acceptanceCriteria": [
+        "All 10 defineTool calls in plugins/figma/src/tools/*.ts have a `summary` field",
+        "Each summary is 1 short sentence, under 80 characters",
+        "The existing `description` field is NOT changed",
+        "cd plugins/figma && npm run build passes",
+        "cd plugins/figma && npm run type-check passes",
+        "cd plugins/figma && npm run lint passes",
+        "cd plugins/figma && npm run format:check passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "e2eCheckpoint": false,
+      "model": "opus",
+      "notes": "Edit all 10 files in `plugins/figma/src/tools/`. Examples:\n\n- `create-file.ts`: `summary: 'Create a new design file'`\n- `get-file.ts`: `summary: 'Get metadata for a file'`\n- `list-files.ts`: `summary: 'List files in a folder or project'`\n- `list-recent-files.ts`: `summary: 'List recently accessed files'`\n- `list-teams.ts`: `summary: 'List teams the user belongs to'`\n- `trash-file.ts`: `summary: 'Move a file to the trash'`\n\nIMPORTANT: This PRD depends on the SDK change (separate PRD) being merged first."
+    },
+    {
+      "id": "US-002",
+      "title": "Add summary to all Confluence plugin tool definitions",
+      "description": "As a user, I want all 14 Confluence plugin tools to have short human-readable summaries so the side panel shows concise descriptions.",
+      "acceptanceCriteria": [
+        "All 14 defineTool calls in plugins/confluence/src/tools/*.ts have a `summary` field",
+        "Each summary is 1 short sentence, under 80 characters",
+        "The existing `description` field is NOT changed",
+        "cd plugins/confluence && npm run build passes",
+        "cd plugins/confluence && npm run type-check passes",
+        "cd plugins/confluence && npm run lint passes",
+        "cd plugins/confluence && npm run format:check passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "e2eCheckpoint": false,
+      "model": "opus",
+      "notes": "Edit all 14 files in `plugins/confluence/src/tools/`. Examples:\n\n- `create-page.ts`: `summary: 'Create a new Confluence page'`\n- `get-page.ts`: `summary: 'Get a page by ID'`\n- `search.ts`: `summary: 'Search content using CQL'`\n- `list-spaces.ts`: `summary: 'List Confluence spaces'`\n- `update-page.ts`: `summary: 'Update an existing page'`\n- `add-label.ts`: `summary: 'Add a label to a page'`"
+    },
+    {
+      "id": "US-003",
+      "title": "Add summary to all e2e-test plugin tool definitions",
+      "description": "As a developer, I want all 27 e2e-test plugin tools to have summary fields for consistency, even though they are test tools.",
+      "acceptanceCriteria": [
+        "All 27 defineTool calls in plugins/e2e-test/src/tools/*.ts have a `summary` field",
+        "Each summary is 1 short sentence, under 80 characters",
+        "The existing `description` field is NOT changed",
+        "cd plugins/e2e-test && npm run build passes",
+        "cd plugins/e2e-test && npm run type-check passes",
+        "cd plugins/e2e-test && npm run lint passes",
+        "cd plugins/e2e-test && npm run format:check passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "e2eCheckpoint": false,
+      "model": "opus",
+      "notes": "Edit all 27 files in `plugins/e2e-test/src/tools/`. These are test tools so summaries can be straightforward. Examples:\n\n- `echo.ts`: `summary: 'Echo a message back'`\n- `greet.ts`: `summary: 'Greet a person by name'`\n- `get-status.ts`: `summary: 'Get test server status'`\n- `failing-tool.ts`: `summary: 'A tool that always fails'`\n- `slow-with-progress.ts`: `summary: 'Sleep and report progress'`\n- `sdk-fetch-json.ts`: `summary: 'Test SDK fetchJSON'`\n- `error-auth.ts`: `summary: 'Throw an auth error'`\n\nFor e2e-test tools, many descriptions are already very short and the summary can be identical. The goal is consistency — every tool in the repo has a summary field."
+    }
+  ],
+  "workingDirectory": "plugins",
+  "qualityChecks": "cd plugins/figma && npm run check && cd ../confluence && npm run check && cd ../e2e-test && npm run check"
+}

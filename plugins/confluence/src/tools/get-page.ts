@@ -8,6 +8,7 @@ export const getPage = defineTool({
   displayName: 'Get Page',
   description:
     'Get a Confluence page by its ID, including title, metadata, and optionally the page body content in storage format (HTML)',
+  summary: 'Get a page by ID',
   icon: 'file-text',
   group: 'Pages',
   input: z.object({

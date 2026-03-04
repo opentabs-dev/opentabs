@@ -5,6 +5,7 @@ export const sdkHttpMethods = defineTool({
   name: 'sdk_http_methods',
   displayName: 'SDK HTTP Methods',
   description: 'Tests putJSON, patchJSON, and deleteJSON SDK utilities against the test server',
+  summary: 'Test SDK HTTP method utilities',
   icon: 'wrench',
   input: z.object({
     method: z.enum(['put', 'patch', 'delete']).describe('HTTP method to test'),
