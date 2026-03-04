@@ -101,6 +101,21 @@ const BrowserToolsCard = ({
     });
   };
 
+  const handleToggleGroup = (groupTools: BrowserToolState[], checked: boolean) => {
+    const myVersion = ++toggleCounter.current;
+    const groupToolNames = new Set(groupTools.map(t => t.name));
+    onToolsChange(prev => {
+      preToggleRef.current = prev;
+      return prev.map(t => (groupToolNames.has(t.name) ? { ...t, enabled: checked } : t));
+    });
+    void Promise.all(groupTools.map(t => setBrowserToolEnabled(t.name, checked))).catch(() => {
+      if (toggleCounter.current === myVersion) {
+        onToolsChange(() => preToggleRef.current);
+      }
+      showToggleError('Failed to toggle group');
+    });
+  };
+
   const filterLower = toolFilter?.toLowerCase() ?? '';
   const visibleTools = filterLower
     ? tools.filter(
@@ -111,6 +126,31 @@ const BrowserToolsCard = ({
       )
     : tools;
   const hasActiveTool = tools.some(t => activeTools.has(`browser:${t.name}`));
+
+  // Group tools by their group field, preserving first-seen order
+  const hasAnyGroup = visibleTools.some(t => t.group);
+  const toolGroups: { name: string; tools: BrowserToolState[] }[] = [];
+  if (hasAnyGroup) {
+    const groupMap = new Map<string, BrowserToolState[]>();
+    for (const tool of visibleTools) {
+      const groupName = tool.group ?? 'Other';
+      let bucket = groupMap.get(groupName);
+      if (!bucket) {
+        bucket = [];
+        groupMap.set(groupName, bucket);
+      }
+      bucket.push(tool);
+    }
+    // Move 'Other' to the end if it exists
+    const otherBucket = groupMap.get('Other');
+    groupMap.delete('Other');
+    for (const [name, groupTools] of groupMap) {
+      toolGroups.push({ name, tools: groupTools });
+    }
+    if (otherBucket) {
+      toolGroups.push({ name: 'Other', tools: otherBucket });
+    }
+  }
 
   return (
     <Accordion.Item value="browser-tools">
@@ -157,18 +197,45 @@ const BrowserToolsCard = ({
             {visibleTools.length} of {tools.length} tools
           </div>
         )}
-        {visibleTools.map(tool => (
-          <ToolRow
-            key={tool.name}
-            name={tool.name}
-            displayName={toDisplayName(tool.name)}
-            description={tool.description}
-            icon={tool.icon ?? 'globe'}
-            enabled={tool.enabled}
-            active={activeTools.has(`browser:${tool.name}`)}
-            onToggle={() => handleToggleTool(tool.name, tool.enabled)}
-          />
-        ))}
+        {hasAnyGroup
+          ? toolGroups.map(group => (
+              <div key={group.name}>
+                <div className="flex items-center gap-2 border-border border-b bg-muted/20 px-3 py-1">
+                  <span className="flex-1 font-head text-muted-foreground text-xs uppercase tracking-wider">
+                    {group.name}
+                  </span>
+                  <Switch
+                    checked={group.tools.every(t => t.enabled)}
+                    onCheckedChange={checked => handleToggleGroup(group.tools, checked)}
+                    aria-label={`Toggle all ${group.name} tools`}
+                  />
+                </div>
+                {group.tools.map(tool => (
+                  <ToolRow
+                    key={tool.name}
+                    name={tool.name}
+                    displayName={toDisplayName(tool.name)}
+                    description={tool.description}
+                    icon={tool.icon ?? 'globe'}
+                    enabled={tool.enabled}
+                    active={activeTools.has(`browser:${tool.name}`)}
+                    onToggle={() => handleToggleTool(tool.name, tool.enabled)}
+                  />
+                ))}
+              </div>
+            ))
+          : visibleTools.map(tool => (
+              <ToolRow
+                key={tool.name}
+                name={tool.name}
+                displayName={toDisplayName(tool.name)}
+                description={tool.description}
+                icon={tool.icon ?? 'globe'}
+                enabled={tool.enabled}
+                active={activeTools.has(`browser:${tool.name}`)}
+                onToggle={() => handleToggleTool(tool.name, tool.enabled)}
+              />
+            ))}
       </Accordion.Content>
     </Accordion.Item>
   );
