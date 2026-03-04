@@ -1,7 +1,7 @@
 ---
 title: CLI Commands
 description: Complete reference for the opentabs CLI — start the server, manage plugins, view logs, run diagnostics, and configure settings.
-lastUpdated: 2026-03-02
+lastUpdated: 2026-03-03
 ---
 
 The `opentabs` CLI is the primary interface for managing the OpenTabs platform. Install it globally:
@@ -510,7 +510,7 @@ opentabs plugin install <name>
   </Table.Body>
 </Table>
 
-Shorthand names are automatically expanded: `slack` becomes `opentabs-plugin-slack`. Runs `npm install -g` under the hood. If the MCP server is running, it is notified via `POST /reload` to pick up the new plugin immediately.
+Shorthand names are resolved by checking the official scoped package first (`@opentabs-dev/opentabs-plugin-slack`), then falling back to the community unscoped package (`opentabs-plugin-slack`). Runs `npm install -g` under the hood. If the MCP server is running, it is notified via `POST /reload` to pick up the new plugin immediately.
 
 ```bash
 # Install using shorthand
