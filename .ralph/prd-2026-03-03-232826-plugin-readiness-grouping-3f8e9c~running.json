@@ -1,0 +1,80 @@
+{
+  "project": "OpenTabs Platform",
+  "description": "Group plugins by readiness state in the side panel. Ready plugins appear at the top, not-ready plugins appear below a 'NOT CONNECTED' label at reduced opacity. Transitions between groups are smoothly animated.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Split PluginList into ready and not-ready groups with section label",
+      "description": "As a user, I want ready plugins to appear at the top and not-ready plugins grouped below a 'NOT CONNECTED' label, so I can immediately see which plugins are usable without parsing individual icon states.",
+      "acceptanceCriteria": [
+        "PluginList splits plugins into two groups: ready (tabState === 'ready') and not-ready (tabState === 'unavailable' or 'closed')",
+        "Ready plugins render first in their own Accordion with no label above them",
+        "Not-ready plugins render below in a separate Accordion with a 'NOT CONNECTED' label/header above them",
+        "The 'NOT CONNECTED' label uses: text-[10px] font-mono text-muted-foreground tracking-widest uppercase px-3 pt-3 pb-1",
+        "Not-ready plugin cards render at opacity-70 via a className on the Accordion.Item",
+        "The not-ready section (label + accordion) is hidden entirely when all plugins are ready — no empty label shown",
+        "The ready section has no label — ready is the default expected state",
+        "Failed plugins still render above everything as they do today (unchanged)",
+        "Both Accordion elements use type='multiple' so any card can be independently opened/closed",
+        "When a tool filter is active (toolFilter is non-empty), grouping is disabled — all matching plugins render in a single flat list as before (don't show 'NOT CONNECTED' label when filtering)",
+        "npm run build passes",
+        "npm run type-check passes",
+        "npm run lint passes",
+        "npm run knip passes",
+        "npm run test passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "e2eCheckpoint": false,
+      "model": "opus",
+      "notes": "File: `platform/browser-extension/src/side-panel/components/PluginList.tsx`\n\nThe current code renders all plugins in a single `<Accordion type=\"multiple\" className=\"space-y-2\">` (line 55-70). Split this into two groups:\n\n```tsx\nconst readyPlugins = visiblePlugins.filter(p => p.tabState === 'ready');\nconst notReadyPlugins = visiblePlugins.filter(p => p.tabState !== 'ready');\n```\n\nWhen `filterLower` is non-empty, render the existing single-list behavior (no grouping, no label). When not filtering, render:\n\n```tsx\n<>\n  {visibleFailed.length > 0 && (\n    <div className=\"mb-3 space-y-2\">\n      {visibleFailed.map(fp => <FailedPluginCard key={fp.specifier} plugin={fp} />)}\n    </div>\n  )}\n  {readyPlugins.length > 0 && (\n    <Accordion type=\"multiple\" className=\"space-y-2\">\n      {readyPlugins.map(plugin => <PluginCard ... />)}\n    </Accordion>\n  )}\n  {notReadyPlugins.length > 0 && (\n    <div>\n      <div className=\"text-[10px] font-mono text-muted-foreground tracking-widest uppercase px-3 pt-3 pb-1\">\n        NOT CONNECTED\n      </div>\n      <Accordion type=\"multiple\" className=\"space-y-2\">\n        {notReadyPlugins.map(plugin => <PluginCard ... />)}\n      </Accordion>\n    </div>\n  )}\n</>\n```\n\nFor the not-ready card opacity: add `className` prop passing `'opacity-70'` to the PluginCard's Accordion.Item. Looking at `PluginCard.tsx:120-122`, the className on Accordion.Item already has conditional logic for `removingPlugin`. Extend it to also apply `opacity-70` when `plugin.tabState !== 'ready'`:\n\n```tsx\n<Accordion.Item\n  value={plugin.name}\n  className={\n    removingPlugin\n      ? 'pointer-events-none opacity-60 transition-opacity'\n      : plugin.tabState !== 'ready'\n        ? 'opacity-70 transition-opacity'\n        : undefined\n  }>\n```\n\nThis opacity change is in PluginCard.tsx, but it's tightly coupled to this story's grouping behavior — the opacity only makes visual sense when cards are grouped."
+    },
+    {
+      "id": "US-002",
+      "title": "Animate plugin cards moving between ready and not-ready groups",
+      "description": "As a user, I want to see smooth animated transitions when a plugin becomes ready or not-ready, so the card movement between groups feels polished and intentional rather than jarring.",
+      "acceptanceCriteria": [
+        "When a plugin transitions from not-ready to ready (e.g., user opens a Slack tab and logs in), its card smoothly animates from the not-ready group to the ready group",
+        "When a plugin transitions from ready to not-ready (e.g., user closes the tab), its card smoothly animates from the ready group to the not-ready group",
+        "The animation includes a fade-out at the old position, then a fade-in + slide-down at the new position, creating a natural relocation effect",
+        "The 'NOT CONNECTED' label appears/disappears smoothly (fade in/out) when the not-ready group gains or loses its first/last member",
+        "Cards that are not transitioning remain visually stable — they do not jump or flash during another card's transition",
+        "The animation duration is short enough to feel responsive (200-300ms total) but long enough to be perceivable",
+        "There is no layout shift or flickering during the transition",
+        "npm run build passes",
+        "npm run type-check passes",
+        "npm run lint passes",
+        "npm run knip passes",
+        "npm run test passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "e2eCheckpoint": false,
+      "model": "opus",
+      "notes": "This is the most challenging story — smooth list reordering without a heavy animation library.\n\nRecommended approach: use CSS transitions with a `key`-based tracking pattern.\n\n1. **Track previous tabState per plugin** with a `useRef<Map<string, TabState>>()` in PluginList. On each render, compare current tabState with previous. If a plugin changed groups, mark it as \"transitioning.\"\n\n2. **Transition sequence** for a plugin moving from not-ready → ready:\n   - Frame 1: Card is still in the not-ready group but starts fading out (`opacity-0 transition-opacity duration-200`)\n   - After 200ms (via setTimeout or transitionend): Move the card to the ready group DOM, render it with `opacity-0 translate-y-2`\n   - Next frame (requestAnimationFrame): Remove the translate/opacity classes so it fades in and slides up (`opacity-100 translate-y-0 transition-all duration-200`)\n   - After another 200ms: Clear the transitioning state\n\n3. **Simpler alternative** if the above is too complex: Skip the cross-group animation. Instead, use only fade effects:\n   - Card fades out from old group (`opacity-0` over 150ms)\n   - Card appears in new group with a fade-in (`opacity-0` → `opacity-100` over 200ms, or `opacity-70` for not-ready)\n   - This is simpler to implement and still looks polished\n\n4. **For the 'NOT CONNECTED' label**: wrap it in a div with `transition-all duration-200` and toggle between `opacity-100` / `opacity-0 h-0 overflow-hidden` based on whether notReadyPlugins.length > 0.\n\nIMPORTANT: Do NOT install any animation libraries (framer-motion, react-spring, etc.). Use only CSS transitions + minimal React state. The retro theme is about simplicity.\n\nFiles to edit:\n- `platform/browser-extension/src/side-panel/components/PluginList.tsx` — Add transition state tracking and conditional CSS classes\n- `platform/browser-extension/src/side-panel/styles.css` — Add any needed keyframe animations (though CSS transitions may suffice)"
+    },
+    {
+      "id": "US-003",
+      "title": "Update PluginList stories and verify E2E",
+      "description": "As a developer, I want PluginList stories to demonstrate the ready/not-ready grouping and the full test suite to pass.",
+      "acceptanceCriteria": [
+        "PluginList.stories.tsx has a story showing plugins split into ready and not-ready groups",
+        "PluginList.stories.tsx has a story showing all plugins ready (no 'NOT CONNECTED' section)",
+        "PluginList.stories.tsx has a story showing all plugins not-ready (no ready section, just the 'NOT CONNECTED' label + cards)",
+        "PluginList.stories.tsx has a story with a mix of ready, unavailable, and closed plugins",
+        "The existing Default, WithFailedPlugins, FilteredByTool, and NoFilterMatch stories are updated to work with the new grouping behavior",
+        "npm run build passes",
+        "npm run type-check passes",
+        "npm run lint passes",
+        "npm run knip passes",
+        "npm run test passes",
+        "npm run test:e2e passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "e2eCheckpoint": true,
+      "model": "opus",
+      "notes": "File: `platform/browser-extension/src/side-panel/components/PluginList.stories.tsx`\n\nThe existing stories at lines 34-74 already have plugins with different tabStates (ready, closed, unavailable). The Default story should naturally show the grouping. Add these new stories:\n\n1. **AllReady** — All plugins have `tabState: 'ready'`. No 'NOT CONNECTED' section should appear.\n2. **AllNotReady** — All plugins have `tabState: 'closed'` or `tabState: 'unavailable'`. No ready section, just the label + faded cards.\n3. **MixedReadiness** — 2 ready, 1 unavailable, 1 closed. Shows both groups clearly.\n4. Update the existing **Default** story's mock data to ensure at least one plugin is ready and one is not-ready, so the grouping is visible by default.\n\nThe existing `FilteredByTool` story should show that grouping is disabled when filtering — all matching plugins in a single flat list.\n\nIMPORTANT: E2E tests in `e2e/` may check for plugin card ordering or presence. Run `npm run test:e2e` to verify no E2E tests break. If they do, fix them — the side panel DOM structure changed (two Accordion elements instead of one)."
+    }
+  ]
+}
