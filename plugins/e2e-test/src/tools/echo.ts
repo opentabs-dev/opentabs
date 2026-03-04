@@ -7,6 +7,7 @@ export const echo = defineTool({
   displayName: 'Echo',
   description: 'Echo a message back — simplest possible tool for E2E testing',
   icon: 'wrench',
+  group: 'Basic',
   input: z.object({
     message: z.string().describe('The message to echo back'),
   }),

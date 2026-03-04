@@ -21,7 +21,7 @@ const PermissionSelect = ({
   disabled: boolean;
   ariaLabel: string;
 }) => (
-  <Select value={value} onValueChange={v => onValueChange(v as ToolPermission)}>
+  <Select value={value} onValueChange={(v: string) => onValueChange(v as ToolPermission)}>
     <Select.Trigger
       className="h-6 w-[4.5rem] min-w-0 px-1.5 py-0 font-mono text-xs shadow-none focus:shadow-[2px_2px_0_0_var(--color-border)]"
       onClick={(e: React.MouseEvent) => e.stopPropagation()}

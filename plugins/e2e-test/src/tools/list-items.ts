@@ -8,6 +8,7 @@ export const listItems = defineTool({
   description:
     "List items from the test server with optional pagination — mirrors patterns like Slack's conversations.list",
   icon: 'wrench',
+  group: 'Data',
   input: z.object({
     limit: z.number().optional().describe('Maximum number of items to return (default 10, max 100)'),
     offset: z.number().optional().describe('Offset for pagination (default 0)'),
