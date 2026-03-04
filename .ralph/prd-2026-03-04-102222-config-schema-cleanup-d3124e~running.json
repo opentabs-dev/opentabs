@@ -111,7 +111,7 @@
         "npm run test passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "e2eCheckpoint": true,
       "model": "opus",
       "notes": "Files to update:\n\ne2e/fixtures.ts:\n- Line 195: interface field 'plugins?' → 'permissions?'\n- Line 200: default value — remove skipPermissions if present; rename plugins to permissions\n- Check if the fixture writes skipPermissions into config.json — if so, remove it. The E2E tests use OPENTABS_SKIP_PERMISSIONS env var (line 514) which is the correct mechanism.\n\ne2e/permissions.e2e.ts: ~10 instances of config.plugins → config.permissions. Some tests may also reference skipPermissions in config — remove those, ensure they use the env var instead.\n\ne2e/plugin-management.e2e.ts: ~4 instances of config.plugins\n\ne2e/hot-reload-dynamic.e2e.ts: ~5 instances of config.plugins. Also check lines 232-233 and 275-276 for skipPermissions references.\n\ne2e/side-panel-plugin-toggle.e2e.ts: ~2 instances of config.plugins. Lines 515-540 have skipPermissions test — this tests the 'PERMISSIONS BYPASSED' banner which is driven by the server state (set from env var), so the test should still work; just make sure the config object doesn't set skipPermissions.\n\ne2e/side-panel-realtime-state.e2e.ts: check lines 50, 231-232 for skipPermissions.\n\nCritical: The E2E fixtures likely write config.json to disk for each test. Make sure the written JSON uses 'permissions' key and does NOT include skipPermissions. Tests that need skip behavior should use OPENTABS_SKIP_PERMISSIONS=1 env var (most already do)."
