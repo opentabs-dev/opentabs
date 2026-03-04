@@ -30,7 +30,7 @@ const offscreenLogCollector = installLogCollector('offscreen');
 
 const DEFAULT_MCP_SERVER_URL = buildWsUrl(DEFAULT_SERVER_PORT);
 const INITIAL_BACKOFF_MS = 1000;
-const MAX_BACKOFF_MS = 30000;
+const MAX_BACKOFF_MS = 3000;
 const BACKOFF_MULTIPLIER = 2;
 
 // Ping/pong keepalive — tuned for fast zombie detection during hot reload
