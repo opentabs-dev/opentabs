@@ -141,8 +141,8 @@ test.describe('Side panel real-time state propagation', () => {
       const appTab = await context.newPage();
       await appTab.goto(testServer.url, { waitUntil: 'load' });
 
-      // Wait for the green dot (ready state) to appear via real-time push
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      // Wait for the ready state (solid border) to appear via real-time push
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
       // Toggle auth OFF on the test server
       await testServer.setAuth(false);
@@ -150,17 +150,17 @@ test.describe('Side panel real-time state propagation', () => {
       // Reload the app tab to trigger a tab state recheck
       await appTab.reload({ waitUntil: 'load' });
 
-      // Verify the amber dot (unavailable state) appears WITHOUT reloading the side panel.
+      // Verify the unavailable state (faded ghost border) appears WITHOUT reloading the side panel.
       // The background pushes tab.stateChanged → side panel updates instantly.
-      await expect(e2ePluginCard.locator('.bg-primary.rounded-full')).toBeVisible({
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeVisible({
         timeout: 10_000,
       });
 
-      // Toggle auth back ON and verify recovery to green dot
+      // Toggle auth back ON and verify recovery to ready state
       await testServer.setAuth(true);
       await appTab.reload({ waitUntil: 'load' });
 
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 10_000 });
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 10_000 });
 
       await sidePanelPage.close();
       await appTab.close();
@@ -194,19 +194,19 @@ test.describe('Side panel real-time state propagation', () => {
 
       const e2ePluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
 
-      // Verify no dot initially (no matching tab)
-      await expect(e2ePluginCard.locator('.bg-success')).toBeHidden({ timeout: 5_000 });
+      // Verify closed state initially (faded ghost border, no matching tab)
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeVisible({ timeout: 5_000 });
 
-      // Open a matching tab → green dot appears via real-time push
+      // Open a matching tab → ready state (solid border) appears via real-time push
       const appTab = await context.newPage();
       await appTab.goto(testServer.url, { waitUntil: 'load' });
 
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
-      // Close the matching tab → dot should disappear WITHOUT reloading side panel
+      // Close the matching tab → closed state (faded border) returns WITHOUT reloading side panel
       await appTab.close();
 
-      await expect(e2ePluginCard.locator('.bg-success')).toBeHidden({ timeout: 10_000 });
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeVisible({ timeout: 10_000 });
 
       await sidePanelPage.close();
     } finally {
@@ -321,12 +321,12 @@ test.describe('Side panel real-time state propagation', () => {
       const appTab = await context.newPage();
       await appTab.goto(testServer.url, { waitUntil: 'load' });
 
-      // Open side panel and verify plugin card with green dot
+      // Open side panel and verify plugin card with ready state (solid border)
       const sidePanelPage = await openSidePanel(context);
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
       const e2ePluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
       // Trigger hot reload (simulates server disconnect/reconnect)
       server.logs.length = 0;
@@ -344,8 +344,8 @@ test.describe('Side panel real-time state propagation', () => {
       // After reconnect, verify plugin card reappears (from sync.full → plugins.changed)
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // Verify green dot recovers (from sendTabSyncAll → tab.stateChanged push)
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      // Verify ready state recovers (from sendTabSyncAll → tab.stateChanged push)
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
       // Expand plugin card and verify tool permission selects are correct
       await e2ePluginCard.click();

@@ -141,33 +141,6 @@ body {
   --os-handle-bg-active: var(--foreground);
 }
 
-@keyframes activity-flash {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-
-.animate-activity-flash {
-  animation: activity-flash 0.4s ease-in-out infinite;
-}
-
-@keyframes activity-fade-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-.animate-activity-fade-out {
-  animation: activity-fade-out 0.5s ease-out forwards;
-}
-
 @keyframes activity-border-flash {
   0%,
   100% {

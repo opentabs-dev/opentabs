@@ -128,8 +128,8 @@ test.describe('Side panel data flow — tab state changes', () => {
 
       const e2ePluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
 
-      // 5. Verify the PluginIcon shows closed state (no status dot)
-      await expect(e2ePluginCard.locator('.bg-success')).toBeHidden({
+      // 5. Verify the PluginIcon shows closed state (faded ghost border)
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeVisible({
         timeout: 5_000,
       });
 
@@ -173,8 +173,8 @@ test.describe('Side panel data flow — tab state changes', () => {
         timeout: 15_000,
       });
 
-      // Verify the PluginIcon shows ready state (green status dot)
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({
+      // Verify the PluginIcon shows ready state (solid border, no faded indicator)
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({
         timeout: 15_000,
       });
 
@@ -210,8 +210,8 @@ test.describe('Side panel data flow — tab state changes', () => {
         timeout: 15_000,
       });
 
-      // Verify the PluginIcon shows closed state again (no status dot)
-      await expect(e2ePluginCard.locator('.bg-success')).toBeHidden({
+      // Verify the PluginIcon shows closed state again (faded ghost border)
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeVisible({
         timeout: 15_000,
       });
 
@@ -283,13 +283,13 @@ test.describe('Side panel data flow — tab state changes', () => {
         )
         .toBe('ready');
 
-      // Reload side panel and verify PluginIcon shows ready state (green dot)
+      // Reload side panel and verify PluginIcon shows ready state (solid border)
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({
         timeout: 15_000,
       });
       const e2ePluginCard2 = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
-      await expect(e2ePluginCard2.locator('.bg-success')).toBeVisible({
+      await expect(e2ePluginCard2.locator('[class*="border-border/30"]')).toBeHidden({
         timeout: 15_000,
       });
 
@@ -326,9 +326,9 @@ test.describe('Side panel data flow — tab state changes', () => {
         )
         .toBe('unavailable');
 
-      // Reload side panel and verify PluginIcon shows unavailable state (amber dot)
+      // Reload side panel and verify PluginIcon shows unavailable state (faded ghost border)
       await sidePanelPage.reload({ waitUntil: 'load' });
-      await expect(sidePanelPage.locator('.bg-primary.rounded-full').first()).toBeVisible({
+      await expect(e2ePluginCard2.locator('[class*="border-border/30"]')).toBeVisible({
         timeout: 15_000,
       });
 
@@ -362,12 +362,12 @@ test.describe('Side panel data flow — tab state changes', () => {
         )
         .toBe('ready');
 
-      // Reload side panel and verify PluginIcon shows ready state (green dot) again
+      // Reload side panel and verify PluginIcon shows ready state (solid border) again
       await sidePanelPage.reload({ waitUntil: 'load' });
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({
         timeout: 15_000,
       });
-      await expect(e2ePluginCard2.locator('.bg-success')).toBeVisible({
+      await expect(e2ePluginCard2.locator('[class*="border-border/30"]')).toBeHidden({
         timeout: 15_000,
       });
 
@@ -460,26 +460,26 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       await testServer.setSlow(3_000);
 
       // 7. Verify activity indicator appears during tool execution.
-      // The activity flash dot appears on both the PluginIcon and the ToolIcon,
+      // The border animation fires on both the PluginIcon and the ToolIcon containers,
       // so scope the locator to the Echo tool row to avoid strict mode violations.
       // ToolRow renders as: <div class="border-border flex ..."> containing <ToolIcon> + <Tooltip> + <Switch>.
-      // Find the row that contains 'Echo' text, then look for the activity dot within it.
+      // Find the row that contains 'Echo' text, then look for the border flash within it.
       const echoRow = sidePanelPage.locator('div.border-b').filter({ hasText: 'Echo' });
-      const activityDotLocator = echoRow.locator('.animate-activity-flash');
+      const activityBorderLocator = echoRow.locator('.animate-activity-border-flash');
 
-      // Verify no activity dot before tool call
-      await expect(activityDotLocator).toBeHidden({ timeout: 2_000 });
+      // Verify no border flash before tool call
+      await expect(activityBorderLocator).toBeHidden({ timeout: 2_000 });
 
       // Run tool call and UI assertion concurrently. The tool call takes ~3s
-      // due to slow mode, giving enough time to observe the activity dot.
+      // due to slow mode, giving enough time to observe the border flash.
       const [result] = await Promise.all([
         mcpClient.callTool('e2e-test_echo', { message: 'spinner test' }),
-        expect(activityDotLocator).toBeVisible({ timeout: 10_000 }),
+        expect(activityBorderLocator).toBeVisible({ timeout: 10_000 }),
       ]);
       expect(result.isError).toBe(false);
 
-      // 8. Verify activity dot disappears after completion
-      await expect(activityDotLocator).toBeHidden({ timeout: 10_000 });
+      // 8. Verify border flash disappears after completion
+      await expect(activityBorderLocator).toBeHidden({ timeout: 10_000 });
 
       // Reset slow mode
       await testServer.setSlow(0);
@@ -537,7 +537,7 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       // Verify a browser tool row is visible (e.g., "List Tabs")
       await expect(sidePanelPage.getByText('List Tabs', { exact: true })).toBeVisible({ timeout: 5_000 });
 
-      // 5. Install a MutationObserver to detect the activity flash class.
+      // 5. Install a MutationObserver to detect the activity border flash class.
       // Browser tools execute in milliseconds, so the activity indicator may
       // appear and disappear too quickly for Playwright's polling assertions.
       // A MutationObserver captures every class mutation, reliably detecting
@@ -546,22 +546,15 @@ test.describe('Side panel data flow — tool invocation animation', () => {
         (window as unknown as Record<string, unknown>).__activityFlashSeen = false;
         const observer = new MutationObserver(mutations => {
           for (const m of mutations) {
-            if (m.type === 'childList' || (m.type === 'attributes' && m.attributeName === 'class')) {
+            if (m.type === 'attributes' && m.attributeName === 'class') {
               const target = m.target as HTMLElement;
-              if (target.classList.contains('animate-activity-flash')) {
+              if (target.classList.contains('animate-activity-border-flash')) {
                 (window as unknown as Record<string, unknown>).__activityFlashSeen = true;
-              }
-              // Check added nodes (the dot is conditionally rendered)
-              for (const node of m.addedNodes) {
-                if (node instanceof HTMLElement && node.classList.contains('animate-activity-flash')) {
-                  (window as unknown as Record<string, unknown>).__activityFlashSeen = true;
-                }
               }
             }
           }
         });
         observer.observe(document.body, {
-          childList: true,
           subtree: true,
           attributes: true,
           attributeFilter: ['class'],
@@ -573,21 +566,20 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       const result = await mcpClient.callTool('browser_list_tabs');
       expect(result.isError).toBe(false);
 
-      // 7. Verify the MutationObserver detected the activity flash class.
+      // 7. Verify the MutationObserver detected the activity border flash class.
       // Poll briefly in case the end notification arrives slightly after
       // the MCP response (the WebSocket notification and HTTP response
       // travel independent paths).
       await expect
         .poll(() => sidePanelPage.evaluate(() => (window as unknown as Record<string, boolean>).__activityFlashSeen), {
           timeout: 5_000,
-          message: 'Activity flash class was never observed on any element',
+          message: 'Activity border flash class was never observed on any element',
         })
         .toBe(true);
 
       // 8. Verify activity indicator disappears after the tool call.
-      // The animate-activity-flash element should no longer be in the DOM
-      // (or should have transitioned to animate-activity-fade-out).
-      await expect(sidePanelPage.locator('.animate-activity-flash')).toBeHidden({ timeout: 10_000 });
+      // The animate-activity-border-flash class should no longer be on any element.
+      await expect(sidePanelPage.locator('.animate-activity-border-flash')).toBeHidden({ timeout: 10_000 });
 
       // Clean up the observer
       await sidePanelPage.evaluate(() => {

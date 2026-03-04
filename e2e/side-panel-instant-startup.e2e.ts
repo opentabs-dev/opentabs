@@ -105,9 +105,9 @@ test.describe('Side panel instant startup from background cache', () => {
       const appTab = await context.newPage();
       await appTab.goto(testServer.url, { waitUntil: 'load' });
 
-      // 5. Wait for the tab to become ready (green dot)
+      // 5. Wait for the tab to become ready (solid border, no faded indicator)
       const e2ePluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
       // 6. Trigger a dev proxy hot reload (simulates server restart).
       // This sends sync.full which triggers the full pipeline:
@@ -123,8 +123,8 @@ test.describe('Side panel instant startup from background cache', () => {
       // Use a generous timeout for the full disconnect → reconnect → sync.full cycle.
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // 8. The green dot (ready state) should fill in after sendTabSyncAll probes complete
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      // 8. The ready state (solid border) should fill in after sendTabSyncAll probes complete
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
       await sidePanelPage.close();
       await appTab.close();
@@ -186,12 +186,12 @@ test.describe('Side panel instant startup from background cache', () => {
         )
         .toBe('ready');
 
-      // 5. Open side panel and verify both plugin card and green dot are present
+      // 5. Open side panel and verify both plugin card and ready state are present
       const sidePanelPage = await openSidePanel(context);
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
       const e2ePluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 15_000 });
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 15_000 });
 
       // 6. Now trigger a hot reload. After reconnect, the side panel should
       // show plugin cards FIRST (from plugins.changed) and then the green
@@ -206,11 +206,11 @@ test.describe('Side panel instant startup from background cache', () => {
       // The card renders from background cache via getFullState() — fast.
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // 8. At this moment, the tab state dot may not be visible yet because
+      // 8. At this moment, the ready state may not be set yet because
       // sendTabSyncAll (which probes isReady()) runs AFTER plugins.changed.
-      // We just need to verify that the card is visible and the green dot
-      // eventually appears — proving progressive rendering works.
-      await expect(e2ePluginCard.locator('.bg-success')).toBeVisible({ timeout: 30_000 });
+      // We just need to verify that the card is visible and the ready state
+      // (solid border) eventually appears — proving progressive rendering works.
+      await expect(e2ePluginCard.locator('[class*="border-border/30"]')).toBeHidden({ timeout: 30_000 });
 
       await sidePanelPage.close();
       await appTab.close();
