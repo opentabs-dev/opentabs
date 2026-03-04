@@ -16,6 +16,7 @@ export const listPages = defineTool({
   displayName: 'List Pages',
   description:
     'List all pages in the Notion workspace, sorted by last edited time. Use this to get an overview of workspace content.',
+  summary: 'List pages in the workspace',
   icon: 'files',
   group: 'Pages',
   input: z.object({

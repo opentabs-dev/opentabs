@@ -10,6 +10,7 @@ export const deletePage = defineTool({
   name: 'delete_page',
   displayName: 'Delete Page',
   description: 'Archive (soft-delete) a page in Notion. The page can be restored from trash.',
+  summary: 'Archive a page to trash',
   icon: 'trash-2',
   group: 'Pages',
   input: z.object({

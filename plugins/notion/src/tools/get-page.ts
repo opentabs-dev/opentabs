@@ -15,6 +15,7 @@ export const getPage = defineTool({
   displayName: 'Get Page',
   description:
     'Get a Notion page by ID, including its title, metadata, and content blocks. Returns the page info and its direct child blocks.',
+  summary: 'Get a page with its content',
   icon: 'file-text',
   group: 'Pages',
   input: z.object({

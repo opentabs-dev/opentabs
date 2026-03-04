@@ -11,6 +11,7 @@ export const getUser = defineTool({
   name: 'get_user',
   displayName: 'Get User',
   description: 'Get profile information for the current authenticated Notion user or a specific user by ID',
+  summary: "Get a user's profile",
   icon: 'user',
   group: 'Users',
   input: z.object({

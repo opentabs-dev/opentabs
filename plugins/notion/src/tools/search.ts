@@ -15,6 +15,7 @@ export const search = defineTool({
   name: 'search',
   displayName: 'Search',
   description: 'Search for pages and blocks in the Notion workspace by text query',
+  summary: 'Search pages and blocks',
   icon: 'search',
   group: 'Pages',
   input: z.object({

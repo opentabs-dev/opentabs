@@ -30,6 +30,7 @@ export const queryDatabase = defineTool({
   name: 'query_database',
   displayName: 'Query Database',
   description: 'Query rows from a Notion database with optional search. Returns items with their property values.',
+  summary: 'Query rows from a database',
   icon: 'table',
   group: 'Databases',
   input: z.object({

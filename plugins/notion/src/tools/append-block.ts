@@ -27,6 +27,7 @@ export const appendBlock = defineTool({
   displayName: 'Append Block',
   description:
     'Append a content block (text, heading, list item, quote, code, etc.) to a page or block. Use this to add content to existing pages.',
+  summary: 'Append content to a page',
   icon: 'plus-square',
   group: 'Blocks',
   input: z.object({

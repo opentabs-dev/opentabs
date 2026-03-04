@@ -12,6 +12,7 @@ export const getDatabase = defineTool({
   displayName: 'Get Database',
   description:
     'Get a Notion database (collection) schema including its properties/columns and their types. Use this to understand the structure before querying.',
+  summary: 'Get a database schema',
   icon: 'database',
   group: 'Databases',
   input: z.object({

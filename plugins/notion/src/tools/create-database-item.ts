@@ -11,6 +11,7 @@ export const createDatabaseItem = defineTool({
   name: 'create_database_item',
   displayName: 'Create Database Item',
   description: 'Add a new row/item to a Notion database. Use get_database first to understand the property schema.',
+  summary: 'Add a row to a database',
   icon: 'table-rows-split',
   group: 'Databases',
   input: z.object({

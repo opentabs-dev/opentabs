@@ -11,6 +11,7 @@ export const updatePage = defineTool({
   name: 'update_page',
   displayName: 'Update Page',
   description: 'Update a page title, icon, or cover image in Notion',
+  summary: "Update a page's title, icon, or cover",
   icon: 'pencil',
   group: 'Pages',
   input: z.object({
