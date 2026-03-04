@@ -1,4 +1,4 @@
-import { ToolError } from '@opentabs-dev/plugin-sdk';
+import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
 
 const API_BASE = 'https://api.github.com';
 
@@ -111,7 +111,7 @@ export const api = async <T>(
 
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const retryMs = retryAfter ? Number(retryAfter) * 1000 : undefined;
+      const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
       throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`, retryMs);
     }
     if (response.status === 401 || response.status === 403)
@@ -172,7 +172,7 @@ export const apiRaw = async (
     const errorBody = (await response.text().catch(() => '')).substring(0, 512);
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const retryMs = retryAfter ? Number(retryAfter) * 1000 : undefined;
+      const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
       throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`, retryMs);
     }
     if (response.status === 401 || response.status === 403)

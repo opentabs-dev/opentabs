@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../github-api.js';
 
@@ -33,7 +33,7 @@ export const addReaction = defineTool({
     } else if (params.issue_number) {
       endpoint = `/repos/${params.owner}/${params.repo}/issues/${params.issue_number}/reactions`;
     } else {
-      throw new Error('Either issue_number or comment_id must be provided');
+      throw ToolError.validation('Either issue_number or comment_id must be provided');
     }
 
     const data = await api<{ id?: number; content?: string }>(endpoint, {

@@ -31,10 +31,11 @@ export const createOrUpdateFile = defineTool({
     if (params.branch) body.branch = params.branch;
     if (params.sha) body.sha = params.sha;
 
+    const encodedPath = params.path.split('/').map(encodeURIComponent).join('/');
     const data = await api<{
       content?: { sha?: string; html_url?: string };
       commit?: { sha?: string };
-    }>(`/repos/${params.owner}/${params.repo}/contents/${params.path}`, {
+    }>(`/repos/${params.owner}/${params.repo}/contents/${encodedPath}`, {
       method: 'PUT',
       body,
     });

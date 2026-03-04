@@ -23,7 +23,8 @@ export const getFileContent = defineTool({
     const query: Record<string, string | number | boolean | undefined> = {};
     if (params.ref) query.ref = params.ref;
 
-    const content = await apiRaw(`/repos/${params.owner}/${params.repo}/contents/${params.path}`, {
+    const encodedPath = params.path.split('/').map(encodeURIComponent).join('/');
+    const content = await apiRaw(`/repos/${params.owner}/${params.repo}/contents/${encodedPath}`, {
       query,
       accept: 'application/vnd.github.raw+json',
     });
