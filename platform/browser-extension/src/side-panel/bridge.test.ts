@@ -9,9 +9,7 @@ import {
   removePlugin,
   searchPlugins,
   sendConfirmationResponse,
-  setAllBrowserToolsPermission,
   setAllToolsPermission,
-  setBrowserToolPermission,
   setToolPermission,
   updatePlugin,
 } from './bridge.js';
@@ -135,39 +133,6 @@ describe('setAllToolsPermission', () => {
     expect(sendMessageCalls[0]?.message).toMatchObject({
       type: 'bg:setAllToolsPermission',
       plugin: 'datadog',
-      permission: 'off',
-    });
-  });
-});
-
-// --- setBrowserToolPermission ---
-
-describe('setBrowserToolPermission', () => {
-  test('sends bg:setBrowserToolPermission with correct params', async () => {
-    mockResponse = { ok: true };
-
-    await setBrowserToolPermission('screenshot', 'auto');
-
-    expect(sendMessageCalls).toHaveLength(1);
-    expect(sendMessageCalls[0]?.message).toEqual({
-      type: 'bg:setBrowserToolPermission',
-      tool: 'screenshot',
-      permission: 'auto',
-    });
-  });
-});
-
-// --- setAllBrowserToolsPermission ---
-
-describe('setAllBrowserToolsPermission', () => {
-  test('sends bg:setAllBrowserToolsPermission with correct params', async () => {
-    mockResponse = { ok: true };
-
-    await setAllBrowserToolsPermission('off');
-
-    expect(sendMessageCalls).toHaveLength(1);
-    expect(sendMessageCalls[0]?.message).toEqual({
-      type: 'bg:setAllBrowserToolsPermission',
       permission: 'off',
     });
   });

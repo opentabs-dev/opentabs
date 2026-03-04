@@ -121,18 +121,6 @@ const setToolPermission = (plugin: string, tool: string, permission: ToolPermiss
 const setAllToolsPermission = (plugin: string, permission: ToolPermission): Promise<unknown> =>
   sendBgMessage({ type: 'bg:setAllToolsPermission', plugin, permission });
 
-/** Set a subset of tools' permission for a plugin */
-const setToolsPermission = (plugin: string, tools: string[], permission: ToolPermission): Promise<unknown> =>
-  sendBgMessage({ type: 'bg:setToolsPermission', plugin, tools, permission });
-
-/** Set a browser tool's permission */
-const setBrowserToolPermission = (tool: string, permission: ToolPermission): Promise<unknown> =>
-  sendBgMessage({ type: 'bg:setBrowserToolPermission', tool, permission });
-
-/** Set all browser tools' permission in a single batch request */
-const setAllBrowserToolsPermission = (permission: ToolPermission): Promise<unknown> =>
-  sendBgMessage({ type: 'bg:setAllBrowserToolsPermission', permission });
-
 /** Search npm registry for plugins matching the given query */
 const searchPlugins = (query: string): Promise<{ results: PluginSearchResult[] }> =>
   sendBgMessage<{ results: PluginSearchResult[] }>({ type: 'bg:searchPlugins', query });
@@ -183,10 +171,7 @@ export {
   removePlugin,
   searchPlugins,
   sendConfirmationResponse,
-  setAllBrowserToolsPermission,
   setAllToolsPermission,
-  setBrowserToolPermission,
   setToolPermission,
-  setToolsPermission,
   updatePlugin,
 };

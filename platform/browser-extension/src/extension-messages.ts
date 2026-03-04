@@ -131,27 +131,6 @@ export interface BgSetAllToolsPermissionMessage {
   permission: ToolPermission;
 }
 
-/** Side panel → Background: set a subset of tools' permission for a plugin */
-export interface BgSetToolsPermissionMessage {
-  type: 'bg:setToolsPermission';
-  plugin: string;
-  tools: string[];
-  permission: ToolPermission;
-}
-
-/** Side panel → Background: set a browser tool's permission */
-export interface BgSetBrowserToolPermissionMessage {
-  type: 'bg:setBrowserToolPermission';
-  tool: string;
-  permission: ToolPermission;
-}
-
-/** Side panel → Background: set all browser tools' permission */
-export interface BgSetAllBrowserToolsPermissionMessage {
-  type: 'bg:setAllBrowserToolsPermission';
-  permission: ToolPermission;
-}
-
 /** Side panel → Background: search npm registry for plugins */
 export interface BgSearchPluginsMessage {
   type: 'bg:searchPlugins';
@@ -193,9 +172,6 @@ export type InternalMessage =
   | BgGetFullStateMessage
   | BgSetToolPermissionMessage
   | BgSetAllToolsPermissionMessage
-  | BgSetToolsPermissionMessage
-  | BgSetBrowserToolPermissionMessage
-  | BgSetAllBrowserToolsPermissionMessage
   | BgSearchPluginsMessage
   | BgInstallPluginMessage
   | BgRemovePluginMessage

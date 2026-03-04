@@ -6,7 +6,7 @@ import { ChevronDown } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { PluginState, WireToolDef } from '../bridge.js';
-import { matchesTool, setAllToolsPermission, setToolPermission, setToolsPermission } from '../bridge.js';
+import { matchesTool, setAllToolsPermission, setToolPermission } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
 import { PluginIcon } from './PluginIcon.js';
 import { PluginMenu } from './PluginMenu.js';
@@ -96,11 +96,7 @@ const PluginCard = ({
       preToggleRef.current = prev;
       return prev.map(t => (groupToolNames.has(t.name) ? { ...t, permission } : t));
     });
-    void setToolsPermission(
-      plugin.name,
-      groupTools.map(t => t.name),
-      permission,
-    ).catch(() => {
+    void Promise.all(groupTools.map(t => setToolPermission(plugin.name, t.name, permission))).catch(() => {
       if (toggleCounter.current === myVersion) {
         updatePluginTools(() => preToggleRef.current);
       }

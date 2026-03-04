@@ -26,7 +26,6 @@ const {
   mockGetLastKnownStates,
   mockLoadLastKnownStateFromSession,
   mockClearAllConfirmationBadges,
-  mockClearConfirmationBackgroundTimeout,
   mockClearConfirmationBadge,
   mockHandleServerMessage,
   mockNotifyDispatchProgress,
@@ -42,10 +41,6 @@ const {
   mockRemovePendingPluginToolUpdate,
   mockAddPendingPluginAllToolsUpdate,
   mockRemovePendingPluginAllToolsUpdate,
-  mockAddPendingBrowserToolUpdate,
-  mockRemovePendingBrowserToolUpdate,
-  mockAddPendingAllBrowserToolsUpdate,
-  mockRemovePendingAllBrowserToolsUpdate,
   mockGetPendingConfirmations,
 } = vi.hoisted(() => ({
   mockSendToServer: vi.fn<(data: unknown) => void>(),
@@ -55,7 +50,6 @@ const {
   mockGetLastKnownStates: vi.fn(() => new Map<string, string>()),
   mockLoadLastKnownStateFromSession: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockClearAllConfirmationBadges: vi.fn(),
-  mockClearConfirmationBackgroundTimeout: vi.fn(),
   mockClearConfirmationBadge: vi.fn(),
   mockHandleServerMessage: vi.fn(),
   mockNotifyDispatchProgress: vi.fn(),
@@ -85,10 +79,6 @@ const {
   mockRemovePendingPluginToolUpdate: vi.fn(),
   mockAddPendingPluginAllToolsUpdate: vi.fn(),
   mockRemovePendingPluginAllToolsUpdate: vi.fn(),
-  mockAddPendingBrowserToolUpdate: vi.fn(),
-  mockRemovePendingBrowserToolUpdate: vi.fn(),
-  mockAddPendingAllBrowserToolsUpdate: vi.fn(),
-  mockRemovePendingAllBrowserToolsUpdate: vi.fn(),
   mockGetPendingConfirmations: vi.fn<() => unknown[]>(() => []),
 }));
 
@@ -106,7 +96,6 @@ vi.mock('./tab-state.js', () => ({
 
 vi.mock('./confirmation-badge.js', () => ({
   clearAllConfirmationBadges: mockClearAllConfirmationBadges,
-  clearConfirmationBackgroundTimeout: mockClearConfirmationBackgroundTimeout,
   clearConfirmationBadge: mockClearConfirmationBadge,
   getPendingConfirmations: mockGetPendingConfirmations,
 }));
@@ -124,16 +113,12 @@ vi.mock('./plugin-storage.js', () => ({
 }));
 
 vi.mock('./server-state-cache.js', () => ({
-  addPendingAllBrowserToolsUpdate: mockAddPendingAllBrowserToolsUpdate,
-  addPendingBrowserToolUpdate: mockAddPendingBrowserToolUpdate,
   addPendingPluginAllToolsUpdate: mockAddPendingPluginAllToolsUpdate,
   addPendingPluginToolUpdate: mockAddPendingPluginToolUpdate,
   getCachesInitialized: mockGetCachesInitialized,
   getServerStateCache: mockGetServerStateCache,
   clearServerStateCache: mockClearServerStateCache,
   loadServerStateCacheFromSession: mockLoadServerStateCacheFromSession,
-  removePendingAllBrowserToolsUpdate: mockRemovePendingAllBrowserToolsUpdate,
-  removePendingBrowserToolUpdate: mockRemovePendingBrowserToolUpdate,
   removePendingPluginAllToolsUpdate: mockRemovePendingPluginAllToolsUpdate,
   removePendingPluginToolUpdate: mockRemovePendingPluginToolUpdate,
   updateServerStateCache: mockUpdateServerStateCache,
@@ -178,8 +163,6 @@ const {
   handleBgGetFullState,
   handleBgSetToolPermission,
   handleBgSetAllToolsPermission,
-  handleBgSetBrowserToolPermission,
-  handleBgSetAllBrowserToolsPermission,
   handleBgSearchPlugins,
   handleBgInstallPlugin,
   handleBgRemovePlugin,
@@ -505,21 +488,6 @@ describe('handleSpConfirmationResponse', () => {
     handleSpConfirmationResponse({ data: { id: 'conf-1', approved: true } }, () => {});
 
     expect(mockSendToServer).not.toHaveBeenCalled();
-  });
-
-  test('clears background timeout when data.id is a string', () => {
-    handleWsState({ connected: true }, () => {});
-    vi.clearAllMocks();
-
-    handleSpConfirmationResponse({ data: { id: 'conf-42' } }, () => {});
-
-    expect(mockClearConfirmationBackgroundTimeout).toHaveBeenCalledWith('conf-42');
-  });
-
-  test('does NOT call clearConfirmationBackgroundTimeout when data.id is not a string', () => {
-    handleSpConfirmationResponse({ data: { id: 99 } }, () => {});
-
-    expect(mockClearConfirmationBackgroundTimeout).not.toHaveBeenCalled();
   });
 
   test('always calls clearConfirmationBadge', () => {
@@ -1663,267 +1631,6 @@ describe('handleBgSetAllToolsPermission', () => {
     // Concurrent new plugin preserved
     expect(revertCall.plugins.find(p => p.name === 'github')).toBeDefined();
     expect(revertCall.plugins).toHaveLength(2);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// bg:setBrowserToolEnabled
-// ---------------------------------------------------------------------------
-
-describe('handleBgSetBrowserToolPermission', () => {
-  test('optimistically updates browser tool and calls sendServerRequest', async () => {
-    mockGetServerStateCache.mockReturnValue({
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', permission: 'auto' },
-        { name: 'console', description: 'Get console logs', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    });
-
-    mockSendServerRequest.mockResolvedValueOnce({ ok: true });
-
-    const sendResponse = vi.fn();
-    handleBgSetBrowserToolPermission({ tool: 'screenshot', permission: 'off' }, sendResponse);
-
-    expect(mockUpdateServerStateCache).toHaveBeenCalledOnce();
-    const updateCall = mockUpdateServerStateCache.mock.calls[0]?.[0] as {
-      browserTools: Array<{ name: string; permission: string }>;
-    };
-    expect(updateCall.browserTools.find(bt => bt.name === 'screenshot')?.permission).toBe('off');
-    expect(updateCall.browserTools.find(bt => bt.name === 'console')?.permission).toBe('auto');
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
-  });
-
-  test('reverts to exact pre-mutation state on server error', async () => {
-    // Browser tool starts off. Calling with permission: 'off' (same value) must revert
-    // to off, not flip to auto as a naive toggle approach would do.
-    mockGetServerStateCache.mockReturnValue({
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        {
-          name: 'screenshot',
-          description: 'Take a screenshot',
-          permission: 'off',
-        },
-        { name: 'console', description: 'Get console logs', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    });
-
-    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
-
-    const sendResponse = vi.fn();
-    handleBgSetBrowserToolPermission({ tool: 'screenshot', permission: 'off' }, sendResponse);
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-
-    // Should have been called twice: optimistic + revert
-    expect(mockUpdateServerStateCache).toHaveBeenCalledTimes(2);
-    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      browserTools: Array<{ name: string; permission: string }>;
-    };
-    // Must restore original permission: 'off', not flip to true
-    expect(revertCall.browserTools.find(bt => bt.name === 'screenshot')?.permission).toBe('off');
-    // Other tools are untouched in the captured original
-    expect(revertCall.browserTools.find(bt => bt.name === 'console')?.permission).toBe('auto');
-
-    expect(sendResponse).toHaveBeenCalledWith({ error: 'Server error' });
-  });
-
-  test('registers pending browser tool update and clears on success', async () => {
-    mockGetServerStateCache.mockReturnValue({
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [{ name: 'screenshot', description: 'Take a screenshot', permission: 'auto' }],
-      serverVersion: '1.0.0',
-    });
-
-    mockSendServerRequest.mockResolvedValueOnce({ ok: true });
-
-    const sendResponse = vi.fn();
-    handleBgSetBrowserToolPermission({ tool: 'screenshot', permission: 'off' }, sendResponse);
-
-    expect(mockAddPendingBrowserToolUpdate).toHaveBeenCalledWith('screenshot', 'off');
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-    expect(mockRemovePendingBrowserToolUpdate).toHaveBeenCalledWith('screenshot');
-  });
-
-  test('clears pending browser tool update on server error before reverting', async () => {
-    mockGetServerStateCache.mockReturnValue({
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [{ name: 'screenshot', description: 'Take a screenshot', permission: 'auto' }],
-      serverVersion: '1.0.0',
-    });
-
-    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
-
-    const sendResponse = vi.fn();
-    handleBgSetBrowserToolPermission({ tool: 'screenshot', permission: 'off' }, sendResponse);
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-    expect(mockRemovePendingBrowserToolUpdate).toHaveBeenCalledWith('screenshot');
-  });
-
-  test('rollback preserves concurrent updates and only reverts the target browser tool', async () => {
-    const initialCache = {
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', permission: 'auto' },
-        { name: 'console', description: 'Get console logs', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    };
-
-    // Concurrent update changes the 'console' tool's description and adds a new tool
-    const concurrentCache = {
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        {
-          name: 'screenshot',
-          description: 'Take a screenshot',
-          permission: 'off',
-        },
-        {
-          name: 'console',
-          description: 'Get console logs (updated)',
-          permission: 'off',
-        },
-        { name: 'network', description: 'Network monitor', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    };
-
-    mockGetServerStateCache.mockReturnValueOnce(initialCache).mockReturnValueOnce(concurrentCache);
-    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
-
-    const sendResponse = vi.fn();
-    handleBgSetBrowserToolPermission({ tool: 'screenshot', permission: 'off' }, sendResponse);
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-
-    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      browserTools: Array<{
-        name: string;
-        description: string;
-        permission: string;
-      }>;
-    };
-    // Target browser tool reverted to original permission value
-    expect(revertCall.browserTools.find(bt => bt.name === 'screenshot')?.permission).toBe('auto');
-    // Other browser tools untouched (from concurrent state)
-    expect(revertCall.browserTools.find(bt => bt.name === 'console')?.permission).toBe('off');
-    // Concurrent new tool preserved
-    expect(revertCall.browserTools.find(bt => bt.name === 'network')).toBeDefined();
-    expect(revertCall.browserTools).toHaveLength(3);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// bg:setAllBrowserToolsEnabled
-// ---------------------------------------------------------------------------
-
-describe('handleBgSetAllBrowserToolsPermission', () => {
-  test('optimistically updates all browser tools and calls sendServerRequest', async () => {
-    mockGetServerStateCache.mockReturnValue({
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', permission: 'auto' },
-        { name: 'console', description: 'Get console logs', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    });
-
-    mockSendServerRequest.mockResolvedValueOnce({ ok: true });
-
-    const sendResponse = vi.fn();
-    handleBgSetAllBrowserToolsPermission({ permission: 'off' }, sendResponse);
-
-    expect(mockUpdateServerStateCache).toHaveBeenCalledOnce();
-    const updateCall = mockUpdateServerStateCache.mock.calls[0]?.[0] as {
-      browserTools: Array<{ permission: string }>;
-    };
-    expect(updateCall.browserTools.every(bt => bt.permission === 'off')).toBe(true);
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-    expect(sendResponse).toHaveBeenCalledWith({ ok: true });
-  });
-
-  test('registers pending updates for all browser tools and clears on success', async () => {
-    mockGetServerStateCache.mockReturnValue({
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', permission: 'auto' },
-        { name: 'console', description: 'Get console logs', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    });
-
-    mockSendServerRequest.mockResolvedValueOnce({ ok: true });
-
-    const sendResponse = vi.fn();
-    handleBgSetAllBrowserToolsPermission({ permission: 'off' }, sendResponse);
-
-    expect(mockAddPendingAllBrowserToolsUpdate).toHaveBeenCalledWith(['screenshot', 'console'], 'off');
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-    expect(mockRemovePendingAllBrowserToolsUpdate).toHaveBeenCalledWith(['screenshot', 'console']);
-  });
-
-  test('rollback preserves concurrent updates and only reverts browser tool permission states', async () => {
-    const initialCache = {
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        { name: 'screenshot', description: 'Take a screenshot', permission: 'auto' },
-        { name: 'console', description: 'Get console logs', permission: 'off' },
-      ],
-      serverVersion: '1.0.0',
-    };
-
-    // Concurrent update adds a new browser tool
-    const concurrentCache = {
-      plugins: [],
-      failedPlugins: [],
-      browserTools: [
-        {
-          name: 'screenshot',
-          description: 'Take a screenshot',
-          permission: 'off',
-        },
-        { name: 'console', description: 'Get console logs', permission: 'off' },
-        { name: 'network', description: 'Network monitor', permission: 'auto' },
-      ],
-      serverVersion: '1.0.0',
-    };
-
-    mockGetServerStateCache.mockReturnValueOnce(initialCache).mockReturnValueOnce(concurrentCache);
-    mockSendServerRequest.mockRejectedValueOnce(new Error('Server error'));
-
-    const sendResponse = vi.fn();
-    handleBgSetAllBrowserToolsPermission({ permission: 'off' }, sendResponse);
-
-    await vi.waitFor(() => expect(sendResponse).toHaveBeenCalled());
-
-    const revertCall = mockUpdateServerStateCache.mock.calls[1]?.[0] as {
-      browserTools: Array<{ name: string; permission: string }>;
-    };
-    // Original tools reverted to their pre-toggle states
-    expect(revertCall.browserTools.find(bt => bt.name === 'screenshot')?.permission).toBe('auto');
-    expect(revertCall.browserTools.find(bt => bt.name === 'console')?.permission).toBe('off');
-    // Concurrent new tool preserved (no original state, keeps current value)
-    expect(revertCall.browserTools.find(bt => bt.name === 'network')?.permission).toBe('auto');
-    expect(revertCall.browserTools).toHaveLength(3);
   });
 });
 

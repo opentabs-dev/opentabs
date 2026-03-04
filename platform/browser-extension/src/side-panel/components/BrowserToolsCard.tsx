@@ -3,7 +3,7 @@ import * as AccordionPrimitive from '@radix-ui/react-accordion';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { BrowserToolState } from '../bridge.js';
-import { setAllBrowserToolsPermission, setBrowserToolPermission } from '../bridge.js';
+import { setAllToolsPermission, setToolPermission } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
 import { BrowserToolsMenu } from './BrowserToolsMenu.js';
 import { PluginIcon } from './PluginIcon.js';
@@ -80,7 +80,7 @@ const BrowserToolsCard = ({
       preToggleRef.current = prev;
       return prev.map(t => ({ ...t, permission }));
     });
-    void setAllBrowserToolsPermission(permission).catch(() => {
+    void setAllToolsPermission('browser', permission).catch(() => {
       if (toggleCounter.current === myVersion) {
         onToolsChange(() => preToggleRef.current);
       }
@@ -95,7 +95,7 @@ const BrowserToolsCard = ({
       preToggleRef.current = prev;
       return prev.map(t => (t.name === toolName ? { ...t, permission: newPermission } : t));
     });
-    void setBrowserToolPermission(toolName, newPermission).catch(() => {
+    void setToolPermission('browser', toolName, newPermission).catch(() => {
       if (toggleCounter.current === myVersion) {
         onToolsChange(() => preToggleRef.current);
       }
