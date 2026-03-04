@@ -66,18 +66,24 @@ No `workingDirectory` or `qualityChecks` — ralph uses the default suite.
 
 **For any standalone subproject you haven't seen before:** read its `package.json` scripts to determine which checks are available. Only include checks that the subproject actually defines. Common scripts to look for: `build`, `type-check`, `lint`, `knip`, `test`.
 
-### Acceptance Criteria Must Match the Target Project
+### Acceptance Criteria Must Be Behavioral, Not Mechanical
 
-Story acceptance criteria must reference the verification commands appropriate for the target project:
+Acceptance criteria describe **what the code should do** — not whether it compiles. Build, lint, type-check, and test commands are already enforced by `qualityChecks` and the worker's verification suite. Listing "npm run build passes" in every story is boilerplate that dilutes the actual criteria the worker should focus on.
 
-- **Root monorepo stories (`e2eCheckpoint: false`)**: `npm run build passes`, `npm run type-check passes`, `npm run lint passes`, `npm run knip passes`, `npm run test passes`
-- **Root monorepo stories (`e2eCheckpoint: true`)**: `npm run build passes`, `npm run type-check passes`, `npm run lint passes`, `npm run knip passes`, `npm run test passes`, `npm run test:e2e passes`
-- **Docs stories**: `cd docs && npm run build passes`, `cd docs && npm run type-check passes`, `cd docs && npm run lint passes`, `cd docs && npm run knip passes`, `cd docs && npm run format:check passes`
-- **Plugin stories**: `cd plugins/<name> && npm run build passes`, `cd plugins/<name> && npm run type-check passes`, `cd plugins/<name> && npm run lint passes`, `cd plugins/<name> && npm run format:check passes`
+**Good acceptance criteria:**
 
-Each standalone subproject also has `npm run check` as a single command that runs all its checks in sequence. Use the explicit list for `qualityChecks` (debuggability), but `npm run check` is a convenient alternative for acceptance criteria shorthand.
+- `parseConfigRecord reads record.permissions, not record.plugins`
+- `savePluginPermissions writes 'permissions' key to JSON output`
+- `Legacy migration blocks for tools/browserToolPolicy are deleted`
+- `No references to 'skipConfirmation' remain in platform/mcp-server/src/`
 
-Do NOT list checks that the target project doesn't have scripts for.
+**Bad acceptance criteria (do not include these):**
+
+- `npm run build passes` — already enforced by qualityChecks
+- `npm run type-check passes` — already enforced
+- `All tests pass` — already enforced
+- `Works correctly` — not verifiable
+- `Handles edge cases` — not specific
 
 ### Notes Must Use Repo-Root-Relative Paths
 
@@ -105,9 +111,10 @@ Multiple PRDs can be `~running` simultaneously (one per worker). This skill writ
 2. **Determine the target project** (see "Identifying the Target Project" above)
 3. Ask 3-5 essential clarifying questions (with lettered options) if the request is ambiguous — do NOT ask about story size (always small) or single-vs-multiple PRDs (AI decides)
 4. **Validate scope** — for quality/refactoring tasks, read the code and discard any candidate stories that are subjective preferences rather than genuine issues
-5. **Decide PRD structure** — split into multiple PRDs if the work divides cleanly into independent groups (see "Single vs Multiple PRDs"); keep as one PRD if stories are tightly coupled
-6. Generate PRD file(s) with `~draft` suffix and NO timestamp in the queue repo
-7. Publish: run `producer.sh` to rename with timestamp, commit, and push to remote
+5. **Read the code** — before writing any story notes, read every file the stories will touch. Collect actual function names, actual code snippets, and exhaustive file lists. This research goes directly into the notes. See "Notes: The Highest-Leverage Field" for the required structure.
+6. **Decide PRD structure** — split into multiple PRDs if the work divides cleanly into independent groups (see "Single vs Multiple PRDs"); keep as one PRD if stories are tightly coupled
+7. Generate PRD file(s) with `~draft` suffix and NO timestamp in the queue repo
+8. Publish: run `producer.sh` to rename with timestamp, commit, and push to remote
 
 **Important:** Do NOT start implementing. Just create and publish the PRD file(s). Distributed workers will claim them from the remote queue.
 
@@ -206,18 +213,25 @@ Before including a story, verify ALL four:
 
 If you find **zero genuine issues** after validation, that is a valid outcome. Do not manufacture stories to fill a quota.
 
-### Story notes for quality fixes
+---
 
-Every story that fixes a quality issue must include notes that help the agent avoid introducing regressions:
+## Step 4: Read the Code
 
-- **Describe the root cause**, not just the symptom. The agent needs to understand _why_ the current code is wrong.
-- **Identify related code paths.** If the same pattern exists in multiple places, mention all of them.
-- **Call out invariants.** If fixing this issue requires preserving a specific behavior, state it explicitly.
-- **Warn about traps.** If there is an obvious wrong fix that would seem correct but would break something, say so.
+**This step is mandatory for all tasks** — features, refactoring, bug fixes, migrations.
+
+Before writing any story's notes, read every file that the stories will touch. The goal is to collect concrete, quotable information that goes directly into the notes:
+
+1. **Identify every file** that each planned story must modify
+2. **Read each file** — find the actual function names, actual code snippets, actual identifiers
+3. **Quote the current code** in your notes — the worker will grep for these snippets
+4. **Identify negative constraints** — what must NOT change, what invariants must be preserved
+5. **Spot traps** — non-obvious interactions, naming collisions, subtle dependencies the worker wouldn't know about
+
+The research you do here is the raw material for the notes. If you skip this step, your notes will be vague ("update the config function") instead of precise (`change const plugins = parsePluginsConfig(record.plugins) to const permissions = parsePluginsConfig(record.permissions)`), and the worker will waste its first iteration re-discovering what you already know.
 
 ---
 
-## Step 4: Generate PRD File
+## Step 5: Generate PRD File
 
 ### File Naming
 
@@ -229,7 +243,7 @@ prd-objective-slug~draft.json
 
 Written to the queue repo (e.g., `~/workspace/src/opentabs-prds/prd-improve-sdk-error-handling~draft.json`).
 
-**Do NOT put a timestamp in the draft filename.** The timestamp is added by `producer.sh` at publish time (Step 5). This prevents timestamp inaccuracies from AI model clock drift.
+**Do NOT put a timestamp in the draft filename.** The timestamp is added by `producer.sh` at publish time (Step 6). This prevents timestamp inaccuracies from AI model clock drift.
 
 Keep the objective slug to 3-5 words max.
 
@@ -237,25 +251,24 @@ Keep the objective slug to 3-5 words max.
 
 1. **Write** the PRD to `<queue-repo>/prd-objective-slug~draft.json` (no timestamp)
 2. **Verify** the JSON is valid: `python3 -c "import json,sys; json.load(open(sys.argv[1])); print('Valid')" <queue-repo>/prd-objective-slug~draft.json`
-3. **Publish** via `producer.sh` (see Step 5)
+3. **Publish** via `producer.sh` (see Step 6)
 
 ### PRD Format
 
 ```json
 {
   "project": "[Project Name]",
-  "description": "[What this batch of work accomplishes]",
+  "description": "[What this batch of work accomplishes — serves as a contract: after all stories pass, what is true about the codebase that wasn't before?]",
   "workingDirectory": "[Optional — subdirectory for standalone subprojects, e.g. 'docs' or 'plugins/slack'. Omit for root monorepo.]",
   "qualityChecks": "[Optional — shell command for verification. Omit for root monorepo to use default suite.]",
   "userStories": [
     {
       "id": "US-001",
       "title": "[Story title]",
-      "description": "As a [user], I want [feature] so that [benefit]",
+      "description": "[Direct statement of what code to change and why]",
       "acceptanceCriteria": [
-        "Specific verifiable criterion",
-        "Another criterion",
-        "[verification commands matching the target project]"
+        "Specific behavioral criterion (not build/lint commands)",
+        "Another verifiable criterion"
       ],
       "priority": 1,
       "passes": false,
@@ -269,6 +282,7 @@ Keep the objective slug to 3-5 words max.
 
 **Fields:**
 
+- `description` (string): A direct statement of what code to change and why. Do NOT use the "As a [user], I want [feature] so that [benefit]" template — workers are autonomous agents, not product managers. Write a concise description of the change: `"Rename the 'plugins' config key to 'permissions' in OpentabsConfig, parseConfigRecord, and savePluginPermissions."` not `"As a platform developer, I want the config key renamed so that the schema is clearer."`
 - `workingDirectory` (optional): The subdirectory containing the target project, relative to the repo root (e.g., `"docs"`, `"plugins/slack"`). Omit for root monorepo work. The ralph agent uses this to know which project's conventions and CLAUDE.md to read.
 - `qualityChecks` (optional): A shell command string that overrides the default verification suite. Must match the target project's available scripts. Omit for root monorepo work — the ralph agent uses two-phase verification: Phase 1 (fast checks) always runs, Phase 2 (including `test:e2e`) runs only at `e2eCheckpoint` stories.
 - `passes`: MUST be the boolean `false`, not `null` or omitted. Ralph checks `passes == false` to find incomplete stories.
@@ -277,7 +291,7 @@ Keep the objective slug to 3-5 words max.
 
 ---
 
-## Step 5: Publish (via producer.sh)
+## Step 6: Publish (via producer.sh)
 
 After writing and validating the PRD, publish it using `producer.sh` in the queue repo:
 
@@ -377,23 +391,76 @@ When creating multiple independent PRDs, merge conflicts are the main risk. Ralp
 
 ### Acceptance Criteria: Must Be Verifiable
 
-Each criterion must be something the agent can CHECK, not something vague.
+Each criterion must be something the agent can CHECK — by reading code, grepping for identifiers, or checking command output. Never write vague criteria.
 
-**Good:** "saveConfig call includes secret field", "z.number() params have .min(1)", "Dropdown shows 3 options"
+**Good:** `saveConfig call includes secret field`, `z.number() params have .min(1)`, `No references to 'oldName' remain in src/`
 **Bad:** "Works correctly", "Handles edge cases", "Good UX"
 
-**Always include the verification suite** as the final acceptance criteria for every story, using commands that match the target project (see "Acceptance Criteria Must Match the Target Project" above). For root monorepo stories with `e2eCheckpoint: false`, list only the fast checks (build, type-check, lint, knip, test) — do not list `npm run test:e2e`. For `e2eCheckpoint: true` stories, include `npm run test:e2e` as well.
+**Do NOT include build/test/lint commands in acceptance criteria.** Those checks are already enforced automatically by the worker's verification suite (`qualityChecks` or the default phase-based suite). Including them in every story wastes tokens and obscures the behavioral criteria that actually matter.
 
-### Notes Field
+### Notes: The Highest-Leverage Field
 
-Use the `notes` field to give the agent implementation hints:
+Notes are the single biggest determinant of whether a worker succeeds in one iteration or wastes three. The worker starts a fresh AI session with zero memory of your research — **if you researched the codebase to plan the story, put everything you learned into the notes.** The worker cannot see your research.
 
-- Which file and approximate line number to edit
-- What the current code looks like
-- What pattern to follow
-- What gotchas to watch for
+**Before writing any story's notes, read the files that story will modify.** This applies to all tasks — features, refactoring, bug fixes, migrations. Use actual identifiers, actual function names, and actual code content. Do not guess from memory.
 
-Good notes dramatically increase success rate per iteration.
+#### Required Structure
+
+Every story's notes must follow this structure:
+
+```
+Files:
+- path/to/file.ts (what changes here)
+- path/to/other.ts (what changes here)
+
+Context:
+[Why this change is needed, how the current code works]
+
+Changes:
+[Specific changes to make, with quoted current code]
+
+Constraints:
+[What NOT to change, invariants to preserve]
+```
+
+#### What Good Notes Contain
+
+- **An exhaustive file list.** Every file the worker must modify, with a parenthetical explaining what changes in each. If you say "update all consumers" but don't list them, the worker will miss some.
+- **Quoted current code.** Not "around line 221" — the actual line content: `const plugins = parsePluginsConfig(record.plugins);`. Line numbers drift across stories in the same PRD. A quoted snippet is grep-able and unambiguous.
+- **Before/after examples.** For mechanical changes, show a before/after for at least one instance. The worker pattern-matches from there.
+- **Explicit negative constraints.** What the worker must NOT change. Example: "Do NOT rename `state.pluginPermissions` — only the config JSON key changes." Workers over-apply renames unless told where to stop.
+- **Related code the worker should read but not modify.** If understanding function X is necessary to correctly modify function Y, say so.
+- **Trap warnings.** If there's an obvious wrong approach that would seem correct, call it out: "Do NOT add a legacy fallback — this is a hard rename with no backwards compatibility."
+
+---
+
+## Why Stories Fail
+
+These are the most common reasons workers waste iterations. Avoid them by writing better PRDs.
+
+### 1. Vague notes force the worker to re-discover the codebase
+
+The planner already read the code, found the relevant files, identified the functions to change. But the notes say "update the config parsing function" instead of quoting the actual code. The worker spends its first 5 minutes reading files the planner already read. Fix: dump your research into the notes.
+
+### 2. "Update all X" without an exhaustive list
+
+The notes say "update all consumers of config.plugins" but don't list them. The worker finds 8 out of 12 and the build breaks. Fix: always enumerate every file that must change.
+
+### 3. Missing negative constraints cause over-eager changes
+
+A rename story says "rename plugins to permissions" and the worker also renames the unrelated `state.pluginPermissions` field, breaking the entire server. Fix: explicitly state what must NOT change.
+
+### 4. Story is too broad for one iteration
+
+The story says "refactor the permission system" — a 15-file change. The worker makes partial progress, hits the iteration limit, and leaves the codebase in a half-migrated state. Fix: split into smaller stories.
+
+### 5. Acceptance criteria are vague or mechanical
+
+Criteria like "works correctly" or "npm run build passes" give the worker no signal about what to verify behaviorally. The worker thinks it's done when the build passes, but the actual requirement (e.g., "legacy migration blocks are deleted") was never checked. Fix: write specific behavioral criteria.
+
+### 6. No trap warnings for non-obvious gotchas
+
+The codebase has a subtle invariant the worker doesn't know about (e.g., "the old `permissions` key with `trustedDomains` is a different thing that also gets parsed here"). The worker introduces a collision or regression. Fix: warn about every non-obvious interaction.
 
 ---
 
@@ -524,7 +591,7 @@ No story touches browser behavior, so no E2E checkpoints are needed mid-PRD. Ral
 
 ---
 
-## Step 6: Confirm and Monitor
+## Step 7: Confirm and Monitor
 
 After publishing the PRD file, tell the user:
 
@@ -552,23 +619,37 @@ PRD and progress files in a worker's local `.ralph/` directory (inside the code 
 
 ## Checklist Before Publishing
 
+### Structure
 - [ ] **No cross-PRD dependencies in the publish batch** — if PRD-B depends on PRD-A landing first, only publish PRD-A now; leave PRD-B as `~draft`
 - [ ] **Target project identified** — determined whether this is root monorepo, docs, or a plugin
 - [ ] PRD is in the queue repo root (e.g., `~/workspace/src/opentabs-prds/`)
 - [ ] **`workingDirectory` set** if targeting a standalone subproject (omitted for root monorepo)
 - [ ] **`qualityChecks` set** if targeting a standalone subproject (omitted for root monorepo)
 - [ ] **`qualityChecks` matches the subproject's actual available scripts** (verified by reading its `package.json`)
-- [ ] **Acceptance criteria use the correct project's verification commands** (not the root monorepo's commands for a subproject, or vice versa)
-- [ ] Each story completable in one iteration
+
+### Stories
+- [ ] Each story completable in one iteration (1-3 files)
 - [ ] Stories ordered by dependency (no story depends on a later story)
-- [ ] Acceptance criteria are verifiable (not vague)
-- [ ] Notes field has implementation hints for non-trivial stories
-- [ ] Notes use repo-root-relative file paths
+- [ ] `description` uses direct statements, not "As a [user]" template
 - [ ] `passes` field is boolean `false` for every story
-- [ ] `model` field is set on every story — `"opus"` by default, `"sonnet"` only for purely mechanical tasks (see "Model Selection")
-- [ ] `e2eCheckpoint` field is set on every story (`false` for standalone subprojects; see "E2E Checkpoint Strategy" for root monorepo)
-- [ ] **For root monorepo PRDs that touch browser behavior: the final story has `e2eCheckpoint: true`** and checkpoints are placed at logical group boundaries
-- [ ] **For root monorepo PRDs with no browser-observable changes: all stories can be `e2eCheckpoint: false`** (ralph's safety net runs E2E after completion)
+- [ ] `model` field is set on every story — `"opus"` by default, `"sonnet"` only for purely mechanical tasks
+- [ ] `e2eCheckpoint` field is set on every story (`false` for standalone subprojects)
+- [ ] **For root monorepo PRDs that touch browser behavior: the final story has `e2eCheckpoint: true`**
+- [ ] **For root monorepo PRDs with no browser-observable changes: all stories can be `e2eCheckpoint: false`**
+
+### Acceptance Criteria
+- [ ] Every criterion is behavioral and verifiable (not "works correctly")
+- [ ] No build/lint/test commands in criteria (enforced automatically by qualityChecks)
+
+### Notes Quality (the highest-leverage check)
+- [ ] **Code was read before writing notes** — actual function names, actual code snippets, not guesses
+- [ ] **Every note has a `Files:` section** listing every file the worker must modify
+- [ ] **Quoted current code** in notes — not "around line 221" but the actual content
+- [ ] **Explicit negative constraints** — what must NOT change
+- [ ] **Trap warnings** for non-obvious gotchas and wrong approaches
+- [ ] All file paths are repo-root-relative
+
+### Publish
 - [ ] JSON is valid
 - [ ] File written with `~draft` suffix and NO timestamp in filename
 - [ ] Published via `producer.sh` (handles timestamp, commit, and push atomically)
