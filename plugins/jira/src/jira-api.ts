@@ -1,4 +1,4 @@
-import { ToolError } from '@opentabs-dev/plugin-sdk';
+import { parseRetryAfterMs, ToolError } from '@opentabs-dev/plugin-sdk';
 
 interface JiraAuth {
   accountId: string;
@@ -63,12 +63,6 @@ export const waitForAuth = (): Promise<boolean> =>
     }, interval);
   });
 
-export const getAccountId = (): string => {
-  const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please log in to Jira.');
-  return auth.accountId;
-};
-
 export const api = async <T>(
   endpoint: string,
   options: {
@@ -120,7 +114,7 @@ export const api = async <T>(
     const errorBody = (await response.text().catch(() => '')).substring(0, 512);
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const retryMs = retryAfter ? Number(retryAfter) * 1000 : undefined;
+      const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
       throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`, retryMs);
     }
     if (response.status === 401 || response.status === 403)
