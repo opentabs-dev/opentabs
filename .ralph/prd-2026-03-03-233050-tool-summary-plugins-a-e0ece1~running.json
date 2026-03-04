@@ -35,7 +35,7 @@
         "cd plugins/discord && npm run format:check passes"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "e2eCheckpoint": false,
       "model": "opus",
       "notes": "Edit all 19 files in `plugins/discord/src/tools/`. Same pattern as Slack. Examples:\n\n- `send-message.ts`: `summary: 'Send a message to a channel'`\n- `read-messages.ts`: `summary: 'Read recent messages from a channel'`\n- `list-guilds.ts`: `summary: 'List servers the user belongs to'`\n- `create-thread.ts`: `summary: 'Create a new thread'`\n- `search-messages.ts`: `summary: 'Search messages in a server'`\n- `list-channels.ts`: `summary: 'List channels in a server'`"
