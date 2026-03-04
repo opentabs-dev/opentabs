@@ -168,6 +168,33 @@ body {
   animation: activity-fade-out 0.5s ease-out forwards;
 }
 
+@keyframes activity-border-flash {
+  0%,
+  100% {
+    border-color: var(--primary);
+  }
+  50% {
+    border-color: var(--border);
+  }
+}
+
+.animate-activity-border-flash {
+  animation: activity-border-flash 0.4s ease-in-out infinite;
+}
+
+@keyframes activity-border-fade-out {
+  from {
+    border-color: var(--primary);
+  }
+  to {
+    border-color: var(--border);
+  }
+}
+
+.animate-activity-border-fade-out {
+  animation: activity-border-fade-out 0.5s ease-out forwards;
+}
+
 /* Hide native number input spinner — replaced by custom chevron buttons */
 .hide-number-spinner::-webkit-outer-spin-button,
 .hide-number-spinner::-webkit-inner-spin-button {

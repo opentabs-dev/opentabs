@@ -1,5 +1,4 @@
 import type { TabState } from '@opentabs-dev/shared';
-import { ArrowUp } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { sanitizeSvg } from '../../sanitize-svg.js';
 import { cn } from '../lib/cn.js';
@@ -58,7 +57,6 @@ interface PluginIconProps {
   pluginName: string;
   displayName: string;
   tabState?: TabState;
-  hasUpdate?: boolean;
   size?: number;
   className?: string;
   iconSvg?: string;
@@ -67,74 +65,6 @@ interface PluginIconProps {
   iconDarkInactiveSvg?: string;
   active?: boolean;
 }
-
-/**
- * Priority-based status indicator positioned at the bottom-right of the icon.
- * Priority: closed = nothing, unavailable = yellow dot, ready+update = ArrowUp icon, ready = green dot.
- * When active is true and state is ready (no update), the dot flashes with HDD-style activity animation.
- * When active transitions to false, the dot soft-fades out over 500ms.
- */
-const StatusIndicator = ({
-  tabState,
-  hasUpdate,
-  size,
-  active = false,
-}: {
-  tabState: TabState;
-  hasUpdate: boolean;
-  size: number;
-  active?: boolean;
-}) => {
-  const prevActiveRef = useRef(false);
-  const [fadingOut, setFadingOut] = useState(false);
-
-  useEffect(() => {
-    const wasActive = prevActiveRef.current;
-    prevActiveRef.current = active;
-    if (!wasActive || active) return;
-    const startTimer = setTimeout(() => setFadingOut(true), 0);
-    const endTimer = setTimeout(() => setFadingOut(false), 500);
-    return () => {
-      clearTimeout(startTimer);
-      clearTimeout(endTimer);
-    };
-  }, [active]);
-
-  if (tabState === 'closed') return null;
-
-  const dotSize = Math.max(8, Math.round(size * 0.3));
-
-  if (tabState === 'unavailable') {
-    return (
-      <div
-        className="absolute rounded-full border-2 border-card bg-primary"
-        style={{ width: dotSize, height: dotSize, bottom: -2, right: -2 }}
-      />
-    );
-  }
-
-  if (hasUpdate) {
-    const iconSize = Math.max(6, Math.round(dotSize * 0.6));
-    return (
-      <div
-        className="absolute flex items-center justify-center rounded-full border-2 border-card bg-accent"
-        style={{ width: dotSize, height: dotSize, bottom: -2, right: -2 }}>
-        <ArrowUp className="text-accent-foreground" style={{ width: iconSize, height: iconSize }} strokeWidth={3} />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        'absolute rounded-full border-2 border-card bg-success',
-        active && 'animate-activity-flash',
-        fadingOut && !active && 'animate-activity-fade-out',
-      )}
-      style={{ width: dotSize, height: dotSize, bottom: -2, right: -2 }}
-    />
-  );
-};
 
 /**
  * Sanitizes rawSvg for rendering, returning undefined and logging a warning if sanitizeSvg throws.
@@ -150,11 +80,22 @@ const tryGetSanitizedSvg = (rawSvg: string | undefined, pluginName: string): str
   }
 };
 
+/**
+ * Returns border classes for the icon container based on tab state and activity.
+ * Ready + idle: solid border. Ready + active: pulsing yellow border. Ready + fading out: fading border.
+ * Not ready (unavailable/closed): faded ghost border.
+ */
+const getBorderClasses = (tabState: TabState, active: boolean, fadingOut: boolean): string => {
+  if (tabState !== 'ready') return 'border-2 border-border/30';
+  if (active) return 'border-2 animate-activity-border-flash';
+  if (fadingOut) return 'border-2 animate-activity-border-fade-out';
+  return 'border-2 border-border';
+};
+
 const PluginIcon = ({
   pluginName,
   displayName,
   tabState = 'closed',
-  hasUpdate = false,
   size = 32,
   className = '',
   iconSvg,
@@ -163,6 +104,21 @@ const PluginIcon = ({
   iconDarkInactiveSvg,
   active = false,
 }: PluginIconProps) => {
+  const prevActiveRef = useRef(false);
+  const [fadingOut, setFadingOut] = useState(false);
+
+  useEffect(() => {
+    const wasActive = prevActiveRef.current;
+    prevActiveRef.current = active;
+    if (!wasActive || active) return;
+    const startTimer = setTimeout(() => setFadingOut(true), 0);
+    const endTimer = setTimeout(() => setFadingOut(false), 500);
+    return () => {
+      clearTimeout(startTimer);
+      clearTimeout(endTimer);
+    };
+  }, [active]);
+
   const isReady = tabState === 'ready';
   const hasSvg = !!iconSvg;
   const isDark = useIsDark();
@@ -171,12 +127,13 @@ const PluginIcon = ({
   const rawSvg = isReady ? activeSvg : inactiveSvg;
   const svgToRender = tryGetSanitizedSvg(rawSvg, pluginName);
   const innerSize = Math.round(size * 0.6);
+  const borderClasses = getBorderClasses(tabState, active, fadingOut);
 
   if (hasSvg && svgToRender) {
     return (
-      <div className={`relative shrink-0 ${className}`} style={{ width: size, height: size }}>
+      <div className={`shrink-0 ${className}`} style={{ width: size, height: size }}>
         <div
-          className="flex h-full w-full items-center justify-center rounded border-2 border-border"
+          className={cn('flex h-full w-full items-center justify-center rounded', borderClasses)}
           style={{ width: size, height: size }}>
           <div
             className="overflow-hidden"
@@ -184,7 +141,6 @@ const PluginIcon = ({
             dangerouslySetInnerHTML={{ __html: svgToRender }}
           />
         </div>
-        <StatusIndicator tabState={tabState} hasUpdate={hasUpdate} size={size} active={active} />
       </div>
     );
   }
@@ -193,9 +149,9 @@ const PluginIcon = ({
   const fontSize = Math.round(size * 0.55);
 
   return (
-    <div className={`relative shrink-0 ${className}`} style={{ width: size, height: size }}>
+    <div className={`shrink-0 ${className}`} style={{ width: size, height: size }}>
       <div
-        className="flex h-full w-full items-center justify-center rounded border-2 border-border"
+        className={cn('flex h-full w-full items-center justify-center rounded', borderClasses)}
         style={{
           width: size,
           height: size,
@@ -205,7 +161,6 @@ const PluginIcon = ({
           {letter}
         </span>
       </div>
-      <StatusIndicator tabState={tabState} hasUpdate={hasUpdate} size={size} active={active} />
     </div>
   );
 };
