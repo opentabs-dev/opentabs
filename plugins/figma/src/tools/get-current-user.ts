@@ -8,6 +8,7 @@ export const getCurrentUser = defineTool({
   name: 'get_current_user',
   displayName: 'Get Current User',
   description: 'Get the profile of the currently authenticated Figma user',
+  summary: 'Get the current user profile',
   icon: 'user',
   group: 'Users',
   input: z.object({}),

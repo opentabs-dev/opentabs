@@ -8,6 +8,7 @@ export const getTeamInfo = defineTool({
   name: 'get_team_info',
   displayName: 'Get Team Info',
   description: 'Get detailed information about a specific Figma team',
+  summary: 'Get details about a team',
   icon: 'info',
   group: 'Teams',
   input: z.object({

@@ -8,6 +8,7 @@ export const updateFile = defineTool({
   name: 'update_file',
   displayName: 'Update File',
   description: 'Update a Figma file — currently supports renaming and updating the description',
+  summary: 'Update a file name or description',
   icon: 'pencil',
   group: 'Files',
   input: z.object({

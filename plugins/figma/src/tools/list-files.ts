@@ -8,6 +8,7 @@ export const listFiles = defineTool({
   name: 'list_files',
   displayName: 'List Files',
   description: 'List files in a Figma folder or project. Use the folder_id from team roles or project info.',
+  summary: 'List files in a folder or project',
   icon: 'folder',
   group: 'Files',
   input: z.object({
