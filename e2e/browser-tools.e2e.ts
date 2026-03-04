@@ -805,6 +805,95 @@ test.describe('browser_execute_script', () => {
     await mcpClient.callTool('browser_close_tab', { tabId: tabId2 });
   });
 
+  test('await expression returns resolved value', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: 'return await Promise.resolve("async-value")',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    const value = data.value as Record<string, unknown>;
+    expect(value.value).toBe('async-value');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('multiple sequential await expressions', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: 'const a = await Promise.resolve(1); const b = await Promise.resolve(2); return a + b',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    const value = data.value as Record<string, unknown>;
+    expect(value.value).toBe(3);
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('await fetch returns HTTP status', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: 'const r = await fetch(window.location.href); return r.status',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    const value = data.value as Record<string, unknown>;
+    expect(value.value).toBe(200);
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('await rejected Promise captures error', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: 'return await Promise.reject("async-fail")',
+    });
+    expect(result.isError).toBe(false);
+
+    const data = parseToolResult(result.content);
+    const value = data.value as Record<string, unknown>;
+    expect(value).toHaveProperty('error');
+    expect(value.error).toContain('async-fail');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
   test('large result is serialized and truncated', async ({
     mcpServer,
     testServer,
