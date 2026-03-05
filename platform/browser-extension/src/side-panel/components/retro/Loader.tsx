@@ -9,6 +9,7 @@ const loaderVariants = cva('flex gap-1', {
       default: '[&>div]:bg-primary [&>div]:border-border',
       secondary: '[&>div]:bg-secondary [&>div]:border-border',
       outline: '[&>div]:bg-transparent [&>div]:border-border',
+      muted: '[&>div]:bg-muted-foreground [&>div]:border-muted-foreground',
     },
     size: {
       sm: '[&>div]:w-2 [&>div]:h-2',

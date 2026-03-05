@@ -42,6 +42,10 @@ const ConnectionRefusedState = () => {
         <code className="rounded border-2 border-destructive/40 bg-destructive/10 px-3 py-2 font-mono text-sm">
           {command}
         </code>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader size="sm" variant="muted" />
+          <span className="text-xs">Reconnecting...</span>
+        </div>
       </Empty.Content>
     </Empty>
   );
