@@ -470,6 +470,12 @@ const App = () => {
                   removingPlugins={removingPlugins}
                   pluginErrors={pluginErrors}
                 />
+                {plugins.length === 0 && failedPlugins.length === 0 && (
+                  <div className="py-8 text-center">
+                    <p className="font-head text-muted-foreground text-sm">No plugins installed</p>
+                    <p className="mt-1 text-muted-foreground text-xs">Search to discover and install plugins</p>
+                  </div>
+                )}
               </>
             ) : null}
           </main>
