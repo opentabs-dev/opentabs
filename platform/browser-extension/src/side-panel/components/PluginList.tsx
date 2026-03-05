@@ -130,15 +130,13 @@ const PluginList = ({
     );
   }, []);
 
-  // Persist accordion state to chrome.storage.session (debounced)
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Persist accordion state to chrome.storage.session on every change.
+  // Writes immediately (no debounce) so state is flushed before the page
+  // can close — chrome.storage.session.set() is async and cannot reliably
+  // complete during unmount/beforeunload.
   useEffect(() => {
     if (filterLower) return;
-    clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      chrome.storage.session.set({ [ACCORDION_STORAGE_KEY]: { openReady, openNotReady } }).catch(() => {});
-    }, 300);
-    return () => clearTimeout(debounceTimer.current);
+    chrome.storage.session.set({ [ACCORDION_STORAGE_KEY]: { openReady, openNotReady } }).catch(() => {});
   }, [openReady, openNotReady, filterLower]);
 
   useEffect(() => {
