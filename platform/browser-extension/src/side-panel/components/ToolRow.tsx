@@ -37,7 +37,15 @@ const PermissionSelect = ({
     </Select.Trigger>
     <Select.Content className="font-mono font-semibold text-xs">
       {(['off', 'ask', 'auto'] as const).map(p => (
-        <Select.Item key={p} value={p}>
+        <Select.Item
+          key={p}
+          value={p}
+          onPointerUp={() => {
+            // Radix Select's onValueChange doesn't fire when re-selecting the
+            // current value. Fire the callback explicitly so that re-selecting
+            // the plugin-level default clears per-tool overrides.
+            if (p === value) onValueChange(p);
+          }}>
           {PERMISSION_LABELS[p]}
         </Select.Item>
       ))}
