@@ -12,10 +12,12 @@ interface PluginMenuProps {
   onRemove: () => void;
   updating: boolean;
   removing: boolean;
+  /** Use muted icon color (for inactive/disconnected plugins). */
+  muted?: boolean;
   className?: string;
 }
 
-const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, className }: PluginMenuProps) => {
+const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, muted, className }: PluginMenuProps) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isLocal = plugin.source === 'local';
@@ -40,7 +42,7 @@ const PluginMenu = ({ plugin, onUpdate, onRemove, updating, removing, className 
             type="button"
             className="relative flex h-6 w-6 items-center justify-center rounded hover:bg-muted/50"
             aria-label="Plugin options">
-            <MoreHorizontal className="h-4 w-4" />
+            <MoreHorizontal className={`h-4 w-4 ${muted ? 'text-muted-foreground' : ''}`} />
             {plugin.update && (
               <div className="absolute top-0 right-0 h-1.5 w-1.5 rounded-full border border-background bg-primary" />
             )}

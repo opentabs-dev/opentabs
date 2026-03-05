@@ -14,16 +14,22 @@ const PermissionSelect = ({
   value,
   onValueChange,
   disabled,
+  muted,
   ariaLabel,
 }: {
   value: ToolPermission;
   onValueChange: (value: ToolPermission) => void;
   disabled: boolean;
+  /** Use muted border and text colors (for inactive/disconnected plugins). */
+  muted?: boolean;
   ariaLabel: string;
 }) => (
   <Select value={value} onValueChange={(v: string) => onValueChange(v as ToolPermission)}>
     <Select.Trigger
-      className="h-6 w-[4.5rem] min-w-0 px-1.5 py-0 font-mono text-xs shadow-none focus:shadow-none"
+      className={cn(
+        'h-6 w-[4.5rem] min-w-0 px-1.5 py-0 font-mono text-xs shadow-none focus:shadow-none',
+        muted && 'border-border/50 text-muted-foreground',
+      )}
       onClick={(e: React.MouseEvent) => e.stopPropagation()}
       disabled={disabled}
       aria-label={ariaLabel}>
@@ -47,6 +53,7 @@ const ToolRow = ({
   icon,
   permission,
   active,
+  muted,
   disabled,
   onPermissionChange,
 }: {
@@ -58,6 +65,8 @@ const ToolRow = ({
   icon: string;
   permission: ToolPermission;
   active: boolean;
+  /** Use muted text colors (for inactive/disconnected plugins). */
+  muted?: boolean;
   disabled?: boolean;
   onPermissionChange: (tool: string, permission: ToolPermission) => void;
 }) => {
@@ -74,7 +83,9 @@ const ToolRow = ({
       <Tooltip>
         <Tooltip.Trigger asChild>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-foreground text-sm">{displayName}</div>
+            <div className={`truncate text-sm ${muted ? 'text-muted-foreground' : 'text-foreground'}`}>
+              {displayName}
+            </div>
             <div className="truncate text-muted-foreground text-xs">{displayDescription}</div>
           </div>
         </Tooltip.Trigger>
@@ -85,6 +96,7 @@ const ToolRow = ({
           value={permission}
           onValueChange={p => onPermissionChange(name, p)}
           disabled={disabled ?? false}
+          muted={muted}
           ariaLabel={`Permission for ${name} tool`}
         />
       </div>

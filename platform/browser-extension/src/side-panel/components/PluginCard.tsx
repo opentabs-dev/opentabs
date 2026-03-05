@@ -140,6 +140,8 @@ const PluginCard = ({
     }
   }
 
+  const inactive = plugin.tabState !== 'ready';
+
   return (
     <Accordion.Item
       value={plugin.name}
@@ -147,7 +149,7 @@ const PluginCard = ({
         transitionClass ??
         (removingPlugin
           ? 'pointer-events-none opacity-60 transition-opacity'
-          : plugin.tabState !== 'ready'
+          : inactive
             ? 'opacity-70 transition-opacity'
             : undefined)
       }>
@@ -171,7 +173,8 @@ const PluginCard = ({
             </Tooltip.Trigger>
             <Tooltip.Content>v{plugin.version}</Tooltip.Content>
           </Tooltip>
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate font-head text-foreground text-sm">
+          <div
+            className={`flex min-w-0 flex-1 items-center gap-1.5 truncate font-head text-sm ${inactive ? 'text-muted-foreground' : 'text-foreground'}`}>
             {plugin.displayName}
             {plugin.source === 'local' && (
               <Badge variant="default" size="sm" className="align-middle">
@@ -200,7 +203,9 @@ const PluginCard = ({
               </Tooltip>
             )}
           </div>
-          <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${inactive ? 'text-muted-foreground' : ''}`}
+          />
         </AccordionPrimitive.Trigger>
         <PluginMenu
           plugin={plugin}
@@ -208,6 +213,7 @@ const PluginCard = ({
           onRemove={onRemove ?? (() => undefined)}
           updating={updatingPlugin ?? false}
           removing={removingPlugin ?? false}
+          muted={inactive}
           className="flex shrink-0 items-center px-1"
         />
         <div className="flex shrink-0 items-center px-3">
@@ -215,6 +221,7 @@ const PluginCard = ({
             value={plugin.permission}
             onValueChange={handlePluginPermissionChange}
             disabled={false}
+            muted={inactive}
             ariaLabel={`Permission for ${plugin.name} plugin`}
           />
         </div>
@@ -253,6 +260,7 @@ const PluginCard = ({
                     icon={tool.icon}
                     permission={tool.permission}
                     active={activeTools.has(`${plugin.name}:${tool.name}`)}
+                    muted={inactive}
                     onPermissionChange={handleToolPermissionChange}
                   />
                 ))}
@@ -268,6 +276,7 @@ const PluginCard = ({
                 icon={tool.icon}
                 permission={tool.permission}
                 active={activeTools.has(`${plugin.name}:${tool.name}`)}
+                muted={inactive}
                 onPermissionChange={handleToolPermissionChange}
               />
             ))}
