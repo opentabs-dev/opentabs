@@ -3,9 +3,34 @@
  * CORS/Origin protection, concurrency limits, rate limiting, and more.
  */
 
+import fs from 'node:fs';
 import http from 'node:http';
-import { cleanupTestConfigDir, createTestConfigDir, expect, startMcpServer, test } from './fixtures.js';
-import { parseToolResult, setupToolTest } from './helpers.js';
+import path from 'node:path';
+import type { BrowserContext } from '@playwright/test';
+import { test as base } from '@playwright/test';
+import type { McpClient, McpServer } from './fixtures.js';
+import {
+  cleanupTestConfigDir,
+  createMcpClient,
+  createTestConfigDir,
+  expect,
+  fetchWsInfo,
+  launchExtensionContext,
+  readTestConfig,
+  startMcpServer,
+  symlinkCrossPlatform,
+  test,
+  writeTestConfig,
+} from './fixtures.js';
+import {
+  openSidePanel,
+  parseToolResult,
+  setupAdapterSymlink,
+  setupToolTest,
+  waitForExtensionConnected,
+  waitForExtensionDisconnected,
+  waitForLog,
+} from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helper: HTTP request with custom Host header
@@ -265,4 +290,127 @@ test.describe('Per-plugin concurrency limit', () => {
 
     await page.close();
   });
+});
+
+// ---------------------------------------------------------------------------
+// US-004: Extension disconnect during pending ask confirmation
+// ---------------------------------------------------------------------------
+
+// Custom fixture: MCP server without skipPermissions so 'ask' is respected.
+interface AskPermissionFixtures {
+  mcpServer: McpServer;
+  extensionContext: BrowserContext;
+  mcpClient: McpClient;
+}
+
+const askTest = base.extend<AskPermissionFixtures>({
+  mcpServer: async ({ browserName: _ }, use) => {
+    const configDir = createTestConfigDir();
+    const server = await startMcpServer(configDir, true, undefined, {
+      OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '',
+    });
+    try {
+      await use(server);
+    } finally {
+      await server.kill();
+      cleanupTestConfigDir(configDir);
+    }
+  },
+
+  extensionContext: async ({ mcpServer }, use) => {
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(mcpServer.port, mcpServer.secret);
+    setupAdapterSymlink(mcpServer.configDir, extensionDir);
+
+    const serverAuthJson = path.join(mcpServer.configDir, 'extension', 'auth.json');
+    const extensionAuthJson = path.join(extensionDir, 'auth.json');
+    fs.rmSync(extensionAuthJson, { force: true });
+    symlinkCrossPlatform(serverAuthJson, extensionAuthJson, 'file');
+
+    await use(context);
+    await context.close();
+    try {
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+    } catch {
+      // best-effort cleanup
+    }
+  },
+
+  mcpClient: async ({ mcpServer }, use) => {
+    const client = createMcpClient(mcpServer.port, mcpServer.secret);
+    await client.initialize();
+    await use(client);
+    await client.close();
+  },
+});
+
+askTest.describe('Extension disconnect during pending ask confirmation', () => {
+  askTest(
+    'disconnecting extension while confirmation is pending returns error quickly',
+    async ({ mcpServer, extensionContext, mcpClient }) => {
+      // Set browser tools to 'ask' permission and reload
+      const config = readTestConfig(mcpServer.configDir);
+      config.permissions = { browser: { permission: 'ask' } };
+      writeTestConfig(mcpServer.configDir, config);
+
+      mcpServer.logs.length = 0;
+      mcpServer.triggerHotReload();
+      await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+      await waitForExtensionConnected(mcpServer);
+      await waitForLog(mcpServer, 'tab.syncAll received');
+
+      // Open the side panel so the confirmation dialog can appear
+      const sidePanel = await openSidePanel(extensionContext);
+
+      // Start the tool call (triggers confirmation dialog) and concurrently
+      // disconnect the extension before responding to the dialog.
+      const start = Date.now();
+      const [result] = await Promise.all([
+        mcpClient.callTool('browser_list_tabs', {}, { timeout: 35_000 }),
+        (async () => {
+          // Wait for the confirmation dialog to appear in the side panel —
+          // this confirms the server has registered a pending confirmation.
+          await sidePanel.locator('[role="dialog"]').waitFor({ state: 'visible', timeout: 15_000 });
+
+          // Disconnect the extension by stealing its WebSocket slot with a fake client.
+          // This triggers rejectAllPendingConfirmations on the server.
+          mcpServer.logs.length = 0;
+          const { wsUrl, wsSecret } = await fetchWsInfo(mcpServer.port, mcpServer.secret);
+          const protocols = ['opentabs'];
+          if (wsSecret) protocols.push(wsSecret);
+          const fakeWs = protocols.length > 1 ? new WebSocket(wsUrl, protocols) : new WebSocket(wsUrl);
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+            fakeWs.onopen = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+            fakeWs.onerror = () => {
+              clearTimeout(timer);
+              reject(new Error('WebSocket connect failed'));
+            };
+          });
+
+          // Wait for server to recognize the replacement, then close the fake WS
+          try {
+            await waitForLog(mcpServer, 'Closing previous extension WebSocket', 5_000);
+          } finally {
+            fakeWs.close();
+          }
+          await waitForExtensionDisconnected(mcpServer, 5_000);
+        })(),
+      ]);
+      const elapsed = Date.now() - start;
+
+      // The MCP client should receive an error about the extension not being connected
+      expect(result.isError).toBe(true);
+      expect(result.content).toContain('requires approval but the extension is not connected');
+
+      // The error should arrive quickly — well under the 30s dispatch timeout
+      expect(elapsed).toBeLessThan(15_000);
+
+      // Wait for the real extension to reconnect for clean teardown
+      await waitForExtensionConnected(mcpServer, 45_000);
+    },
+  );
 });
