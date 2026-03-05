@@ -19,6 +19,7 @@ import type { WsHandle } from '@opentabs-dev/shared';
 import { toErrorMessage } from '@opentabs-dev/shared';
 import { savePluginPermissions } from './config.js';
 import { isDev } from './dev-mode.js';
+import { buildConfigStatePayload, sendToExtension } from './extension-handlers.js';
 import type { McpCallbacks } from './extension-protocol.js';
 import {
   handleExtensionMessage,
@@ -526,6 +527,28 @@ const handleMcp = async (
   return new Response('Method not allowed', { status: 405 });
 };
 
+/** Dev-only: set outdated plugins for E2E testing (POST /__test/set-outdated) */
+const handleTestSetOutdated = async (req: Request, state: ServerState): Promise<Response> => {
+  if (!isDev()) return new Response('Not Found', { status: 404 });
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+
+  const body = (await req.json()) as { outdatedPlugins?: unknown[] };
+  if (!Array.isArray(body.outdatedPlugins)) {
+    return Response.json({ ok: false, error: 'Missing outdatedPlugins array' }, { status: 400 });
+  }
+
+  state.outdatedPlugins = body.outdatedPlugins as typeof state.outdatedPlugins;
+
+  sendToExtension(state, {
+    jsonrpc: '2.0',
+    method: 'plugins.changed',
+    params: { ...buildConfigStatePayload(state) },
+  });
+
+  return Response.json({ ok: true });
+};
+
 // --- Main router ---
 
 const createHandleFetch =
@@ -563,6 +586,7 @@ const createHandleFetch =
     if (url.pathname === '/reload' && req.method === 'POST')
       return handleReload(req, state, sessionServers, transports);
     if (url.pathname === '/extension/reload' && req.method === 'POST') return handleExtensionReload(req, state);
+    if (url.pathname === '/__test/set-outdated' && req.method === 'POST') return handleTestSetOutdated(req, state);
     if (url.pathname === '/mcp') return handleMcp(req, server, state, transports, sessionServers);
 
     return new Response('Not Found', { status: 404 });
