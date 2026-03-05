@@ -27,7 +27,7 @@ const PermissionSelect = ({
   <Select value={value} onValueChange={(v: string) => onValueChange(v as ToolPermission)}>
     <Select.Trigger
       className={cn(
-        'h-6 w-[4.5rem] min-w-0 px-1.5 py-0 font-mono text-xs shadow-none focus:shadow-none',
+        'h-6 w-[4.5rem] min-w-0 px-1.5 py-0 font-mono font-semibold text-xs shadow-none focus:shadow-none',
         muted && 'border-border/50 text-muted-foreground',
       )}
       onClick={(e: React.MouseEvent) => e.stopPropagation()}
@@ -35,7 +35,7 @@ const PermissionSelect = ({
       aria-label={ariaLabel}>
       <Select.Value />
     </Select.Trigger>
-    <Select.Content className="font-mono text-xs">
+    <Select.Content className="font-mono font-semibold text-xs">
       {(['off', 'ask', 'auto'] as const).map(p => (
         <Select.Item key={p} value={p}>
           {PERMISSION_LABELS[p]}
