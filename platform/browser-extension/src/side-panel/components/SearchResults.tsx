@@ -18,6 +18,7 @@ interface SearchResultsProps {
   toolFilter: string;
   npmResults: PluginSearchResult[];
   npmSearching: boolean;
+  npmSearchError?: boolean;
   installingPlugins: Set<string>;
   onInstall: (name: string) => void;
   installErrors: Map<string, string>;
@@ -50,6 +51,7 @@ const SearchResults = ({
   toolFilter,
   npmResults,
   npmSearching,
+  npmSearchError,
   installingPlugins,
   onInstall,
   installErrors,
@@ -83,7 +85,8 @@ const SearchResults = ({
   const availableResults = npmResults.filter(r => !installedShortNames.has(extractShortName(r.name)));
 
   const hasInstalledResults = installedMatches.length > 0 || failedMatches.length > 0 || hasBrowserToolMatches;
-  const showNoResults = toolFilter && !hasInstalledResults && !npmSearching && availableResults.length === 0;
+  const showNoResults =
+    toolFilter && !hasInstalledResults && !npmSearching && !npmSearchError && availableResults.length === 0;
 
   return (
     <div className="space-y-4">
@@ -124,6 +127,8 @@ const SearchResults = ({
           <div className="flex justify-center py-4">
             <Loader size="sm" />
           </div>
+        ) : npmSearchError ? (
+          <div className="py-4 text-center text-muted-foreground text-sm">Search failed</div>
         ) : (
           availableResults.length > 0 && (
             <div>

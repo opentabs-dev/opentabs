@@ -50,6 +50,7 @@ const App = () => {
   const [pendingConfirmations, setPendingConfirmations] = useState<ConfirmationData[]>([]);
   const [npmResults, setNpmResults] = useState<PluginSearchResult[]>([]);
   const [npmSearching, setNpmSearching] = useState(false);
+  const [npmSearchError, setNpmSearchError] = useState(false);
   const [installingPlugins, setInstallingPlugins] = useState<Set<string>>(new Set());
   const [removingPlugins, setRemovingPlugins] = useState<Set<string>>(new Set());
   const [installErrors, setInstallErrors] = useState<Map<string, string>>(new Map());
@@ -131,6 +132,7 @@ const App = () => {
     if (!query.trim()) {
       setNpmResults([]);
       setNpmSearching(false);
+      setNpmSearchError(false);
       return;
     }
     setNpmSearching(true);
@@ -140,11 +142,13 @@ const App = () => {
         .then(result => {
           if (npmSearchCounter.current === searchId) {
             setNpmResults(result.results);
+            setNpmSearchError(false);
           }
         })
         .catch(() => {
           if (npmSearchCounter.current === searchId) {
             setNpmResults([]);
+            setNpmSearchError(true);
           }
         })
         .finally(() => {
@@ -309,6 +313,7 @@ const App = () => {
           clearTimeout(npmSearchTimer.current);
           setNpmResults([]);
           setNpmSearching(false);
+          setNpmSearchError(false);
           setInstallingPlugins(new Set());
           setRemovingPlugins(new Set());
           setInstallErrors(new Map());
@@ -390,6 +395,7 @@ const App = () => {
               {searchQuery && (
                 <button
                   type="button"
+                  aria-label="Clear search"
                   onClick={() => handleSearchChange('')}
                   className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
@@ -425,6 +431,7 @@ const App = () => {
                 toolFilter={searchQuery}
                 npmResults={npmResults}
                 npmSearching={npmSearching}
+                npmSearchError={npmSearchError}
                 installingPlugins={installingPlugins}
                 onInstall={handleInstall}
                 installErrors={installErrors}
@@ -469,6 +476,12 @@ const App = () => {
                   removingPlugins={removingPlugins}
                   pluginErrors={pluginErrors}
                 />
+                {plugins.length === 0 && failedPlugins.length === 0 && (
+                  <div className="py-8 text-center">
+                    <p className="font-head text-muted-foreground text-sm">No plugins installed</p>
+                    <p className="mt-1 text-muted-foreground text-xs">Search to discover and install plugins</p>
+                  </div>
+                )}
               </>
             ) : null}
           </main>

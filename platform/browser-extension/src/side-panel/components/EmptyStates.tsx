@@ -42,6 +42,10 @@ const ConnectionRefusedState = () => {
         <code className="rounded border-2 border-destructive/40 bg-destructive/10 px-3 py-2 font-mono text-sm">
           {command}
         </code>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader size="sm" variant="muted" />
+          <span className="text-xs">Reconnecting...</span>
+        </div>
       </Empty.Content>
     </Empty>
   );
@@ -67,6 +71,11 @@ const DisconnectedState = ({ reason }: { reason?: DisconnectReason }) => {
   return <ConnectionRefusedState />;
 };
 
-const LoadingState = () => <Loader size="md" />;
+const LoadingState = () => (
+  <div className="flex flex-col items-center gap-3">
+    <Loader size="md" />
+    <span className="font-sans text-muted-foreground text-sm">Connecting...</span>
+  </div>
+);
 
 export { DisconnectedState, LoadingState };
