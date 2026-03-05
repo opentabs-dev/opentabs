@@ -595,6 +595,81 @@ test.describe('Confirmation dialog — late side panel open', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tests — Confirmation dialog — multiple pending confirmations
+// ---------------------------------------------------------------------------
+
+test.describe('Confirmation dialog — multiple pending', () => {
+  test('prev/next navigation works with two concurrent ask confirmations', async ({
+    mcpServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const config = readTestConfig(mcpServer.configDir);
+    config.permissions = { browser: { permission: 'ask' } };
+    writeTestConfig(mcpServer.configDir, config);
+
+    mcpServer.logs.length = 0;
+    mcpServer.triggerHotReload();
+    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+
+    const sw = await getBackgroundWorker(extensionContext);
+    const sidePanel = await openSidePanel(extensionContext);
+
+    const [result1, result2] = await Promise.all([
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 60_000 }),
+      mcpClient.callTool('browser_list_tabs', {}, { timeout: 60_000 }),
+      (async () => {
+        // Wait for badge to show '2' (both confirmations arrived)
+        await waitFor(async () => (await getBadgeText(sw)) === '2', 15_000, 200, 'badge text === "2"');
+
+        await waitForConfirmationDialog(sidePanel);
+        const dialog = sidePanel.locator('[role="dialog"]');
+
+        // Dialog should show '1 of 2'
+        await expect(dialog.getByText('1 of 2')).toBeVisible();
+
+        // Prev should be disabled at index 0, next should be enabled
+        const prevBtn = dialog.getByRole('button', { name: 'prev' });
+        const nextBtn = dialog.getByRole('button', { name: 'next' });
+        await expect(prevBtn).toBeDisabled();
+        await expect(nextBtn).toBeEnabled();
+
+        // Navigate to second confirmation
+        await nextBtn.click();
+        await expect(dialog.getByText('2 of 2')).toBeVisible();
+        await expect(prevBtn).toBeEnabled();
+        await expect(nextBtn).toBeDisabled();
+
+        // Navigate back to first
+        await prevBtn.click();
+        await expect(dialog.getByText('1 of 2')).toBeVisible();
+
+        // Allow the first confirmation
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+
+        // After allowing one, only 1 remains — no 'X of Y' counter shown
+        await expect(dialog.getByText('of')).toBeHidden({ timeout: 5_000 });
+
+        // Badge should show '1'
+        await waitFor(async () => (await getBadgeText(sw)) === '1', 10_000, 200, 'badge text === "1"');
+
+        // Allow the remaining confirmation
+        await sidePanel.getByRole('button', { name: 'Allow' }).click();
+
+        // Badge should clear
+        await waitFor(async () => (await getBadgeText(sw)) === '', 10_000, 200, 'badge text === ""');
+      })(),
+    ]);
+
+    expect(result1.isError).toBe(false);
+    expect(result2.isError).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Tests — Tool description prefixes in tools/list
 // ---------------------------------------------------------------------------
 
