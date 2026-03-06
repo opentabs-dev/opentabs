@@ -70,5 +70,17 @@ const MultipleConfirmations: Story = {
   },
 };
 
+const DarkMode: Story = {
+  args: {
+    confirmations: [mockConfirmation()],
+  },
+  decorators: [
+    Story => {
+      document.documentElement.classList.add('dark');
+      return Story();
+    },
+  ],
+};
+
 export default meta;
-export { SingleConfirmation, WithParams, BrowserTool, MultipleConfirmations };
+export { SingleConfirmation, WithParams, BrowserTool, MultipleConfirmations, DarkMode };

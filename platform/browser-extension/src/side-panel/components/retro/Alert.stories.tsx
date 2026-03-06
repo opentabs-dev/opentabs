@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { ThemeGrid } from '../storybook-helpers';
 import { Alert } from './Alert';
 
 const meta: Meta<typeof Alert> = { title: 'Retro/Alert', component: Alert };
@@ -54,5 +55,22 @@ const AllStatuses: Story = {
   ),
 };
 
+const ThemePair: Story = {
+  render: () => (
+    <ThemeGrid>
+      <div className="flex flex-col gap-3">
+        <Alert status="error">
+          <Alert.Title>Error</Alert.Title>
+          <Alert.Description>Something went wrong.</Alert.Description>
+        </Alert>
+        <Alert status="success">
+          <Alert.Title>Success</Alert.Title>
+          <Alert.Description>Done.</Alert.Description>
+        </Alert>
+      </div>
+    </ThemeGrid>
+  ),
+};
+
 export default meta;
-export { ErrorStory, Success, Warning, Info, AllStatuses };
+export { ErrorStory, Success, Warning, Info, AllStatuses, ThemePair };

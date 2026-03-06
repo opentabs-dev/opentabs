@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { ThemeGrid } from '../storybook-helpers';
 import { Button } from './Button';
 
 const meta: Meta<typeof Button> = {
@@ -39,5 +40,17 @@ const AllVariants: Story = {
   ),
 };
 
+const ThemePair: Story = {
+  render: () => (
+    <ThemeGrid>
+      <div className="flex flex-col gap-2">
+        <Button variant="default">Primary</Button>
+        <Button variant="secondary">Secondary</Button>
+        <Button variant="outline">Outline</Button>
+      </div>
+    </ThemeGrid>
+  ),
+};
+
 export default meta;
-export { Primary, Secondary, Outline, Link, Ghost, Small, Large, Disabled, AllVariants };
+export { Primary, Secondary, Outline, Link, Ghost, Small, Large, Disabled, AllVariants, ThemePair };

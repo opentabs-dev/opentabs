@@ -2,6 +2,7 @@ import type { ToolPermission } from '@opentabs-dev/shared';
 import type { Meta, StoryObj } from '@storybook/react';
 import { useState } from 'react';
 import { expect, screen, userEvent, within } from 'storybook/test';
+import { darkVars, lightVars } from './storybook-helpers';
 import { ToolRow } from './ToolRow';
 
 const meta: Meta<typeof ToolRow> = {
@@ -167,5 +168,52 @@ const ToolList: Story = {
   },
 };
 
+const ThemePair: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-muted-foreground text-xs">Light</span>
+        <div style={lightVars}>
+          <ToolRow
+            name="send_message"
+            displayName="Send Message"
+            description="Send a message to a channel"
+            icon="send"
+            permission="auto"
+            active={false}
+            onPermissionChange={() => {}}
+          />
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-muted-foreground text-xs">Dark</span>
+        <div style={darkVars}>
+          <ToolRow
+            name="send_message"
+            displayName="Send Message"
+            description="Send a message to a channel"
+            icon="send"
+            permission="auto"
+            active={false}
+            onPermissionChange={() => {}}
+          />
+        </div>
+      </div>
+    </div>
+  ),
+};
+
 export default meta;
-export { Off, Ask, Auto, Active, Disabled, LongDescription, WithSummary, WithoutSummary, Interactive, ToolList };
+export {
+  Off,
+  Ask,
+  Auto,
+  Active,
+  Disabled,
+  LongDescription,
+  WithSummary,
+  WithoutSummary,
+  Interactive,
+  ToolList,
+  ThemePair,
+};

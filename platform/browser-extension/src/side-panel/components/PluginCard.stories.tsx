@@ -4,6 +4,7 @@ import { expect, screen, userEvent, within } from 'storybook/test';
 import type { PluginState } from '../bridge';
 import { PluginCard } from './PluginCard';
 import { Accordion } from './retro/Accordion';
+import { darkVars, lightVars } from './storybook-helpers';
 
 const mockPlugin = (overrides?: Partial<PluginState>): PluginState => ({
   name: 'slack',
@@ -617,6 +618,36 @@ const UnreviewedWithDialog: Story = {
   render: () => <UnreviewedOffDemo />,
 };
 
+const ThemePairDemo = () => {
+  const [plugins, setPlugins] = useState([mockPlugin()]);
+  const plugin = plugins[0];
+  if (!plugin) return null;
+  return <PluginCard plugin={plugin} activeTools={new Set()} setPlugins={setPlugins} />;
+};
+
+const ThemePair: Story = {
+  render: () => (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-muted-foreground text-xs">Light</span>
+        <div style={lightVars}>
+          <Accordion type="multiple" defaultValue={['slack']}>
+            <ThemePairDemo />
+          </Accordion>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="font-mono text-muted-foreground text-xs">Dark</span>
+        <div style={darkVars}>
+          <Accordion type="multiple" defaultValue={['slack']}>
+            <ThemePairDemo />
+          </Accordion>
+        </div>
+      </div>
+    </div>
+  ),
+};
+
 export default meta;
 export {
   Ready,
@@ -637,4 +668,5 @@ export {
   Reviewed,
   Unreviewed,
   UnreviewedWithDialog,
+  ThemePair,
 };
