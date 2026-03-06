@@ -25,7 +25,9 @@ export const getEvent = defineTool({
         platform: z.string().describe('Platform (e.g., python, javascript)'),
         date_created: z.string().describe('ISO 8601 timestamp when the event occurred'),
         context: z.string().describe('JSON string of the event context data'),
-        tags: z.array(z.object({ key: z.string(), value: z.string() })).describe('Event tags'),
+        tags: z
+          .array(z.object({ key: z.string().describe('Tag key'), value: z.string().describe('Tag value') }))
+          .describe('Event tags'),
         entries: z.string().describe('JSON string of event entries (exception, breadcrumbs, request, etc.)'),
       })
       .describe('Full event details'),

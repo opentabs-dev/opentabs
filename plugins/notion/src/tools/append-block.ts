@@ -31,14 +31,14 @@ export const appendBlock = defineTool({
   icon: 'plus-square',
   group: 'Blocks',
   input: z.object({
-    parent_id: z.string().describe('Page or block ID to append content to'),
+    parent_id: z.string().min(1).describe('Page or block ID to append content to'),
     type: z
       .enum(VALID_BLOCK_TYPES)
       .optional()
       .describe(
         'Block type: text, header, sub_header, sub_sub_header, bulleted_list, numbered_list, to_do, toggle, quote, callout, divider, code (default: text)',
       ),
-    content: z.string().describe('Text content of the block'),
+    content: z.string().min(1).describe('Text content of the block'),
     after_id: z.string().optional().describe('Block ID to insert after. If omitted, appends at the end.'),
   }),
   output: z.object({

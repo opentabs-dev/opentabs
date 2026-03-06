@@ -20,9 +20,12 @@ export const searchIssues = defineTool({
       .describe(
         'Search query using Sentry search syntax (e.g., "is:unresolved", "assigned:me", "level:error"). Defaults to "is:unresolved"',
       ),
-    project: z.array(z.number()).optional().describe('Array of project IDs to filter by. Omit to search all projects'),
+    project: z
+      .array(z.number().describe('Project ID'))
+      .optional()
+      .describe('Array of project IDs to filter by. Omit to search all projects'),
     environment: z
-      .array(z.string())
+      .array(z.string().describe('Environment name'))
       .optional()
       .describe('Environment names to filter by (e.g., ["production", "staging"])'),
     sort: z

@@ -15,7 +15,7 @@ export const getBlockChildren = defineTool({
   icon: 'list-tree',
   group: 'Blocks',
   input: z.object({
-    block_id: z.string().describe('Block or page ID (UUID) to get children of'),
+    block_id: z.string().min(1).describe('Block or page ID (UUID) to get children of'),
   }),
   output: z.object({
     children: z.array(blockSchema).describe('Child blocks'),

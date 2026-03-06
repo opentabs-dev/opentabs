@@ -11,9 +11,9 @@ export const editMessage = defineTool({
   icon: 'pencil',
   group: 'Messages',
   input: z.object({
-    channel: z.string().describe('Channel ID where the message is located'),
-    message_id: z.string().describe('ID of the message to edit'),
-    content: z.string().describe('New message text content'),
+    channel: z.string().min(1).describe('Channel ID where the message is located'),
+    message_id: z.string().min(1).describe('ID of the message to edit'),
+    content: z.string().min(1).describe('New message text content'),
   }),
   output: z.object({
     message: messageSchema.describe('The edited message'),

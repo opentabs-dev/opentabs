@@ -11,8 +11,8 @@ export const sendMessage = defineTool({
   icon: 'send',
   group: 'Messages',
   input: z.object({
-    channel: z.string().describe('Channel ID to send the message to'),
-    content: z.string().describe('Message text content'),
+    channel: z.string().min(1).describe('Channel ID to send the message to'),
+    content: z.string().min(1).describe('Message text content'),
     reply_to: z.string().optional().describe('Message ID to reply to (creates a threaded reply)'),
   }),
   output: z.object({

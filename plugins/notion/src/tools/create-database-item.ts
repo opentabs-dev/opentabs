@@ -15,8 +15,8 @@ export const createDatabaseItem = defineTool({
   icon: 'table-rows-split',
   group: 'Databases',
   input: z.object({
-    database_id: z.string().describe('Database (collection) ID to add a row to'),
-    title: z.string().describe('Title for the new row'),
+    database_id: z.string().min(1).describe('Database (collection) ID to add a row to'),
+    title: z.string().min(1).describe('Title for the new row'),
     properties: z
       .record(z.string(), z.string())
       .optional()
@@ -57,9 +57,19 @@ export const createDatabaseItem = defineTool({
           ([, prop]) => (prop.name as string)?.toLowerCase() === propName.toLowerCase(),
         );
         if (schemaEntry) {
-          const [propId] = schemaEntry;
+          const [propId, propDef] = schemaEntry;
           if (propId !== 'title') {
-            blockProperties[propId] = [[propValue]];
+            const propType = (propDef.type as string) ?? 'text';
+
+            if (propType === 'select' || propType === 'multi_select') {
+              const options = (propDef.options as Array<{ id?: string; value?: string }>) ?? [];
+              const match = options.find(o => (o.value ?? '').toLowerCase() === propValue.toLowerCase());
+              blockProperties[propId] = match?.id ? [[propValue, [['a', match.id]]]] : [[propValue]];
+            } else if (propType === 'checkbox') {
+              blockProperties[propId] = [[propValue === 'true' || propValue === 'Yes' ? 'Yes' : 'No']];
+            } else {
+              blockProperties[propId] = [[propValue]];
+            }
           }
         }
       }

@@ -18,6 +18,7 @@ export const getDatabase = defineTool({
   input: z.object({
     database_id: z
       .string()
+      .min(1)
       .describe('Database (collection) ID. You can find this from a collection_view or collection_view_page block.'),
   }),
   output: z.object({

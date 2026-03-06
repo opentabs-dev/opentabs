@@ -12,7 +12,7 @@ export const searchMessages = defineTool({
   icon: 'search',
   group: 'Messages',
   input: z.object({
-    guild_id: z.string().describe('Guild (server) ID to search in'),
+    guild_id: z.string().min(1).describe('Guild (server) ID to search in'),
     content: z.string().optional().describe('Text content to search for'),
     author_id: z.string().optional().describe('Filter by author user ID'),
     channel_id: z.string().optional().describe('Filter by channel ID'),

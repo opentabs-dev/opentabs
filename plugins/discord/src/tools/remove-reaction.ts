@@ -10,9 +10,12 @@ export const removeReaction = defineTool({
   icon: 'frown',
   group: 'Reactions',
   input: z.object({
-    channel: z.string().describe('Channel ID where the message is located'),
-    message_id: z.string().describe('Message ID to remove reaction from'),
-    emoji: z.string().describe('Emoji to remove — use Unicode emoji (e.g., "👍") or custom emoji format "name:id"'),
+    channel: z.string().min(1).describe('Channel ID where the message is located'),
+    message_id: z.string().min(1).describe('Message ID to remove reaction from'),
+    emoji: z
+      .string()
+      .min(1)
+      .describe('Emoji to remove — use Unicode emoji (e.g., "👍") or custom emoji format "name:id"'),
   }),
   output: z.object({}),
   handle: async params => {

@@ -14,7 +14,7 @@ export const listReleases = defineTool({
   group: 'Releases',
   input: z.object({
     project: z
-      .array(z.number())
+      .array(z.number().describe('Project ID'))
       .optional()
       .describe('Filter by project IDs (use list_projects to find IDs). Omit to list all releases'),
     query: z.string().optional().describe('Filter releases by version string (partial match)'),

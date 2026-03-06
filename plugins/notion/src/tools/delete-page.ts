@@ -14,7 +14,7 @@ export const deletePage = defineTool({
   icon: 'trash-2',
   group: 'Pages',
   input: z.object({
-    page_id: z.string().describe('Page ID (UUID) to delete/archive'),
+    page_id: z.string().min(1).describe('Page ID (UUID) to delete/archive'),
   }),
   output: z.object({
     deleted: z.boolean().describe('Whether the page was successfully archived'),

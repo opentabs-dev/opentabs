@@ -1,4 +1,4 @@
-import { ToolError } from '@opentabs-dev/plugin-sdk';
+import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
 
 // --- Auth ---
 
@@ -202,7 +202,7 @@ export const sentryApi = async <T>(
 
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const retryMs = retryAfter ? Number(retryAfter) * 1000 : undefined;
+      const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
       throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`, retryMs);
     }
     if (response.status === 401 || response.status === 403) {

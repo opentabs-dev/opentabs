@@ -69,7 +69,9 @@ export const eventSchema = z.object({
   message: z.string().describe('Event message'),
   platform: z.string().describe('Platform (e.g., python, javascript)'),
   date_created: z.string().describe('ISO 8601 timestamp when the event occurred'),
-  tags: z.array(z.object({ key: z.string(), value: z.string() })).describe('Event tags'),
+  tags: z
+    .array(z.object({ key: z.string().describe('Tag key'), value: z.string().describe('Tag value') }))
+    .describe('Event tags'),
 });
 
 export type Event = z.infer<typeof eventSchema>;

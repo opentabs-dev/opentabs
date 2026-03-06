@@ -11,8 +11,8 @@ export const createChannel = defineTool({
   icon: 'plus-circle',
   group: 'Channels',
   input: z.object({
-    guild_id: z.string().describe('Guild (server) ID to create the channel in'),
-    name: z.string().describe('Channel name (lowercase, hyphens, max 100 chars)'),
+    guild_id: z.string().min(1).describe('Guild (server) ID to create the channel in'),
+    name: z.string().min(1).describe('Channel name (lowercase, hyphens, max 100 chars)'),
     type: z.number().int().optional().describe('Channel type: 0=text (default), 2=voice, 4=category, 5=announcement'),
     topic: z.string().optional().describe('Channel topic (max 1024 chars for text channels)'),
     parent_id: z.string().optional().describe('Parent category ID to nest the channel under'),

@@ -9,11 +9,16 @@ import { createPage } from './tools/create-page.js';
 import { updatePage } from './tools/update-page.js';
 import { deletePage } from './tools/delete-page.js';
 import { appendBlock } from './tools/append-block.js';
+import { updateBlock } from './tools/update-block.js';
+import { deleteBlock } from './tools/delete-block.js';
 import { getUser } from './tools/get-user.js';
 import { listUsers } from './tools/list-users.js';
 import { getDatabase } from './tools/get-database.js';
 import { queryDatabase } from './tools/query-database.js';
 import { createDatabaseItem } from './tools/create-database-item.js';
+import { updateDatabaseItem } from './tools/update-database-item.js';
+import { listDatabases } from './tools/list-databases.js';
+import { createDatabase } from './tools/create-database.js';
 
 class NotionPlugin extends OpenTabsPlugin {
   readonly name = 'notion';
@@ -29,11 +34,16 @@ class NotionPlugin extends OpenTabsPlugin {
     updatePage,
     deletePage,
     appendBlock,
+    updateBlock,
+    deleteBlock,
     getUser,
     listUsers,
     getDatabase,
     queryDatabase,
     createDatabaseItem,
+    updateDatabaseItem,
+    listDatabases,
+    createDatabase,
   ];
 
   async isReady(): Promise<boolean> {

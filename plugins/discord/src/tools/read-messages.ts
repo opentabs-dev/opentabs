@@ -11,7 +11,7 @@ export const readMessages = defineTool({
   icon: 'message-square',
   group: 'Messages',
   input: z.object({
-    channel: z.string().describe('Channel ID to read messages from'),
+    channel: z.string().min(1).describe('Channel ID to read messages from'),
     limit: z.number().int().min(1).max(100).optional().describe('Number of messages to return (default 50, max 100)'),
     before: z.string().optional().describe('Get messages before this message ID (for pagination)'),
     after: z.string().optional().describe('Get messages after this message ID'),

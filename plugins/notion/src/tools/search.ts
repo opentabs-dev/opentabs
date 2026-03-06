@@ -19,7 +19,7 @@ export const search = defineTool({
   icon: 'search',
   group: 'Pages',
   input: z.object({
-    query: z.string().describe('Search query text'),
+    query: z.string().min(1).describe('Search query text'),
     limit: z.number().optional().describe('Maximum number of results to return (default 10, max 100)'),
   }),
   output: z.object({

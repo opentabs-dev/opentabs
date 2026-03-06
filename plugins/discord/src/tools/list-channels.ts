@@ -11,7 +11,7 @@ export const listChannels = defineTool({
   icon: 'hash',
   group: 'Channels',
   input: z.object({
-    guild_id: z.string().describe('Guild (server) ID to list channels for'),
+    guild_id: z.string().min(1).describe('Guild (server) ID to list channels for'),
   }),
   output: z.object({
     channels: z.array(channelSchema).describe('List of channels'),

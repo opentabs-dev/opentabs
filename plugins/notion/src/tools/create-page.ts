@@ -16,7 +16,7 @@ export const createPage = defineTool({
   icon: 'file-plus',
   group: 'Pages',
   input: z.object({
-    title: z.string().describe('Page title'),
+    title: z.string().min(1).describe('Page title'),
     parent_page_id: z
       .string()
       .optional()

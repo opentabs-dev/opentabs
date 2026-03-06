@@ -15,7 +15,7 @@ export const updatePage = defineTool({
   icon: 'pencil',
   group: 'Pages',
   input: z.object({
-    page_id: z.string().describe('Page ID (UUID) to update'),
+    page_id: z.string().min(1).describe('Page ID (UUID) to update'),
     title: z.string().optional().describe('New page title'),
     icon: z.string().optional().describe('New page icon (emoji character, e.g., "📝")'),
     cover: z.string().optional().describe('New page cover image path'),

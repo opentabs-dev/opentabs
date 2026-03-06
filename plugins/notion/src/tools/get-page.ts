@@ -19,7 +19,7 @@ export const getPage = defineTool({
   icon: 'file-text',
   group: 'Pages',
   input: z.object({
-    page_id: z.string().describe('Page ID (UUID format, e.g., "f4ab7079-036d-4893-aaa3-6440d973a22f")'),
+    page_id: z.string().min(1).describe('Page ID (UUID format, e.g., "f4ab7079-036d-4893-aaa3-6440d973a22f")'),
   }),
   output: z.object({
     page: pageSchema.describe('Page metadata'),

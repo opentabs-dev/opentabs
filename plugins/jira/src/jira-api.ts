@@ -68,13 +68,16 @@ export const api = async <T>(
   options: {
     method?: string;
     body?: Record<string, unknown>;
+    rawBody?: string;
     query?: Record<string, string | number | boolean | undefined>;
+    basePath?: string;
   } = {},
 ): Promise<T> => {
   const auth = getAuth();
   if (!auth) throw ToolError.auth('Not authenticated — please log in to Jira.');
 
-  let url = `/rest/api/3${endpoint}`;
+  const base = options.basePath ?? '/rest/api/3';
+  let url = `${base}${endpoint}`;
   if (options.query) {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(options.query)) {
@@ -86,7 +89,10 @@ export const api = async <T>(
 
   const headers: Record<string, string> = {};
   let fetchBody: string | undefined;
-  if (options.body) {
+  if (options.rawBody !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    fetchBody = options.rawBody;
+  } else if (options.body) {
     headers['Content-Type'] = 'application/json';
     fetchBody = JSON.stringify(options.body);
   }

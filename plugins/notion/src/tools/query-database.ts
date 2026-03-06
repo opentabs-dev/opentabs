@@ -34,7 +34,7 @@ export const queryDatabase = defineTool({
   icon: 'table',
   group: 'Databases',
   input: z.object({
-    database_id: z.string().describe('Database (collection) ID to query'),
+    database_id: z.string().min(1).describe('Database (collection) ID to query'),
     view_id: z.string().optional().describe('Collection view ID. If omitted, uses the first available view.'),
     query: z.string().optional().describe('Search query to filter results'),
     limit: z.number().optional().describe('Maximum number of results (default 50, max 100)'),

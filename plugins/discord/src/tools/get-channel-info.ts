@@ -11,7 +11,7 @@ export const getChannelInfo = defineTool({
   icon: 'info',
   group: 'Channels',
   input: z.object({
-    channel: z.string().describe('Channel ID to get info for'),
+    channel: z.string().min(1).describe('Channel ID to get info for'),
   }),
   output: z.object({
     channel: channelSchema.describe('Channel details'),

@@ -7,6 +7,7 @@ import { getIssue } from './tools/get-issue.js';
 import { getOrganization } from './tools/get-organization.js';
 import { getProject } from './tools/get-project.js';
 import { getProjectKeys } from './tools/get-project-keys.js';
+import { getRelease } from './tools/get-release.js';
 import { listAlerts } from './tools/list-alerts.js';
 import { listComments } from './tools/list-comments.js';
 import { listIssueEvents } from './tools/list-issue-events.js';
@@ -14,6 +15,7 @@ import { listIssueTags } from './tools/list-issue-tags.js';
 import { listMembers } from './tools/list-members.js';
 import { listMonitors } from './tools/list-monitors.js';
 import { listOrganizations } from './tools/list-organizations.js';
+import { listProjectEnvironments } from './tools/list-project-environments.js';
 import { listProjects } from './tools/list-projects.js';
 import { listReleases } from './tools/list-releases.js';
 import { listReplays } from './tools/list-replays.js';
@@ -40,6 +42,7 @@ class SentryPlugin extends OpenTabsPlugin {
     listProjects,
     getProject,
     getProjectKeys,
+    listProjectEnvironments,
     // Organizations
     listOrganizations,
     getOrganization,
@@ -48,6 +51,7 @@ class SentryPlugin extends OpenTabsPlugin {
     listTeams,
     // Releases
     listReleases,
+    getRelease,
     // Alerts
     listAlerts,
     // Monitors (Crons)

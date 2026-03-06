@@ -10,7 +10,7 @@ export const getUserProfile = defineTool({
   icon: 'user',
   group: 'Users',
   input: z.object({
-    user_id: z.string().describe('User ID to look up, or "@me" for the authenticated user'),
+    user_id: z.string().min(1).describe('User ID to look up, or "@me" for the authenticated user'),
   }),
   output: z.object({
     user: z.object({

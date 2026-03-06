@@ -4,6 +4,7 @@ import { isAuthenticated, waitForAuth } from './confluence-api.js';
 import { addLabel } from './tools/add-label.js';
 import { createComment } from './tools/create-comment.js';
 import { createPage } from './tools/create-page.js';
+import { deleteComment } from './tools/delete-comment.js';
 import { deletePage } from './tools/delete-page.js';
 import { getPage } from './tools/get-page.js';
 import { getPageChildren } from './tools/get-page-children.js';
@@ -11,8 +12,11 @@ import { getSpace } from './tools/get-space.js';
 import { getUserProfile } from './tools/get-user-profile.js';
 import { listComments } from './tools/list-comments.js';
 import { listLabels } from './tools/list-labels.js';
+import { listPageAttachments } from './tools/list-page-attachments.js';
+import { listPageVersions } from './tools/list-page-versions.js';
 import { listPages } from './tools/list-pages.js';
 import { listSpaces } from './tools/list-spaces.js';
+import { removeLabel } from './tools/remove-label.js';
 import { search } from './tools/search.js';
 import { updatePage } from './tools/update-page.js';
 
@@ -30,11 +34,15 @@ class ConfluencePlugin extends OpenTabsPlugin {
     updatePage,
     deletePage,
     getPageChildren,
+    listPageAttachments,
+    listPageVersions,
     search,
     listComments,
     createComment,
+    deleteComment,
     listLabels,
     addLabel,
+    removeLabel,
     getUserProfile,
   ];
 

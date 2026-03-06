@@ -23,7 +23,10 @@ export const listReplays = defineTool({
   icon: 'video',
   group: 'Replays',
   input: z.object({
-    project: z.array(z.number()).optional().describe('Filter by project IDs. Omit to list replays across all projects'),
+    project: z
+      .array(z.number().describe('Project ID'))
+      .optional()
+      .describe('Filter by project IDs. Omit to list replays across all projects'),
     query: z.string().optional().describe('Search query to filter replays (e.g., by URL or error)'),
     limit: z.number().optional().describe('Maximum number of replays to return (default 25, max 100)'),
     cursor: z.string().optional().describe('Pagination cursor from a previous response'),

@@ -11,7 +11,7 @@ export const listMembers = defineTool({
   icon: 'users',
   group: 'Users',
   input: z.object({
-    guild_id: z.string().describe('Guild (server) ID to list members for'),
+    guild_id: z.string().min(1).describe('Guild (server) ID to list members for'),
     limit: z.number().int().min(1).max(1000).optional().describe('Max members to return (default 100, max 1000)'),
     after: z.string().optional().describe('Get members after this user ID (for pagination)'),
   }),

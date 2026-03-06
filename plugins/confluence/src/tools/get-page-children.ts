@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { apiV2 } from '../confluence-api.js';
-import { cursorSchema } from './schemas.js';
+import { cursorSchema, extractCursor } from './schemas.js';
 
 const childPageSchema = z.object({
   id: z.string().describe('Child page ID'),
@@ -65,13 +65,3 @@ export const getPageChildren = defineTool({
     };
   },
 });
-
-function extractCursor(nextUrl?: string): string | null {
-  if (!nextUrl) return null;
-  try {
-    const url = new URL(nextUrl, 'https://placeholder.com');
-    return url.searchParams.get('cursor');
-  } catch {
-    return null;
-  }
-}

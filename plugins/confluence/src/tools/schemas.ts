@@ -193,3 +193,14 @@ export const cursorSchema = z
   .string()
   .nullable()
   .describe('Cursor for the next page of results — null if no more pages');
+
+/** Extract the `cursor` query parameter from a Confluence pagination `_links.next` URL. */
+export function extractCursor(nextUrl?: string): string | null {
+  if (!nextUrl) return null;
+  try {
+    const url = new URL(nextUrl, 'https://placeholder.com');
+    return url.searchParams.get('cursor');
+  } catch {
+    return null;
+  }
+}

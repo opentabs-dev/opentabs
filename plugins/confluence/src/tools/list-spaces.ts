@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { apiV2 } from '../confluence-api.js';
-import { type RawSpace, cursorSchema, mapSpace, spaceSchema } from './schemas.js';
+import { type RawSpace, cursorSchema, extractCursor, mapSpace, spaceSchema } from './schemas.js';
 
 export const listSpaces = defineTool({
   name: 'list_spaces',
@@ -42,13 +42,3 @@ export const listSpaces = defineTool({
     };
   },
 });
-
-function extractCursor(nextUrl?: string): string | null {
-  if (!nextUrl) return null;
-  try {
-    const url = new URL(nextUrl, 'https://placeholder.com');
-    return url.searchParams.get('cursor');
-  } catch {
-    return null;
-  }
-}

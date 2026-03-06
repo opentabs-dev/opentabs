@@ -10,8 +10,8 @@ export const pinMessage = defineTool({
   icon: 'pin',
   group: 'Reactions',
   input: z.object({
-    channel: z.string().describe('Channel ID where the message is located'),
-    message_id: z.string().describe('Message ID to pin'),
+    channel: z.string().min(1).describe('Channel ID where the message is located'),
+    message_id: z.string().min(1).describe('Message ID to pin'),
   }),
   output: z.object({}),
   handle: async params => {

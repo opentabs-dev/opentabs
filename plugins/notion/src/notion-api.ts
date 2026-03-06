@@ -1,4 +1,4 @@
-import { ToolError } from '@opentabs-dev/plugin-sdk';
+import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
 
 // --- Types ---
 
@@ -197,7 +197,7 @@ export const notionApi = async <T>(endpoint: string, body: Record<string, unknow
 
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');
-      const retryMs = retryAfter ? Number(retryAfter) * 1000 : undefined;
+      const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
       throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorText}`, retryMs);
     }
     if (response.status === 401 || response.status === 403)
@@ -241,20 +241,3 @@ export const getUserId = (): string => {
   if (!auth) throw ToolError.auth('Not authenticated — please log in to Notion.');
   return auth.userId;
 };
-
-// --- Notion text format helpers ---
-
-/** Convert Notion rich text array to plain text */
-export const richTextToPlain = (richText: unknown): string => {
-  if (!Array.isArray(richText)) return '';
-  return richText
-    .map(segment => {
-      if (Array.isArray(segment) && typeof segment[0] === 'string') return segment[0];
-      if (typeof segment === 'string') return segment;
-      return '';
-    })
-    .join('');
-};
-
-/** Convert plain text to Notion rich text format */
-export const plainToRichText = (text: string): unknown[][] => [[text]];

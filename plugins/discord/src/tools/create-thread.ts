@@ -12,8 +12,8 @@ export const createThread = defineTool({
   icon: 'git-branch',
   group: 'Channels',
   input: z.object({
-    channel: z.string().describe('Channel ID to create the thread in'),
-    name: z.string().describe('Thread name (max 100 chars)'),
+    channel: z.string().min(1).describe('Channel ID to create the thread in'),
+    name: z.string().min(1).describe('Thread name (max 100 chars)'),
     message_id: z.string().optional().describe('Message ID to start a thread from (omit for a standalone thread)'),
     auto_archive_duration: z
       .number()

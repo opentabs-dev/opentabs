@@ -10,8 +10,8 @@ export const deleteMessage = defineTool({
   icon: 'trash-2',
   group: 'Messages',
   input: z.object({
-    channel: z.string().describe('Channel ID where the message is located'),
-    message_id: z.string().describe('ID of the message to delete'),
+    channel: z.string().min(1).describe('Channel ID where the message is located'),
+    message_id: z.string().min(1).describe('ID of the message to delete'),
   }),
   output: z.object({}),
   handle: async params => {

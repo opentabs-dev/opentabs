@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { apiV2 } from '../confluence-api.js';
-import { type RawLabel, cursorSchema, labelSchema, mapLabel } from './schemas.js';
+import { type RawLabel, cursorSchema, extractCursor, labelSchema, mapLabel } from './schemas.js';
 
 export const listLabels = defineTool({
   name: 'list_labels',
@@ -43,13 +43,3 @@ export const listLabels = defineTool({
     };
   },
 });
-
-function extractCursor(nextUrl?: string): string | null {
-  if (!nextUrl) return null;
-  try {
-    const url = new URL(nextUrl, 'https://placeholder.com');
-    return url.searchParams.get('cursor');
-  } catch {
-    return null;
-  }
-}
