@@ -9,13 +9,11 @@ const meta: Meta<typeof BrowserToolsMenu> = {
 
 type Story = StoryObj<typeof BrowserToolsMenu>;
 
-const Default: Story = {
-  render: () => <BrowserToolsMenu serverVersion="0.0.42" />,
-};
+const Default: Story = { args: { serverVersion: '0.0.42' } };
 
-const NoVersion: Story = {
-  render: () => <BrowserToolsMenu />,
-};
+const NoVersion: Story = { args: {} };
+
+const LongVersion: Story = { args: { serverVersion: '1.2.3-beta.45+build.6789' } };
 
 export default meta;
-export { Default, NoVersion };
+export { Default, NoVersion, LongVersion };
