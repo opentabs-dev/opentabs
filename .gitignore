@@ -19,3 +19,4 @@ playwright-report/
 .claude/worktrees/
 .tmp/
 opencode.json
+.opencode/
