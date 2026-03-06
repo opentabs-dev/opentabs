@@ -250,6 +250,29 @@ const WithBrowserToolsDemo = () => {
 
 const WithBrowserTools: Story = { render: () => <WithBrowserToolsDemo /> };
 
+const NpmSearchErrorDemo = () => {
+  const [plugins, setPlugins] = useState<PluginState[]>([]);
+  return (
+    <SearchResults
+      plugins={plugins}
+      failedPlugins={[]}
+      browserTools={[]}
+      activeTools={new Set()}
+      setPlugins={setPlugins}
+      setBrowserTools={() => undefined}
+      toolFilter="notion"
+      npmResults={[]}
+      npmSearching={false}
+      npmSearchError={true}
+      installingPlugins={new Set()}
+      onInstall={() => undefined}
+      installErrors={new Map()}
+    />
+  );
+};
+
+const NpmSearchError: Story = { render: () => <NpmSearchErrorDemo /> };
+
 const AllStatesDemo = () => {
   const [plugins1, setPlugins1] = useState([mockPlugin()]);
   const [plugins2, setPlugins2] = useState<PluginState[]>([]);
@@ -339,4 +362,14 @@ const AllStatesDemo = () => {
 const AllStates: Story = { render: () => <AllStatesDemo /> };
 
 export default meta;
-export { InstalledOnly, NpmOnly, Both, NoResults, NpmLoading, InstallingPlugin, WithBrowserTools, AllStates };
+export {
+  InstalledOnly,
+  NpmOnly,
+  Both,
+  NoResults,
+  NpmLoading,
+  NpmSearchError,
+  InstallingPlugin,
+  WithBrowserTools,
+  AllStates,
+};

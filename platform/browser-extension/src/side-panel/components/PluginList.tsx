@@ -13,6 +13,7 @@ import {
 import { FailedPluginCard } from './FailedPluginCard.js';
 import { PluginCard } from './PluginCard.js';
 import { Accordion } from './retro/Accordion.js';
+import { Empty } from './retro/Empty.js';
 
 const ACCORDION_STORAGE_KEY = 'accordionState';
 
@@ -196,7 +197,16 @@ const PluginList = ({
 
   if (filterLower && visiblePlugins.length === 0) {
     return (
-      <div className="py-8 text-center text-muted-foreground text-sm">No tools matching &ldquo;{toolFilter}&rdquo;</div>
+      <Empty className="border-muted">
+        <Empty.Content>
+          <Empty.Icon className="h-10 w-10 text-muted-foreground" />
+          <Empty.Title className="text-base">No tools matching &ldquo;{toolFilter}&rdquo;</Empty.Title>
+          <Empty.Separator />
+          <Empty.Description className="text-xs">
+            Try searching by plugin name, tool name, or description.
+          </Empty.Description>
+        </Empty.Content>
+      </Empty>
     );
   }
 

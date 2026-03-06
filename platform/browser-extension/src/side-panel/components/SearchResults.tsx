@@ -6,6 +6,7 @@ import { BrowserToolsCard, toDisplayName } from './BrowserToolsCard';
 import { NpmPluginCard } from './NpmPluginCard';
 import { PluginList } from './PluginList';
 import { Accordion } from './retro/Accordion';
+import { Empty } from './retro/Empty';
 import { Loader } from './retro/Loader';
 
 interface SearchResultsProps {
@@ -128,7 +129,12 @@ const SearchResults = ({
             <Loader size="sm" />
           </div>
         ) : npmSearchError ? (
-          <div className="py-4 text-center text-muted-foreground text-sm">Search failed</div>
+          <div className="py-4 text-center">
+            <p className="font-head text-muted-foreground text-sm">Search unavailable</p>
+            <p className="mt-1 text-muted-foreground text-xs">
+              Could not reach the npm registry. Check your internet connection.
+            </p>
+          </div>
         ) : (
           availableResults.length > 0 && (
             <div>
@@ -149,7 +155,18 @@ const SearchResults = ({
         ))}
 
       {/* No results message */}
-      {showNoResults && <div className="py-8 text-center text-muted-foreground text-sm">No results</div>}
+      {showNoResults && (
+        <Empty className="border-muted">
+          <Empty.Content>
+            <Empty.Icon className="h-10 w-10 text-muted-foreground" />
+            <Empty.Title className="text-base">No results for &ldquo;{toolFilter}&rdquo;</Empty.Title>
+            <Empty.Separator />
+            <Empty.Description className="text-xs">
+              Try searching by plugin name, tool name, or description.
+            </Empty.Description>
+          </Empty.Content>
+        </Empty>
+      )}
     </div>
   );
 };
