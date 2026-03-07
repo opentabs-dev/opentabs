@@ -15,7 +15,8 @@
     "description": "OpenTabs plugin for GitHub",
     "urlPatterns": [
       "*://github.com/*"
-    ]
+    ],
+    "homepage": "https://github.com"
   },
   "exports": {
     ".": {
@@ -41,11 +42,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.64"
+    "@opentabs-dev/plugin-sdk": "^0.0.65"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.64",
     "@biomejs/biome": "2.4.5",
+    "@opentabs-dev/plugin-tools": "^0.0.65",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"

@@ -42,6 +42,7 @@ class GitHubPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for GitHub';
   override readonly displayName = 'GitHub';
   readonly urlPatterns = ['*://github.com/*'];
+  override readonly homepage = 'https://github.com';
   readonly tools: ToolDefinition[] = [
     // Repositories
     listRepos,
