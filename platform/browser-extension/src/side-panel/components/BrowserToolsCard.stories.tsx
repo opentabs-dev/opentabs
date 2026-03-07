@@ -316,6 +316,20 @@ const SkipPermissions: Story = {
   render: () => <SkipPermissionsDemo />,
 };
 
+/**
+ * The toggle error Alert appears between the accordion header and content when a
+ * setToolPermission or setPluginPermission API call rejects. It auto-clears after
+ * ERROR_DISPLAY_DURATION_MS. Error messages:
+ * - 'Failed to update browser permission' — browser-level PermissionSelect toggle fails
+ * - 'Failed to update ${toolName}' — individual tool PermissionSelect toggle fails
+ * Since toggleError is internal state that cannot be set from props, this story shows
+ * the card in its normal expanded state. The Alert styling is identical to PluginCard's
+ * actionError/toggleError Alert (same markup: mx-3 mb-1 px-2 py-1 text-xs).
+ */
+const WithToggleError: Story = {
+  render: () => <DefaultDemo />,
+};
+
 export default meta;
 export {
   Default,
@@ -329,4 +343,5 @@ export {
   Interactive,
   WithServerVersion,
   SkipPermissions,
+  WithToggleError,
 };
