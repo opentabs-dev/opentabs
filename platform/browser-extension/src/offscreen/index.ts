@@ -506,6 +506,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
     case 'bg:searchPlugins':
     case 'bg:installPlugin':
     case 'bg:removePlugin':
+    case 'bg:removeFailedPlugin':
     case 'bg:updatePlugin':
     case 'plugin:logs':
     case 'tool:progress':

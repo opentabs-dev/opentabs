@@ -164,6 +164,12 @@ export interface BgRemovePluginMessage {
   name: string;
 }
 
+/** Side panel → Background: remove a failed plugin by its config specifier */
+export interface BgRemoveFailedPluginMessage {
+  type: 'bg:removeFailedPlugin';
+  specifier: string;
+}
+
 /** Side panel → Background: update a plugin to the latest registry version */
 export interface BgUpdatePluginMessage {
   type: 'bg:updatePlugin';
@@ -192,6 +198,7 @@ export type InternalMessage =
   | BgSearchPluginsMessage
   | BgInstallPluginMessage
   | BgRemovePluginMessage
+  | BgRemoveFailedPluginMessage
   | BgUpdatePluginMessage
   | OffscreenGetLogsMessage
   | BgForceReconnectMessage

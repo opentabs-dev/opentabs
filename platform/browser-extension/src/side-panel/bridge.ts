@@ -142,6 +142,10 @@ const installPlugin = (name: string): Promise<PluginInstallResult> =>
 const removePlugin = (name: string): Promise<{ ok: true }> =>
   sendBgMessage<{ ok: true }>({ type: 'bg:removePlugin', name });
 
+/** Remove a failed plugin by its raw config specifier string */
+const removeFailedPlugin = (specifier: string): Promise<{ ok: true }> =>
+  sendBgMessage<{ ok: true }>({ type: 'bg:removeFailedPlugin', specifier });
+
 /** Update an installed plugin to the latest registry version */
 const updatePlugin = (name: string): Promise<PluginInstallResult> =>
   sendBgMessage<PluginInstallResult>({ type: 'bg:updatePlugin', name });
@@ -177,6 +181,7 @@ export {
   installPlugin,
   matchesPlugin,
   matchesTool,
+  removeFailedPlugin,
   removePlugin,
   searchPlugins,
   sendConfirmationResponse,

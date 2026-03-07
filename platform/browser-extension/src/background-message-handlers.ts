@@ -569,6 +569,18 @@ const handleBgRemovePlugin: MessageHandler = (message, sendResponse) => {
     });
 };
 
+/** Handle bg:removeFailedPlugin — remove a failed plugin by its config specifier */
+const handleBgRemoveFailedPlugin: MessageHandler = (message, sendResponse) => {
+  const specifier = message.specifier as string;
+  sendServerRequest('plugin.removeBySpecifier', { specifier })
+    .then((result: unknown) => {
+      sendResponse(result);
+    })
+    .catch((err: unknown) => {
+      sendResponse({ error: err instanceof Error ? err.message : String(err) });
+    });
+};
+
 /** Handle bg:updatePlugin — update a plugin to the latest registry version */
 const handleBgUpdatePlugin: MessageHandler = (message, sendResponse) => {
   const name = message.name as string;
@@ -605,6 +617,7 @@ const backgroundHandlers = new Map<InternalMessage['type'], MessageHandler>([
   ['bg:searchPlugins', handleBgSearchPlugins],
   ['bg:installPlugin', handleBgInstallPlugin],
   ['bg:removePlugin', handleBgRemovePlugin],
+  ['bg:removeFailedPlugin', handleBgRemoveFailedPlugin],
   ['bg:updatePlugin', handleBgUpdatePlugin],
   ['plugin:logs', handlePluginLogs],
   ['tool:progress', handleToolProgress],
@@ -626,6 +639,7 @@ const EXTENSION_ONLY_TYPES: ReadonlySet<InternalMessage['type']> = new Set([
   'bg:searchPlugins',
   'bg:installPlugin',
   'bg:removePlugin',
+  'bg:removeFailedPlugin',
   'bg:updatePlugin',
   'offscreen:getLogs',
   'sp:confirmationResponse',
@@ -665,6 +679,7 @@ export {
   backgroundHandlerNames,
   handleBgGetFullState,
   handleBgInstallPlugin,
+  handleBgRemoveFailedPlugin,
   handleBgRemovePlugin,
   handleBgSearchPlugins,
   handleBgSetAllToolsPermission,
