@@ -6,7 +6,7 @@ import { ChevronDown, ShieldQuestionMark } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { PluginState, WireToolDef } from '../bridge.js';
-import { matchesTool, setPluginPermission, setToolPermission } from '../bridge.js';
+import { matchesTool, openPluginTab, setPluginPermission, setToolPermission } from '../bridge.js';
 import { ERROR_DISPLAY_DURATION_MS } from '../constants.js';
 import { PluginIcon } from './PluginIcon.js';
 import { PluginMenu } from './PluginMenu.js';
@@ -142,6 +142,21 @@ const PluginCard = ({
 
   const inactive = plugin.tabState !== 'ready';
 
+  const tabCount = plugin.tabs?.length ?? 0;
+  const hasHomepage = Boolean(plugin.homepage);
+  const isClickable = tabCount > 0 || hasHomepage;
+
+  const tooltipText = (() => {
+    if (plugin.tabState === 'closed') {
+      return hasHomepage ? `Open ${plugin.displayName} in new tab` : `v${plugin.version}`;
+    }
+    return tabCount > 1 ? `Open ${plugin.displayName} (${tabCount} tabs)` : `Open ${plugin.displayName}`;
+  })();
+
+  const handleOpenTab = () => {
+    void openPluginTab(plugin.name);
+  };
+
   const renderToolList = (tools: typeof pluginTools) =>
     tools.map(tool => (
       <ToolRow
@@ -170,25 +185,31 @@ const PluginCard = ({
             : undefined)
       }>
       <AccordionPrimitive.Header className="flex">
-        <AccordionPrimitive.Trigger className="focus-ring flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-3 py-2 [&[data-state=open]>svg]:rotate-180">
-          <Tooltip>
-            <Tooltip.Trigger asChild>
-              <div>
-                <PluginIcon
-                  pluginName={plugin.name}
-                  displayName={plugin.displayName}
-                  tabState={plugin.tabState}
-                  size={32}
-                  iconSvg={plugin.iconSvg}
-                  iconInactiveSvg={plugin.iconInactiveSvg}
-                  iconDarkSvg={plugin.iconDarkSvg}
-                  iconDarkInactiveSvg={plugin.iconDarkInactiveSvg}
-                  active={hasActiveTool}
-                />
-              </div>
-            </Tooltip.Trigger>
-            <Tooltip.Content>v{plugin.version}</Tooltip.Content>
-          </Tooltip>
+        <Tooltip>
+          <Tooltip.Trigger asChild>
+            <button
+              type="button"
+              className={`focus-ring flex shrink-0 items-center py-2 pl-3 ${isClickable ? 'cursor-pointer' : ''}`}
+              onClick={isClickable ? handleOpenTab : undefined}
+              disabled={!isClickable}
+              aria-label={tooltipText}>
+              <PluginIcon
+                pluginName={plugin.name}
+                displayName={plugin.displayName}
+                tabState={plugin.tabState}
+                size={32}
+                iconSvg={plugin.iconSvg}
+                iconInactiveSvg={plugin.iconInactiveSvg}
+                iconDarkSvg={plugin.iconDarkSvg}
+                iconDarkInactiveSvg={plugin.iconDarkInactiveSvg}
+                active={hasActiveTool}
+                className={isClickable ? 'transition-transform hover:scale-105' : undefined}
+              />
+            </button>
+          </Tooltip.Trigger>
+          <Tooltip.Content>{tooltipText}</Tooltip.Content>
+        </Tooltip>
+        <AccordionPrimitive.Trigger className="focus-ring flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-2 pr-0 pl-2 [&[data-state=open]>svg]:rotate-180">
           <div
             className={`flex min-w-0 flex-1 items-center gap-1.5 truncate font-head text-sm ${inactive ? 'text-muted-foreground' : 'text-foreground'}`}>
             {plugin.displayName}
