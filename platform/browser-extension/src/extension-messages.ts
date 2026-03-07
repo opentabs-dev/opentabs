@@ -222,6 +222,8 @@ export interface PluginMeta {
   version: string;
   displayName: string;
   urlPatterns: string[];
+  excludePatterns?: string[];
+  homepage?: string;
   permission: ToolPermission;
   sourcePath?: string;
   adapterHash?: string;

@@ -126,6 +126,8 @@ interface ValidatedPluginPayload {
   version: string;
   displayName: string;
   urlPatterns: string[];
+  excludePatterns: string[];
+  homepage?: string;
   permission: ToolPermission;
   sourcePath?: string;
   adapterHash?: string;
@@ -143,6 +145,8 @@ const toPluginMeta = (p: ValidatedPluginPayload): PluginMeta => ({
   version: p.version,
   displayName: p.displayName,
   urlPatterns: p.urlPatterns,
+  excludePatterns: p.excludePatterns.length > 0 ? p.excludePatterns : undefined,
+  homepage: p.homepage,
   permission: p.permission,
   sourcePath: p.sourcePath,
   adapterHash: p.adapterHash,
@@ -185,6 +189,11 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
     ? (obj.urlPatterns as unknown[]).filter((p): p is string => typeof p === 'string')
     : [];
 
+  const excludePatterns = Array.isArray(obj.excludePatterns)
+    ? (obj.excludePatterns as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
+  const homepage = typeof obj.homepage === 'string' && obj.homepage.length > 0 ? obj.homepage : undefined;
+
   const tools = Array.isArray(obj.tools)
     ? (obj.tools as unknown[])
         .filter(
@@ -220,6 +229,8 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
     version: typeof obj.version === 'string' ? obj.version : '0.0.0',
     displayName: typeof obj.displayName === 'string' ? obj.displayName : obj.name,
     urlPatterns,
+    excludePatterns,
+    homepage,
     permission:
       obj.permission === 'off' || obj.permission === 'ask' || obj.permission === 'auto'
         ? (obj.permission as ToolPermission)
@@ -359,6 +370,8 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
       source: raw?.source === 'npm' || raw?.source === 'local' ? raw.source : 'local',
       tabState: 'closed' as const,
       urlPatterns: p.urlPatterns,
+      ...(p.excludePatterns.length > 0 ? { excludePatterns: p.excludePatterns } : {}),
+      ...(p.homepage ? { homepage: p.homepage } : {}),
       tools: p.tools,
       reviewed: raw?.reviewed === true,
       iconSvg: p.iconSvg,
@@ -463,6 +476,8 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
     source: params.source === 'npm' || params.source === 'local' ? params.source : 'local',
     tabState: newState.state,
     urlPatterns: validated.urlPatterns,
+    ...(validated.excludePatterns.length > 0 ? { excludePatterns: validated.excludePatterns } : {}),
+    ...(validated.homepage ? { homepage: validated.homepage } : {}),
     tools: validated.tools,
     reviewed: params.reviewed === true,
     iconSvg: validated.iconSvg,
