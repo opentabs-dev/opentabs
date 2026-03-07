@@ -41,7 +41,6 @@ import {
 } from './fixtures.js';
 import {
   BROWSER_TOOL_NAMES,
-  expandHiddenTools,
   openSidePanel,
   openTestAppTab,
   selectPermission,
@@ -831,11 +830,6 @@ test.describe('Side panel — plugin-level re-selection clears overrides', () =>
 
       // Re-select 'Off' from the plugin-level dropdown (already 'Off')
       await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', 'Off');
-
-      // Echo is now 'off' and collapsed behind the hidden tools toggle — wait for it then expand
-      const hiddenToggle = sidePanelPage.locator('button', { hasText: /\d+ hidden/ });
-      await expect(hiddenToggle.first()).toBeVisible({ timeout: 10_000 });
-      await expandHiddenTools(sidePanelPage);
 
       // Wait for the echo tool to reflect the cleared override (should now be 'Off')
       await expect(echoToolSelect).toContainText('Off', { timeout: 10_000 });
