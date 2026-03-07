@@ -19,15 +19,18 @@ vi.mock('../sanitize-error.js', () => ({
 
 // Stub chrome APIs (debugger/tabs stubs required for network-capture module-level listeners)
 const mockExecuteScript = vi.fn<(opts: unknown) => Promise<unknown[]>>().mockResolvedValue([]);
+const mockDebuggerAttach = vi.fn().mockResolvedValue(undefined);
+const mockDebuggerDetach = vi.fn().mockResolvedValue(undefined);
+const mockDebuggerSendCommand = vi.fn().mockResolvedValue(undefined);
 Object.assign(globalThis, {
   chrome: {
     ...((globalThis as Record<string, unknown>).chrome as object),
     runtime: { id: 'test-extension-id' },
     scripting: { executeScript: mockExecuteScript },
     debugger: {
-      attach: vi.fn(),
-      detach: vi.fn(),
-      sendCommand: vi.fn(),
+      attach: mockDebuggerAttach,
+      detach: mockDebuggerDetach,
+      sendCommand: mockDebuggerSendCommand,
       onEvent: { addListener: vi.fn() },
       onDetach: { addListener: vi.fn() },
     },
@@ -60,6 +63,9 @@ describe('handleBrowserPressKey', () => {
   beforeEach(() => {
     mockSendToServer.mockReset();
     mockExecuteScript.mockReset();
+    mockDebuggerAttach.mockReset().mockResolvedValue(undefined);
+    mockDebuggerDetach.mockReset().mockResolvedValue(undefined);
+    mockDebuggerSendCommand.mockReset().mockResolvedValue(undefined);
   });
 
   test('rejects missing tabId', async () => {
@@ -107,6 +113,98 @@ describe('handleBrowserPressKey', () => {
       jsonrpc: '2.0',
       id: 99,
       error: { code: -32602 },
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CDP dispatch
+// ---------------------------------------------------------------------------
+
+describe('handleBrowserPressKey — CDP dispatch', () => {
+  beforeEach(() => {
+    mockSendToServer.mockReset();
+    mockExecuteScript.mockReset();
+    mockDebuggerAttach.mockReset().mockResolvedValue(undefined);
+    mockDebuggerDetach.mockReset().mockResolvedValue(undefined);
+    mockDebuggerSendCommand.mockReset().mockResolvedValue(undefined);
+  });
+
+  test('dispatches CDP key events for a named key', async () => {
+    // No selector → activeElement query returns body
+    mockExecuteScript.mockResolvedValueOnce([{ result: { tagName: 'body' } }]);
+    await handleBrowserPressKey({ tabId: 42, key: 'Enter' }, 'req-cdp-1');
+
+    expect(mockDebuggerAttach).toHaveBeenCalledWith({ tabId: 42 }, '1.3');
+
+    // Named key: rawKeyDown + keyUp (2 calls, no char)
+    expect(mockDebuggerSendCommand).toHaveBeenCalledTimes(2);
+
+    const firstCall = mockDebuggerSendCommand.mock.calls[0];
+    expect(firstCall?.[1]).toBe('Input.dispatchKeyEvent');
+    expect(firstCall?.[2]).toMatchObject({ type: 'rawKeyDown', key: 'Enter' });
+
+    const secondCall = mockDebuggerSendCommand.mock.calls[1];
+    expect(secondCall?.[1]).toBe('Input.dispatchKeyEvent');
+    expect(secondCall?.[2]).toMatchObject({ type: 'keyUp', key: 'Enter' });
+
+    expect(mockDebuggerDetach).toHaveBeenCalledWith({ tabId: 42 });
+
+    expect(firstSentMessage()).toMatchObject({
+      jsonrpc: '2.0',
+      id: 'req-cdp-1',
+      result: { pressed: true, key: 'Enter' },
+    });
+  });
+
+  test('dispatches CDP key events for a printable character', async () => {
+    // No selector → activeElement query returns input
+    mockExecuteScript.mockResolvedValueOnce([{ result: { tagName: 'input', id: 'search' } }]);
+    await handleBrowserPressKey({ tabId: 42, key: 'a' }, 'req-cdp-2');
+
+    // Printable char: keyDown + char + keyUp (3 calls)
+    expect(mockDebuggerSendCommand).toHaveBeenCalledTimes(3);
+
+    const keyDown = mockDebuggerSendCommand.mock.calls[0];
+    expect(keyDown?.[2]).toMatchObject({ type: 'keyDown', text: 'a' });
+
+    const char = mockDebuggerSendCommand.mock.calls[1];
+    expect(char?.[2]).toMatchObject({ type: 'char', text: 'a' });
+
+    const keyUp = mockDebuggerSendCommand.mock.calls[2];
+    expect(keyUp?.[2]).toMatchObject({ type: 'keyUp' });
+
+    expect(firstSentMessage()).toMatchObject({
+      result: { pressed: true, key: 'a', target: { tagName: 'input', id: 'search' } },
+    });
+  });
+
+  test('focuses selector element before dispatching CDP events', async () => {
+    // Selector focus returns element info
+    mockExecuteScript.mockResolvedValueOnce([{ result: { tagName: 'input', id: 'name-field' } }]);
+    await handleBrowserPressKey({ tabId: 42, key: 'x', selector: '#name-field' }, 'req-cdp-3');
+
+    // executeScript called once for focus (not for activeElement since selector was provided)
+    expect(mockExecuteScript).toHaveBeenCalledTimes(1);
+
+    // CDP events still dispatched
+    expect(mockDebuggerSendCommand).toHaveBeenCalled();
+
+    expect(firstSentMessage()).toMatchObject({
+      result: { pressed: true, key: 'x', target: { tagName: 'input', id: 'name-field' } },
+    });
+  });
+
+  test('passes modifier flags to CDP events', async () => {
+    mockExecuteScript.mockResolvedValueOnce([{ result: { tagName: 'body' } }]);
+    await handleBrowserPressKey({ tabId: 42, key: 'b', modifiers: { meta: true } }, 'req-cdp-4');
+
+    // Meta bitmask = 4
+    const firstCall = mockDebuggerSendCommand.mock.calls[0];
+    expect(firstCall?.[2]).toMatchObject({ modifiers: 4 });
+
+    expect(firstSentMessage()).toMatchObject({
+      result: { pressed: true, key: 'b' },
     });
   });
 });
