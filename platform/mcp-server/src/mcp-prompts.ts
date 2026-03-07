@@ -300,6 +300,7 @@ const resolveAuditAiDocs = (): PromptResult => ({
     { uri: 'opentabs://guide/quick-start', mimeType: 'text/markdown' },
     { uri: 'opentabs://guide/plugin-development', mimeType: 'text/markdown' },
     { uri: 'opentabs://guide/troubleshooting', mimeType: 'text/markdown' },
+    { uri: 'opentabs://guide/self-improvement', mimeType: 'text/markdown' },
     { uri: 'opentabs://reference/sdk-api', mimeType: 'text/markdown' },
     { uri: 'opentabs://reference/cli', mimeType: 'text/markdown' },
     { uri: 'opentabs://reference/browser-tools', mimeType: 'text/markdown' },
@@ -316,6 +317,7 @@ const resolveContributeLearnings = (args: Record<string, string>): PromptResult 
   return {
     description: task ? `Contribute learnings from: ${task}` : 'Contribute learnings from recent session',
     messages: buildMessages(contributeLearningsPromptText(task), [
+      { uri: 'opentabs://guide/self-improvement', mimeType: 'text/markdown' },
       { uri: 'opentabs://guide/plugin-development', mimeType: 'text/markdown' },
       { uri: 'opentabs://guide/troubleshooting', mimeType: 'text/markdown' },
     ]),

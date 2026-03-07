@@ -428,21 +428,11 @@ npm run check  # build + type-check + lint + format:check
 
 ---
 
-## Phase 7: Write Learnings Back
+## Phase 7: Write Learnings Back (Mandatory)
 
-This phase is **mandatory**. Every plugin build surfaces new patterns, gotchas, and friction. Write them directly into the source code so the next AI benefits automatically.
+Every plugin build surfaces new patterns, gotchas, and techniques. You **must** write them back so the next AI session benefits automatically.
 
-**How the self-improvement loop works:** The files listed below are TypeScript source files that compile into the MCP resources and prompts this server serves. When you edit them and the server rebuilds, every future AI agent that connects will automatically receive your learnings via \`resources/read\` and \`prompts/get\`. You are currently reading this prompt because a previous session wrote (or improved) it. Your additions will reach the next agent the same way.
+**Invoke the \`contribute_learnings\` prompt now** with the task description (e.g., \`contribute_learnings(task: "built a plugin for <DisplayName>")\`). That prompt provides the complete self-improvement workflow: which files to edit, the file-to-resource mapping, rules for deduplication, and verification steps.
 
-**Where to write learnings:**
-
-- **Gotchas, advanced patterns, reference material** → \`platform/mcp-server/src/resources/plugin-development.ts\` in the \`PLUGIN_DEVELOPMENT_CONTENT\` constant → served as the \`opentabs://guide/plugin-development\` MCP resource.
-- **Workflow steps, code templates, conventions, gotcha quick-list** → \`platform/mcp-server/src/prompts/build-plugin.ts\` in the \`buildPluginPromptText\` function → served as the \`build_plugin\` MCP prompt (this prompt — you are reading it now).
-
-**Rules:**
-- Check for duplicates before adding — scan existing gotchas and sections
-- Keep gotchas generic, not app-specific (e.g., no "Notion uses space IDs")
-- Verify the server builds after editing: \`cd platform/mcp-server && npm run build\`
-
-For detailed patterns and code examples, read \`opentabs://guide/plugin-development\` — it has full sections on token persistence, advanced auth (XHR interception, CSRF, opaque headers), adapter injection timing, error classification, and cookie-based auth.`;
+Do not skip this phase. The source files you edit compile into the MCP resources and prompts this server serves. You are reading this prompt because a previous session wrote or improved it — your additions reach the next agent the same way.`;
 };

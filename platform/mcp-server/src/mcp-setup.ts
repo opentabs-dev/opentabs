@@ -380,6 +380,7 @@ Fetch via MCP resources/read for detailed guidance:
 - \`opentabs://reference/sdk-api\` — Plugin SDK API: utilities, errors, lifecycle hooks
 - \`opentabs://reference/cli\` — CLI commands: opentabs, opentabs-plugin
 - \`opentabs://reference/browser-tools\` — All browser tools by category
+- \`opentabs://guide/self-improvement\` — How the self-improvement loop works: file-to-content mapping, contribution rules, bootstrapping architecture
 
 ## Contributing Learnings (Mandatory — Do This After Every Task)
 
@@ -387,23 +388,13 @@ After completing any plugin development, troubleshooting, setup, or platform tas
 
 **Why this matters:** The source files you edit compile into the MCP resources and prompts this server serves. When you edit them and the server rebuilds, every future AI agent receives your learnings automatically via \`resources/read\` and \`prompts/get\`. This creates a self-improving loop — every session that builds a plugin, fixes an issue, or discovers a gotcha makes every subsequent session smarter. You are both a consumer and a contributor to these resources.
 
-**Quick reference — where to write:**
-
-| What you learned | Write to | Served as |
-|---|---|---|
-| Plugin dev patterns, gotchas, conventions | \`platform/mcp-server/src/prompts/build-plugin.ts\` and \`platform/mcp-server/src/resources/plugin-development.ts\` | \`build_plugin\` prompt + \`opentabs://guide/plugin-development\` resource |
-| Icon handling patterns | \`platform/mcp-server/src/prompts/plugin-icon.ts\` | \`plugin_icon\` prompt |
-| Troubleshooting patterns | \`platform/mcp-server/src/resources/troubleshooting.ts\` | \`opentabs://guide/troubleshooting\` resource |
-| Plugin setup patterns | \`platform/mcp-server/src/prompts/setup-plugin.ts\` | \`setup_plugin\` prompt |
-| CLI or config changes | \`platform/mcp-server/src/resources/cli.ts\` | \`opentabs://reference/cli\` resource |
-| New workflow triggers or instruction gaps | \`platform/mcp-server/src/mcp-setup.ts\` (\`SERVER_INSTRUCTIONS\`) | MCP initialize instructions (pushed to every session) |
+**How to contribute:** Invoke \`contribute_learnings(task?)\` — it provides the full workflow. Or fetch \`opentabs://guide/self-improvement\` for the complete file-to-content mapping and contribution rules.
 
 **Rules:**
 - Check for duplicates before adding — scan existing content first
 - Keep learnings generic, not app-specific
 - Verify the server builds after editing: \`cd platform/mcp-server && npm run build\`
-- Do NOT write learnings to local markdown files or skill files — write them to the source files above so every AI client receives them via MCP
-- Invoke \`contribute_learnings(task?)\` for the full workflow with file mapping`;
+- Write ONLY to the TypeScript source files in \`platform/mcp-server/src/\` — those compile into MCP-served content. Do not write to local markdown files, skill files, or CLAUDE.md`;
 
 /**
  * Create a new low-level MCP Server instance with the OpenTabs server info

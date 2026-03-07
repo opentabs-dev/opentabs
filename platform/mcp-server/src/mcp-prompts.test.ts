@@ -159,8 +159,8 @@ describe('resolvePrompt — audit_ai_docs', () => {
     const result = resolvePrompt('audit_ai_docs', {});
     expect(result).not.toBeNull();
     const uris = embeddedResourceUris(result?.messages ?? []);
-    // All 6 static resources (excludes dynamic opentabs://status)
-    expect(uris).toHaveLength(6);
+    // All 7 static resources (excludes dynamic opentabs://status)
+    expect(uris).toHaveLength(7);
   });
 });
 
@@ -179,27 +179,28 @@ describe('resolvePrompt — contribute_learnings', () => {
     expect(firstMessageText(result?.messages)).toContain('Review your recent session');
   });
 
-  test('embeds plugin-development and troubleshooting resources', () => {
+  test('embeds self-improvement, plugin-development, and troubleshooting resources', () => {
     const result = resolvePrompt('contribute_learnings', {});
     expect(result).not.toBeNull();
     const uris = embeddedResourceUris(result?.messages ?? []);
-    expect(uris).toHaveLength(2);
+    expect(uris).toHaveLength(3);
+    expect(uris).toContain('opentabs://guide/self-improvement');
     expect(uris).toContain('opentabs://guide/plugin-development');
     expect(uris).toContain('opentabs://guide/troubleshooting');
   });
 
-  test('includes file mapping table', () => {
+  test('includes contribution workflow steps', () => {
     const result = resolvePrompt('contribute_learnings', {});
     const text = firstMessageText(result?.messages);
-    expect(text).toContain('platform/mcp-server/src/resources/plugin-development.ts');
-    expect(text).toContain('platform/mcp-server/src/prompts/build-plugin.ts');
-    expect(text).toContain('platform/mcp-server/src/resources/troubleshooting.ts');
+    expect(text).toContain('Step 1');
+    expect(text).toContain('Step 2');
+    expect(text).toContain('Step 3');
   });
 
-  test('includes self-improvement loop explanation', () => {
+  test('references the self-improvement resource', () => {
     const result = resolvePrompt('contribute_learnings', {});
     const text = firstMessageText(result?.messages);
-    expect(text).toContain('Self-Improvement Loop');
+    expect(text).toContain('opentabs://guide/self-improvement');
   });
 });
 

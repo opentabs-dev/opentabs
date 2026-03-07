@@ -16,19 +16,7 @@ export const contributeLearningsPromptText = (task: string): string => {
 
   return `${taskClause}
 
----
-
-## How the Self-Improvement Loop Works
-
-The OpenTabs MCP server serves AI-facing documentation via three mechanisms:
-
-| Mechanism | MCP method | Source files |
-|---|---|---|
-| **Instructions** | \`initialize\` (pushed to every session) | \`platform/mcp-server/src/mcp-setup.ts\` (\`SERVER_INSTRUCTIONS\`) |
-| **Resources** | \`resources/read\` (pulled on demand) | \`platform/mcp-server/src/resources/*.ts\` |
-| **Prompts** | \`prompts/get\` (user-triggered) | \`platform/mcp-server/src/prompts/*.ts\` |
-
-These source files are **TypeScript constants** that compile into the content this server serves. When you edit them and the server rebuilds, every future AI agent that connects receives your learnings automatically. You are currently reading this prompt because a previous session wrote (or improved) it.
+The embedded \`opentabs://guide/self-improvement\` resource below contains the complete file-to-content mapping, contribution rules, and architecture explanation. Read it first.
 
 ---
 
@@ -46,21 +34,7 @@ Review your session for:
 
 ## Step 2: Choose the Right File
 
-| What you learned | Write to | Served as |
-|---|---|---|
-| Plugin dev patterns, gotchas, conventions | \`platform/mcp-server/src/resources/plugin-development.ts\` | \`opentabs://guide/plugin-development\` resource |
-| Plugin dev workflow steps, code templates | \`platform/mcp-server/src/prompts/build-plugin.ts\` | \`build_plugin\` prompt |
-| Icon handling patterns | \`platform/mcp-server/src/prompts/plugin-icon.ts\` | \`plugin_icon\` prompt |
-| Troubleshooting patterns, error resolution | \`platform/mcp-server/src/resources/troubleshooting.ts\` | \`opentabs://guide/troubleshooting\` resource |
-| Troubleshooting workflow improvements | \`platform/mcp-server/src/prompts/troubleshoot.ts\` | \`troubleshoot\` prompt |
-| Plugin setup patterns | \`platform/mcp-server/src/prompts/setup-plugin.ts\` | \`setup_plugin\` prompt |
-| CLI or config changes | \`platform/mcp-server/src/resources/cli.ts\` | \`opentabs://reference/cli\` resource |
-| SDK utility additions | \`platform/mcp-server/src/resources/sdk-api.ts\` | \`opentabs://reference/sdk-api\` resource |
-| Browser tool documentation | \`platform/mcp-server/src/resources/browser-tools.ts\` | \`opentabs://reference/browser-tools\` resource |
-| Quick start improvements | \`platform/mcp-server/src/resources/quick-start.ts\` | \`opentabs://guide/quick-start\` resource |
-| New workflow triggers or instruction gaps | \`platform/mcp-server/src/mcp-setup.ts\` (\`SERVER_INSTRUCTIONS\`) | Initialize instructions (every session) |
-| Audit workflow improvements | \`platform/mcp-server/src/prompts/audit-ai-docs.ts\` | \`audit_ai_docs\` prompt |
-| This contribution workflow itself | \`platform/mcp-server/src/prompts/contribute-learnings.ts\` | \`contribute_learnings\` prompt |
+Consult the file-to-content mapping in the embedded \`opentabs://guide/self-improvement\` resource to find the correct source file for your learnings.
 
 ---
 
@@ -89,7 +63,7 @@ The build must succeed. If it fails, fix the issue before committing.
 
 ## Step 5: Do NOT Write to Local Files
 
-Write learnings ONLY to the source files listed above. Do NOT write to:
+Write learnings ONLY to the TypeScript source files listed in the self-improvement guide. Do NOT write to:
 - Local markdown files or skill files
 - \`CLAUDE.md\` files (those are for platform contributors, not MCP-served content)
 - Documentation site (\`docs/\`) — that's for humans, not AI agents

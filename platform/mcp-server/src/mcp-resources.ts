@@ -21,6 +21,7 @@ import { CLI_CONTENT } from './resources/cli.js';
 import { PLUGIN_DEVELOPMENT_CONTENT } from './resources/plugin-development.js';
 import { QUICK_START_CONTENT } from './resources/quick-start.js';
 import { SDK_API_CONTENT } from './resources/sdk-api.js';
+import { SELF_IMPROVEMENT_CONTENT } from './resources/self-improvement.js';
 import { buildStatusResource } from './resources/status.js';
 import { TROUBLESHOOTING_CONTENT } from './resources/troubleshooting.js';
 import type { ServerState } from './state.js';
@@ -99,6 +100,16 @@ const RESOURCES: ResourceDefinition[] = [
     annotations: { audience: ['assistant'], priority: 0.5 },
   },
   {
+    uri: 'opentabs://guide/self-improvement',
+    name: 'self-improvement',
+    title: 'Self-Improvement Guide',
+    description:
+      'How the MCP server content forms a self-improving loop — file-to-content mapping, ' +
+      'contribution rules, and bootstrapping architecture',
+    mimeType: 'text/markdown',
+    annotations: { audience: ['assistant'], priority: 0.8 },
+  },
+  {
     uri: 'opentabs://status',
     name: 'status',
     title: 'Server Status',
@@ -116,6 +127,7 @@ const CONTENT_MAP = new Map<string, string>([
   ['opentabs://guide/quick-start', QUICK_START_CONTENT],
   ['opentabs://guide/plugin-development', PLUGIN_DEVELOPMENT_CONTENT],
   ['opentabs://guide/troubleshooting', TROUBLESHOOTING_CONTENT],
+  ['opentabs://guide/self-improvement', SELF_IMPROVEMENT_CONTENT],
   ['opentabs://reference/sdk-api', SDK_API_CONTENT],
   ['opentabs://reference/cli', CLI_CONTENT],
   ['opentabs://reference/browser-tools', BROWSER_TOOLS_CONTENT],
