@@ -17,9 +17,7 @@ export const listDomains = defineTool({
     domains: z.array(domainSchema).describe('List of domains'),
   }),
   handle: async params => {
-    const data = await vercelApi<Record<string, unknown>>(
-      `/v9/projects/${encodeURIComponent(params.project)}/domains`,
-    );
+    const data = await vercelApi<Record<string, unknown>>(`/v9/projects/${encodeURIComponent(params.project)}/domains`);
     const domains = Array.isArray(data.domains) ? (data.domains as Record<string, unknown>[]) : [];
     return { domains: domains.map(d => mapDomain(d)) };
   },

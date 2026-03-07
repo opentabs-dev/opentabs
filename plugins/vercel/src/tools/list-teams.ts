@@ -42,7 +42,7 @@ export const listTeams = defineTool({
           name: (t.name as string) ?? '',
           billing_plan: (billing?.plan as string) ?? 'hobby',
           role: (membership?.role as string) ?? '',
-          created_at: t.createdAt ? new Date(t.createdAt as number).toISOString() : (t.created as string) ?? '',
+          created_at: t.createdAt ? new Date(t.createdAt as number).toISOString() : ((t.created as string) ?? ''),
         };
       }),
     };

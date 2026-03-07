@@ -70,7 +70,7 @@ export const mapDeployment = (d: Record<string, unknown>): Deployment => {
     name: (d.name as string) ?? '',
     url: (d.url as string) ?? '',
     state: (d.state as string) ?? (d.readyState as string) ?? '',
-    created_at: d.createdAt ?? d.created ? new Date((d.createdAt ?? d.created) as number).toISOString() : '',
+    created_at: (d.createdAt ?? d.created) ? new Date((d.createdAt ?? d.created) as number).toISOString() : '',
     ready_at: d.ready ? new Date(d.ready as number).toISOString() : null,
     source: (d.source as string) ?? '',
     target: (d.target as string) ?? null,

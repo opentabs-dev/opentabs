@@ -15,7 +15,8 @@
     "description": "OpenTabs plugin for Vercel",
     "urlPatterns": [
       "*://vercel.com/*"
-    ]
+    ],
+    "homepage": "https://vercel.com/dashboard"
   },
   "exports": {
     ".": {
