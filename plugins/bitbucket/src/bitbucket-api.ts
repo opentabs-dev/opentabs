@@ -1,4 +1,4 @@
-import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import { ToolError, getCookie, getPageGlobal, parseRetryAfterMs, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 const API_BASE = '/!api/2.0';
 
@@ -7,50 +7,21 @@ const API_BASE = '/!api/2.0';
 // contains user info when logged in. Mutating requests require
 // a CSRF token from the csrftoken cookie.
 
-interface AppData {
-  user?: {
-    uuid?: string;
-    aaid?: string;
-  };
-}
-
-const getAppData = (): AppData | null => {
-  const data = (window as unknown as Record<string, unknown>).__app_data__;
-  if (data && typeof data === 'object') return data as AppData;
-  return null;
-};
-
 const getAuth = (): { uuid: string } | null => {
-  const appData = getAppData();
-  if (!appData?.user?.uuid) return null;
-  return { uuid: appData.user.uuid };
+  const uuid = getPageGlobal('__app_data__.user.uuid') as string | undefined;
+  if (!uuid) return null;
+  return { uuid };
 };
 
 export const isAuthenticated = (): boolean => getAuth() !== null;
 
 export const waitForAuth = (): Promise<boolean> =>
-  new Promise(resolve => {
-    let elapsed = 0;
-    const interval = 500;
-    const maxWait = 5000;
-    const timer = setInterval(() => {
-      elapsed += interval;
-      if (isAuthenticated()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (elapsed >= maxWait) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, interval);
-  });
+  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
 
-const getCsrfToken = (): string | null => {
-  const match = document.cookie.match(/csrftoken=([^;]+)/);
-  return match?.[1] ?? null;
-};
+const getCsrfToken = (): string | null => getCookie('csrftoken');
 
 // --- Shared fetch helpers ---
 
