@@ -30,7 +30,7 @@ const analyzeSiteTool = defineBrowserTool({
     'Use this when starting to develop a new plugin for a website — it tells you everything you need ' +
     'to know about how the site works. ' +
     'This is Phase 2 of the plugin development workflow. For the complete step-by-step guide ' +
-    '(including auth discovery, API mapping, scaffolding, and common gotchas), call plugin_get_workflow first.',
+    '(including auth discovery, API mapping, scaffolding, and common gotchas), use the build-plugin skill.',
   summary: 'Analyze a site for plugin development',
   icon: 'scan-search',
   group: 'Plugins',

@@ -23,8 +23,6 @@
 
 import {
   CallToolRequestSchema,
-  GetPromptRequestSchema,
-  ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListResourceTemplatesRequestSchema,
   ListToolsRequestSchema,
@@ -32,7 +30,6 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import { log } from './logger.js';
-import { PROMPTS, resolvePrompt } from './mcp-prompts.js';
 import { getAllResources, resolveResource } from './mcp-resources.js';
 import type { DispatchCallbacks, RequestHandlerExtra } from './mcp-tool-dispatch.js';
 import {
@@ -60,7 +57,6 @@ interface ServerModuleShape {
       capabilities: {
         tools: { listChanged: boolean };
         logging: Record<string, never>;
-        prompts: { listChanged: boolean };
         resources: { listChanged?: boolean; subscribe?: boolean };
       };
       instructions?: string;
@@ -79,7 +75,6 @@ interface McpServerInstance {
   ) => void;
   connect: (transport: unknown) => Promise<void>;
   sendToolListChanged: () => Promise<void>;
-  sendPromptListChanged: () => Promise<void>;
   sendResourceListChanged: () => Promise<void>;
   sendLoggingMessage: (params: { level: string; logger?: string; data?: unknown }) => Promise<void>;
 }
@@ -167,91 +162,10 @@ const PLATFORM_TOOLS: Array<{ name: string; description: string; inputSchema: Re
       required: ['plugin', 'version', 'reviewToken', 'permission'],
     },
   },
-  {
-    name: 'plugin_get_workflow',
-    description:
-      'Get a complete workflow guide for an OpenTabs task. Returns step-by-step instructions with patterns, code templates, and common gotchas accumulated from previous AI sessions. Call this before attempting to build a plugin, troubleshoot an issue, or set up a plugin — the workflow contains critical information not available from general knowledge. Available workflows: build_plugin (default), troubleshoot, setup_plugin.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        workflow: {
-          type: 'string',
-          enum: ['build_plugin', 'troubleshoot', 'setup_plugin'],
-          description: 'Which workflow to retrieve (default: build_plugin)',
-        },
-        url: {
-          type: 'string',
-          description: 'Target web app URL (required for build_plugin workflow)',
-        },
-        name: {
-          type: 'string',
-          description: 'Plugin or package name (for build_plugin or setup_plugin workflow)',
-        },
-        error: {
-          type: 'string',
-          description: 'Error message to diagnose (for troubleshoot workflow)',
-        },
-      },
-    },
-  },
 ];
 
 /** Set of platform tool names for O(1) lookup in the tools/call handler */
 export const PLATFORM_TOOL_NAMES = new Set(PLATFORM_TOOLS.map(t => t.name));
-
-/**
- * Handle the `plugin_get_workflow` platform tool.
- * Resolves the requested prompt and flattens its messages into a single text response.
- */
-const handlePluginGetWorkflow = (args: Record<string, unknown>): { content: Array<{ type: 'text'; text: string }> } => {
-  const workflow = (args.workflow as string | undefined) ?? 'build_plugin';
-  const url = args.url as string | undefined;
-  const name = args.name as string | undefined;
-  const error = args.error as string | undefined;
-
-  // Map workflow to prompt name and arguments
-  let promptArgs: Record<string, string>;
-  switch (workflow) {
-    case 'build_plugin':
-      promptArgs = { ...(url ? { url } : {}), ...(name ? { name } : {}) };
-      break;
-    case 'troubleshoot':
-      promptArgs = { ...(error ? { error } : {}) };
-      break;
-    case 'setup_plugin':
-      promptArgs = { ...(name ? { name } : {}) };
-      break;
-    default:
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Unknown workflow: ${workflow}. Available workflows: build_plugin, troubleshoot, setup_plugin.`,
-          },
-        ],
-      };
-  }
-
-  const result = resolvePrompt(workflow, promptArgs);
-  if (!result) {
-    return {
-      content: [{ type: 'text' as const, text: `Failed to resolve workflow: ${workflow}` }],
-    };
-  }
-
-  // Flatten prompt messages into a single text string
-  const parts: string[] = [];
-  for (const msg of result.messages) {
-    if (msg.content.type === 'text') {
-      parts.push(msg.content.text);
-    } else if (msg.content.type === 'resource') {
-      const { uri, text } = msg.content.resource;
-      parts.push(`\n---\n## Resource: ${uri}\n\n${text}`);
-    }
-  }
-
-  return { content: [{ type: 'text' as const, text: parts.join('\n') }] };
-};
 
 /**
  * Register (or re-register) tools/list and tools/call handlers on an MCP Server
@@ -273,26 +187,6 @@ const registerMcpHandlers = (server: McpServerInstance, state: ServerState): voi
   server.setRequestHandler(ListToolsRequestSchema, () => ({
     tools: getAllToolsList(state),
   }));
-
-  // Handler: prompts/list — return all registered prompt definitions.
-  server.setRequestHandler(ListPromptsRequestSchema, () => ({
-    prompts: PROMPTS.map(p => ({
-      name: p.name,
-      ...(p.title ? { title: p.title } : {}),
-      description: p.description,
-      arguments: p.arguments,
-    })),
-  }));
-
-  // Handler: prompts/get — resolve a prompt by name with arguments.
-  server.setRequestHandler(GetPromptRequestSchema, request => {
-    const { name, arguments: args } = request.params as { name: string; arguments?: Record<string, string> };
-    const result = resolvePrompt(name, args ?? {});
-    if (!result) {
-      throw new Error(`Prompt not found: ${name}`);
-    }
-    return result;
-  });
 
   // Handler: resources/list — return all registered resource definitions.
   server.setRequestHandler(ListResourcesRequestSchema, () => ({
@@ -328,9 +222,6 @@ const registerMcpHandlers = (server: McpServerInstance, state: ServerState): voi
     }
     if (toolName === 'plugin_mark_reviewed') {
       return handlePluginMarkReviewed(state, args, dispatchCallbacks);
-    }
-    if (toolName === 'plugin_get_workflow') {
-      return handlePluginGetWorkflow(args);
     }
 
     // Check cached browser tools first (O(n) over small fixed set).
@@ -473,7 +364,6 @@ const createMcpServer = async (state: ServerState): Promise<McpServerInstance> =
       capabilities: {
         tools: { listChanged: true },
         logging: {},
-        prompts: { listChanged: true },
         resources: { listChanged: true },
       },
       instructions: SERVER_INSTRUCTIONS,
@@ -497,20 +387,13 @@ const notifyToolListChanged = (server: McpServerInstance): void => {
 };
 
 /**
- * Notify a connected MCP client that tools, prompts, and resources have all changed.
+ * Notify a connected MCP client that tools and resources have changed.
  * Used after reload events (hot reload, config reload, file watcher changes) where
- * the server's compiled resources and prompts may have been updated alongside tools.
- *
- * This is critical for the self-improvement loop: when an AI agent writes learnings
- * back to resource/prompt source files and the server rebuilds, connected clients
- * must be notified so they fetch the updated content on next access.
+ * the server's compiled resources may have been updated alongside tools.
  */
 const notifyAllListsChanged = (server: McpServerInstance): void => {
   server.sendToolListChanged().catch((err: unknown) => {
     log.warn('Failed to notify tool list change:', err);
-  });
-  server.sendPromptListChanged().catch((err: unknown) => {
-    log.warn('Failed to notify prompt list change:', err);
   });
   server.sendResourceListChanged().catch((err: unknown) => {
     log.warn('Failed to notify resource list change:', err);
