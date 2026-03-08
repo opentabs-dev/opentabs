@@ -1,4 +1,13 @@
-import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import {
+  ToolError,
+  clearAuthCache,
+  getAuthCache,
+  getCookie,
+  getLocalStorage,
+  parseRetryAfterMs,
+  setAuthCache,
+  waitUntil,
+} from '@opentabs-dev/plugin-sdk';
 
 // Linear's GraphQL API is on a separate subdomain (client-api.linear.app) from
 // the web app (linear.app). The CORS policy returns:
@@ -15,65 +24,10 @@ interface LinearAuth {
   clientId: string;
 }
 
-// --- Auth context persistence on globalThis (survives adapter re-injection) ---
-
-const getPersistedAuth = (): LinearAuth | null => {
-  try {
-    const ns = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
-    const cache = ns?.tokenCache as Record<string, unknown> | undefined;
-    const stored = cache?.linear as LinearAuth | undefined;
-    if (stored?.userAccountId && stored?.userId) return stored;
-  } catch {
-    // Ignore
-  }
-  return null;
-};
-
-const setPersistedAuth = (auth: LinearAuth): void => {
-  try {
-    const g = globalThis as Record<string, unknown>;
-    if (!g.__openTabs) g.__openTabs = {};
-    const ns = g.__openTabs as Record<string, unknown>;
-    if (!ns.tokenCache) ns.tokenCache = {};
-    const cache = ns.tokenCache as Record<string, unknown>;
-    cache.linear = auth;
-  } catch {
-    // Silently ignore persistence failures
-  }
-};
-
-const clearPersistedAuth = (): void => {
-  try {
-    const ns = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
-    const cache = ns?.tokenCache as Record<string, unknown> | undefined;
-    if (cache) cache.linear = undefined;
-  } catch {
-    // Silently ignore
-  }
-};
-
-// --- Auth extraction ---
-
-const getCookie = (name: string): string | null => {
-  try {
-    const match = new RegExp(`(?:^|; )${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=([^;]*)`).exec(document.cookie);
-    if (match) {
-      try {
-        return decodeURIComponent(match[1] ?? '');
-      } catch {
-        return match[1] ?? null;
-      }
-    }
-  } catch {
-    // Cookie access may fail
-  }
-  return null;
-};
-
 const getAuth = (): LinearAuth | null => {
   // Check persisted auth first (survives adapter re-injection)
-  const persisted = getPersistedAuth();
-  if (persisted) return persisted;
+  const persisted = getAuthCache<LinearAuth>('linear');
+  if (persisted?.userAccountId && persisted?.userId) return persisted;
 
   // Check the non-HttpOnly 'loggedIn' indicator cookie
   const loggedIn = getCookie('loggedIn');
@@ -83,7 +37,7 @@ const getAuth = (): LinearAuth | null => {
   // The store contains: currentUserAccountId, currentUserId, and the user's
   // organization ID nested under userAccounts[id].users[0].organization.id.
   try {
-    const raw = localStorage.getItem('ApplicationStore');
+    const raw = getLocalStorage('ApplicationStore');
     if (!raw) return null;
     const appStore = JSON.parse(raw) as Record<string, unknown>;
     const userAccountId = appStore.currentUserAccountId as string | undefined;
@@ -102,10 +56,10 @@ const getAuth = (): LinearAuth | null => {
     }
 
     // Read clientId for the linear-client-id header
-    const clientId = localStorage.getItem('clientId') ?? '';
+    const clientId = getLocalStorage('clientId') ?? '';
 
     const auth: LinearAuth = { userAccountId, userId, organizationId, clientId };
-    setPersistedAuth(auth);
+    setAuthCache('linear', auth);
     return auth;
   } catch {
     return null;
@@ -115,23 +69,10 @@ const getAuth = (): LinearAuth | null => {
 export const isLinearAuthenticated = (): boolean => getAuth() !== null;
 
 export const waitForLinearAuth = (): Promise<boolean> =>
-  new Promise(resolve => {
-    let elapsed = 0;
-    const interval = 500;
-    const maxWait = 5000;
-    const timer = setInterval(() => {
-      elapsed += interval;
-      if (isLinearAuthenticated()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (elapsed >= maxWait) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, interval);
-  });
+  waitUntil(() => isLinearAuthenticated(), { interval: 500, timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
 
 // --- GraphQL API caller ---
 
@@ -193,7 +134,7 @@ export const graphql = async <T extends Record<string, unknown>>(
       throw ToolError.rateLimited(`Rate limited — ${errorBody}`, retryMs);
     }
     if (response.status === 401 || response.status === 403) {
-      clearPersistedAuth();
+      clearAuthCache('linear');
       throw ToolError.auth(`Auth error (${response.status}): ${errorBody}`);
     }
     if (response.status === 404) {
@@ -220,7 +161,7 @@ export const graphql = async <T extends Record<string, unknown>>(
     const displayMessage = userPresentableMessage ?? message;
 
     if (code === 'AUTHENTICATION_ERROR' || code === 'FORBIDDEN') {
-      clearPersistedAuth();
+      clearAuthCache('linear');
       throw ToolError.auth(displayMessage);
     }
     if (code === 'RATELIMITED') {
