@@ -54,7 +54,8 @@ const securityPoints = [
   {
     icon: LockIcon,
     title: 'Everything starts off',
-    description: 'Every plugin\'s tools are disabled by default. Not "ask for confirmation" — actually off.',
+    description:
+      "Every plugin's tools are disabled by default — even the ones we ship. What if our account gets compromised? You shouldn't have to trust us blindly either.",
   },
   {
     icon: EyeIcon,

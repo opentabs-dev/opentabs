@@ -97,7 +97,7 @@ Plugins are standalone npm packages. Publish them and anyone can `opentabs plugi
 
 Look, we know you're the kind of person who sets `DANGEROUSLY_SKIP_PERMISSIONS=1` the moment something asks for confirmation. We respect your courage. But your browser sessions are precious, and we still wanted the defaults to be thoughtful — even for the fearless among us. Here's what we did:
 
-- **Everything starts off.** Every plugin's tools are disabled by default. Not "ask for confirmation" — actually off.
+- **Everything starts off.** Every plugin's tools are disabled by default. Not "ask for confirmation" — actually off. This includes the plugins we ship ourselves. What if our account gets compromised? What if a dependency gets hijacked? You shouldn't have to trust us blindly either.
 - **AI-assisted code review.** When you enable a plugin, the system offers to have your AI review the adapter source code first. It checks for data exfiltration, credential access, persistence mechanisms, and scope escalation. You see the findings and decide.
 - **Version-aware.** When a plugin updates, permissions reset. New code, new review.
 - **Three permission levels.** Off (disabled), Ask (confirmation dialog before each call), or Auto (runs immediately). You choose per-plugin or per-tool.
@@ -110,7 +110,7 @@ We're not going to pretend this is perfect. Browser extensions that interact wit
 
 **Why not just use the official MCP server for Slack / GitHub / etc.?**
 
-Good question — and if an official MCP server works well for you, you should absolutely use it. We started building OpenTabs for the apps that *don't* ship official MCP support — Discord, Figma, Linear, and many others had no MCP server at all when we began. Along the way, we also built plugins for apps that do have official servers, partly for learning, and partly because we noticed a few things: setting up a separate API key or OAuth flow for each service adds up fast when you use ten of them. Public APIs sometimes have stricter rate limits or a smaller feature set than the web app itself. And the web app is always the superset — it has access to internal APIs, real-time data, and features that never make it to the public API.
+Good question — and if an official MCP server works well for you, you should absolutely use it. We started building OpenTabs for the apps that *don't* ship official MCP support — Discord, Reddit, and many others had no MCP server at all when we began. Along the way, we also built plugins for apps that do have official servers, partly for learning, and partly because we noticed a few things: setting up a separate API key or OAuth flow for each service adds up fast when you use ten of them. Public APIs sometimes have stricter rate limits or a smaller feature set than the web app itself. And the web app is always the superset — it has access to internal APIs, real-time data, and features that never make it to the public API.
 
 We see OpenTabs and official MCP servers as complementary. Use whatever works best for your setup — or mix and match.
 
