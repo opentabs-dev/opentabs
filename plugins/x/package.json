@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-x",
   "description": "OpenTabs plugin for X (Twitter)",
-  "version": "0.0.67",
+  "version": "0.0.68",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -42,11 +42,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.67"
+    "@opentabs-dev/plugin-sdk": "^0.0.68"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.67",
+    "@opentabs-dev/plugin-tools": "^0.0.68",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
   },
