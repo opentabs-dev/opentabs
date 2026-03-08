@@ -1,4 +1,4 @@
-import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import { ToolError, getMetaContent, parseRetryAfterMs, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 const API_BASE = 'https://api.github.com';
 
@@ -13,8 +13,7 @@ interface GitHubAuth {
 // cookies sent automatically via credentials: 'include'.
 
 const getAuth = (): GitHubAuth | null => {
-  const loginMeta = document.querySelector<HTMLMetaElement>('meta[name="user-login"]');
-  const login = loginMeta?.content;
+  const login = getMetaContent('user-login');
   if (!login) return null;
 
   return { login };
@@ -23,23 +22,10 @@ const getAuth = (): GitHubAuth | null => {
 export const isAuthenticated = (): boolean => getAuth() !== null;
 
 export const waitForAuth = (): Promise<boolean> =>
-  new Promise(resolve => {
-    let elapsed = 0;
-    const interval = 500;
-    const maxWait = 5000;
-    const timer = setInterval(() => {
-      elapsed += interval;
-      if (isAuthenticated()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (elapsed >= maxWait) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, interval);
-  });
+  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
 
 export const getLogin = (): string => {
   const auth = getAuth();
