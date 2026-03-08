@@ -2,36 +2,71 @@
 
 import { Text } from '@/components/retroui/Text';
 
-const quickLinks = [
-  { name: 'Docs', href: '/docs' },
-  { name: 'GitHub', href: 'https://github.com/AnomalyCo/opentabs' },
+const product = [
+  { name: 'Quick Start', href: '/docs/quick-start' },
   { name: 'Installation', href: '/docs/install' },
+  { name: 'Browser Tools', href: '/docs/reference/browser-tools' },
+  { name: 'CLI Reference', href: '/docs/reference/cli' },
+];
+
+const developers = [
+  { name: 'Plugin Development', href: '/docs/guides/plugin-development' },
+  { name: 'SDK Reference', href: '/docs/sdk/plugin-class' },
+  { name: 'Your First Plugin', href: '/docs/first-plugin' },
+  { name: 'Architecture', href: '/docs/contributing/architecture' },
+];
+
+const community = [
+  { name: 'GitHub', href: 'https://github.com/opentabs-dev/opentabs' },
+  { name: 'PRDs', href: 'https://github.com/opentabs-dev/opentabs-prds' },
+  { name: 'Contributing', href: '/docs/contributing/dev-setup' },
 ];
 
 const Footer = () => (
   <footer className="mt-24 border-t-2">
     <div className="mx-auto max-w-6xl px-4 py-16">
-      <div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
-        <div className="max-w-md lg:col-span-2">
-          <Text as="h2" className="mb-6">
+      <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="sm:col-span-2 lg:col-span-1">
+          <Text as="h4" className="mb-4">
             OpenTabs
           </Text>
-          <Text className="text-muted-foreground text-sm leading-relaxed">
-            AI agents for any web app. Give AI agents access to any web application through your authenticated browser
-            session.
-          </Text>
+          <p className="max-w-xs text-muted-foreground text-sm leading-relaxed">
+            Your browser is already logged in. Let your AI use it.
+          </p>
         </div>
 
-        <div className="lg:col-span-1">
-          <Text as="h4" className="mb-6">
-            Quick Links
-          </Text>
+        <div>
+          <p className="mb-4 font-bold text-foreground text-sm">Product</p>
           <ul className="space-y-2">
-            {quickLinks.map(link => (
+            {product.map(link => (
               <li key={link.name}>
-                <a
-                  href={link.href}
-                  className="font-medium decoration-2 decoration-primary underline-offset-4 transition-all hover:underline">
+                <a href={link.href} className="text-muted-foreground text-sm transition-colors hover:text-foreground">
+                  {link.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="mb-4 font-bold text-foreground text-sm">Developers</p>
+          <ul className="space-y-2">
+            {developers.map(link => (
+              <li key={link.name}>
+                <a href={link.href} className="text-muted-foreground text-sm transition-colors hover:text-foreground">
+                  {link.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="mb-4 font-bold text-foreground text-sm">Community</p>
+          <ul className="space-y-2">
+            {community.map(link => (
+              <li key={link.name}>
+                <a href={link.href} className="text-muted-foreground text-sm transition-colors hover:text-foreground">
                   {link.name}
                 </a>
               </li>

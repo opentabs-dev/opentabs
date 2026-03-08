@@ -41,7 +41,7 @@ export default function TopNav() {
               {isDarkMode ? <SunIcon size={20} /> : <MoonIcon size={20} />}
             </button>
             <Link
-              href="https://github.com/AnomalyCo/opentabs"
+              href="https://github.com/opentabs-dev/opentabs"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="GitHub">
@@ -51,7 +51,7 @@ export default function TopNav() {
           </div>
 
           <div className="hidden items-center space-x-3 lg:flex">
-            <Link href="https://github.com/AnomalyCo/opentabs" target="_blank" rel="noopener noreferrer">
+            <Link href="https://github.com/opentabs-dev/opentabs" target="_blank" rel="noopener noreferrer">
               <Button variant="secondary" size="icon" aria-label="GitHub">
                 <SiGithub size={14} />
               </Button>
