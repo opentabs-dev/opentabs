@@ -22,6 +22,7 @@ interface ServerStateCache {
   browserTools: ConfigStateBrowserTool[];
   browserPermission?: ToolPermission;
   serverVersion?: string;
+  serverSourcePath?: string;
   skipPermissions?: boolean;
 }
 
@@ -34,6 +35,7 @@ const EMPTY_CACHE: ServerStateCache = {
   browserTools: [],
   browserPermission: undefined,
   serverVersion: undefined,
+  serverSourcePath: undefined,
   skipPermissions: undefined,
 };
 
@@ -263,6 +265,7 @@ const loadServerStateCacheFromSession = async (): Promise<void> => {
             ? stored.browserPermission
             : undefined,
         serverVersion: typeof stored.serverVersion === 'string' ? stored.serverVersion : undefined,
+        serverSourcePath: typeof stored.serverSourcePath === 'string' ? stored.serverSourcePath : undefined,
         skipPermissions: typeof stored.skipPermissions === 'boolean' ? stored.skipPermissions : undefined,
       };
     }

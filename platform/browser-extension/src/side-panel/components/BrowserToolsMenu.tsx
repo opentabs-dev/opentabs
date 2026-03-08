@@ -1,12 +1,14 @@
-import { MoreHorizontal, Server } from 'lucide-react';
+import { FolderOpen, MoreHorizontal, Server } from 'lucide-react';
+import { openFolder } from '../bridge';
 import { Menu } from './retro/Menu';
 
 interface BrowserToolsMenuProps {
   serverVersion?: string;
+  serverSourcePath?: string;
   className?: string;
 }
 
-const BrowserToolsMenu = ({ serverVersion, className }: BrowserToolsMenuProps) => (
+const BrowserToolsMenu = ({ serverVersion, serverSourcePath, className }: BrowserToolsMenuProps) => (
   <div
     className={className}
     onClick={e => e.stopPropagation()}
@@ -24,10 +26,18 @@ const BrowserToolsMenu = ({ serverVersion, className }: BrowserToolsMenuProps) =
         </button>
       </Menu.Trigger>
       <Menu.Content align="end">
-        <Menu.Item disabled className="text-muted-foreground">
-          <Server className="h-3.5 w-3.5" />
-          Server {serverVersion ? `v${serverVersion}` : 'unknown'}
-        </Menu.Item>
+        {serverSourcePath ? (
+          <Menu.Item onSelect={() => void openFolder(serverSourcePath)}>
+            <Server className="h-3.5 w-3.5" />
+            Server {serverVersion ? `v${serverVersion}` : 'unknown'}
+            <FolderOpen className="ml-auto h-3 w-3 text-muted-foreground" />
+          </Menu.Item>
+        ) : (
+          <Menu.Item disabled className="text-muted-foreground">
+            <Server className="h-3.5 w-3.5" />
+            Server {serverVersion ? `v${serverVersion}` : 'unknown'}
+          </Menu.Item>
+        )}
       </Menu.Content>
     </Menu>
   </div>

@@ -399,6 +399,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
     ? (params.browserTools as ConfigStateBrowserTool[])
     : undefined;
   const rawServerVersion = typeof params.serverVersion === 'string' ? params.serverVersion : undefined;
+  const rawServerSourcePath = typeof params.serverSourcePath === 'string' ? params.serverSourcePath : undefined;
   const rawBrowserPermission = params.browserPermission;
   const browserPermission =
     rawBrowserPermission === 'off' || rawBrowserPermission === 'ask' || rawBrowserPermission === 'auto'
@@ -412,6 +413,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
     ...(rawBrowserTools ? { browserTools: rawBrowserTools } : {}),
     ...(browserPermission !== undefined ? { browserPermission } : {}),
     ...(rawServerVersion !== undefined ? { serverVersion: rawServerVersion } : {}),
+    ...(rawServerSourcePath !== undefined ? { serverSourcePath: rawServerSourcePath } : {}),
     ...(rawSkipPermissions !== undefined ? { skipPermissions: rawSkipPermissions } : {}),
   });
 
@@ -675,6 +677,7 @@ const handleServerMessage = (message: Record<string, unknown>): void => {
       ...(payload.browserTools ? { browserTools: payload.browserTools } : {}),
       ...(payload.browserPermission !== undefined ? { browserPermission: payload.browserPermission } : {}),
       ...(payload.serverVersion !== undefined ? { serverVersion: payload.serverVersion } : {}),
+      ...(payload.serverSourcePath !== undefined ? { serverSourcePath: payload.serverSourcePath } : {}),
       ...(payload.skipPermissions !== undefined ? { skipPermissions: payload.skipPermissions } : {}),
     });
   }

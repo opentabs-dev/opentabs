@@ -220,13 +220,7 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       // state), tabState (from live tab cache), permission (from server cache,
       // which reflects the latest user-configured value), and server-only
       // fields (source, sdkVersion, update).
-      const {
-        tools: _metaTools,
-        sourcePath: _sourcePath,
-        adapterHash: _adapterHash,
-        adapterFile: _adapterFile,
-        ...metaFields
-      } = meta;
+      const { tools: _metaTools, adapterHash: _adapterHash, adapterFile: _adapterFile, ...metaFields } = meta;
       return {
         ...metaFields,
         permission: serverPlugin?.permission ?? meta.permission,
@@ -249,6 +243,7 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       browserTools: serverCache.browserTools,
       browserPermission: serverCache.browserPermission,
       serverVersion: serverCache.serverVersion,
+      serverSourcePath: serverCache.serverSourcePath,
       skipPermissions: serverCache.skipPermissions,
       pendingConfirmations: getPendingConfirmations(),
     });

@@ -50,6 +50,7 @@ const BrowserToolsCard = ({
   onToolsChange,
   toolFilter,
   serverVersion,
+  serverSourcePath,
   browserPermission = 'off',
   onBrowserPermissionChange,
 }: {
@@ -58,6 +59,7 @@ const BrowserToolsCard = ({
   onToolsChange: (updater: (tools: BrowserToolState[]) => BrowserToolState[]) => void;
   toolFilter?: string;
   serverVersion?: string;
+  serverSourcePath?: string;
   browserPermission?: ToolPermission;
   onBrowserPermissionChange?: (permission: ToolPermission) => void;
 }) => {
@@ -148,7 +150,11 @@ const BrowserToolsCard = ({
           </div>
           <ChevronDown className="chevron h-4 w-4 shrink-0 transition-transform duration-200" />
         </AccordionPrimitive.Trigger>
-        <BrowserToolsMenu serverVersion={serverVersion} className="flex shrink-0 items-center px-1" />
+        <BrowserToolsMenu
+          serverVersion={serverVersion}
+          serverSourcePath={serverSourcePath}
+          className="flex shrink-0 items-center px-1"
+        />
         <div className="flex shrink-0 items-center px-3">
           <PermissionSelect
             value={browserPermission}

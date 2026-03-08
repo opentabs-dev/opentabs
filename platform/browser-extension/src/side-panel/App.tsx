@@ -46,6 +46,7 @@ const App = () => {
   const [browserPermission, setBrowserPermission] = useState<ToolPermission>('off');
   const [skipPermissions, setSkipPermissions] = useState(false);
   const [serverVersion, setServerVersion] = useState<string | undefined>(undefined);
+  const [serverSourcePath, setServerSourcePath] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [activeTools, setActiveTools] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -258,6 +259,7 @@ const App = () => {
       setBrowserPermission(result.browserPermission ?? 'off');
       setSkipPermissions(result.skipPermissions ?? false);
       setServerVersion(result.serverVersion);
+      setServerSourcePath(result.serverSourcePath);
       setActiveTools(prev => {
         const next = new Set<string>();
         for (const key of prev) {
@@ -331,6 +333,7 @@ const App = () => {
           setBrowserPermission('off');
           setSkipPermissions(false);
           setServerVersion(undefined);
+          setServerSourcePath(undefined);
           setActiveTools(new Set());
           setPendingConfirmations([]);
           setSearchQuery('');
@@ -485,6 +488,7 @@ const App = () => {
                       activeTools={activeTools}
                       onToolsChange={setBrowserTools}
                       serverVersion={serverVersion}
+                      serverSourcePath={serverSourcePath}
                       browserPermission={browserPermission}
                       onBrowserPermissionChange={setBrowserPermission}
                     />

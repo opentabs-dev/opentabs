@@ -750,7 +750,6 @@ describe('handleBgGetFullState', () => {
     });
 
     // Internal-only PluginMeta fields must NOT leak to the side panel
-    expect(outputPlugin).not.toHaveProperty('sourcePath');
     expect(outputPlugin).not.toHaveProperty('adapterHash');
     expect(outputPlugin).not.toHaveProperty('adapterFile');
   });

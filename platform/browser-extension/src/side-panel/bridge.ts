@@ -17,7 +17,7 @@ import type {
 import type { DisconnectReason } from '../extension-messages.js';
 
 /** Plugin state as displayed in the side panel. tools is optional to reflect that the server response may omit it. */
-type PluginState = Omit<ConfigStatePlugin, 'tools'> & { tools?: WireToolDef[] };
+type PluginState = Omit<ConfigStatePlugin, 'tools'> & { tools?: WireToolDef[]; sourcePath?: string };
 
 /** Failed plugin state as displayed in the side panel */
 type FailedPluginState = ConfigStateFailedPlugin;
@@ -62,6 +62,7 @@ interface FullStateResult {
   browserTools: BrowserToolState[];
   browserPermission?: ToolPermission;
   serverVersion?: string;
+  serverSourcePath?: string;
   skipPermissions?: boolean;
   pendingConfirmations?: FullStateConfirmation[];
 }
