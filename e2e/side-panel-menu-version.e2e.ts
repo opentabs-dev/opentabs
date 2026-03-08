@@ -138,7 +138,7 @@ test.describe('Side panel — menu version items', () => {
       // Fetch the server version from the /health endpoint
       const health = await server.health();
       expect(health).not.toBeNull();
-      const serverVersion = health!.version;
+      const serverVersion = health?.version;
       expect(serverVersion).toBeTruthy();
 
       // Open the browser tools three-dot menu
