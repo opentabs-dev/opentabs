@@ -213,11 +213,14 @@ export { retry, sleep, waitUntil } from './timing.js';
 // ---------------------------------------------------------------------------
 
 export {
+  clearAuthCache,
+  getAuthCache,
   getCookie,
   getLocalStorage,
   getSessionStorage,
   removeLocalStorage,
   removeSessionStorage,
+  setAuthCache,
   setLocalStorage,
   setSessionStorage,
 } from './storage.js';

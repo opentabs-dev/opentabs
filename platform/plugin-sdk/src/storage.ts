@@ -134,3 +134,45 @@ export const getCookie = (name: string): string | null => {
     return null;
   }
 };
+
+/**
+ * Reads a cached auth value from globalThis.__openTabs.tokenCache[namespace].
+ * Returns null if the namespace is not found or if access throws.
+ * The generic T allows both primitive strings and complex objects.
+ */
+export const getAuthCache = <T>(namespace: string): T | null => {
+  try {
+    const ns = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
+    const cache = ns?.tokenCache as Record<string, unknown> | undefined;
+    return (cache?.[namespace] as T) ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Writes a value to globalThis.__openTabs.tokenCache[namespace].
+ * Initializes __openTabs and tokenCache objects if absent.
+ * Silently handles errors (consistent with existing storage patterns).
+ */
+export const setAuthCache = <T>(namespace: string, value: T): void => {
+  try {
+    const g = globalThis as Record<string, unknown>;
+    if (!g.__openTabs) g.__openTabs = {};
+    const ns = g.__openTabs as Record<string, unknown>;
+    if (!ns.tokenCache) ns.tokenCache = {};
+    (ns.tokenCache as Record<string, unknown>)[namespace] = value;
+  } catch {}
+};
+
+/**
+ * Clears the cached auth value at globalThis.__openTabs.tokenCache[namespace].
+ * Silently handles errors.
+ */
+export const clearAuthCache = (namespace: string): void => {
+  try {
+    const ns = (globalThis as Record<string, unknown>).__openTabs as Record<string, unknown> | undefined;
+    const cache = ns?.tokenCache as Record<string, unknown> | undefined;
+    if (cache) cache[namespace] = undefined;
+  } catch {}
+};
