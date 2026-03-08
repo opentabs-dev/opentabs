@@ -28,7 +28,7 @@ class SentryPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Sentry';
   override readonly displayName = 'Sentry';
   readonly urlPatterns = ['*://*.sentry.io/*'];
-  readonly homepage = 'https://sentry.io';
+  override readonly homepage = 'https://sentry.io';
   readonly tools: ToolDefinition[] = [
     // Issues
     searchIssues,

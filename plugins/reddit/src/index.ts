@@ -22,7 +22,7 @@ class RedditPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Reddit';
   override readonly displayName = 'Reddit';
   readonly urlPatterns = ['*://www.reddit.com/*', '*://old.reddit.com/*', '*://new.reddit.com/*'];
-  readonly homepage = 'https://www.reddit.com';
+  override readonly homepage = 'https://www.reddit.com';
   readonly tools: ToolDefinition[] = [
     getMe,
     listPosts,

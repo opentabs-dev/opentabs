@@ -25,7 +25,7 @@ class NotionPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Notion';
   override readonly displayName = 'Notion';
   readonly urlPatterns = ['*://*.notion.so/*'];
-  readonly homepage = 'https://www.notion.so';
+  override readonly homepage = 'https://www.notion.so';
   readonly tools: ToolDefinition[] = [
     search,
     listPages,

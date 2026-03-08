@@ -33,7 +33,7 @@ class DiscordPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Discord';
   override readonly displayName = 'Discord';
   readonly urlPatterns = ['*://discord.com/*'];
-  readonly homepage = 'https://discord.com/channels/@me';
+  override readonly homepage = 'https://discord.com/channels/@me';
   readonly tools: ToolDefinition[] = [
     // Messages
     sendMessage,

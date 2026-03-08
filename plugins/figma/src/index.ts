@@ -21,7 +21,7 @@ class FigmaPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Figma';
   override readonly displayName = 'Figma';
   readonly urlPatterns = ['*://*.figma.com/*'];
-  readonly homepage = 'https://www.figma.com/files/recents-and-sharing';
+  override readonly homepage = 'https://www.figma.com/files/recents-and-sharing';
   readonly tools: ToolDefinition[] = [
     getCurrentUser,
     listTeams,

@@ -15,7 +15,7 @@ class VercelPlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Vercel';
   override readonly displayName = 'Vercel';
   readonly urlPatterns = ['*://vercel.com/*'];
-  readonly homepage = 'https://vercel.com/dashboard';
+  override readonly homepage = 'https://vercel.com/dashboard';
   readonly tools: ToolDefinition[] = [
     // Projects
     listProjects,
