@@ -1,4 +1,4 @@
-import { ToolError, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import { ToolError, getMetaContent, getPageGlobal, parseRetryAfterMs, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 const API_BASE = 'https://gitlab.com/api/v4';
 
@@ -12,16 +12,8 @@ interface GitLabAuth {
 // (window.gon). Auth is detected via the gon object which contains the
 // current user's username when logged in.
 
-const getGon = (): Record<string, unknown> | null => {
-  const gon = (window as unknown as Record<string, unknown>).gon;
-  if (gon && typeof gon === 'object') return gon as Record<string, unknown>;
-  return null;
-};
-
 const getAuth = (): GitLabAuth | null => {
-  const gon = getGon();
-  if (!gon) return null;
-  const username = gon.current_username;
+  const username = getPageGlobal('gon.current_username') as string | undefined;
   if (typeof username !== 'string' || !username) return null;
   return { username };
 };
@@ -29,23 +21,10 @@ const getAuth = (): GitLabAuth | null => {
 export const isAuthenticated = (): boolean => getAuth() !== null;
 
 export const waitForAuth = (): Promise<boolean> =>
-  new Promise(resolve => {
-    let elapsed = 0;
-    const interval = 500;
-    const maxWait = 5000;
-    const timer = setInterval(() => {
-      elapsed += interval;
-      if (isAuthenticated()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (elapsed >= maxWait) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, interval);
-  });
+  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
 
 export const getUsername = (): string => {
   const auth = getAuth();
@@ -53,10 +32,7 @@ export const getUsername = (): string => {
   return auth.username;
 };
 
-const getCsrfToken = (): string | null => {
-  const meta = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
-  return meta?.content ?? null;
-};
+const getCsrfToken = (): string | null => getMetaContent('csrf-token');
 
 // --- Shared fetch helpers ---
 
