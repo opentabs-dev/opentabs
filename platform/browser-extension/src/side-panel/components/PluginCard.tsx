@@ -144,11 +144,14 @@ const PluginCard = ({
 
   const tabCount = plugin.tabs?.length ?? 0;
   const hasHomepage = Boolean(plugin.homepage);
-  const isClickable = tabCount > 0 || hasHomepage;
+  const hasLastSeenUrl = Boolean(plugin.hasLastSeenUrl);
+  const isClickable = tabCount > 0 || hasHomepage || hasLastSeenUrl;
 
   const tooltipText = (() => {
     if (plugin.tabState === 'closed') {
-      return hasHomepage ? `Open ${plugin.displayName} in new tab` : `v${plugin.version}`;
+      if (hasHomepage) return `Open ${plugin.displayName} in new tab`;
+      if (hasLastSeenUrl) return `Open ${plugin.displayName} (last visited)`;
+      return `v${plugin.version}`;
     }
     return tabCount > 1 ? `Open ${plugin.displayName} (${tabCount} tabs)` : `Open ${plugin.displayName}`;
   })();

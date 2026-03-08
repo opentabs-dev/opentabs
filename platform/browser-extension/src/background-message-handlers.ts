@@ -177,8 +177,17 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       serverPluginMap.set(sp.name, sp);
     }
 
+    // Pre-compute last-seen URL availability per plugin (in-memory cache, effectively sync after first load)
+    const metaEntries = Object.values(metaIndex);
+    const lastSeenFlags = await Promise.all(metaEntries.map(async m => (await getLastSeenUrl(m.name)) !== undefined));
+    const hasLastSeenUrlMap = new Map<string, boolean>();
+    for (let i = 0; i < metaEntries.length; i++) {
+      const entry = metaEntries[i];
+      if (lastSeenFlags[i] && entry) hasLastSeenUrlMap.set(entry.name, true);
+    }
+
     // Merge each plugin from metaCache with server state and tab state
-    const plugins: ConfigStatePlugin[] = Object.values(metaIndex).map(meta => {
+    const plugins: ConfigStatePlugin[] = metaEntries.map(meta => {
       const serverPlugin = serverPluginMap.get(meta.name);
 
       // Tab state from lastKnownState cache (serialized JSON)
@@ -228,6 +237,7 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
         reviewed: serverPlugin?.reviewed ?? false,
         sdkVersion: serverPlugin?.sdkVersion,
         update: serverPlugin?.update,
+        ...(hasLastSeenUrlMap.has(meta.name) && { hasLastSeenUrl: true }),
       };
     });
 

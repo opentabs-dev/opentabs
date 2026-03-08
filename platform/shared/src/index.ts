@@ -316,6 +316,8 @@ export interface ConfigStatePlugin {
   urlPatterns: string[];
   excludePatterns?: string[];
   homepage?: string;
+  /** Whether the extension has a last-seen URL for this plugin (fallback when no homepage). */
+  hasLastSeenUrl?: boolean;
   /** SDK version the plugin was built with (from tools.json). Undefined for old plugins. */
   sdkVersion?: string;
   tools: WireToolDef[];
