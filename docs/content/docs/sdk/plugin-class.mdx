@@ -20,6 +20,8 @@ abstract class OpenTabsPlugin {
   abstract readonly displayName: string;
   abstract readonly description: string;
   abstract readonly urlPatterns: string[];
+  readonly excludePatterns?: string[];
+  readonly homepage?: string;
   abstract readonly tools: ToolDefinition[];
 
   abstract isReady(): Promise<boolean>;
@@ -74,6 +76,52 @@ These properties are required — your subclass must define them.
     </Table.Row>
   </Table.Body>
 </Table>
+
+## Optional Properties
+
+These properties are optional — override them when your plugin needs URL exclusions or a homepage link.
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Property</Table.Head>
+      <Table.Head>Type</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`excludePatterns`</Table.Cell>
+      <Table.Cell>`string[]`</Table.Cell>
+      <Table.Cell>Chrome [match patterns](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns) for URLs that should **not** match this plugin. Tabs matching both `urlPatterns` and `excludePatterns` are excluded. Useful when a broad `urlPattern` overlaps with another plugin's domain.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`homepage`</Table.Cell>
+      <Table.Cell>`string`</Table.Cell>
+      <Table.Cell>URL to open when no matching tab exists and the user triggers an "open tab" action from the side panel. Should be a concrete URL (e.g., `'https://github.com'`), not a match pattern.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+**Example — excluding URLs:**
+
+```typescript
+class MyPlugin extends OpenTabsPlugin {
+  readonly urlPatterns = ['*://*.example.com/*'];
+  readonly excludePatterns = ['*://docs.example.com/*'];
+  // ...
+}
+```
+
+**Example — setting a homepage:**
+
+```typescript
+class MyPlugin extends OpenTabsPlugin {
+  readonly urlPatterns = ['*://*.github.com/*'];
+  readonly homepage = 'https://github.com';
+  // ...
+}
+```
 
 ## Abstract Methods
 

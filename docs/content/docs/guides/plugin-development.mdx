@@ -329,6 +329,51 @@ const created = await postJSON('/api/items', { title: 'New item' }, undefined, i
 
 If validation fails, the fetch helper throws a `ToolError` with a structured validation error. See the [Utilities reference](/docs/sdk/utilities) for the full API.
 
+### Choosing the right fetch utility
+
+The SDK provides several fetch wrappers. All of them automatically include `credentials: 'include'` (so session cookies are sent) and apply a **30-second default timeout** via `AbortSignal.timeout()`. Use this table to pick the right one:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Need</Table.Head>
+      <Table.Head>Use</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell>GET + JSON response</Table.Cell>
+      <Table.Cell>`fetchJSON`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>POST/PUT/PATCH/DELETE + JSON</Table.Cell>
+      <Table.Cell>`postJSON` / `putJSON` / `patchJSON` / `deleteJSON`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>POST + URL-encoded form</Table.Cell>
+      <Table.Cell>`postForm`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>POST + multipart file upload</Table.Cell>
+      <Table.Cell>`postFormData`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>GET + text response (diffs, logs)</Table.Cell>
+      <Table.Cell>`fetchText`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Custom request handling</Table.Cell>
+      <Table.Cell>`fetchFromPage` (raw `Response`)</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Build URL query parameters</Table.Cell>
+      <Table.Cell>`buildQueryString`</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+All the JSON and form helpers throw a `ToolError` on non-2xx responses, so you don't need manual status checks. If you need custom error handling, use `fetchFromPage` directly and inspect the `Response`.
+
 ### Wait for DOM elements
 
 Use `waitForSelector` when the page loads asynchronously:
@@ -405,6 +450,20 @@ handle: async params => {
 ```
 
 `ToolError` has six factory methods — `auth()`, `notFound()`, `rateLimited()`, `timeout()`, `validation()`, and `internal()`. Each sets the right category and retryable flags so AI agents can decide whether to retry, wait, or give up. See the [Error Handling guide](/docs/guides/error-handling) for details.
+
+When using `fetchFromPage` directly (instead of `fetchJSON` / `postJSON` which handle errors automatically), use `httpStatusToToolError` to convert HTTP status codes into the correct `ToolError` category:
+
+```typescript
+import { fetchFromPage, httpStatusToToolError } from '@opentabs-dev/plugin-sdk';
+
+const response = await fetchFromPage('/api/items');
+if (!response.ok) {
+  throw httpStatusToToolError(response, `Failed to fetch items: ${response.status}`);
+}
+const data = await response.json();
+```
+
+`httpStatusToToolError` maps status codes to error categories: 401/403 → `auth`, 404 → `notFound`, 429 → `rateLimited` (with `Retry-After` header support), 400/422 → `validation`, and everything else → `internal`.
 
 ## Add Logging
 

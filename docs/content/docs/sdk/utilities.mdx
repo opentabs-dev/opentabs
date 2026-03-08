@@ -8,12 +8,13 @@ The plugin SDK ships utility functions that run in the browser page context, red
 
 ```typescript
 import {
-  waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextContent, observeDOM,
+  waitForSelector, waitForSelectorRemoval, querySelectorAll, getTextContent, getMetaContent, observeDOM,
   fetchFromPage, fetchJSON, postJSON, postForm, postFormData, putJSON, patchJSON, deleteJSON,
-  httpStatusToToolError, parseRetryAfterMs,
+  fetchText, buildQueryString, httpStatusToToolError, parseRetryAfterMs,
   getLocalStorage, setLocalStorage, removeLocalStorage,
   getSessionStorage, setSessionStorage, removeSessionStorage,
   getCookie,
+  getAuthCache, setAuthCache, clearAuthCache, findLocalStorageEntry,
   getPageGlobal, getCurrentUrl, getPageTitle,
   retry, sleep, waitUntil,
   log,
@@ -110,6 +111,20 @@ function getTextContent(selector: string): string | null;
 ```typescript
 const username = getTextContent('.profile-name');
 const count = getTextContent('.notification-badge');
+```
+
+### `getMetaContent(name)`
+
+Returns the `content` attribute of the `<meta>` tag with the given `name`, or `null` if the tag is not found or has no content attribute. Uses `CSS.escape` to safely handle special characters in the name.
+
+```typescript
+function getMetaContent(name: string): string | null;
+```
+
+```typescript
+// Read CSRF tokens or app configuration from <meta> tags
+const csrfToken = getMetaContent('csrf-token');
+const apiBase = getMetaContent('api-base-url');
 ```
 
 ### `observeDOM(selector, callback, options?)`
@@ -225,6 +240,16 @@ Functions for making HTTP requests using the page's authenticated session. All f
       <Table.Cell className="font-medium">`deleteJSON`</Table.Cell>
       <Table.Cell>DELETE</Table.Cell>
       <Table.Cell>DELETE, parse JSON response.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`fetchText`</Table.Cell>
+      <Table.Cell>Any</Table.Cell>
+      <Table.Cell>Fetch and return the response body as a string (for diffs, logs, raw content).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`buildQueryString`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+      <Table.Cell>Build a URL query string from a record, filtering out `undefined` values.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`httpStatusToToolError`</Table.Cell>
@@ -436,6 +461,49 @@ const result = await deleteJSON<{ ok: boolean }>('/api/users/123');
 // result may be undefined for 204 No Content responses
 ```
 
+### `fetchText(url, init?)`
+
+Fetches a URL and returns the response body as a string instead of JSON. Uses the page's session cookies and provides the same timeout and error handling as `fetchFromPage`. Returns an empty string for 204 No Content responses.
+
+```typescript
+function fetchText(url: string, init?: FetchFromPageOptions): Promise<string>;
+```
+
+```typescript
+// Fetch raw text content — diffs, logs, plain-text API responses
+const diff = await fetchText('/api/pull-requests/42/diff');
+
+// Fetch a job log with a custom timeout
+const log = await fetchText('/api/jobs/123/log', { timeout: 60_000 });
+```
+
+### `buildQueryString(params)`
+
+Builds a URL query string from a record of key-value pairs. Filters out `undefined` values, converts numbers and booleans to strings, and supports arrays (appending multiple values for the same key). Returns the query string without a leading `?`.
+
+```typescript
+function buildQueryString(
+  params: Record<string, string | number | boolean | string[] | undefined>,
+): string;
+```
+
+```typescript
+// Build a query string for an API call
+const qs = buildQueryString({
+  channel: 'C12345',
+  limit: 50,
+  include_all_metadata: true,
+  cursor: undefined, // omitted from the output
+});
+// → "channel=C12345&limit=50&include_all_metadata=true"
+
+const messages = await fetchJSON<Message[]>(`/api/messages?${qs}`);
+
+// Array values append multiple entries for the same key
+const qs2 = buildQueryString({ types: ['public_channel', 'private_channel'] });
+// → "types=public_channel&types=private_channel"
+```
+
 ### `httpStatusToToolError(response, message)`
 
 Maps an HTTP error response to a `ToolError` with the appropriate category. Status code mapping:
@@ -547,6 +615,73 @@ const token =
   getLocalStorage('auth_token') ??
   getSessionStorage('auth_token') ??
   getCookie('auth_token');
+```
+
+### `getAuthCache(namespace)`
+
+Reads a cached value from `globalThis.__openTabs.tokenCache[namespace]`. Returns `null` if the namespace is not found or if access throws. The generic type parameter allows retrieving both primitive strings and complex objects.
+
+```typescript
+function getAuthCache<T>(namespace: string): T | null;
+```
+
+```typescript
+// Retrieve a cached API token
+const token = getAuthCache<string>('slack-api-token');
+
+// Retrieve a complex cached auth object
+interface AuthData { token: string; expiresAt: number }
+const auth = getAuthCache<AuthData>('my-plugin-auth');
+```
+
+### `setAuthCache(namespace, value)`
+
+Writes a value to `globalThis.__openTabs.tokenCache[namespace]`. Initializes the `__openTabs` and `tokenCache` objects if they don't exist. Silently handles errors.
+
+```typescript
+function setAuthCache<T>(namespace: string, value: T): void;
+```
+
+```typescript
+// Cache an extracted API token for reuse across tool invocations
+const token = getPageGlobal('TS.boot_data.api_token') as string | undefined;
+if (token) {
+  setAuthCache('slack-api-token', token);
+}
+```
+
+### `clearAuthCache(namespace)`
+
+Clears the cached value at `globalThis.__openTabs.tokenCache[namespace]`. Silently handles errors.
+
+```typescript
+function clearAuthCache(namespace: string): void;
+```
+
+```typescript
+// Clear a cached token when it's known to be expired
+clearAuthCache('slack-api-token');
+```
+
+### `findLocalStorageEntry(predicate)`
+
+Searches localStorage keys using a predicate function and returns the first matching entry as `{ key, value }`. Returns `null` if no match is found or if localStorage is inaccessible. Uses the same iframe fallback as `getLocalStorage` for environments where `localStorage` is deleted (e.g., Discord).
+
+```typescript
+function findLocalStorageEntry(
+  predicate: (key: string) => boolean,
+): { key: string; value: string } | null;
+```
+
+```typescript
+// Find a localStorage entry with a dynamic key prefix
+const entry = findLocalStorageEntry((key) => key.startsWith('auth_token_'));
+if (entry) {
+  const token = JSON.parse(entry.value);
+}
+
+// Find a key matching a pattern
+const session = findLocalStorageEntry((key) => key.includes('session'));
 ```
 
 ---
