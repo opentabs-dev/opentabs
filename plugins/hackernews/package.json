@@ -1,0 +1,55 @@
+{
+  "name": "@opentabs-dev/opentabs-plugin-hackernews",
+  "description": "OpenTabs plugin for Hacker News",
+  "publishConfig": {
+    "access": "restricted"
+  },
+  "version": "0.0.71",
+  "type": "module",
+  "main": "dist/adapter.iife.js",
+  "keywords": [
+    "opentabs-plugin"
+  ],
+  "opentabs": {
+    "displayName": "Hacker News",
+    "description": "OpenTabs plugin for Hacker News",
+    "urlPatterns": [
+      "*://news.ycombinator.com/*"
+    ],
+    "homepage": "https://news.ycombinator.com"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && opentabs-plugin build",
+    "dev": "tsc --watch --preserveWatchOutput & opentabs-plugin build --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --fix src/",
+    "format:check": "biome format src/",
+    "format": "biome format --write src/",
+    "check": "npm run build && npm run type-check && npm run lint && npm run format:check"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "dependencies": {
+    "@opentabs-dev/plugin-sdk": "^0.0.71"
+  },
+  "devDependencies": {
+    "@opentabs-dev/plugin-tools": "^0.0.71",
+    "@biomejs/biome": "2.4.6",
+    "jiti": "^2.6.1",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  },
+  "license": "MIT"
+}
