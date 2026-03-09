@@ -755,6 +755,56 @@ export const mapUser = (u: RawUser) => ({
 - Shared schemas go in `schemas.ts` — never duplicate a schema across tool files
 - For request bodies with optional fields, use `stripUndefined(params)` from the SDK instead of manual `if (x !== undefined) body.x = x` chains
 
+### Void Operation Pattern
+
+Tools that perform an action with no meaningful return data (delete, archive, close, reopen, etc.) must return `{ success: true }`:
+
+```typescript
+output: z.object({
+  success: z.boolean().describe('Whether the operation succeeded'),
+}),
+handle: async (params) => {
+  await api(`/items/${params.id}`, { method: 'DELETE' });
+  return { success: true };
+},
+```
+
+Do NOT return empty objects (`{}`), do NOT use `deleted`/`archived`/`closed` — always `success`.
+
+### Tool Naming
+
+| Convention | Example | Note |
+|---|---|---|
+| Current user's profile | `get_current_user` | Not `get_me` or `get_user_profile` with magic `@me` |
+| Send a message | `send_message` with `text` param | Not `content` or `body` |
+| Reply to something | `reply_to_tweet_id`, `thread_ts` | Use the platform's native threading concept |
+| List resources | `list_<plural>` | e.g., `list_projects`, `list_issues` |
+| Get single resource | `get_<singular>` | e.g., `get_project`, `get_issue` |
+| Create resource | `create_<singular>` | e.g., `create_project` |
+| Update resource | `update_<singular>` | e.g., `update_project` |
+| Delete resource | `delete_<singular>` | e.g., `delete_project` |
+
+### Group Naming
+
+Use **plural nouns** for resource groups: `Projects`, `Issues`, `Messages`, `Users`.
+Use **singular nouns** for singleton groups: `Account`, `Organization`.
+
+### Icon Conventions
+
+Use Lucide icons consistently:
+
+| Operation | Icon |
+|---|---|
+| Get current user | `user` |
+| List resources | `list` or resource-specific (e.g., `folder` for projects) |
+| Get single | Same as list, or `-open` variant |
+| Create | `plus` or resource-specific (e.g., `folder-plus`) |
+| Update | `pencil` or resource-specific (e.g., `folder-pen`) |
+| Delete | `trash-2` or resource-specific (e.g., `folder-x`) |
+| Search | `search` |
+| Send message | `send` |
+| Settings/config | `settings` |
+
 ---
 
 ## Auth Patterns
