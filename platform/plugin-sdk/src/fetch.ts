@@ -63,13 +63,15 @@ export const stripUndefined = <T extends Record<string, unknown>>(obj: T): Parti
   Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 
 /** Builds a URL query string from a record, filtering out undefined values. */
-export const buildQueryString = (params: Record<string, string | number | boolean | string[] | undefined>): string => {
+export const buildQueryString = (
+  params: Record<string, string | number | boolean | (string | number | boolean)[] | undefined>,
+): string => {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) continue;
     if (Array.isArray(value)) {
       for (const item of value) {
-        searchParams.append(key, item);
+        searchParams.append(key, String(item));
       }
     } else {
       searchParams.append(key, String(value));

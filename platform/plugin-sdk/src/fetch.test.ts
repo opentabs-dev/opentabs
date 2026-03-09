@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, test, vi } from 'vite
 import { z } from 'zod';
 import { ToolError } from './errors.js';
 import {
+  buildQueryString,
   deleteJSON,
   fetchFromPage,
   fetchJSON,
@@ -949,5 +950,43 @@ describe('stripUndefined', () => {
   test('returns empty object for all-undefined input', () => {
     const result = stripUndefined({ a: undefined, b: undefined });
     expect(result).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildQueryString
+// ---------------------------------------------------------------------------
+
+describe('buildQueryString', () => {
+  test('builds query string from string values', () => {
+    expect(buildQueryString({ foo: 'bar', baz: 'qux' })).toBe('foo=bar&baz=qux');
+  });
+
+  test('filters out undefined values', () => {
+    expect(buildQueryString({ a: '1', b: undefined, c: '3' })).toBe('a=1&c=3');
+  });
+
+  test('converts number and boolean scalars to strings', () => {
+    expect(buildQueryString({ count: 10, active: true })).toBe('count=10&active=true');
+  });
+
+  test('handles string[] arrays', () => {
+    expect(buildQueryString({ tag: ['a', 'b'] })).toBe('tag=a&tag=b');
+  });
+
+  test('handles number[] arrays', () => {
+    expect(buildQueryString({ ids: [1, 2, 3] })).toBe('ids=1&ids=2&ids=3');
+  });
+
+  test('handles boolean[] arrays', () => {
+    expect(buildQueryString({ flags: [true, false] })).toBe('flags=true&flags=false');
+  });
+
+  test('handles mixed (string | number | boolean)[] arrays', () => {
+    expect(buildQueryString({ mix: ['a', 1, true] })).toBe('mix=a&mix=1&mix=true');
+  });
+
+  test('returns empty string for empty params', () => {
+    expect(buildQueryString({})).toBe('');
   });
 });
