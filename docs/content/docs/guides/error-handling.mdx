@@ -4,21 +4,21 @@ description: Use structured errors so AI agents can distinguish retryable failur
 lastUpdated: 2026-02-21
 ---
 
-When a tool fails, how you report the error determines whether the AI agent retries intelligently, gives up, or tells the user something unhelpful. OpenTabs provides `ToolError` — a structured error class that carries machine-readable metadata through the entire dispatch chain to the AI agent.
+I kept watching AI agents make the same mistake: a tool would fail, the agent would get a generic error string, and then it would either retry something that was never going to work or give up on something that would have succeeded on the second try. It was maddening. So I built `ToolError` — a structured error class that carries machine-readable metadata (what failed, why, and whether retrying is worth it) through the entire dispatch chain to the AI agent.
 
 ## The Problem with Unstructured Errors
 
-If your tool throws a plain `Error`, the AI agent sees a generic failure message with no context:
+If your tool throws a plain `Error`, the AI agent sees something like this:
 
 ```
 Tool dispatch error: Request failed
 ```
 
-The agent doesn't know if this is temporary (retry might work) or permanent (don't bother). It doesn't know if the user needs to re-authenticate, or if the input was wrong. It guesses — and often guesses poorly.
+That's it. No context. The agent doesn't know if this is temporary (retry might work) or permanent (don't bother). It doesn't know if the user needs to re-authenticate, or if the input was just wrong. So it guesses. And in my experience, it almost always guesses wrong — retrying auth failures in a loop, or giving up on a rate limit that would have cleared in two seconds.
 
 ## ToolError
 
-`ToolError` adds three pieces of metadata to every error:
+`ToolError` fixes this by adding three pieces of metadata to every error:
 
 - **`category`** — what kind of failure (`auth`, `rate_limit`, `not_found`, `validation`, `timeout`, `internal`)
 - **`retryable`** — whether retrying might succeed
@@ -33,7 +33,7 @@ throw new ToolError('Channel not found', 'CHANNEL_NOT_FOUND', {
 });
 ```
 
-The AI agent receives both a human-readable message and a machine-readable JSON block:
+Now the AI agent receives both a human-readable message and a machine-readable JSON block:
 
 ```
 [ERROR code=CHANNEL_NOT_FOUND category=not_found retryable=false] Channel not found
@@ -43,13 +43,13 @@ The AI agent receives both a human-readable message and a machine-readable JSON 
 ```
 ```
 
-This tells the agent exactly what happened and what to do next.
+No guessing. The agent knows exactly what happened and what to do next.
 
 <ErrorCategories />
 
 ## Factory Methods
 
-Instead of constructing `ToolError` directly, use the static factory methods. They set the right category, code, and retryable flag automatically.
+I designed these so you don't have to remember which categories are retryable and which aren't. Instead of constructing `ToolError` directly, use the factory methods — they encode the right defaults so you can focus on the error message.
 
 ### `ToolError.auth(message, code?)`
 
@@ -134,7 +134,7 @@ async function handle({ channelName }: { channelName: string }) {
 
 ### `ToolError.rateLimited(message, retryAfterMs?, code?)`
 
-The API is rate limiting requests. Retryable — the agent should wait and try again.
+The API is rate limiting requests. Retryable — the agent should wait and try again. If the API sends a `Retry-After` header, pass it through instead of making up a number.
 
 ```typescript
 import { ToolError } from '@opentabs-dev/plugin-sdk';
@@ -262,7 +262,7 @@ async function handle() {
 
 ### `ToolError.internal(message, code?)`
 
-Something unexpected broke. Not retryable — this is a bug in the plugin.
+Something unexpected broke — the page structure changed, a DOM element is missing, or something the plugin assumed is no longer true. Not retryable; this is a bug that needs a code fix.
 
 ```typescript
 import { ToolError } from '@opentabs-dev/plugin-sdk';
@@ -352,14 +352,14 @@ async function handle() {
 
 ## How Errors Reach the AI Agent
 
-When your tool throws a `ToolError`, it travels through the platform:
+One thing I wanted to get right: you throw a `ToolError` in your tool handler, and it arrives at the AI agent intact — no metadata lost along the way, no special plumbing on your end. Here's the path it takes:
 
 1. **Tool handler** throws `ToolError` in the page context
 2. **Browser extension** serializes the error, preserving `code`, `category`, `retryable`, and `retryAfterMs`
 3. **MCP server** formats the error into a human-readable prefix line and a machine-readable JSON block
 4. **AI agent** receives both formats and uses the structured fields to decide what to do next
 
-The AI agent sees a response like this:
+You don't have to think about any of those hops. The AI agent sees a response like this:
 
 ```
 [ERROR code=RATE_LIMITED category=rate_limit retryable=true retryAfterMs=2000] Too many requests — try again shortly
@@ -369,11 +369,11 @@ The AI agent sees a response like this:
 ```
 ```
 
-With this information, the agent knows to wait 2 seconds and retry — instead of giving up or retrying immediately.
+With this, the agent knows to wait 2 seconds and retry — instead of giving up or hammering the API immediately. That's the whole point.
 
 ## Custom Error Codes
 
-For domain-specific errors, construct `ToolError` directly with a custom code:
+The factory methods cover the common cases, but sometimes you need a more specific error code for your domain. Construct `ToolError` directly:
 
 ```typescript
 import { ToolError } from '@opentabs-dev/plugin-sdk';
@@ -392,7 +392,9 @@ throw ToolError.notFound('Project not found', 'PROJECT_NOT_FOUND');
 
 ## Best Practices
 
-**Be specific in error messages.** The message is shown to both the AI agent and the user. Include what failed and what to do about it.
+These come from watching a lot of AI agents interact with a lot of plugins. Every one of these is a mistake I've seen in the wild.
+
+**Be specific in error messages.** The message is shown to both the AI agent and the user. Include what failed and what to do about it — the agent is surprisingly good at following instructions if you actually give it some.
 
 ```typescript
 // Good — tells the agent what to do
@@ -402,20 +404,18 @@ throw ToolError.auth('Not logged in — open app.example.com and sign in');
 throw ToolError.auth('Auth failed');
 ```
 
-**Use `retryAfterMs` when you know the delay.** If the API tells you when to retry (via a `Retry-After` header), pass it through. The agent uses this to wait the right amount of time.
+**Use `retryAfterMs` when you know the delay.** If the API tells you when to retry (via a `Retry-After` header), pass it through instead of hardcoding a guess. The agent uses this to wait the right amount of time — and a real number from the server is always better than one you made up.
 
 ```typescript
 throw ToolError.rateLimited('Rate limited by Slack API', 3000);
 ```
 
-**Prefer factory methods over the constructor.** They encode best practices (e.g., `rateLimited` is always retryable, `auth` never is). Use the constructor only when you need a custom code with a standard category.
+**Prefer factory methods over the constructor.** I put the best practices into the factory methods so you don't have to think about them — `rateLimited` is always retryable, `auth` never is. Use the constructor only when you need a custom code with a standard category.
 
 **Let Zod handle input validation.** Your tool's Zod schema validates input before `handle()` runs. Use `ToolError.validation()` only for semantic validation that Zod can't express — like checking that a referenced resource actually exists.
 
-**Don't catch errors you can't handle.** If an unexpected error occurs, let it propagate. The platform wraps uncaught errors in a generic error response. Only catch errors when you can provide better context through a `ToolError`.
+**Don't catch errors you can't handle.** If something unexpected blows up, let it propagate. The platform wraps uncaught errors in a generic error response automatically. Only catch errors when you can add real context by throwing a `ToolError` instead — otherwise you're just adding noise.
 
 ## Next Steps
 
-- [Plugin Development](/docs/guides/plugin-development) — full walkthrough of building a plugin
-- [Logging & Debugging](/docs/guides/logging-debugging) — debug tools when errors aren't enough
-- [SDK Reference: Error Types](/docs/sdk/error-types) — complete API reference for `ToolError`
+If you haven't already, I'd start with the [Plugin Development](/docs/guides/plugin-development) guide — it walks through building a plugin from scratch, and you'll see where `ToolError` fits into the bigger picture. When errors alone aren't telling you enough, the [Logging & Debugging](/docs/guides/logging-debugging) guide covers the tools I use to figure out what's actually happening. And for the full API surface, the [SDK Reference: Error Types](/docs/sdk/error-types) has every field and method.
