@@ -14,24 +14,26 @@ import { log } from './log.js';
  * from the main window.
  */
 export const getLocalStorage = (key: string): string | null => {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    // Direct access failed — localStorage may be deleted or inaccessible.
-  }
-
-  // Distinguish deleted localStorage (property is undefined) from a throwing
-  // getter (SecurityError etc.). Access the property one more time: if it
-  // throws, storage is truly inaccessible — give up. If it returns undefined,
-  // the property was deleted — proceed to the iframe fallback.
+  // Access via window.localStorage (property lookup) rather than the bare
+  // `localStorage` identifier. Some apps (e.g., Discord) delete the property
+  // from the global scope, which makes the bare identifier throw a
+  // ReferenceError. Property access on `window` returns undefined instead.
   let storage: Storage | undefined;
   try {
-    storage = localStorage as Storage | undefined;
+    storage = window.localStorage as Storage | undefined;
   } catch {
+    // Throwing getter (e.g., SecurityError in sandboxed iframes) — give up.
     return null;
   }
-  if (storage !== undefined) {
-    return null;
+
+  if (storage) {
+    try {
+      return storage.getItem(key);
+    } catch {
+      // getItem threw (SecurityError, etc.) — storage exists but is
+      // inaccessible, give up.
+      return null;
+    }
   }
 
   // localStorage is undefined — some apps (e.g., Discord) delete the property.
@@ -69,20 +71,22 @@ export const findLocalStorageEntry = (predicate: (key: string) => boolean): { ke
     return null;
   };
 
-  try {
-    return search(localStorage);
-  } catch {
-    // Direct access failed — localStorage may be deleted or inaccessible.
-  }
-
   let storage: Storage | undefined;
   try {
-    storage = localStorage as Storage | undefined;
+    storage = window.localStorage as Storage | undefined;
   } catch {
     return null;
   }
-  if (storage !== undefined) return null;
 
+  if (storage) {
+    try {
+      return search(storage);
+    } catch {
+      return null;
+    }
+  }
+
+  // localStorage is undefined — fall back to same-origin iframe.
   try {
     const iframe = document.createElement('iframe');
     iframe.style.display = 'none';
@@ -104,7 +108,8 @@ export const findLocalStorageEntry = (predicate: (key: string) => boolean): { ke
  */
 export const setLocalStorage = (key: string, value: string): void => {
   try {
-    localStorage.setItem(key, value);
+    const storage = window.localStorage as Storage | undefined;
+    storage?.setItem(key, value);
   } catch (error) {
     log.warn(`setLocalStorage failed for key "${key}"`, error);
   }
@@ -116,7 +121,8 @@ export const setLocalStorage = (key: string, value: string): void => {
  */
 export const getSessionStorage = (key: string): string | null => {
   try {
-    return sessionStorage.getItem(key);
+    const storage = window.sessionStorage as Storage | undefined;
+    return storage?.getItem(key) ?? null;
   } catch {
     return null;
   }
@@ -128,7 +134,8 @@ export const getSessionStorage = (key: string): string | null => {
  */
 export const setSessionStorage = (key: string, value: string): void => {
   try {
-    sessionStorage.setItem(key, value);
+    const storage = window.sessionStorage as Storage | undefined;
+    storage?.setItem(key, value);
   } catch (error) {
     log.warn(`setSessionStorage failed for key "${key}"`, error);
   }
@@ -140,7 +147,8 @@ export const setSessionStorage = (key: string, value: string): void => {
  */
 export const removeLocalStorage = (key: string): void => {
   try {
-    localStorage.removeItem(key);
+    const storage = window.localStorage as Storage | undefined;
+    storage?.removeItem(key);
   } catch (error) {
     log.warn(`removeLocalStorage failed for key "${key}"`, error);
   }
@@ -152,7 +160,8 @@ export const removeLocalStorage = (key: string): void => {
  */
 export const removeSessionStorage = (key: string): void => {
   try {
-    sessionStorage.removeItem(key);
+    const storage = window.sessionStorage as Storage | undefined;
+    storage?.removeItem(key);
   } catch (error) {
     log.warn(`removeSessionStorage failed for key "${key}"`, error);
   }

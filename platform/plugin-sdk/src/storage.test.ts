@@ -14,8 +14,13 @@ import {
 
 let win: GlobalWindow;
 
+// The storage utilities access `window.localStorage` / `window.sessionStorage`
+// (property access, not the bare identifier) to avoid ReferenceErrors when the
+// host app deletes the property from the global scope. In the Vitest/Node.js
+// environment, `window` is not defined by default, so we alias it to globalThis.
 beforeEach(() => {
   win = new GlobalWindow({ url: 'https://localhost' });
+  (globalThis as Record<string, unknown>).window = globalThis;
   globalThis.document = win.document as unknown as Document;
   Object.defineProperty(globalThis, 'localStorage', {
     value: win.localStorage as unknown as Storage,
