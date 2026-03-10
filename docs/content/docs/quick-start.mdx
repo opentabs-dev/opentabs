@@ -4,7 +4,7 @@ description: '5 minutes from install to your first tool call.'
 lastUpdated: 2026-03-01
 ---
 
-Get OpenTabs running and make your first tool call in under 5 minutes.
+You need [Node.js](https://nodejs.org/) 22+ and Chrome. Six steps, about 5 minutes.
 
 <QuickStartFlow />
 
@@ -20,23 +20,23 @@ npm install -g @opentabs-dev/cli
 opentabs start
 ```
 
-On first run, you'll see the MCP endpoint URL, log file path, Chrome extension setup instructions, and ready-to-copy configuration snippets for popular MCP clients (Claude Code, Cursor, Windsurf, OpenCode) — with your auth secret pre-filled.
-
-On first run, this also creates the `~/.opentabs/` directory, generates an auth secret, and installs the Chrome extension files.
+First run does a few things: creates the `~/.opentabs/` directory, generates an auth secret, and installs the Chrome extension files. It also prints ready-to-copy config blocks for Claude Code, Cursor, Windsurf, and OpenCode — with your auth secret already filled in. You'll need those in step 4.
 
 ## 3. Load the Chrome extension
+
+Yeah, you have to manually load it. Chrome doesn't let you distribute Manifest V3 extensions outside the Chrome Web Store for localhost servers. It takes 30 seconds:
 
 1. Open `chrome://extensions/` in Chrome
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** and select `~/.opentabs/extension`
 
-The extension connects to the server automatically. You should see the OpenTabs icon in your toolbar.
+You should see the OpenTabs icon in your toolbar. The extension connects to the server automatically.
 
 ## 4. Configure your MCP client
 
-When `opentabs start` ran in step 2, it printed ready-to-copy MCP client config blocks — with your auth secret already filled in. Copy the block for your client and merge it into your MCP client config file:
+Grab the config block that `opentabs start` printed in step 2 and paste it into your client's config file. That's it.
 
-For Claude Code, the easiest way is the CLI:
+For Claude Code, the fastest way is the CLI:
 
 ```bash
 claude mcp add --transport http opentabs http://127.0.0.1:9515/mcp \
@@ -66,23 +66,25 @@ opentabs config show --show-secret
 
 ## 5. Install a plugin
 
-Find available plugins:
-
 ```bash
 opentabs plugin search
 ```
 
-Install it:
+Pick one, install it:
 
 ```bash
 opentabs plugin install slack
 ```
 
+Honest recommendation though: consider [building your own](/docs/guides/plugin-development) instead. Plugins run in your browser with your logged-in sessions — you should know what the code does. Point your AI agent at any site and it'll build a plugin in minutes. More on that in [Your First Plugin](/docs/first-plugin).
+
 ## 6. Make a tool call
 
 Ask your AI agent to use the plugin's tools. The agent will see all registered tools from your installed plugins, plus built-in browser tools for tab management, screenshots, DOM interaction, and more.
 
-Verify everything is connected:
+That's it. You're running.
+
+## Something look off?
 
 ```bash
 opentabs status
@@ -91,6 +93,10 @@ opentabs status
 ```bash
 opentabs doctor
 ```
+
+These two commands check everything — server health, extension connectivity, plugin state, MCP client config. If something's broken, `doctor` will usually tell you what.
+
+If you're still stuck, [open an issue](https://github.com/opentabs-dev/opentabs/issues) and we'll take a look.
 
 ## Next steps
 
