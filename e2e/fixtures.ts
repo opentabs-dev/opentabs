@@ -111,6 +111,8 @@ interface HealthResponse {
   mode: 'dev' | 'production';
   /** Whether a Chrome extension is currently connected via WebSocket. */
   extensionConnected: boolean;
+  /** Number of active extension WebSocket connections. */
+  extensionConnections: number;
   /** Number of active MCP client sessions. */
   mcpClients: number;
   /** Number of successfully discovered plugins. */
@@ -1557,6 +1559,40 @@ const symlinkCrossPlatform = (target: string, linkPath: string, type: 'dir' | 'f
   fs.symlinkSync(target, linkPath, symlinkType);
 };
 
+// ---------------------------------------------------------------------------
+// Raw WebSocket connection helper (for multi-connection tests)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a raw WebSocket connection to the MCP server with an explicit connectionId.
+ * Authenticates via the Sec-WebSocket-Protocol header using the same protocol as the
+ * Chrome extension: ['opentabs', '<secret>', '<connectionId>'].
+ * Returns the connected WebSocket; caller is responsible for closing it.
+ */
+const createRawWsConnection = async (
+  port: number,
+  secret: string | undefined,
+  connectionId: string,
+): Promise<WebSocket> => {
+  const { wsUrl, wsSecret } = await fetchWsInfo(port, secret);
+  const protocols = ['opentabs'];
+  if (wsSecret) protocols.push(wsSecret);
+  protocols.push(connectionId);
+  const ws = new WebSocket(wsUrl, protocols);
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('WebSocket connect timeout')), 5_000);
+    ws.onopen = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    ws.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('WebSocket connect failed'));
+    };
+  });
+  return ws;
+};
+
 export { expect } from '@playwright/test';
 export {
   test,
@@ -1564,6 +1600,7 @@ export {
   fetchHealth,
   fetchWsUrl,
   fetchWsInfo,
+  createRawWsConnection,
   createTestConfigDir,
   cleanupTestConfigDir,
   readTestConfig,
