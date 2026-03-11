@@ -1,9 +1,9 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-retool",
   "description": "OpenTabs plugin for Retool",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "type": "module",
   "main": "dist/adapter.iife.js",
@@ -41,11 +41,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.73"
+    "@opentabs-dev/plugin-sdk": "^0.0.74"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.73",
+    "@opentabs-dev/plugin-tools": "^0.0.74",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.0.0"

@@ -2,9 +2,9 @@
   "name": "@opentabs-dev/opentabs-plugin-claude",
   "description": "OpenTabs plugin for Claude",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
-  "version": "0.0.73",
+  "version": "0.0.74",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -43,11 +43,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.73"
+    "@opentabs-dev/plugin-sdk": "^0.0.74"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.73",
+    "@opentabs-dev/plugin-tools": "^0.0.74",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"

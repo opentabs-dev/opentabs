@@ -1,9 +1,9 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-e2e-test",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
-  "version": "0.0.73",
+  "version": "0.0.74",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -11,7 +11,7 @@
   ],
   "opentabs": {
     "displayName": "E2E Test",
-    "description": "Dead-simple plugin for E2E testing — relays to a local test web server",
+    "description": "Dead-simple plugin for E2E testing \u2014 relays to a local test web server",
     "urlPatterns": [
       "http://localhost/*"
     ],
@@ -41,10 +41,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.73"
+    "@opentabs-dev/plugin-sdk": "^0.0.74"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.73",
+    "@opentabs-dev/plugin-tools": "^0.0.74",
     "@biomejs/biome": "2.4.6",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

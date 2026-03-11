@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-starbucks",
   "description": "OpenTabs plugin for Starbucks",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -12,7 +12,7 @@
   },
   "opentabs": {
     "displayName": "Starbucks",
-    "description": "OpenTabs plugin for Starbucks — manage rewards, find stores, browse the menu, and view your account",
+    "description": "OpenTabs plugin for Starbucks \u2014 manage rewards, find stores, browse the menu, and view your account",
     "urlPatterns": [
       "*://*.starbucks.com/*"
     ],
@@ -42,11 +42,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.73"
+    "@opentabs-dev/plugin-sdk": "^0.0.74"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.73",
+    "@opentabs-dev/plugin-tools": "^0.0.74",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.0.0"

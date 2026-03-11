@@ -2,9 +2,9 @@
   "name": "@opentabs-dev/opentabs-plugin-minimax-agent",
   "description": "OpenTabs plugin for MiniMax Agent",
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
-  "version": "0.0.73",
+  "version": "0.0.74",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -12,7 +12,7 @@
   ],
   "opentabs": {
     "displayName": "MiniMax Agent",
-    "description": "OpenTabs plugin for MiniMax Agent — AI assistant platform for chat, experts, and agent automation",
+    "description": "OpenTabs plugin for MiniMax Agent \u2014 AI assistant platform for chat, experts, and agent automation",
     "urlPatterns": [
       "*://agent.minimax.io/*",
       "*://agent.minimaxi.com/*"
@@ -43,11 +43,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.73"
+    "@opentabs-dev/plugin-sdk": "^0.0.74"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.73",
+    "@opentabs-dev/plugin-tools": "^0.0.74",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"

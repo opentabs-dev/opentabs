@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/plugin-sdk",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -14,7 +14,7 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "scripts": {
     "build": "tsc --build",

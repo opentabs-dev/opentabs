@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-uber",
   "description": "OpenTabs plugin for Uber",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -39,16 +39,16 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.73"
+    "@opentabs-dev/plugin-sdk": "^0.0.74"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.73",
+    "@opentabs-dev/plugin-tools": "^0.0.74",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   }
 }

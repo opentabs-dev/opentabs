@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/create-plugin",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "license": "MIT",
   "engines": {
     "node": ">= 22.0.0"
@@ -10,7 +10,7 @@
     "create-opentabs-plugin": "./dist/index.js"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "files": [
     "dist"

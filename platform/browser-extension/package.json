@@ -1,7 +1,10 @@
 {
   "name": "@opentabs-dev/browser-extension",
-  "version": "0.0.73",
+  "version": "0.0.74",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "files": [
     "manifest.json",
