@@ -50,12 +50,12 @@ Hooks fire at specific points in the adapter's lifetime. Here's the order:
     <Table.Row>
       <Table.Cell className="font-medium">Removal</Table.Cell>
       <Table.Cell>`onDeactivate()`</Table.Cell>
-      <Table.Cell>When the adapter is being removed — on plugin update or tab unload.</Table.Cell>
+      <Table.Cell>When the adapter is being removed — on plugin update or plugin uninstall.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">Re-injection</Table.Cell>
       <Table.Cell>`teardown()`</Table.Cell>
-      <Table.Cell>After `onDeactivate()`, before the new adapter version is injected. Only fires on plugin update (re-injection), not on tab unload.</Table.Cell>
+      <Table.Cell>After `onDeactivate()`, before the new adapter version is injected. Fires on plugin update (re-injection) and plugin uninstall.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -97,7 +97,7 @@ class MyPlugin extends OpenTabsPlugin {
 
 ## `onDeactivate()`
 
-Called when the adapter is being removed — either on plugin update or when the tab navigates away from a matching URL. Use it to clean up resources set up in `onActivate()`.
+Called when the adapter is being removed — on plugin update or plugin uninstall. Does not fire when the tab closes or navigates away (the JavaScript context is destroyed by the browser before cleanup code can run). Use it to clean up resources set up in `onActivate()`.
 
 ```typescript
 onDeactivate?(): void;
@@ -111,7 +111,7 @@ Called by the platform before re-injection on plugin update. Use it to clean up 
 teardown?(): void;
 ```
 
-When both `onDeactivate` and `teardown` are defined, `onDeactivate` fires first, then `teardown`. Unlike `onDeactivate`, `teardown` only fires on plugin update (re-injection) — not when the tab navigates away from a matching URL.
+When both `onDeactivate` and `teardown` are defined, `onDeactivate` fires first, then `teardown`. `teardown()` fires on plugin update (re-injection) and plugin uninstall. Neither `teardown` nor `onDeactivate` fires when the tab closes or navigates away — the browser destroys the JavaScript context before any cleanup code can run.
 
 `teardown()` is optional — plugins that do not set up persistent side effects (such as `window` properties or `setInterval` timers) can omit it. Because the scaffolded `tsconfig.json` enables `noImplicitOverride`, implementations must use the `override` keyword.
 

@@ -1,33 +1,52 @@
 import { SiGithub } from '@icons-pack/react-simple-icons';
-import { EyeIcon, FileTextIcon, LockIcon, PackageIcon, ShieldCheckIcon, SparklesIcon } from 'lucide-react';
+import {
+  BotIcon,
+  CloudIcon,
+  CreditCardIcon,
+  EyeIcon,
+  FileTextIcon,
+  FigmaIcon,
+  GitBranchIcon,
+  LayoutDashboardIcon,
+  LockIcon,
+  MessageSquareIcon,
+  MonitorIcon,
+  MusicIcon,
+  PackageIcon,
+  PlaneIcon,
+  ShieldCheckIcon,
+  ShoppingCartIcon,
+  SparklesIcon,
+  TrendingUpIcon,
+  TrelloIcon,
+  type LucideIcon,
+} from 'lucide-react';
 import Link from 'next/link';
 import Footer from '@/components/footer';
 import { Button, Text } from '@/components/retroui';
 
 const GITHUB_URL = 'https://github.com/opentabs-dev/opentabs';
-const PRDS_URL = 'https://github.com/opentabs-dev/opentabs-prds';
 
-const plugins = [
-  { name: 'Slack', tools: 23 },
-  { name: 'GitHub', tools: 36 },
-  { name: 'Discord', tools: 27 },
-  { name: 'Jira', tools: 21 },
-  { name: 'Linear', tools: 22 },
-  { name: 'Notion', tools: 19 },
-  { name: 'GitLab', tools: 23 },
-  { name: 'Figma', tools: 15 },
-  { name: 'Sentry', tools: 22 },
-  { name: 'Confluence', tools: 19 },
-  { name: 'Cloudflare', tools: 31 },
-  { name: 'Supabase', tools: 27 },
-  { name: 'Vercel', tools: 9 },
-  { name: 'Asana', tools: 25 },
-  { name: 'Airtable', tools: 9 },
-  { name: 'Reddit', tools: 15 },
-  { name: 'X (Twitter)', tools: 30 },
-  { name: 'Teams', tools: 12 },
-  { name: 'Bitbucket', tools: 28 },
-  { name: 'Stack Overflow', tools: 21 },
+interface PluginShowcase {
+  name: string;
+  icon: LucideIcon;
+}
+
+const plugins: PluginShowcase[] = [
+  { name: 'Slack', icon: MessageSquareIcon },
+  { name: 'Discord', icon: BotIcon },
+  { name: 'GitHub', icon: GitBranchIcon },
+  { name: 'Jira', icon: TrelloIcon },
+  { name: 'Notion', icon: FileTextIcon },
+  { name: 'Figma', icon: FigmaIcon },
+  { name: 'AWS', icon: CloudIcon },
+  { name: 'Stripe', icon: CreditCardIcon },
+  { name: 'Robinhood', icon: TrendingUpIcon },
+  { name: 'Datadog', icon: MonitorIcon },
+  { name: 'Airbnb', icon: PlaneIcon },
+  { name: 'Spotify', icon: MusicIcon },
+  { name: 'DoorDash', icon: ShoppingCartIcon },
+  { name: 'Linear', icon: LayoutDashboardIcon },
 ];
 
 const steps = [
@@ -76,8 +95,6 @@ const securityPoints = [
 ];
 
 export default function Home() {
-  const totalTools = plugins.reduce((sum, p) => sum + p.tools, 0);
-
   return (
     <div>
       {/* ── Hero ──────────────────────────────────────────── */}
@@ -119,7 +136,7 @@ export default function Home() {
         <div className="mb-12 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <Text as="h2" className="mb-2 text-3xl">
-              {plugins.length} plugins. {totalTools} tools.
+              100+ plugins. ~2,000 tools.
             </Text>
             <p className="text-muted-foreground">
               Each one talks to the real web app through your authenticated session.
@@ -129,16 +146,22 @@ export default function Home() {
             Plus <strong className="text-foreground">built-in browser tools</strong> for any tab.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
           {plugins.map(plugin => (
             <div
               key={plugin.name}
-              className="flex items-center justify-between border-2 border-foreground px-4 py-3 text-sm transition-colors hover:bg-primary/10">
+              className="flex flex-col items-center gap-2 border-2 border-foreground px-4 py-4 text-sm transition-colors hover:bg-primary/10">
+              <plugin.icon size={20} className="text-muted-foreground" />
               <span className="font-medium text-foreground">{plugin.name}</span>
-              <span className="text-muted-foreground">{plugin.tools}</span>
             </div>
           ))}
         </div>
+        <p className="mt-6 text-center text-muted-foreground text-sm">
+          And 90+ more — messaging, DevOps, finance, shopping, streaming, and beyond.{' '}
+          <Link href={GITHUB_URL + '/tree/main/plugins'} target="_blank" className="underline underline-offset-4">
+            Browse all plugins
+          </Link>
+        </p>
       </section>
 
       {/* ── How It Works ──────────────────────────────────── */}
@@ -207,7 +230,7 @@ export default function Home() {
               Install pre-built
             </Text>
             <p className="mb-6 text-muted-foreground text-sm leading-relaxed">
-              {plugins.length} plugins ready to go. Install globally and they&apos;re auto-discovered by the server. Or
+              100+ plugins ready to go. Install globally and they&apos;re auto-discovered by the server. Or
               build your own by hand with the Plugin SDK and publish to npm.
             </p>
             <div className="mb-6 border-2 border-foreground bg-card p-3 font-mono text-sm">
@@ -305,41 +328,6 @@ export default function Home() {
               impressive job obscuring their internal APIs — hats off to them. If you manage to figure it out and want
               to contribute a Google Workspace plugin back, you&apos;d be my hero.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ── How This Was Built ────────────────────────────── */}
-      <section className="container mx-auto max-w-6xl border-foreground border-t-2 px-4 py-20 lg:px-0">
-        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
-          <div>
-            <Text as="h2" className="mb-4 text-3xl">
-              How this was built
-            </Text>
-            <p className="mb-4 text-muted-foreground leading-relaxed">
-              This might sound a little wild: OpenTabs was built entirely by AI agents. 568 structured PRDs, executed
-              over 19 days by up to 6 parallel Claude Code workers running in Docker containers.
-            </p>
-            <p className="mb-6 text-muted-foreground leading-relaxed">
-              The work queue is just git — <code className="bg-inline-code-bg px-1.5 py-0.5 text-sm">git push</code>{' '}
-              serialization acts as a distributed lock. No Redis, no SQS. I open-sourced every single PRD.
-            </p>
-            <Link href={PRDS_URL} target="_blank" className="font-medium text-sm underline underline-offset-4">
-              Browse the 568 PRDs
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { number: '568', label: 'PRDs executed' },
-              { number: '19', label: 'days' },
-              { number: '6', label: 'parallel workers' },
-              { number: '0', label: 'hand-written lines' },
-            ].map(stat => (
-              <div key={stat.label} className="border-2 border-foreground p-6 text-center">
-                <p className="font-head text-3xl text-foreground lg:text-4xl">{stat.number}</p>
-                <p className="mt-1 text-muted-foreground text-sm">{stat.label}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>

@@ -479,7 +479,7 @@ if (!response.ok) {
 const data = await response.json();
 ```
 
-`httpStatusToToolError` maps status codes to error categories: 401/403 → `auth`, 404 → `notFound`, 429 → `rateLimited` (with `Retry-After` header support), 400/422 → `validation`, and everything else → `internal`.
+`httpStatusToToolError` maps HTTP status codes to appropriate error categories: 401/403 → `auth` (not retryable), 404 → `notFound` (not retryable), 429 → `rateLimited` (retryable, parses `Retry-After` header), 400/422 → `validation` (not retryable), 408 → `timeout` (retryable), 503 → `internal` (retryable, parses `Retry-After` header), other 5xx → `internal` (retryable), other 4xx → no category (not retryable).
 
 ## Add Logging
 

@@ -278,14 +278,15 @@ When a tool handler throws a `ToolError`, the structured metadata propagates thr
 
 The AI agent receives an error response like:
 
-```
+````
 [ERROR code=RATE_LIMITED category=rate_limit retryable=true retryAfterMs=2000] Too many requests
 
----
-{"code":"RATE_LIMITED","retryable":true,"retryAfterMs":2000,"category":"rate_limit"}
+```json
+{"code":"RATE_LIMITED","category":"rate_limit","retryable":true,"retryAfterMs":2000}
 ```
+````
 
-The first line is human-readable. The JSON block after `---` is machine-parseable, enabling AI agents to programmatically decide whether to retry, how long to wait, and what kind of error occurred.
+The first line is human-readable. The JSON block in the fenced code block is machine-parseable, enabling AI agents to programmatically decide whether to retry, how long to wait, and what kind of error occurred.
 
 ## Custom Error Codes
 

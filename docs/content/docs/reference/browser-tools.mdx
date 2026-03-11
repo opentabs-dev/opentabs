@@ -189,7 +189,7 @@ Network capture uses the Chrome DevTools Protocol (`chrome.debugger`) to interce
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_export_har`</Table.Cell>
-      <Table.Cell>Export captured network traffic as a HAR 1.2 JSON file. Requires an active or completed capture session from browser_enable_network_capture.</Table.Cell>
+      <Table.Cell>Export captured network traffic as a HAR 1.2 JSON file. Requires an active capture session from browser_enable_network_capture. Must be called before browser_disable_network_capture, which clears the buffer.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_disable_network_capture`</Table.Cell>

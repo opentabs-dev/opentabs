@@ -78,7 +78,7 @@ Plugin discovery turned out to need more stages than you'd expect. It's a five-p
 
 1. **Discover npm plugins** — scans global `node_modules` for packages matching `opentabs-plugin-*` and `@*/opentabs-plugin-*`
 2. **Resolve local plugins** — reads filesystem paths from `config.localPlugins` and resolves them to absolute directories
-3. **Load all plugins** — reads `package.json` (with `opentabs` metadata field), `dist/adapter.iife.js`, and `dist/tools.json` for each plugin in parallel; assigns a trust tier to each: Official (`@opentabs-dev/*`), Community (any other npm package), or Local (filesystem path)
+3. **Load all plugins** — reads `package.json` (with `opentabs` metadata field), `dist/adapter.iife.js`, and `dist/tools.json` for each plugin in parallel
 4. **Merge** — local plugins override npm plugins of the same name
 5. **Build registry** — constructs an immutable `PluginRegistry` with O(1) lookup maps for tools
 
@@ -93,38 +93,9 @@ The `PluginRegistry` (`platform/mcp-server/src/registry.ts`) is immutable (`Obje
 
 When plugins change, a new registry is built and atomically swapped on the server state. Ajv validators are compiled during registry construction, so tool dispatch has O(1) lookup with no schema compilation at call time.
 
-### Trust Tiers
+### Plugin Sources
 
-Not all plugins deserve the same level of trust. Each one is assigned a tier based on where it came from:
-
-<Table>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>Tier</Table.Head>
-      <Table.Head>Source</Table.Head>
-      <Table.Head>Description prefix</Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    <Table.Row>
-      <Table.Cell className="font-medium">Official</Table.Cell>
-      <Table.Cell>`@opentabs-dev/*` npm scope</Table.Cell>
-      <Table.Cell>`[Official]`</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">Community</Table.Cell>
-      <Table.Cell>Any other npm package</Table.Cell>
-      <Table.Cell>`[Community plugin — unverified]`</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">Local</Table.Cell>
-      <Table.Cell>Filesystem path in `localPlugins`</Table.Cell>
-      <Table.Cell>`[Local plugin]`</Table.Cell>
-    </Table.Row>
-  </Table.Body>
-</Table>
-
-Trust tier prefixes are added to tool descriptions so AI agents can see the provenance of each tool.
+Plugins are classified by source: `npm` (auto-discovered from global packages) or `local` (filesystem paths in config). The source is visible in `opentabs status` and the `/health` endpoint.
 
 ### Hot Reload Architecture
 
@@ -150,7 +121,7 @@ This part was tricky. MV3 service workers can be suspended at any time — Chrom
 - Connects to `ws://localhost:9515/ws`
 - Authenticates via the `Sec-WebSocket-Protocol` header (keeps the secret out of URLs and logs)
 - Runs ping/pong keepalive every 15 seconds with a 5-second timeout
-- Reconnects with exponential backoff (1s → 2s → 4s → ... → 30s cap)
+- Reconnects with exponential backoff (1s → 2s → 3s → 3s cap)
 
 A Chrome alarm re-ensures the offscreen document exists under memory pressure.
 
@@ -300,12 +271,16 @@ The wire protocol is the glue between server and extension. All communication us
       <Table.Cell>Fetch config state for the side panel</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`config.setToolEnabled`</Table.Cell>
-      <Table.Cell>Enable/disable a single tool</Table.Cell>
+      <Table.Cell className="font-medium">`config.setToolPermission`</Table.Cell>
+      <Table.Cell>Set permission for a single tool</Table.Cell>
     </Table.Row>
     <Table.Row>
-      <Table.Cell className="font-medium">`config.setAllToolsEnabled`</Table.Cell>
-      <Table.Cell>Enable/disable all tools in a plugin at once</Table.Cell>
+      <Table.Cell className="font-medium">`config.setPluginPermission`</Table.Cell>
+      <Table.Cell>Set permission for all tools in a plugin at once</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.setSkipPermissions`</Table.Cell>
+      <Table.Cell>Toggle global skip-permissions flag</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`plugin.search`</Table.Cell>
@@ -329,7 +304,7 @@ The wire protocol is the glue between server and extension. All communication us
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`confirmation.response`</Table.Cell>
-      <Table.Cell>User's approval decision (id, decision, optional scope)</Table.Cell>
+      <Table.Cell>User's approval decision (id, decision, alwaysAllow)</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`ping`</Table.Cell>
@@ -397,88 +372,28 @@ The `opentabs-plugin build` CLI computes a SHA-256 hash of the adapter IIFE and 
 
 Tool outputs are sanitized to remove keys that could cause prototype pollution. Error messages have internal file paths, IP addresses, and URLs stripped before being returned to clients.
 
-### Browser Tool Security Tiers
+### Tool Permissions
 
-Every browser tool is classified into one of three security tiers based on its risk level:
-
-<Table>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>Tier</Table.Head>
-      <Table.Head>Default</Table.Head>
-      <Table.Head>Description</Table.Head>
-      <Table.Head>Examples</Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    <Table.Row>
-      <Table.Cell className="font-medium">`observe`</Table.Cell>
-      <Table.Cell>`allow`</Table.Cell>
-      <Table.Cell>Read-only tools that list or inspect without accessing sensitive data</Table.Cell>
-      <Table.Cell>`browser_list_tabs`, `browser_query_elements`, `extension_get_state`</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`interact`</Table.Cell>
-      <Table.Cell>`ask`</Table.Cell>
-      <Table.Cell>Tools that modify page state, capture content, or navigate</Table.Cell>
-      <Table.Cell>`browser_click_element`, `browser_type_text`, `browser_screenshot_tab`</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`sensitive`</Table.Cell>
-      <Table.Cell>`ask`</Table.Cell>
-      <Table.Cell>Tools that access credentials, execute arbitrary code, or modify auth state</Table.Cell>
-      <Table.Cell>`browser_execute_script`, `browser_get_cookies`, `browser_get_storage`</Table.Cell>
-    </Table.Row>
-  </Table.Body>
-</Table>
-
-Tools not in the tier map default to `interact` as a safe middle ground.
+All plugin and browser tools default to `'off'` (disabled). Permissions are configured per-plugin or per-tool to `'off'`, `'ask'`, or `'auto'` via the side panel or `config.json`.
 
 **Permission evaluation order**:
 
-1. **`skipPermissions`** (`OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS` env var) → `'ask'` becomes `'auto'`, `'off'` stays `'off'`
-2. **Per-tool override** in `permissions[plugin].tools[tool]`
-3. **Plugin default** in `permissions[plugin].permission`
-4. **`'off'`** — disabled if no permission is configured
-
-Session permission rules (created by "Allow Always" actions) are checked before the evaluation chain. If a matching session rule exists, the tool is auto-allowed without running the chain.
+1. **Per-tool override** in `permissions[plugin].tools[tool]`
+2. **Plugin default** in `permissions[plugin].permission`
+3. **`'off'`** — fallback if no permission is configured
+4. **`skipPermissions`** (`OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS` env var) — applied last: `'ask'` becomes `'auto'`, `'off'` stays `'off'`
 
 ### Confirmation System
 
-When a browser tool evaluates to `ask`, the server pauses and asks you. The confirmation flows through the Chrome extension's side panel:
+When a tool evaluates to `'ask'`, the server pauses and asks you. The confirmation flows through the Chrome extension's side panel:
 
-1. Server sends `confirmation.request` to the extension with a UUID, tool name, domain, tab ID, truncated parameter preview, and timeout
+1. Server sends `confirmation.request` to the extension with `{ id, tool, plugin, params }`
 2. The side panel displays an approval dialog
-3. The user chooses one of three decisions: `allow_once`, `allow_always` (with a scope), or `deny`
-4. The extension sends `confirmation.response` back with the decision
+3. The user chooses: allow once, allow always, or deny
+4. The extension sends `confirmation.response` back with `{ id, decision: 'allow' | 'deny', alwaysAllow: boolean }`
 5. Server proceeds with the tool call or returns a denial error
 
-For `allow_always`, the user selects a scope that determines how broad the session rule is:
-
-<Table>
-  <Table.Header>
-    <Table.Row>
-      <Table.Head>Scope</Table.Head>
-      <Table.Head>Effect</Table.Head>
-    </Table.Row>
-  </Table.Header>
-  <Table.Body>
-    <Table.Row>
-      <Table.Cell className="font-medium">`tool_domain`</Table.Cell>
-      <Table.Cell>Auto-allow this tool on this domain for the rest of the session</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`tool_all`</Table.Cell>
-      <Table.Cell>Auto-allow this tool on all domains for the rest of the session</Table.Cell>
-    </Table.Row>
-    <Table.Row>
-      <Table.Cell className="font-medium">`domain_all`</Table.Cell>
-      <Table.Cell>Auto-allow all tools on this domain for the rest of the session</Table.Cell>
-    </Table.Row>
-  </Table.Body>
-</Table>
-
-Session permission rules are stored in memory and reset when the server restarts. Pending confirmations are rejected if the extension disconnects.
+When the user chooses "allow always" (`alwaysAllow: true`), the tool's permission is permanently set to `'auto'` in `config.json`. There are no session-scoped rules — permissions are either one-shot or permanent. Pending confirmations are rejected if the extension disconnects.
 
 ## Key Source Files
 
@@ -488,7 +403,7 @@ If you want to go deeper, these are the files I'd start with:
 - `platform/mcp-server/src/discovery.ts` — five-phase plugin discovery pipeline
 - `platform/mcp-server/src/registry.ts` — immutable plugin registry with O(1) lookups
 - `platform/mcp-server/src/extension-protocol.ts` — JSON-RPC dispatch to the extension, confirmation handling
-- `platform/mcp-server/src/permissions.ts` — browser tool security tiers and permission evaluation
+- `platform/mcp-server/src/permissions.ts` — permission evaluation and resolution
 - `platform/browser-extension/src/background.ts` — extension service worker, adapter injection, message routing
 - `platform/browser-extension/src/offscreen/index.ts` — persistent WebSocket via offscreen document
 - `platform/plugin-sdk/src/index.ts` — `OpenTabsPlugin` base class, `defineTool`

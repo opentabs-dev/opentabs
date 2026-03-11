@@ -36,7 +36,7 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell className="font-medium">`permissions`</Table.Cell>
       <Table.Cell className="*:text-xs">`Record<string, PluginPermissionConfig>`</Table.Cell>
       <Table.Cell className="*:text-xs">`{}`</Table.Cell>
-      <Table.Cell>Per-plugin permission configuration. Keys are plugin names (or `__browser__` for browser tools). Each value specifies a default permission and optional per-tool overrides. See [permissions](#permissions) below.</Table.Cell>
+      <Table.Cell>Per-plugin permission configuration. Keys are plugin names (or `browser` for browser tools). Each value specifies a default permission and optional per-tool overrides. See [permissions](#permissions) below.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`port`</Table.Cell>
@@ -63,7 +63,7 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
         "delete_message": "off"
       }
     },
-    "__browser__": {
+    "browser": {
       "permission": "ask",
       "tools": {
         "browser_screenshot_tab": "auto",
@@ -109,7 +109,7 @@ The `--show-secret` flag is required to output the full secret value. Without it
 
 ### permissions
 
-Controls which tools require human approval before executing. The `permissions` map is keyed by plugin name (or `__browser__` for browser tools). Each entry is a `PluginPermissionConfig`:
+Controls which tools require human approval before executing. The `permissions` map is keyed by plugin name (or `browser` for browser tools). Each entry is a `PluginPermissionConfig`:
 
 <Table>
   <Table.Header>
@@ -160,12 +160,12 @@ Example — set Slack tools to require approval by default, but auto-approve `se
 }
 ```
 
-Browser tools use the special plugin key `__browser__`:
+Browser tools use the special plugin key `browser`:
 
 ```json
 {
   "permissions": {
-    "__browser__": {
+    "browser": {
       "permission": "ask",
       "tools": {
         "browser_screenshot_tab": "auto",

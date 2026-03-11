@@ -189,9 +189,8 @@ See [Lifecycle Hooks](/docs/sdk/lifecycle-hooks) for the complete reference.
 ## Example
 
 ```typescript
-import { OpenTabsPlugin, defineTool, getPageGlobal } from '@opentabs-dev/plugin-sdk';
+import { OpenTabsPlugin, getPageGlobal } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { z } from 'zod';
 
 import { listChannels } from './tools/list-channels.js';
 import { sendMessage } from './tools/send-message.js';
