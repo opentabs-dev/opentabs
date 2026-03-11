@@ -10,6 +10,17 @@ interface IProps {
   params: Promise<{ slug?: string[] }>;
 }
 
+export function generateStaticParams() {
+  return [
+    // The index page: /docs (no slug segments)
+    { slug: [] },
+    // All other doc pages: /docs/foo, /docs/foo/bar, etc.
+    ...allDocs
+      .filter(doc => doc.url !== '/docs')
+      .map(doc => ({ slug: doc.url.replace(/^\/docs\//, '').split('/') })),
+  ];
+}
+
 const getDoc = (slug: string[] | undefined) => {
   const path = `/docs${slug ? `/${slug.join('/')}` : ''}`;
   return allDocs.find(doc => doc.url === path) ?? null;

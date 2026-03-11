@@ -2,6 +2,7 @@ import { withContentCollections } from '@content-collections/next';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
   reactStrictMode: true,
   turbopack: {
     // docs lives inside the opentabs monorepo; set the root explicitly
