@@ -218,22 +218,25 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       // Spread meta to inherit all display-relevant fields (name, displayName,
       // version, urlPatterns, icon variants, etc.) so new fields added to
       // PluginMeta flow through automatically without manual enumeration.
-      // Exclude internal-only fields and override tools (merged with permission
-      // state), tabState (from live tab cache), permission (from server cache,
-      // which reflects the latest user-configured value), and server-only
-      // fields (source, sdkVersion, update).
+      // Exclude internal-only fields that are not part of ConfigStatePlugin.
+      //
+      // Spread order: metaFields (base display data) → serverOnlyDefaults
+      // (defaults for when serverPlugin is undefined) → serverPlugin (all
+      // server-sourced fields including source, reviewed, npmPackageName,
+      // sdkVersion, update — new server-only fields flow through automatically)
+      // → explicit overrides for permission (with meta fallback), tools (merged
+      // with permission state), tabState (live), tabs (live), hasLastSeenUrl
+      // (extension-computed). Later spreads override earlier ones.
+      const serverOnlyDefaults: Pick<ConfigStatePlugin, 'source' | 'reviewed'> = { source: 'local', reviewed: false };
       const { tools: _metaTools, adapterHash: _adapterHash, adapterFile: _adapterFile, ...metaFields } = meta;
       return {
         ...metaFields,
+        ...serverOnlyDefaults,
+        ...(serverPlugin ?? {}),
         permission: serverPlugin?.permission ?? meta.permission,
         tools,
         tabState,
         tabs,
-        source: serverPlugin?.source ?? 'local',
-        reviewed: serverPlugin?.reviewed ?? false,
-        sdkVersion: serverPlugin?.sdkVersion,
-        npmPackageName: serverPlugin?.npmPackageName,
-        update: serverPlugin?.update,
         ...(hasLastSeenUrlMap.has(meta.name) && { hasLastSeenUrl: true }),
       };
     });

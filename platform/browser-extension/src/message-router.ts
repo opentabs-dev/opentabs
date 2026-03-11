@@ -139,6 +139,26 @@ interface ValidatedPluginPayload {
   tools: WireToolDef[];
 }
 
+/** Server-only fields extracted from raw WebSocket JSON payloads. */
+interface ServerOnlyPluginFields {
+  source: 'npm' | 'local';
+  reviewed: boolean;
+  npmPackageName?: string;
+  sdkVersion?: string;
+  update?: { latestVersion: string; updateCommand: string };
+}
+
+/** Extract server-only fields from a raw JSON payload with runtime type validation. */
+const extractServerOnlyFields = (raw: Record<string, unknown> | undefined): ServerOnlyPluginFields => ({
+  source: raw?.source === 'npm' || raw?.source === 'local' ? raw.source : 'local',
+  reviewed: raw?.reviewed === true,
+  ...(typeof raw?.npmPackageName === 'string' ? { npmPackageName: raw.npmPackageName } : {}),
+  ...(typeof raw?.sdkVersion === 'string' ? { sdkVersion: raw.sdkVersion } : {}),
+  ...(raw?.update && typeof raw.update === 'object'
+    ? { update: raw.update as { latestVersion: string; updateCommand: string } }
+    : {}),
+});
+
 /** Convert a validated plugin payload to the PluginMeta shape stored in chrome.storage */
 const toPluginMeta = (p: ValidatedPluginPayload): PluginMeta => ({
   name: p.name,
@@ -368,27 +388,16 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
       displayName: p.displayName,
       version: p.version,
       permission: p.permission,
-      source: raw?.source === 'npm' || raw?.source === 'local' ? raw.source : 'local',
       tabState: 'closed' as const,
       urlPatterns: p.urlPatterns,
       ...(p.excludePatterns.length > 0 ? { excludePatterns: p.excludePatterns } : {}),
       ...(p.homepage ? { homepage: p.homepage } : {}),
       tools: p.tools,
-      reviewed: raw?.reviewed === true,
       iconSvg: p.iconSvg,
       iconInactiveSvg: p.iconInactiveSvg,
       iconDarkSvg: p.iconDarkSvg,
       iconDarkInactiveSvg: p.iconDarkInactiveSvg,
-      ...(typeof raw?.npmPackageName === 'string' ? { npmPackageName: raw.npmPackageName } : {}),
-      ...(typeof raw?.sdkVersion === 'string' ? { sdkVersion: raw.sdkVersion } : {}),
-      ...(raw?.update && typeof raw.update === 'object'
-        ? {
-            update: raw.update as {
-              latestVersion: string;
-              updateCommand: string;
-            },
-          }
-        : {}),
+      ...extractServerOnlyFields(raw),
     };
   });
 
@@ -485,26 +494,16 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
     displayName: validated.displayName,
     version: validated.version,
     permission: validated.permission,
-    source: params.source === 'npm' || params.source === 'local' ? params.source : 'local',
     tabState: newState.state,
     urlPatterns: validated.urlPatterns,
     ...(validated.excludePatterns.length > 0 ? { excludePatterns: validated.excludePatterns } : {}),
     ...(validated.homepage ? { homepage: validated.homepage } : {}),
     tools: validated.tools,
-    reviewed: params.reviewed === true,
     iconSvg: validated.iconSvg,
     iconInactiveSvg: validated.iconInactiveSvg,
     iconDarkSvg: validated.iconDarkSvg,
     iconDarkInactiveSvg: validated.iconDarkInactiveSvg,
-    ...(typeof params.sdkVersion === 'string' ? { sdkVersion: params.sdkVersion } : {}),
-    ...(params.update && typeof params.update === 'object'
-      ? {
-          update: params.update as {
-            latestVersion: string;
-            updateCommand: string;
-          },
-        }
-      : {}),
+    ...extractServerOnlyFields(params),
   };
   const otherPlugins = existingCache.plugins.filter(p => p.name !== validated.name);
   updateServerStateCache({ plugins: [...otherPlugins, updatedPlugin] });
@@ -735,5 +734,5 @@ const handleServerMessage = (message: Record<string, unknown>): void => {
 /** Method names registered in the dispatch table, exported for test verification */
 const methodHandlerNames = Array.from(methodHandlers.keys());
 
-export { handleServerMessage, methodHandlerNames, validatePluginPayload };
-export type { ValidatedPluginPayload };
+export { extractServerOnlyFields, handleServerMessage, methodHandlerNames, validatePluginPayload };
+export type { ServerOnlyPluginFields, ValidatedPluginPayload };
