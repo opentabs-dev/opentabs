@@ -18,6 +18,7 @@ import {
   getPageGlobal, getCurrentUrl, getPageTitle,
   retry, sleep, waitUntil,
   log,
+  notifyReadinessChanged,
 } from '@opentabs-dev/plugin-sdk';
 ```
 
@@ -995,3 +996,27 @@ log.debug('Raw API response', { status: 200, body: responseData });
 ```
 
 The `log` object is frozen — it cannot be reassigned or extended. See the [Logging & Debugging](/docs/guides/logging-debugging) guide for the full transport pipeline and debugging workflows.
+
+---
+
+## Readiness
+
+### `notifyReadinessChanged()`
+
+Signals the Chrome extension to immediately re-probe `isReady()` for the current plugin. Call this when your plugin detects an auth state change (login or logout) in an SPA flow where the URL does not change.
+
+Without this call, the extension relies on a 30-second polling interval to detect readiness changes. `notifyReadinessChanged()` triggers an immediate re-probe, making the state transition near-instant.
+
+```typescript
+import { notifyReadinessChanged, setAuthCache, clearAuthCache } from '@opentabs-dev/plugin-sdk';
+
+// After detecting a login (e.g., JWT appeared in localStorage)
+setAuthCache('my-plugin', token);
+notifyReadinessChanged();
+
+// After detecting a logout
+clearAuthCache('my-plugin');
+notifyReadinessChanged();
+```
+
+Safe to call in Node.js — no-ops silently outside the browser.
