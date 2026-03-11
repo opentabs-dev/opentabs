@@ -123,9 +123,9 @@ This might sound a little wild: OpenTabs was built entirely by AI agents. Zero h
 
 I wrote structured PRDs — hundreds of them — and used [Ralph](https://github.com/snarktank/ralph), an autonomous agent loop based on [Geoffrey Huntley's pattern](https://ghuntley.com/loop/), to execute them with [Claude Code](https://github.com/anthropics/claude-code). Multiple workers ran in parallel, each claiming a PRD by pushing a "running" marker to a shared repo — if the push failed, another worker already grabbed it. Just optimistic locking with `git push`. Nothing fancy, but it works.
 
-I open-sourced every single PRD. If you're curious about the process, or doing AI-driven development yourself, the specs might be useful:
+I open-sourced almost every PRD. If you're curious about the process, or doing AI-driven development yourself, the specs might be useful:
 
-**[opentabs-dev/opentabs-prds](https://github.com/opentabs-dev/opentabs-prds)** — the complete development record.
+**[opentabs-dev/opentabs-prds](https://github.com/opentabs-dev/opentabs-prds)** — the almost complete development record.
 
 ## Architecture
 
