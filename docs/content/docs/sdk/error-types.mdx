@@ -1,7 +1,7 @@
 ---
 title: Error Types
 description: API reference for ToolError — structured errors with categories, retry hints, and factory methods for AI-agent-friendly error responses.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-03-10
 ---
 
 Tool errors need to carry more than just a message. A failed login is different from a rate limit, which is different from a missing resource — and an AI agent needs to know which is which. I designed `ToolError` with machine-readable metadata (code, category, retryable, retryAfterMs) so the agent can make intelligent decisions: retry with backoff, ask the user to log in, or give up immediately. When your tool throws a `ToolError`, all of that metadata propagates through the entire dispatch chain to the agent.

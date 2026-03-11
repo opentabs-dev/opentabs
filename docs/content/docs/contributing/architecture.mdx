@@ -1,7 +1,7 @@
 ---
 title: Architecture
 description: How the MCP server, Chrome extension, and plugins work together to give AI agents access to web applications.
-lastUpdated: 2026-03-02
+lastUpdated: 2026-03-10
 ---
 
 OpenTabs is three things working together: an **MCP server** that discovers plugins and dispatches tool calls, a **Chrome extension** that injects adapters into browser tabs, and **plugins** that define what your agent can actually do. All communication uses JSON-RPC 2.0. Let me walk you through how each piece works and why I made the choices I did.

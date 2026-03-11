@@ -1,7 +1,7 @@
 ---
 title: Logging & Debugging
 description: Add structured logging to your plugin and use the CLI tools to diagnose issues when things go wrong.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-10
 ---
 
 I built this logging pipeline because I kept flying blind. A tool would fail, and I'd have no idea where in the chain it went wrong — was it the API call? The DOM query? The adapter injection? So I wired up structured logging that flows from your plugin code all the way to the MCP server, and built a set of CLI tools to poke at the system when things aren't working. Here's how I use them.

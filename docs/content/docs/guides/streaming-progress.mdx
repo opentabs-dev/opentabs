@@ -1,7 +1,7 @@
 ---
 title: Streaming & Progress
 description: Report incremental progress during long-running tool operations so AI agents see live updates and your tool never times out.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-10
 ---
 
 Long-running tools — bulk exports, multi-page scrapes, slow API calls — will time out before they finish unless they tell the platform they're still alive. I spent a while getting the timeout design right, and progress reporting is what I landed on: your tool says "I'm still working" at each step, the dispatch timeout resets, and the AI agent sees live progress updates. It's simple, but the engineering tradeoffs behind it are worth understanding.

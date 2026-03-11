@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Hooks
 description: API reference for plugin lifecycle hooks — onActivate, onDeactivate, teardown, onNavigate, onToolInvocationStart, onToolInvocationEnd.
-lastUpdated: 2026-03-01
+lastUpdated: 2026-03-10
 ---
 
 Lifecycle hooks let your plugin react to what's happening in the page — when the adapter activates, when the user navigates, when a tool starts or finishes. They're practical, not abstract: most plugins only need `onActivate` and `onDeactivate` to manage event listeners. The rest are there when you need them. All hooks are optional methods on the `OpenTabsPlugin` base class — implement only the ones you need. Because the scaffolded `tsconfig.json` enables `noImplicitOverride`, implementations must use the `override` keyword — omitting it causes a TS4114 type error at build time.

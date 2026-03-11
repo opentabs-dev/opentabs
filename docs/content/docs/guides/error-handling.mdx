@@ -1,7 +1,7 @@
 ---
 title: Error Handling
 description: Use structured errors so AI agents can distinguish retryable failures from permanent ones and make intelligent retry decisions.
-lastUpdated: 2026-02-21
+lastUpdated: 2026-03-10
 ---
 
 I kept watching AI agents make the same mistake: a tool would fail, the agent would get a generic error string, and then it would either retry something that was never going to work or give up on something that would have succeeded on the second try. It was maddening. So I built `ToolError` — a structured error class that carries machine-readable metadata (what failed, why, and whether retrying is worth it) through the entire dispatch chain to the AI agent.
