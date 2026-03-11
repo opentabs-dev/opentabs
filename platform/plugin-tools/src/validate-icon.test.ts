@@ -53,7 +53,7 @@ describe('validateIconSvg', () => {
     expect(validateIconSvg(svg, 'icon.svg')).toEqual({ valid: true });
   });
 
-  test('file exceeding 8KB fails with "size" in error', () => {
+  test('file exceeding 16KB fails with "size" in error', () => {
     const largeContent = `<rect/>${'x'.repeat(MAX_ICON_SIZE)}`;
     const svg = svgWrap(largeContent);
     const result = validateIconSvg(svg, 'icon.svg');
@@ -63,7 +63,7 @@ describe('validateIconSvg', () => {
     }
   });
 
-  test('file exactly at 8KB passes', () => {
+  test('file exactly at 16KB passes', () => {
     // Build an SVG that is exactly MAX_ICON_SIZE bytes
     const prefix = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">';
     const suffix = '</svg>';

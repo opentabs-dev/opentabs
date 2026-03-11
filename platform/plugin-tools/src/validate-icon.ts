@@ -7,7 +7,7 @@
  * - generateInactiveIcon — converts all color values to luminance-equivalent grays
  */
 
-const MAX_ICON_SIZE = 8 * 1024; // 8 KB
+const MAX_ICON_SIZE = 16 * 1024; // 16 KB
 
 // ---------------------------------------------------------------------------
 // Named color lookup table (CSS2.1 + common extended names)
@@ -365,7 +365,7 @@ type ValidationResult = { valid: true } | { valid: false; errors: string[] };
 
 /**
  * Validate an SVG string for use as a plugin icon.
- * Checks: size <= 8KB, viewBox present and square, no <image>/<script>,
+ * Checks: size <= 16KB, viewBox present and square, no <image>/<script>,
  * no event handler attributes.
  */
 const validateIconSvg = (content: string, _filename: string): ValidationResult => {
@@ -374,7 +374,7 @@ const validateIconSvg = (content: string, _filename: string): ValidationResult =
   // Size check (byte count, not string length)
   const byteSize = new TextEncoder().encode(content).byteLength;
   if (byteSize > MAX_ICON_SIZE) {
-    errors.push(`SVG size (${byteSize} bytes) exceeds maximum of ${MAX_ICON_SIZE} bytes (8 KB)`);
+    errors.push(`SVG size (${byteSize} bytes) exceeds maximum of ${MAX_ICON_SIZE} bytes (16 KB)`);
   }
 
   // viewBox check
