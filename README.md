@@ -8,7 +8,7 @@
   </a>
 </p>
 
-Every web app has internal APIs — the same endpoints its own frontend calls. i asked Claude to reverse-engineer them and expose them as [MCP tools](https://modelcontextprotocol.io/) so your AI agent can call them directly.
+Every web app has internal APIs — the same endpoints its own frontend calls. I asked Claude to reverse-engineer them and expose them as [MCP tools](https://modelcontextprotocol.io/) so your AI agent can call them directly.
 
 No screenshots. No DOM scraping. No pixel-guessing. Your AI calls `discord_send_message` and it hits the same backend Discord's web app uses — running in your browser, using your existing session. It's fast, cheap on tokens (tokens are money), and the knowledge gets packaged into a reusable plugin anyone can install.
 
@@ -21,7 +21,7 @@ Those internal APIs need to run inside your browser — that's where your sessio
 
 When your AI calls a tool, the server routes it to the right tab, the plugin makes the API call using your session, and the result flows back. That's the whole loop.
 
-There are 100+ plugins covering ~2,000 tools across Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, Robinhood, DoorDash, Airbnb, Netflix — and a bunch more. Check the [`plugins/`](plugins/) directory. i built every one of them with end-to-end testing as a requirement, but i'll be honest — i haven't had the resources to manually verify all 2,000 tools. If something's broken, point your AI at it and open a PR. My AI will review what your AI wrote, and we'll merge it together. That's kind of the whole idea.
+There are 100+ plugins covering ~2,000 tools across Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, Robinhood, DoorDash, Airbnb, Netflix — and a bunch more. Check the [`plugins/`](plugins/) directory. I built every one of them with end-to-end testing as a requirement in the [build-plugin skill](.claude/skills/build-plugin/), but I'll be honest — I haven't had the resources to manually verify all 2,000 tools. If something's broken, point your AI at it and open a PR. My AI will review what your AI wrote, and we'll merge it together. That's kind of the whole idea.
 
 There are also built-in browser tools (screenshots, clicking, typing, network capture, DOM inspection) that work on any tab without a plugin.
 
@@ -56,13 +56,13 @@ That's it. Your AI agent can now talk to the web app. Five minutes, start to fin
 
 ## Build Your Own Plugins
 
-This is the part i'm most excited about.
+This is the part I'm most excited about.
 
 Point your AI agent at any website and it'll build a plugin for you — analyze the page, discover the APIs, scaffold the code, register it. Your agent wrote it, you can read every line, and it runs in your browser with your session. That's a pretty good trust model.
 
 Most of the plugins in this repo were built by AI in minutes. The MCP server ships with site analysis tools, the SDK handles the boilerplate, and there's a [build-plugin skill](.claude/skills/build-plugin/) that walks AI agents through the whole process — API discovery, auth extraction, error handling, schema design, testing, and a growing collection of patterns learned from building every plugin in this repo.
 
-Here's what makes it interesting: **every time an AI builds a plugin, it writes what it learned back into the skill.** New auth patterns, new API quirks, new edge cases — they all get folded in. The skill that teaches AI to build plugins gets better with every plugin built. i'd love your help making it even better. If your agent discovers something new, contribute it back.
+Here's what makes it interesting: **every time an AI builds a plugin, it writes what it learned back into the skill.** New auth patterns, new API quirks, new edge cases — they all get folded in. The skill that teaches AI to build plugins gets better with every plugin built. I'd love your help making it even better. If your agent discovers something new, contribute it back.
 
 If you prefer to build by hand:
 
@@ -82,16 +82,16 @@ Plugins are standalone npm packages. Publish yours and anyone can `opentabs plug
 
 ## Security
 
-i know you're the kind of person who sets `DANGEROUSLY_SKIP_PERMISSIONS=1` the moment something asks for confirmation. i respect that. But your browser sessions are precious, so i wanted the defaults to be thoughtful — even for the fearless.
+I know you're the kind of person who sets `DANGEROUSLY_SKIP_PERMISSIONS=1` the moment something asks for confirmation. I respect that. But your browser sessions are precious, so I wanted the defaults to be thoughtful — even for the fearless.
 
-- **Everything starts off.** Every plugin's tools are disabled by default. Not "ask for confirmation" — actually off. This includes the plugins i ship myself. What if my account gets compromised? What if a dependency gets hijacked? You shouldn't have to trust me blindly either.
+- **Everything starts off.** Every plugin's tools are disabled by default. Not "ask for confirmation" — actually off. This includes the plugins I ship myself. What if my account gets compromised? What if a dependency gets hijacked? You shouldn't have to trust me blindly either.
 - **AI-assisted code review.** When you enable a plugin, the system offers to have your AI review the adapter source code first. It checks for data exfiltration, credential access, persistence mechanisms, and scope escalation. You see the findings, you decide.
 - **Version-aware.** When a plugin updates, permissions reset. New code, new review.
 - **Three permission levels.** Off (disabled), Ask (confirmation dialog before each call), or Auto (runs immediately). Set per-plugin or per-tool.
 - **Runs locally.** No cloud. No telemetry. Everything lives in `~/.opentabs/` on your machine.
 - **Full audit log.** Every tool call is logged — what ran, when, whether it succeeded.
 
-i won't pretend this is bulletproof. Browser extensions that interact with your web apps are inherently a trust decision. But the defaults are safe, the controls are in your hands, and the code is open source — [read it](https://opentabs.dev/docs/reference/configuration).
+I won't pretend this is bulletproof. Browser extensions that interact with your web apps are inherently a trust decision. But the defaults are safe, the controls are in your hands, and the code is open source — [read it](https://opentabs.dev/docs/reference/configuration).
 
 <p align="center">
   <a href="https://youtu.be/6CL6kwk8d9w">
@@ -103,21 +103,21 @@ i won't pretend this is bulletproof. Browser extensions that interact with your 
 
 **Why not just use official MCP servers?**
 
-If an official MCP server works well for you, use it. i started building OpenTabs for the apps that *don't* have MCP support — many had none when i began, and some probably never will. Along the way, i also built plugins for apps that do have official servers, partly for learning, partly because i noticed a few things: setting up separate API keys or OAuth flows for each service adds up when you use a dozen of them. Public APIs sometimes have stricter rate limits or a smaller feature set than the web app. And the web app is always the superset — internal APIs, real-time data, features that never make it to the public API.
+If an official MCP server works well for you, use it. I started building OpenTabs for the apps that *don't* have MCP support — many had none when I began, and some probably never will. Along the way, I also built plugins for apps that do have official servers, partly for learning, partly because I noticed a few things: setting up separate API keys or OAuth flows for each service adds up when you use a dozen of them. Public APIs sometimes have stricter rate limits or a smaller feature set than the web app. And the web app is always the superset — internal APIs, real-time data, features that never make it to the public API.
 
-i see OpenTabs and official servers as complementary. Use whatever fits — or mix and match.
+I see OpenTabs and official servers as complementary. Use whatever fits — or mix and match.
 
 **How is this different from browser automation (Playwright, Stagehand, Browser-Use)?**
 
-Those are great tools. Both approaches have real strengths, and i want to be honest about the tradeoffs.
+Those are great tools. Both approaches have real strengths, and I want to be honest about the tradeoffs.
 
 Browser automation simulates what a human would do — click, type, read the screen. It works on any site out of the box, and that's a real advantage. The cost is speed, tokens, and the knowledge stays trapped in that one session. If a popup appears or the layout changes, the AI figures it out again from scratch.
 
-OpenTabs plugins call the web app's internal APIs directly. A send-message tool isn't clicking a text box — it's making the same API call the web app's frontend makes. Fast, cheap on tokens, and the knowledge is packaged into a reusable plugin. The downside is you need a plugin per site, and internal APIs can change. Some web services are really good at obscuring them (Google Docs, i'm looking at you). If a plugin breaks, open a PR — i want to keep everything working.
+OpenTabs plugins call the web app's internal APIs directly. A send-message tool isn't clicking a text box — it's making the same API call the web app's frontend makes. Fast, cheap on tokens, and the knowledge is packaged into a reusable plugin. The downside is you need a plugin per site, and internal APIs can change. Some web services are really good at obscuring them (Google Docs, I'm looking at you). If a plugin breaks, open a PR — I want to keep everything working.
 
 **What about Chrome's WebMCP?**
 
-[Chrome's WebMCP](https://developer.chrome.com/blog/webmcp-epp) is a proposal where websites expose structured MCP tools natively in the browser. i think it's a great idea — it's probably how this should work long-term.
+[Chrome's WebMCP](https://developer.chrome.com/blog/webmcp-epp) is a proposal where websites expose structured MCP tools natively in the browser. I think it's a great idea — it's probably how this should work long-term.
 
 The timeline depends on web services choosing to adopt it, and that kind of shift takes a while. WebMCP is in early preview today. OpenTabs works right now, with the apps you already use, in about five minutes. If WebMCP becomes widespread, OpenTabs plugins can evolve to use it.
 
@@ -125,9 +125,9 @@ The timeline depends on web services choosing to adopt it, and that kind of shif
 
 This might sound a little wild: OpenTabs was built entirely by AI agents. Zero hand-written application code.
 
-i wrote structured PRDs — hundreds of them — and used [Ralph](https://github.com/snarktank/ralph), an autonomous agent loop based on [Geoffrey Huntley's pattern](https://ghuntley.com/loop/), to execute them with [Claude Code](https://github.com/anthropics/claude-code). Multiple workers ran in parallel, each claiming a PRD by pushing a "running" marker to a shared repo — if the push failed, another worker already grabbed it. Just optimistic locking with `git push`. Nothing fancy, but it works.
+I wrote structured PRDs — hundreds of them — and used [Ralph](https://github.com/snarktank/ralph), an autonomous agent loop based on [Geoffrey Huntley's pattern](https://ghuntley.com/loop/), to execute them with [Claude Code](https://github.com/anthropics/claude-code). Multiple workers ran in parallel, each claiming a PRD by pushing a "running" marker to a shared repo — if the push failed, another worker already grabbed it. Just optimistic locking with `git push`. Nothing fancy, but it works.
 
-i open-sourced every single PRD. If you're curious about the process, or doing AI-driven development yourself, the specs might be useful:
+I open-sourced every single PRD. If you're curious about the process, or doing AI-driven development yourself, the specs might be useful:
 
 **[opentabs-dev/opentabs-prds](https://github.com/opentabs-dev/opentabs-prds)** — the complete development record.
 
@@ -144,11 +144,11 @@ Six packages:
 | **CLI** | User-facing CLI (`opentabs start`, `opentabs plugin install`, etc.) |
 | **Create Plugin** | Scaffolding CLI for new plugin projects |
 
-The UI across the side panel and docs site is built with [RetroUI](https://github.com/Logging-Studio/RetroUI), a NeoBrutalism component library that i really like.
+The UI across the side panel and docs site is built with [RetroUI](https://github.com/Logging-Studio/RetroUI), a NeoBrutalism component library that I really like.
 
 ## Contributing
 
-i'd love your help. You need [Node.js](https://nodejs.org/) 22+ and Chrome.
+I'd love your help. You need [Node.js](https://nodejs.org/) 22+ and Chrome.
 
 ```bash
 git clone https://github.com/opentabs-dev/opentabs.git
@@ -181,7 +181,7 @@ This project wouldn't exist without [Claude Code](https://github.com/anthropics/
 
 ## One More Thing
 
-i asked Claude to talk to Gemini about what makes ChatGPT good. Three rounds, no scripting. Just two AIs being professionals.
+I asked Claude to talk to Gemini about what makes ChatGPT good. Three rounds, no scripting. Just two AIs being professionals.
 
 <p align="center">
   <a href="https://youtu.be/WRrCeRfiVaI">
