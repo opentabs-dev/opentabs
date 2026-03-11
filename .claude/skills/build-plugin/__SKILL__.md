@@ -29,7 +29,7 @@ If the user is running `opentabs start` from the global npm install, tell them: 
 Before starting, also ensure:
 - The Chrome extension is loaded and the side panel is open
 - The user has the target web app open in a Chrome tab and is logged in
-- **Recommended:** `OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS=1` set to bypass approval prompts during development
+- **Recommended:** Ask human to make the browser tools in auto mode
 
 ---
 
@@ -567,8 +567,6 @@ New plugins start with permission `off`. Before testing, enable it:
 3. On approval, call `plugin_inspect(plugin: "<name>")` to get the review token
 4. Call `plugin_mark_reviewed(plugin: "<name>", version: "<version>", reviewToken: "<token>", permission: "auto")` to enable all tools
 
-If `skipPermissions` is already set, this step is unnecessary.
-
 ### Mandatory Tool Verification
 
 **The plugin is not done until every tool has been called against the live browser AND independently verified.**
@@ -1066,4 +1064,4 @@ opentabs config set plugin-permission.<plugin> ask|auto|off
 opentabs config set tool-permission.<plugin>.<tool> ask|auto|off
 ```
 
-Resolution order: `skipPermissions` env → per-tool override → plugin default → `off`.
+Resolution order: per-tool override → plugin default → `off`.
