@@ -348,14 +348,6 @@ export default function Home() {
               works right now, in about five minutes. When WebMCP is widespread, OpenTabs plugins can evolve to use it.
             </p>
           </div>
-          <div>
-            <p className="mb-3 font-bold text-foreground">Can I build a plugin for Google Docs?</p>
-            <p className="max-w-3xl text-muted-foreground text-sm leading-relaxed">
-              I&apos;ll be honest: I burned a lot of tokens trying and couldn&apos;t crack it. Google did a genuinely
-              impressive job obscuring their internal APIs — hats off to them. If you manage to figure it out and want
-              to contribute a Google Workspace plugin back, you&apos;d be my hero.
-            </p>
-          </div>
         </div>
       </section>
 
