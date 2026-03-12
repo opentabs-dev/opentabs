@@ -52,6 +52,12 @@ opentabs plugin install <plugin-name>
 
 That's it. Your AI agent can now talk to the web app. Five minutes, start to finish.
 
+<p align="center">
+  <a href="https://youtu.be/MoBD7DhnEY0">
+    <img src="https://img.youtube.com/vi/MoBD7DhnEY0/maxresdefault.jpg" alt="Demo: Install a plugin and uninstall another — full plugin lifecycle driven by AI" />
+  </a>
+</p>
+
 ## Contributing Plugins
 
 Now that you're set up, this is the part I'm most excited about.
