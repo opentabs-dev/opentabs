@@ -16,6 +16,7 @@ import { browserTools } from './browser-tools/index.js';
 import { getConfigDir, loadConfig, loadSecret, savePluginPermissions } from './config.js';
 import { isDev } from './dev-mode.js';
 import { discoverPlugins } from './discovery.js';
+import { buildConfigStatePayload, sendToExtension } from './extension-handlers.js';
 import { ensureExtensionInstalled } from './extension-install.js';
 import { cleanupStaleExecFiles, sendExtensionReload, sendPluginUpdate, sendSyncFull } from './extension-protocol.js';
 import { startConfigWatching, startFileWatching, stopFileWatching } from './file-watcher.js';
@@ -482,6 +483,14 @@ const performReload = async (
       // Update check is best-effort — failures are not actionable
     }
 
+    if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
+      sendToExtension(state, {
+        jsonrpc: '2.0',
+        method: 'plugins.changed',
+        params: { ...buildConfigStatePayload(state) },
+      });
+    }
+
     const durationMs = Date.now() - startTs;
     return {
       lastReloadTimestamp: Date.now(),
@@ -521,6 +530,25 @@ const performConfigReload = async (
     restartSweepTimer(state, transports, sessionServers);
 
     await reloadCore({ state, sessionServers, transports });
+
+    // Version check: run on every config reload so newly published versions are detected.
+    // Best-effort — failures do not affect the reload result.
+    try {
+      await checkForUpdates(state);
+    } catch {
+      // Update check is best-effort — failures are not actionable
+    }
+
+    // If outdated plugins were found, push the update data to the extension.
+    // reloadCore's sync.full was sent before the version check ran, so it
+    // did not include the fresh outdated data — send a follow-up notification.
+    if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
+      sendToExtension(state, {
+        jsonrpc: '2.0',
+        method: 'plugins.changed',
+        params: { ...buildConfigStatePayload(state) },
+      });
+    }
 
     // Notify all MCP clients that tool lists changed after config reload.
     // (performReload handles its own notification after handler re-registration,
