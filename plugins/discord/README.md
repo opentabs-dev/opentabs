@@ -1,138 +1,91 @@
-# opentabs-plugin-discord
+# Discord
 
-OpenTabs plugin for Discord
+OpenTabs plugin for Discord — gives AI agents access to Discord through your authenticated browser session.
 
-## Project Structure
-
-```
-discord/
-├── package.json          # Plugin metadata (name, opentabs field, dependencies)
-├── icon.svg              # Optional custom icon (square SVG, max 8KB)
-├── icon-inactive.svg     # Optional manual inactive icon override
-├── src/
-│   ├── index.ts          # Plugin class (extends OpenTabsPlugin)
-│   └── tools/            # One file per tool (using defineTool)
-│       └── example.ts
-└── dist/                 # Build output (generated)
-    ├── adapter.iife.js   # Bundled adapter injected into matching tabs
-    └── tools.json        # Tool schemas for MCP registration
-```
-
-## Configuration
-
-Plugin metadata is defined in `package.json` under the `opentabs` field:
-
-```json
-{
-  "name": "opentabs-plugin-discord",
-  "main": "dist/adapter.iife.js",
-  "opentabs": {
-    "displayName": "Discord",
-    "description": "OpenTabs plugin for Discord",
-    "urlPatterns": ["*://discord.com/*"]
-  }
-}
-```
-
-- **`main`** — entry point for the bundled adapter IIFE
-- **`opentabs.displayName`** — human-readable name shown in the side panel
-- **`opentabs.description`** — short description of what the plugin does
-- **`opentabs.urlPatterns`** — Chrome match patterns for tabs where the adapter is injected
-
-## Custom Icons
-
-By default, the side panel shows a colored letter avatar for your plugin. To use a custom icon, place an `icon.svg` file in the plugin root (next to `package.json`):
-
-```
-discord/
-├── package.json
-├── icon.svg              ← custom icon (optional)
-├── icon-inactive.svg     ← manual inactive override (optional, requires icon.svg)
-├── src/
-│   └── ...
-```
-
-**How it works:**
-
-- `opentabs-plugin build` reads `icon.svg`, validates it, auto-generates a grayscale inactive variant, and embeds both in `dist/tools.json`
-- To override the auto-generated inactive icon, provide `icon-inactive.svg` (must use only grayscale colors)
-- If no `icon.svg` is provided, the letter avatar is used automatically
-
-**Icon requirements:**
-
-- Square SVG with a `viewBox` attribute (e.g., `viewBox="0 0 32 32"`)
-- Maximum 8 KB file size
-- No embedded `<image>`, `<script>`, or event handler attributes (`onclick`, etc.)
-- Manual `icon-inactive.svg` must use only achromatic (grayscale) colors
-
-## Development
+## Install
 
 ```bash
-npm install
-npm run build       # tsc && opentabs-plugin build
-npm run dev         # watch mode (tsc --watch + opentabs-plugin build --watch)
-npm run type-check  # tsc --noEmit
-npm run lint        # biome
+opentabs plugin install discord
 ```
 
-## Adding Tools
+Or install globally via npm:
 
-Create a new file in `src/tools/` using `defineTool`:
-
-```ts
-import { z } from 'zod';
-import { defineTool } from '@opentabs-dev/plugin-sdk';
-
-export const myTool = defineTool({
-  name: 'my_tool',
-  displayName: 'My Tool',
-  description: 'What this tool does',
-  icon: 'wrench',
-  input: z.object({ /* ... */ }),
-  output: z.object({ /* ... */ }),
-  handle: async (params) => {
-    // Tool implementation runs in the browser tab context
-    return { /* ... */ };
-  },
-});
+```bash
+npm install -g @opentabs-dev/opentabs-plugin-discord
 ```
 
-Then register it in `src/index.ts` by adding it to the `tools` array.
+## Setup
 
-## Shared Schemas
+1. Open [discord.com](https://discord.com/channels/@me) in Chrome and log in
+2. Open the OpenTabs side panel — the Discord plugin should appear as **ready**
 
-When 3 or more tools share the same input or output shape, extract common Zod schemas into a shared file to avoid duplication:
+## Tools (26)
 
-```ts
-// src/schemas/channel.ts
-import { z } from 'zod';
+### Messages (8)
 
-export const channelSchema = z.object({
-  id: z.string().describe('Channel ID'),
-  name: z.string().describe('Channel name'),
-});
+| Tool | Description | Type |
+|---|---|---|
+| `send_message` | Send a message to a channel | Write |
+| `edit_message` | Edit an existing message | Write |
+| `delete_message` | Delete a message from a channel | Write |
+| `read_messages` | Read recent messages from a channel | Read |
+| `read_thread` | Read messages from a thread | Read |
+| `search_messages` | Search messages in a server | Read |
+| `get_message` | Get a message by ID | Read |
+| `list_pinned_messages` | List pinned messages in a channel | Read |
 
-export type Channel = z.infer<typeof channelSchema>;
-```
+### Servers (3)
 
-Then import and reuse in your tools:
+| Tool | Description | Type |
+|---|---|---|
+| `list_guilds` | List servers the user belongs to | Read |
+| `get_guild_info` | Get detailed info about a server | Read |
+| `list_roles` | List roles in a server | Read |
 
-```ts
-// src/tools/list-channels.ts
-import { channelSchema } from '../schemas/channel.js';
+### Channels (6)
 
-export const listChannels = defineTool({
-  name: 'list_channels',
-  displayName: 'List Channels',
-  description: 'List all available channels',
-  icon: 'list',
-  input: z.object({}),
-  output: z.object({ channels: z.array(channelSchema) }),
-  handle: async () => {
-    // ...
-    return { channels: [] };
-  },
-});
-```
+| Tool | Description | Type |
+|---|---|---|
+| `list_channels` | List channels in a server | Read |
+| `get_channel_info` | Get detailed information about a channel | Read |
+| `create_channel` | Create a new channel in a server | Write |
+| `edit_channel` | Edit a channel's name, topic, or settings | Write |
+| `delete_channel` | Delete a channel permanently | Write |
+| `create_thread` | Create a new thread | Write |
 
-This keeps your tool schemas DRY and makes it easy to evolve shared types in one place.
+### Users (2)
+
+| Tool | Description | Type |
+|---|---|---|
+| `list_members` | List members in a server | Read |
+| `get_user_profile` | Get a user's profile information | Read |
+
+### DMs (2)
+
+| Tool | Description | Type |
+|---|---|---|
+| `list_dms` | List open direct message channels | Read |
+| `open_dm` | Open a direct message conversation | Write |
+
+### Reactions (4)
+
+| Tool | Description | Type |
+|---|---|---|
+| `add_reaction` | Add an emoji reaction to a message | Write |
+| `remove_reaction` | Remove an emoji reaction from a message | Write |
+| `pin_message` | Pin a message in a channel | Write |
+| `unpin_message` | Unpin a message from a channel | Write |
+
+### Files (1)
+
+| Tool | Description | Type |
+|---|---|---|
+| `upload_file` | Upload a file to a channel | Write |
+
+## How It Works
+
+This plugin runs inside your Discord tab through the [OpenTabs](https://opentabs.dev) Chrome extension. It uses your existing browser session — no API tokens or OAuth apps required. All operations happen as you, with your permissions.
+
+## License
+
+MIT
