@@ -1451,10 +1451,9 @@ const test = base.extend<TestFixtures>({
     // files appear inside the extension so chrome.scripting.executeScript({ files })
     // can find them.
     //
-    // The MCP server's reload sequence may have already created the adapters/
-    // directory and written files there during startup. Remove it first so the
-    // symlink can be created. The files will be re-written on sync.full when
-    // the extension connects.
+    // The MCP server writes adapter files eagerly during startup (before the
+    // extension connects). Remove the directory so the symlink can be created.
+    // Files are re-written on sync.full when the extension connects.
     const serverAdaptersParent = path.join(mcpServer.configDir, 'extension');
     fs.mkdirSync(serverAdaptersParent, { recursive: true });
     const serverAdaptersDir = path.join(serverAdaptersParent, 'adapters');

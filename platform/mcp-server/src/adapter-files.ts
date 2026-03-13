@@ -91,8 +91,8 @@ const writeAdapterFile = async (pluginName: string, iife: string, sourceMap?: st
 
 /**
  * Remove stale adapter .js files from the adapters directory that do not
- * correspond to any plugin in the current set. Called from sendSyncFull
- * before writing new adapter files.
+ * correspond to any plugin in the current set. Called from writeAllAdapterFiles
+ * (and transitively from sendSyncFull and reloadCore) before writing new adapter files.
  */
 const cleanupStaleAdapterFiles = async (currentPluginNames: Set<string>): Promise<void> => {
   const adaptersDir = getAdaptersDir();
