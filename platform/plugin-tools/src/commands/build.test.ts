@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { LucideIconName, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { ConfigSchema, LucideIconName, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { z } from 'zod';
 import {
@@ -99,6 +99,30 @@ describe('validatePlugin', () => {
   describe('urlPatterns', () => {
     test('rejects empty urlPatterns array', () => {
       const errors = validatePlugin(makePlugin({ urlPatterns: [] }));
+      expect(errors.some(e => e.toLowerCase().includes('url pattern'))).toBe(true);
+    });
+
+    test('allows empty urlPatterns when configSchema has a required url field', () => {
+      const configSchema: ConfigSchema = {
+        instance_url: { type: 'url', label: 'Instance URL', required: true },
+      };
+      const errors = validatePlugin(makePlugin({ urlPatterns: [], configSchema }));
+      expect(errors.some(e => e.toLowerCase().includes('url pattern'))).toBe(false);
+    });
+
+    test('rejects empty urlPatterns when configSchema has no required url field', () => {
+      const configSchema: ConfigSchema = {
+        api_key: { type: 'string', label: 'API Key', required: true },
+      };
+      const errors = validatePlugin(makePlugin({ urlPatterns: [], configSchema }));
+      expect(errors.some(e => e.toLowerCase().includes('url pattern'))).toBe(true);
+    });
+
+    test('rejects empty urlPatterns when configSchema has non-required url field', () => {
+      const configSchema: ConfigSchema = {
+        instance_url: { type: 'url', label: 'Instance URL', required: false },
+      };
+      const errors = validatePlugin(makePlugin({ urlPatterns: [], configSchema }));
       expect(errors.some(e => e.toLowerCase().includes('url pattern'))).toBe(true);
     });
 
@@ -525,6 +549,28 @@ describe('generateManifest', () => {
     const manifest = generateManifest(plugin, '0.0.10', {});
     expect(manifest).not.toHaveProperty('iconSvg');
     expect(manifest).not.toHaveProperty('iconInactiveSvg');
+  });
+
+  test('includes configSchema when plugin defines one', () => {
+    const configSchema: ConfigSchema = {
+      instance_url: { type: 'url', label: 'Instance URL', required: true },
+      api_key: { type: 'string', label: 'API Key' },
+    };
+    const plugin = makePlugin({ tools: [makeRealTool()], configSchema });
+    const manifest = generateManifest(plugin, '0.0.10');
+    expect(manifest.configSchema).toEqual(configSchema);
+  });
+
+  test('omits configSchema when plugin does not define one', () => {
+    const plugin = makePlugin({ tools: [makeRealTool()] });
+    const manifest = generateManifest(plugin, '0.0.10');
+    expect(manifest).not.toHaveProperty('configSchema');
+  });
+
+  test('omits configSchema when it is an empty object', () => {
+    const plugin = makePlugin({ tools: [makeRealTool()], configSchema: {} });
+    const manifest = generateManifest(plugin, '0.0.10');
+    expect(manifest).not.toHaveProperty('configSchema');
   });
 });
 

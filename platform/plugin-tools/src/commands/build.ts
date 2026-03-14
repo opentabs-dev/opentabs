@@ -12,7 +12,7 @@ import { mkdirSync, readFileSync, rmSync, statSync, watch, writeFileSync } from 
 import { access, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import type { ManifestTool, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { ConfigSchema, ManifestTool, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { LUCIDE_ICON_NAMES, validatePluginName, validateUrlPattern } from '@opentabs-dev/plugin-sdk';
 import type { PluginPackageJson } from '@opentabs-dev/shared';
 import {
@@ -330,8 +330,10 @@ const validatePlugin = (plugin: OpenTabsPlugin): string[] => {
   if (plugin.description.length === 0) errors.push('Plugin description is required');
 
   // URL patterns
-  if (plugin.urlPatterns.length === 0) {
-    errors.push('At least one URL pattern is required');
+  const hasRequiredUrlSetting =
+    plugin.configSchema && Object.values(plugin.configSchema).some(s => s.type === 'url' && s.required);
+  if (plugin.urlPatterns.length === 0 && !hasRequiredUrlSetting) {
+    errors.push('At least one URL pattern is required (or declare a required url-type configSchema field)');
   } else {
     for (const pattern of plugin.urlPatterns) {
       const patternError = validateUrlPattern(pattern);
@@ -585,6 +587,7 @@ const readAndValidateIcons = async (projectDir: string, pluginName: string): Pro
 /** Full manifest shape written to dist/tools.json */
 interface PluginManifestOutput {
   sdkVersion: string;
+  configSchema?: ConfigSchema;
   iconSvg?: string;
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
@@ -655,6 +658,7 @@ const resolveSdkVersion = async (projectDir: string): Promise<string> => {
 /** Generate the full manifest (tools) for dist/tools.json */
 const generateManifest = (plugin: OpenTabsPlugin, sdkVersion: string, icons?: IconResult): PluginManifestOutput => ({
   sdkVersion,
+  ...(plugin.configSchema && Object.keys(plugin.configSchema).length > 0 ? { configSchema: plugin.configSchema } : {}),
   ...(icons?.iconSvg ? { iconSvg: icons.iconSvg } : {}),
   ...(icons?.iconInactiveSvg ? { iconInactiveSvg: icons.iconInactiveSvg } : {}),
   ...(icons?.iconDarkSvg ? { iconDarkSvg: icons.iconDarkSvg } : {}),
