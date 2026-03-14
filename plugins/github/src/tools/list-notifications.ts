@@ -1,7 +1,8 @@
+import { ToolError, fetchText } from '@opentabs-dev/plugin-sdk';
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { mapNotification, notificationSchema } from './schemas.js';
+import { isAuthenticated } from '../github-api.js';
+import { notificationSchema } from './schemas.js';
 
 export const listNotifications = defineTool({
   name: 'list_notifications',
@@ -10,29 +11,40 @@ export const listNotifications = defineTool({
   summary: 'List notifications for the authenticated user',
   icon: 'bell',
   group: 'Users',
-  input: z.object({
-    all: z.boolean().optional().describe('Show all notifications including read ones (default: false)'),
-    participating: z
-      .boolean()
-      .optional()
-      .describe('Only show notifications where the user is directly participating (default: false)'),
-    per_page: z.number().int().min(1).max(100).optional().describe('Results per page (default 30, max 100)'),
-    page: z.number().int().min(1).optional().describe('Page number (default 1)'),
-  }),
+  input: z.object({}),
   output: z.object({
     notifications: z.array(notificationSchema).describe('List of notifications'),
   }),
-  handle: async params => {
-    const query: Record<string, string | number | boolean | undefined> = {
-      per_page: params.per_page ?? 30,
-      page: params.page,
-    };
-    if (params.all !== undefined) query.all = params.all;
-    if (params.participating !== undefined) query.participating = params.participating;
+  handle: async () => {
+    if (!isAuthenticated()) throw ToolError.auth('Not authenticated — please log in to GitHub.');
 
-    const data = await api<Record<string, unknown>[]>('/notifications', {
-      query,
+    // Fetch the notifications page and parse from HTML
+    const html = await fetchText('/notifications', {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
     });
-    return { notifications: (data ?? []).map(mapNotification) };
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const items = doc.querySelectorAll('.notifications-list-item, .notification-list-item-link');
+    const notifications = [];
+
+    for (const item of items) {
+      const titleEl = item.querySelector('.markdown-title, .notification-list-item-link');
+      const repoEl = item.querySelector('.notification-list-item-repo, .text-small');
+      const timeEl = item.querySelector('relative-time, time');
+      const typeEl = item.querySelector('.type-icon');
+
+      notifications.push({
+        id: item.getAttribute('data-notification-id') ?? '',
+        reason: '',
+        unread: item.classList.contains('notification-unread'),
+        subject_title: titleEl?.textContent?.trim() ?? '',
+        subject_type: typeEl?.getAttribute('aria-label') ?? '',
+        subject_url: '',
+        repository_full_name: repoEl?.textContent?.trim() ?? '',
+        updated_at: timeEl?.getAttribute('datetime') ?? '',
+      });
+    }
+
+    return { notifications };
   },
 });

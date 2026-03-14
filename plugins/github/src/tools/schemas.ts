@@ -100,7 +100,8 @@ export const notificationSchema = z.object({
 
 // --- Defensive mappers ---
 
-interface RawRepo {
+// Repo mapper handles both REST API and same-origin page JSON shapes
+export interface RawRepo {
   id?: number;
   name?: string;
   full_name?: string;
@@ -114,112 +115,197 @@ interface RawRepo {
   open_issues_count?: number;
   archived?: boolean;
   updated_at?: string;
+  // Same-origin search shape
+  hl_name?: string;
+  hl_trunc_description?: string;
+  public?: boolean;
+  followers?: number;
+  repo?: { repository?: { id?: number; name?: string; owner_login?: string; updated_at?: string } };
 }
 
 export const mapRepository = (r: RawRepo) => ({
-  id: r.id ?? 0,
-  name: r.name ?? '',
-  full_name: r.full_name ?? '',
-  description: r.description ?? '',
-  private: r.private ?? false,
-  html_url: r.html_url ?? '',
+  id: r.id ?? r.repo?.repository?.id ?? 0,
+  name: r.name ?? r.repo?.repository?.name ?? '',
+  full_name: r.full_name ?? r.hl_name?.replace(/<\/?em>/g, '') ?? '',
+  description: r.description ?? r.hl_trunc_description ?? '',
+  private: r.private ?? r.public === false,
+  html_url:
+    r.html_url ??
+    (r.repo?.repository ? `https://github.com/${r.repo.repository.owner_login}/${r.repo.repository.name}` : ''),
   default_branch: r.default_branch ?? '',
   language: r.language ?? '',
-  stargazers_count: r.stargazers_count ?? 0,
+  stargazers_count: r.stargazers_count ?? r.followers ?? 0,
   forks_count: r.forks_count ?? 0,
   open_issues_count: r.open_issues_count ?? 0,
   archived: r.archived ?? false,
-  updated_at: r.updated_at ?? '',
+  updated_at: r.updated_at ?? r.repo?.repository?.updated_at ?? '',
 });
 
-interface RawLabelRef {
-  name?: string;
+// Relay GraphQL label edge shape
+interface RawRelayLabelEdge {
+  node?: { name?: string };
 }
 
-interface RawUser {
-  login?: string;
+// Relay GraphQL label connection shape
+interface RawRelayLabels {
+  edges?: RawRelayLabelEdge[];
 }
 
-interface RawIssue {
+// Issue/PR mapper handles both REST API and Relay GraphQL shapes
+// Relay shape from IssueIndexPageQuery:
+// { __typename, id, number, title, author: { login }, labels: { edges }, createdAt, updatedAt,
+//   closed, closedAt, isDraft, pullRequestState, milestone }
+export interface RawIssueOrPR {
+  // REST API fields
   number?: number;
   title?: string;
   state?: string;
   body?: string | null;
   html_url?: string;
-  user?: RawUser | null;
-  labels?: RawLabelRef[];
-  assignees?: RawUser[];
+  user?: { login?: string } | null;
+  labels?: Array<{ name?: string }>;
+  assignees?: Array<{ login?: string }>;
   comments?: number;
   created_at?: string;
   updated_at?: string;
   closed_at?: string | null;
   pull_request?: unknown;
-}
-
-export const mapIssue = (i: RawIssue) => ({
-  number: i.number ?? 0,
-  title: i.title ?? '',
-  state: i.state ?? '',
-  body: i.body ?? '',
-  html_url: i.html_url ?? '',
-  user_login: i.user?.login ?? '',
-  labels: (i.labels ?? []).map(l => l.name ?? ''),
-  assignees: (i.assignees ?? []).map(a => a.login ?? ''),
-  comments: i.comments ?? 0,
-  created_at: i.created_at ?? '',
-  updated_at: i.updated_at ?? '',
-  closed_at: i.closed_at ?? '',
-  is_pull_request: i.pull_request !== undefined && i.pull_request !== null,
-});
-
-interface RawPullRequest {
-  number?: number;
-  title?: string;
-  state?: string;
-  body?: string | null;
-  html_url?: string;
-  user?: RawUser | null;
   head?: { ref?: string };
   base?: { ref?: string };
-  labels?: RawLabelRef[];
   draft?: boolean;
   merged?: boolean;
   mergeable?: boolean | null;
-  comments?: number;
   commits?: number;
   additions?: number;
   deletions?: number;
   changed_files?: number;
-  created_at?: string;
-  updated_at?: string;
+  // Relay GraphQL fields
+  __typename?: string;
+  author?: { login?: string; name?: string; displayName?: string };
+  createdAt?: string;
+  updatedAt?: string;
+  closed?: boolean;
+  closedAt?: string | null;
+  isDraft?: boolean;
+  pullRequestState?: string;
+  milestone?: { title?: string } | null;
+  // Same-origin page embedded data fields (PR detail layout)
+  baseBranch?: string;
+  headBranch?: string;
+  commitsCount?: number;
+  mergedBy?: { login?: string } | null;
+  mergedTime?: string | null;
+  // Same-origin page embedded data fields (PR files)
+  diffSummaries?: Array<{
+    path?: string;
+    linesAdded?: number;
+    linesDeleted?: number;
+    changeType?: string;
+  }>;
+  // Relay label edges
+  relayLabels?: RawRelayLabels;
+  // Repository context for building URLs
+  repository?: {
+    name?: string;
+    owner?: { login?: string; __typename?: string };
+  };
 }
 
-export const mapPullRequest = (pr: RawPullRequest) => ({
-  number: pr.number ?? 0,
-  title: pr.title ?? '',
-  state: pr.merged ? 'merged' : (pr.state ?? ''),
-  body: pr.body ?? '',
-  html_url: pr.html_url ?? '',
-  user_login: pr.user?.login ?? '',
-  head_ref: pr.head?.ref ?? '',
-  base_ref: pr.base?.ref ?? '',
-  labels: (pr.labels ?? []).map(l => l.name ?? ''),
-  draft: pr.draft ?? false,
-  merged: pr.merged ?? false,
-  mergeable: pr.mergeable ?? false,
-  comments: pr.comments ?? 0,
-  commits: pr.commits ?? 0,
-  additions: pr.additions ?? 0,
-  deletions: pr.deletions ?? 0,
-  changed_files: pr.changed_files ?? 0,
-  created_at: pr.created_at ?? '',
-  updated_at: pr.updated_at ?? '',
-});
+export const mapIssue = (i: RawIssueOrPR, repoContext?: { owner: string; repo: string }) => {
+  const owner = repoContext?.owner ?? i.repository?.owner?.login ?? '';
+  const repo = repoContext?.repo ?? i.repository?.name ?? '';
+  const num = i.number ?? 0;
+  const isRelay = !!i.__typename;
+  const isClosed = isRelay ? (i.closed ?? false) : i.state === 'closed';
+  const state = isClosed ? 'closed' : 'open';
+  const isPR = isRelay ? i.__typename === 'PullRequest' : i.pull_request !== undefined && i.pull_request !== null;
+
+  // Extract labels from either REST or Relay format
+  const labels = i.relayLabels?.edges
+    ? i.relayLabels.edges.map(e => e.node?.name ?? '').filter(Boolean)
+    : (i.labels ?? []).map(l => l.name ?? '');
+
+  return {
+    number: num,
+    title: i.title ?? '',
+    state,
+    body: i.body ?? '',
+    html_url: i.html_url ?? (owner && repo && num ? `https://github.com/${owner}/${repo}/issues/${num}` : ''),
+    user_login: i.user?.login ?? i.author?.login ?? '',
+    labels,
+    assignees: (i.assignees ?? []).map(a => a.login ?? ''),
+    comments: i.comments ?? 0,
+    created_at: i.created_at ?? i.createdAt ?? '',
+    updated_at: i.updated_at ?? i.updatedAt ?? '',
+    closed_at: i.closed_at ?? i.closedAt ?? '',
+    is_pull_request: isPR,
+  };
+};
+
+export const mapPullRequest = (pr: RawIssueOrPR, repoContext?: { owner: string; repo: string }) => {
+  const owner = repoContext?.owner ?? pr.repository?.owner?.login ?? '';
+  const repo = repoContext?.repo ?? pr.repository?.name ?? '';
+  const num = pr.number ?? 0;
+  const isRelay = !!pr.__typename;
+
+  // Determine state from various sources
+  const relayState = pr.pullRequestState?.toLowerCase();
+  const mergedByRelay = relayState === 'merged';
+  const mergedByRest = pr.merged ?? false;
+  const mergedByPage = pr.mergedTime !== undefined && pr.mergedTime !== null;
+  const isMerged = mergedByRelay || mergedByRest || mergedByPage;
+
+  let state: string;
+  if (isMerged) {
+    state = 'merged';
+  } else if (isRelay) {
+    state = relayState ?? (pr.closed ? 'closed' : 'open');
+  } else {
+    state = pr.state ?? 'open';
+  }
+
+  // Extract labels from either REST or Relay format
+  const labels = pr.relayLabels?.edges
+    ? pr.relayLabels.edges.map(e => e.node?.name ?? '').filter(Boolean)
+    : (pr.labels ?? []).map(l => l.name ?? '');
+
+  // Compute diff stats from diffSummaries if available
+  let additions = pr.additions ?? 0;
+  let deletions = pr.deletions ?? 0;
+  let changedFiles = pr.changed_files ?? 0;
+  if (pr.diffSummaries?.length) {
+    additions = pr.diffSummaries.reduce((sum, d) => sum + (d.linesAdded ?? 0), 0);
+    deletions = pr.diffSummaries.reduce((sum, d) => sum + (d.linesDeleted ?? 0), 0);
+    changedFiles = pr.diffSummaries.length;
+  }
+
+  return {
+    number: num,
+    title: pr.title ?? '',
+    state,
+    body: pr.body ?? '',
+    html_url: pr.html_url ?? (owner && repo && num ? `https://github.com/${owner}/${repo}/pull/${num}` : ''),
+    user_login: pr.user?.login ?? pr.author?.login ?? '',
+    head_ref: pr.head?.ref ?? pr.headBranch ?? '',
+    base_ref: pr.base?.ref ?? pr.baseBranch ?? '',
+    labels,
+    draft: pr.draft ?? pr.isDraft ?? false,
+    merged: isMerged,
+    mergeable: pr.mergeable ?? false,
+    comments: pr.comments ?? 0,
+    commits: pr.commits ?? pr.commitsCount ?? 0,
+    additions,
+    deletions,
+    changed_files: changedFiles,
+    created_at: pr.created_at ?? pr.createdAt ?? '',
+    updated_at: pr.updated_at ?? pr.updatedAt ?? '',
+  };
+};
 
 interface RawComment {
   id?: number;
   body?: string;
-  user?: RawUser | null;
+  user?: { login?: string } | null;
   html_url?: string;
   created_at?: string;
   updated_at?: string;
@@ -266,16 +352,20 @@ export const mapUser = (u: RawUserProfile) => ({
   created_at: u.created_at ?? '',
 });
 
-interface RawBranch {
+// Branch mapper handles same-origin page JSON shape
+// { name, isDefault, isProtected, oid, author, date, behindBy, aheadBy }
+export interface RawBranch {
   name?: string;
   protected?: boolean;
+  isProtected?: boolean;
   commit?: { sha?: string };
+  oid?: string;
 }
 
 export const mapBranch = (b: RawBranch) => ({
   name: b.name ?? '',
-  protected: b.protected ?? false,
-  sha: b.commit?.sha ?? '',
+  protected: b.protected ?? b.isProtected ?? false,
+  sha: b.commit?.sha ?? b.oid ?? '',
 });
 
 interface RawNotification {
@@ -411,20 +501,87 @@ export const commitSchema = z.object({
   url: z.string().describe('URL to the commit on GitHub'),
 });
 
+// Commit mapper handles both REST API and same-origin page JSON shapes
+// Same-origin shape: { oid, shortMessage, authoredDate, committedDate, url,
+//   authors: [{ login, displayName }] }
 export interface RawCommit {
   sha?: string;
+  oid?: string;
   commit?: {
     message?: string;
     author?: { name?: string; email?: string; date?: string };
   };
   html_url?: string;
+  url?: string;
+  shortMessage?: string;
+  authoredDate?: string;
+  committedDate?: string;
+  authors?: Array<{ login?: string; displayName?: string; email?: string }>;
 }
 
 export const mapCommit = (c: RawCommit) => ({
-  sha: c.sha ?? '',
-  message: c.commit?.message ?? '',
-  author_name: c.commit?.author?.name ?? '',
-  author_email: c.commit?.author?.email ?? '',
-  date: c.commit?.author?.date ?? '',
-  url: c.html_url ?? '',
+  sha: c.sha ?? c.oid ?? '',
+  message: c.commit?.message ?? c.shortMessage ?? '',
+  author_name: c.commit?.author?.name ?? c.authors?.[0]?.displayName ?? '',
+  author_email: c.commit?.author?.email ?? c.authors?.[0]?.email ?? '',
+  date: c.commit?.author?.date ?? c.authoredDate ?? c.committedDate ?? '',
+  url: c.html_url ?? c.url ?? '',
+});
+
+// --- File diff schema ---
+
+export const fileDiffSchema = z.object({
+  filename: z.string().describe('File path'),
+  status: z.string().describe('Change type: added, removed, modified, renamed, etc.'),
+  additions: z.number().describe('Lines added'),
+  deletions: z.number().describe('Lines deleted'),
+  changes: z.number().describe('Total lines changed'),
+});
+
+export interface RawFileDiff {
+  filename?: string;
+  status?: string;
+  additions?: number;
+  deletions?: number;
+  changes?: number;
+  // Same-origin shape
+  path?: string;
+  changeType?: string;
+  linesAdded?: number;
+  linesDeleted?: number;
+  linesChanged?: number;
+}
+
+export const mapFileDiff = (f: RawFileDiff) => ({
+  filename: f.filename ?? f.path ?? '',
+  status: f.status ?? f.changeType?.toLowerCase() ?? '',
+  additions: f.additions ?? f.linesAdded ?? 0,
+  deletions: f.deletions ?? f.linesDeleted ?? 0,
+  changes: f.changes ?? f.linesChanged ?? (f.linesAdded ?? 0) + (f.linesDeleted ?? 0),
+});
+
+// --- Relay GraphQL response helpers ---
+
+// Helper to extract labels from Relay edge format
+export const extractRelayLabels = (labels: unknown): RawIssueOrPR['relayLabels'] => {
+  if (!labels || typeof labels !== 'object') return undefined;
+  const l = labels as { edges?: Array<{ node?: { name?: string } }> };
+  return l.edges ? { edges: l.edges } : undefined;
+};
+
+// Helper to build RawIssueOrPR from Relay GraphQL node
+export const relayNodeToRaw = (node: Record<string, unknown>): RawIssueOrPR => ({
+  __typename: node.__typename as string | undefined,
+  number: node.number as number | undefined,
+  title: node.title as string | undefined,
+  author: node.author as { login?: string; name?: string; displayName?: string } | undefined,
+  createdAt: node.createdAt as string | undefined,
+  updatedAt: node.updatedAt as string | undefined,
+  closed: node.closed as boolean | undefined,
+  closedAt: node.closedAt as string | null | undefined,
+  isDraft: node.isDraft as boolean | undefined,
+  pullRequestState: node.pullRequestState as string | undefined,
+  milestone: node.milestone as { title?: string } | null | undefined,
+  relayLabels: extractRelayLabels(node.labels),
+  repository: node.repository as RawIssueOrPR['repository'],
 });

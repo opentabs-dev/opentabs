@@ -1,6 +1,7 @@
+import { ToolError, fetchFromPage } from '@opentabs-dev/plugin-sdk';
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api, getLogin } from '../github-api.js';
+import { getLogin, isAuthenticated } from '../github-api.js';
 import { mapUser, userSchema } from './schemas.js';
 
 export const getUserProfile = defineTool({
@@ -17,8 +18,19 @@ export const getUserProfile = defineTool({
     user: userSchema.describe('User profile'),
   }),
   handle: async params => {
+    if (!isAuthenticated()) throw ToolError.auth('Not authenticated — please log in to GitHub.');
     const username = params.username ?? getLogin();
-    const data = await api<Record<string, unknown>>(`/users/${username}`);
-    return { user: mapUser(data) };
+
+    // User profiles are public — use api.github.com without credentials
+    const response = await fetchFromPage(`https://api.github.com/users/${username}`, {
+      headers: { Accept: 'application/vnd.github+json' },
+      credentials: 'omit',
+    });
+    if (!response.ok) {
+      if (response.status === 404) throw ToolError.notFound(`User not found: ${username}`);
+      throw ToolError.internal(`API error (${response.status}): /users/${username}`);
+    }
+    const data = await response.json();
+    return { user: mapUser(data as Record<string, unknown>) };
   },
 });

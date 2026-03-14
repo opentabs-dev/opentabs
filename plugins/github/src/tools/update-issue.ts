@@ -1,7 +1,6 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { issueSchema, mapIssue } from './schemas.js';
+import { submitPageForm } from '../github-api.js';
 
 export const updateIssue = defineTool({
   name: 'update_issue',
@@ -17,24 +16,42 @@ export const updateIssue = defineTool({
     title: z.string().optional().describe('New issue title'),
     body: z.string().optional().describe('New issue body in Markdown'),
     state: z.enum(['open', 'closed']).optional().describe('Set issue state'),
-    labels: z.array(z.string()).optional().describe('Replace all labels with these names'),
-    assignees: z.array(z.string()).optional().describe('Replace all assignees with these logins'),
   }),
   output: z.object({
-    issue: issueSchema.describe('The updated issue'),
+    success: z.boolean().describe('Whether the update succeeded'),
   }),
   handle: async params => {
-    const body: Record<string, unknown> = {};
-    if (params.title !== undefined) body.title = params.title;
-    if (params.body !== undefined) body.body = params.body;
-    if (params.state !== undefined) body.state = params.state;
-    if (params.labels !== undefined) body.labels = params.labels;
-    if (params.assignees !== undefined) body.assignees = params.assignees;
+    const fields: Record<string, string> = {
+      _method: 'put',
+    };
 
-    const data = await api<Record<string, unknown>>(
-      `/repos/${params.owner}/${params.repo}/issues/${params.issue_number}`,
-      { method: 'PATCH', body },
-    );
-    return { issue: mapIssue(data) };
+    if (params.title !== undefined) fields['issue[title]'] = params.title;
+    if (params.body !== undefined) fields['issue[body]'] = params.body;
+
+    // For state changes, use the comment form with comment_and_close/comment_and_reopen
+    if (params.state === 'closed') {
+      await submitPageForm(
+        `/${params.owner}/${params.repo}/issues/${params.issue_number}`,
+        'form.js-new-comment-form',
+        { comment_and_close: '1', 'comment[body]': '' },
+      );
+    } else if (params.state === 'open') {
+      await submitPageForm(
+        `/${params.owner}/${params.repo}/issues/${params.issue_number}`,
+        'form.js-new-comment-form',
+        { comment_and_reopen: '1', 'comment[body]': '' },
+      );
+    }
+
+    // For title/body updates, use the issue update form
+    if (params.title !== undefined || params.body !== undefined) {
+      await submitPageForm(
+        `/${params.owner}/${params.repo}/issues/${params.issue_number}`,
+        `form.js-comment-update[action$="/issues/${params.issue_number}"]`,
+        fields,
+      );
+    }
+
+    return { success: true };
   },
 });

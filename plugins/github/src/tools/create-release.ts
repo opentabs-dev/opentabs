@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { type RawRelease, mapRelease, releaseSchema } from './schemas.js';
+import { submitPageForm } from '../github-api.js';
+import { releaseSchema } from './schemas.js';
 
 export const createRelease = defineTool({
   name: 'create_release',
@@ -24,19 +24,30 @@ export const createRelease = defineTool({
     release: releaseSchema.describe('The created release'),
   }),
   handle: async params => {
-    const body: Record<string, unknown> = {
-      tag_name: params.tag_name,
+    const fields: Record<string, string> = {
+      'release[tag_name]': params.tag_name,
     };
-    if (params.name !== undefined) body.name = params.name;
-    if (params.body !== undefined) body.body = params.body;
-    if (params.draft !== undefined) body.draft = params.draft;
-    if (params.prerelease !== undefined) body.prerelease = params.prerelease;
-    if (params.target_commitish !== undefined) body.target_commitish = params.target_commitish;
+    if (params.name) fields['release[name]'] = params.name;
+    if (params.body) fields['release[body]'] = params.body;
+    if (params.draft) fields['release[draft]'] = '1';
+    if (params.prerelease) fields['release[prerelease]'] = '1';
+    if (params.target_commitish) fields['release[target_commitish]'] = params.target_commitish;
 
-    const data = await api<RawRelease>(`/repos/${params.owner}/${params.repo}/releases`, {
-      method: 'POST',
-      body,
-    });
-    return { release: mapRelease(data) };
+    await submitPageForm(`/${params.owner}/${params.repo}/releases/new`, 'form[action*="releases"]', fields);
+
+    return {
+      release: {
+        id: 0,
+        tag_name: params.tag_name,
+        name: params.name ?? params.tag_name,
+        body: params.body ?? '',
+        draft: params.draft ?? false,
+        prerelease: params.prerelease ?? false,
+        created_at: new Date().toISOString(),
+        published_at: params.draft ? '' : new Date().toISOString(),
+        html_url: `https://github.com/${params.owner}/${params.repo}/releases/tag/${params.tag_name}`,
+        author_login: '',
+      },
+    };
   },
 });

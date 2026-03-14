@@ -1,6 +1,23 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { apiRaw } from '../github-api.js';
+import { pageEmbeddedData } from '../github-api.js';
+
+interface DiffLine {
+  type?: string;
+  text?: string;
+  html?: string;
+}
+
+interface DiffContent {
+  diffLines?: DiffLine[];
+}
+
+interface PRFilesPageData {
+  pullRequestsChangesRoute?: {
+    diffSummaries?: Array<{ path?: string }>;
+    diffContents?: Record<string, DiffContent>;
+  };
+}
 
 export const getPullRequestDiff = defineTool({
   name: 'get_pull_request_diff',
@@ -18,9 +35,29 @@ export const getPullRequestDiff = defineTool({
     diff: z.string().describe('Raw unified diff text'),
   }),
   handle: async params => {
-    const diff = await apiRaw(`/repos/${params.owner}/${params.repo}/pulls/${params.pull_number}`, {
-      accept: 'application/vnd.github.diff',
-    });
-    return { diff };
+    const data = await pageEmbeddedData<PRFilesPageData>(
+      `/${params.owner}/${params.repo}/pull/${params.pull_number}/files`,
+    );
+
+    const route = data.pullRequestsChangesRoute;
+    const summaries = route?.diffSummaries ?? [];
+    const contents = route?.diffContents ?? {};
+
+    // Reconstruct unified diff from the structured diff data.
+    // diffContents uses numeric string keys ("0", "1", ...) matching the order of diffSummaries.
+    const diffParts: string[] = [];
+
+    for (let i = 0; i < summaries.length; i++) {
+      const path = summaries[i]?.path ?? '';
+      const content = contents[String(i)];
+      if (!content?.diffLines) continue;
+
+      diffParts.push(`diff --git a/${path} b/${path}`);
+      for (const line of content.diffLines) {
+        diffParts.push(line.text ?? '');
+      }
+    }
+
+    return { diff: diffParts.join('\n') };
   },
 });

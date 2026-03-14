@@ -1,12 +1,11 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { mapPullRequest, pullRequestSchema } from './schemas.js';
+import { submitPageForm } from '../github-api.js';
 
 export const updatePullRequest = defineTool({
   name: 'update_pull_request',
   displayName: 'Update Pull Request',
-  description: 'Update an existing pull request. Only specified fields are changed; omitted fields remain unchanged.',
+  description: 'Update an existing pull request title or body, or close/reopen it.',
   summary: 'Update a pull request',
   icon: 'git-pull-request',
   group: 'Pull Requests',
@@ -16,25 +15,36 @@ export const updatePullRequest = defineTool({
     pull_number: z.number().int().min(1).describe('Pull request number'),
     title: z.string().optional().describe('New pull request title'),
     body: z.string().optional().describe('New pull request body in Markdown'),
-    state: z.enum(['open', 'closed']).optional().describe('Set PR state'),
-    base: z.string().optional().describe('New target branch name to merge into'),
-    draft: z.boolean().optional().describe('Convert to draft or ready for review'),
+    state: z.enum(['open', 'closed']).optional().describe('Set PR state (close or reopen)'),
   }),
   output: z.object({
-    pull_request: pullRequestSchema.describe('The updated pull request'),
+    success: z.boolean().describe('Whether the update succeeded'),
   }),
   handle: async params => {
-    const body: Record<string, unknown> = {};
-    if (params.title !== undefined) body.title = params.title;
-    if (params.body !== undefined) body.body = params.body;
-    if (params.state !== undefined) body.state = params.state;
-    if (params.base !== undefined) body.base = params.base;
-    if (params.draft !== undefined) body.draft = params.draft;
+    const pagePath = `/${params.owner}/${params.repo}/pull/${params.pull_number}`;
 
-    const data = await api<Record<string, unknown>>(
-      `/repos/${params.owner}/${params.repo}/pulls/${params.pull_number}`,
-      { method: 'PATCH', body },
-    );
-    return { pull_request: mapPullRequest(data) };
+    // Close/reopen via the comment form buttons
+    if (params.state === 'closed') {
+      await submitPageForm(pagePath, 'form.js-new-comment-form', {
+        comment_and_close: '1',
+        'comment[body]': '',
+      });
+    } else if (params.state === 'open') {
+      await submitPageForm(pagePath, 'form.js-new-comment-form', {
+        comment_and_reopen: '1',
+        'comment[body]': '',
+      });
+    }
+
+    // Title/body update via the issue update form (PRs use the same endpoint)
+    if (params.title !== undefined || params.body !== undefined) {
+      const fields: Record<string, string> = { _method: 'put' };
+      if (params.title !== undefined) fields['issue[title]'] = params.title;
+      if (params.body !== undefined) fields['issue[body]'] = params.body;
+
+      await submitPageForm(pagePath, `form.js-comment-update[action$="/issues/${params.pull_number}"]`, fields);
+    }
+
+    return { success: true };
   },
 });

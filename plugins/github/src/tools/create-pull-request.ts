@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { mapPullRequest, pullRequestSchema } from './schemas.js';
+import { submitPageForm } from '../github-api.js';
+import { pullRequestSchema } from './schemas.js';
 
 export const createPullRequest = defineTool({
   name: 'create_pull_request',
@@ -14,7 +14,7 @@ export const createPullRequest = defineTool({
     owner: z.string().min(1).describe('Repository owner (user or org)'),
     repo: z.string().min(1).describe('Repository name'),
     title: z.string().min(1).describe('Pull request title'),
-    head: z.string().min(1).describe('Source branch name (or "user:branch" for cross-repo)'),
+    head: z.string().min(1).describe('Source branch name'),
     base: z.string().min(1).describe('Target branch name to merge into'),
     body: z.string().optional().describe('Pull request description in Markdown'),
     draft: z.boolean().optional().describe('Create as a draft PR (default: false)'),
@@ -23,18 +23,44 @@ export const createPullRequest = defineTool({
     pull_request: pullRequestSchema.describe('The created pull request'),
   }),
   handle: async params => {
-    const body: Record<string, unknown> = {
-      title: params.title,
-      head: params.head,
-      base: params.base,
+    // GitHub's compare page has a form for creating PRs.
+    // POST to /:owner/:repo/compare with the head and base branches.
+    const fields: Record<string, string> = {
+      'pull_request[title]': params.title,
+      'pull_request[head]': params.head,
+      'pull_request[base]': params.base,
     };
-    if (params.body !== undefined) body.body = params.body;
-    if (params.draft !== undefined) body.draft = params.draft;
+    if (params.body) fields['pull_request[body]'] = params.body;
+    if (params.draft) fields['pull_request[draft]'] = '1';
 
-    const data = await api<Record<string, unknown>>(`/repos/${params.owner}/${params.repo}/pulls`, {
-      method: 'POST',
-      body,
-    });
-    return { pull_request: mapPullRequest(data) };
+    await submitPageForm(
+      `/${params.owner}/${params.repo}/compare/${params.base}...${params.head}`,
+      'form#new_pull_request, form[action*="pull"]',
+      fields,
+    );
+
+    return {
+      pull_request: {
+        number: 0,
+        title: params.title,
+        state: 'open',
+        body: params.body ?? '',
+        html_url: `https://github.com/${params.owner}/${params.repo}/pulls`,
+        user_login: '',
+        head_ref: params.head,
+        base_ref: params.base,
+        labels: [],
+        draft: params.draft ?? false,
+        merged: false,
+        mergeable: false,
+        comments: 0,
+        commits: 0,
+        additions: 0,
+        deletions: 0,
+        changed_files: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    };
   },
 });

@@ -1,7 +1,12 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api, getLogin } from '../github-api.js';
-import { mapRepository, repositorySchema } from './schemas.js';
+import { getLogin, pageJson } from '../github-api.js';
+import { type RawRepo, mapRepository, repositorySchema } from './schemas.js';
+
+interface SearchPayload {
+  results?: RawRepo[];
+  result_count?: number;
+}
 
 export const listRepos = defineTool({
   name: 'list_repos',
@@ -13,10 +18,6 @@ export const listRepos = defineTool({
   group: 'Repositories',
   input: z.object({
     owner: z.string().optional().describe('Username or org name — defaults to the authenticated user'),
-    type: z
-      .enum(['all', 'owner', 'public', 'private', 'member'])
-      .optional()
-      .describe('Type filter for user repos (default: all)'),
     sort: z.enum(['created', 'updated', 'pushed', 'full_name']).optional().describe('Sort field (default: updated)'),
     per_page: z.number().int().min(1).max(100).optional().describe('Results per page (default 30, max 100)'),
     page: z.number().int().min(1).optional().describe('Page number (default 1)'),
@@ -26,24 +27,26 @@ export const listRepos = defineTool({
   }),
   handle: async params => {
     const owner = params.owner ?? getLogin();
-    const isOrg = params.owner !== undefined;
+    const sort = params.sort ?? 'updated';
 
-    const query: Record<string, string | number | boolean | undefined> = {
-      per_page: params.per_page ?? 30,
-      page: params.page,
-      sort: params.sort ?? 'updated',
+    // Use same-origin /search endpoint which works for private repos
+    const sortMap: Record<string, string> = {
+      updated: 'updated',
+      created: 'created',
+      pushed: 'updated',
+      full_name: 'repositories',
     };
 
-    let endpoint: string;
-    if (isOrg) {
-      endpoint = `/users/${owner}/repos`;
-      if (params.type) query.type = params.type;
-    } else {
-      endpoint = '/user/repos';
-      if (params.type) query.type = params.type;
-    }
+    const data = await pageJson<SearchPayload>('/search', {
+      type: 'repositories',
+      q: `user:${owner}`,
+      s: sortMap[sort] ?? 'updated',
+      o: 'desc',
+      p: params.page ?? 1,
+    });
 
-    const data = await api<Record<string, unknown>[]>(endpoint, { query });
-    return { repositories: (data ?? []).map(mapRepository) };
+    return {
+      repositories: (data.results ?? []).map(r => mapRepository(r)),
+    };
   },
 });

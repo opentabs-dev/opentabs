@@ -1,7 +1,6 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { mapPullRequest, pullRequestSchema } from './schemas.js';
+import { submitPageForm } from '../github-api.js';
 
 export const requestPullRequestReview = defineTool({
   name: 'request_pull_request_review',
@@ -19,17 +18,30 @@ export const requestPullRequestReview = defineTool({
     team_reviewers: z.array(z.string()).optional().describe('Array of team slugs to request review from'),
   }),
   output: z.object({
-    pull_request: pullRequestSchema.describe('The pull request with updated reviewers'),
+    success: z.boolean().describe('Whether the review request was submitted'),
   }),
   handle: async params => {
-    const body: Record<string, unknown> = {};
-    if (params.reviewers !== undefined) body.reviewers = params.reviewers;
-    if (params.team_reviewers !== undefined) body.team_reviewers = params.team_reviewers;
+    const fields: Record<string, string> = {
+      'dummy-field-just-to-avoid-empty-submit': 'foo',
+    };
 
-    const data = await api<Record<string, unknown>>(
-      `/repos/${params.owner}/${params.repo}/pulls/${params.pull_number}/requested_reviewers`,
-      { method: 'POST', body },
+    if (params.reviewers) {
+      for (const reviewer of params.reviewers) {
+        fields['reviewer_user_logins[]'] = reviewer;
+      }
+    }
+    if (params.team_reviewers) {
+      for (const team of params.team_reviewers) {
+        fields['reviewer_team_slugs[]'] = team;
+      }
+    }
+
+    await submitPageForm(
+      `/${params.owner}/${params.repo}/pull/${params.pull_number}`,
+      'form[action*="review-requests"]',
+      fields,
     );
-    return { pull_request: mapPullRequest(data) };
+
+    return { success: true };
   },
 });

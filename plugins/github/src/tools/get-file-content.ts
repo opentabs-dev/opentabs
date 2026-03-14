@@ -1,6 +1,12 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { apiRaw } from '../github-api.js';
+import { pageEmbeddedData } from '../github-api.js';
+
+interface BlobPageData {
+  'codeViewBlobLayoutRoute.StyledBlob'?: {
+    rawLines?: string[];
+  };
+}
 
 export const getFileContent = defineTool({
   name: 'get_file_content',
@@ -21,14 +27,11 @@ export const getFileContent = defineTool({
     path: z.string().describe('File path'),
   }),
   handle: async params => {
-    const query: Record<string, string | number | boolean | undefined> = {};
-    if (params.ref) query.ref = params.ref;
+    const ref = params.ref ?? 'HEAD';
+    const data = await pageEmbeddedData<BlobPageData>(`/${params.owner}/${params.repo}/blob/${ref}/${params.path}`);
 
-    const encodedPath = params.path.split('/').map(encodeURIComponent).join('/');
-    const content = await apiRaw(`/repos/${params.owner}/${params.repo}/contents/${encodedPath}`, {
-      query,
-      accept: 'application/vnd.github.raw+json',
-    });
+    const rawLines = data['codeViewBlobLayoutRoute.StyledBlob']?.rawLines;
+    const content = rawLines ? rawLines.join('\n') : '';
     return { content, path: params.path };
   },
 });

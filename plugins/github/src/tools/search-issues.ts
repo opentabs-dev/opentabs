@@ -1,7 +1,30 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
+import { pageJson } from '../github-api.js';
 import { issueSchema, mapIssue } from './schemas.js';
+
+// Same-origin search result shape
+interface SearchResult {
+  author_name?: string;
+  number?: number;
+  state?: string;
+  hl_title?: string;
+  hl_text?: string;
+  created?: string;
+  updated?: string;
+  closed_at?: string;
+  labels?: Array<{ name?: string; color?: string }>;
+  merged?: boolean;
+  issue?: { issue?: { pull_request_id?: number | null } };
+  repo?: { repository?: { name?: string; owner_login?: string } };
+}
+
+interface SearchPayload {
+  results?: SearchResult[];
+  result_count?: number;
+  page?: number;
+  page_count?: number;
+}
 
 export const searchIssues = defineTool({
   name: 'search_issues',
@@ -18,11 +41,6 @@ export const searchIssues = defineTool({
       .describe(
         'Search query using GitHub search syntax (e.g., "repo:owner/name is:open label:bug", "org:myorg is:pr is:merged")',
       ),
-    sort: z
-      .enum(['comments', 'reactions', 'reactions-+1', 'reactions--1', 'interactions', 'created', 'updated'])
-      .optional()
-      .describe('Sort field'),
-    order: z.enum(['asc', 'desc']).optional().describe('Sort order (default: desc)'),
     per_page: z.number().int().min(1).max(100).optional().describe('Results per page (default 30, max 100)'),
     page: z.number().int().min(1).optional().describe('Page number (default 1)'),
   }),
@@ -31,21 +49,35 @@ export const searchIssues = defineTool({
     issues: z.array(issueSchema).describe('List of matching issues/PRs'),
   }),
   handle: async params => {
-    const query: Record<string, string | number | boolean | undefined> = {
+    const data = await pageJson<SearchPayload>('/search', {
+      type: 'issues',
       q: params.query,
-      per_page: params.per_page ?? 30,
-      page: params.page,
-    };
-    if (params.sort) query.sort = params.sort;
-    if (params.order) query.order = params.order;
+      p: params.page ?? 1,
+    });
 
-    const data = await api<{
-      total_count?: number;
-      items?: Record<string, unknown>[];
-    }>('/search/issues', { query });
+    const issues = (data.results ?? []).map((r: SearchResult) => {
+      const owner = r.repo?.repository?.owner_login ?? '';
+      const repo = r.repo?.repository?.name ?? '';
+      const isPR = r.issue?.issue?.pull_request_id !== null && r.issue?.issue?.pull_request_id !== undefined;
+      return mapIssue(
+        {
+          number: r.number,
+          title: r.hl_title?.replace(/<\/?em>/g, ''),
+          state: r.state,
+          created_at: r.created,
+          updated_at: r.updated,
+          closed_at: r.closed_at,
+          labels: r.labels,
+          pull_request: isPR ? {} : undefined,
+          user: { login: r.author_name },
+        },
+        { owner, repo },
+      );
+    });
+
     return {
-      total_count: data.total_count ?? 0,
-      issues: (data.items ?? []).map(mapIssue),
+      total_count: data.result_count ?? 0,
+      issues,
     };
   },
 });

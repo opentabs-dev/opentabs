@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { type RawLabel, labelSchema, mapLabel } from './schemas.js';
+import { getMutationId, graphql, turboData } from '../github-api.js';
+import { labelSchema } from './schemas.js';
 
 export const createLabel = defineTool({
   name: 'create_label',
@@ -21,16 +21,29 @@ export const createLabel = defineTool({
     label: labelSchema.describe('The created label'),
   }),
   handle: async params => {
-    const body: Record<string, unknown> = {
-      name: params.name,
-    };
-    if (params.color !== undefined) body.color = params.color;
-    if (params.description !== undefined) body.description = params.description;
+    // Get repository node ID
+    const { data: repoData } = await turboData<{ repository?: { id?: string } }>(
+      `/${params.owner}/${params.repo}/issues`,
+      { q: 'is:issue is:open' },
+    );
+    const repoId = repoData?.repository?.id;
+    if (!repoId) throw new Error('Could not determine repository ID');
 
-    const data = await api<RawLabel>(`/repos/${params.owner}/${params.repo}/labels`, {
-      method: 'POST',
-      body,
+    const mutationId = await getMutationId('createRepositoryLabelMutation');
+    await graphql(mutationId, {
+      repositoryId: repoId,
+      name: params.name,
+      color: params.color ?? 'ededed',
+      description: params.description ?? '',
     });
-    return { label: mapLabel(data) };
+
+    return {
+      label: {
+        id: 0,
+        name: params.name,
+        color: params.color ?? 'ededed',
+        description: params.description ?? '',
+      },
+    };
   },
 });

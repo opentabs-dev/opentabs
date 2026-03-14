@@ -1,7 +1,8 @@
+import { ToolError, fetchText } from '@opentabs-dev/plugin-sdk';
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../github-api.js';
-import { commentSchema, mapComment } from './schemas.js';
+import { isAuthenticated } from '../github-api.js';
+import { commentSchema } from './schemas.js';
 
 export const listComments = defineTool({
   name: 'list_comments',
@@ -14,22 +15,45 @@ export const listComments = defineTool({
     owner: z.string().min(1).describe('Repository owner (user or org)'),
     repo: z.string().min(1).describe('Repository name'),
     issue_number: z.number().int().min(1).describe('Issue or pull request number'),
-    per_page: z.number().int().min(1).max(100).optional().describe('Results per page (default 30, max 100)'),
-    page: z.number().int().min(1).optional().describe('Page number (default 1)'),
   }),
   output: z.object({
     comments: z.array(commentSchema).describe('List of comments'),
   }),
   handle: async params => {
-    const query: Record<string, string | number | boolean | undefined> = {
-      per_page: params.per_page ?? 30,
-      page: params.page,
-    };
+    if (!isAuthenticated()) throw ToolError.auth('Not authenticated — please log in to GitHub.');
 
-    const data = await api<Record<string, unknown>[]>(
-      `/repos/${params.owner}/${params.repo}/issues/${params.issue_number}/comments`,
-      { query },
-    );
-    return { comments: (data ?? []).map(mapComment) };
+    // Fetch the issue/PR page HTML and parse comments from the rendered timeline
+    const html = await fetchText(`/${params.owner}/${params.repo}/issues/${params.issue_number}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    // Extract comments from the timeline DOM structure
+    const commentElements = doc.querySelectorAll('.js-comment-container, .timeline-comment');
+    const comments = [];
+
+    for (const el of commentElements) {
+      const bodyEl = el.querySelector('.comment-body, .js-comment-body');
+      const authorEl = el.querySelector('.author, a.timeline-comment-header-text');
+      const timeEl = el.querySelector('relative-time, time');
+      const linkEl = el.querySelector('a[id^="issuecomment-"]');
+      const id = linkEl?.getAttribute('id')?.replace('issuecomment-', '') ?? '0';
+
+      if (bodyEl) {
+        comments.push({
+          id: Number.parseInt(id, 10) || 0,
+          body: bodyEl.textContent?.trim() ?? '',
+          user_login: authorEl?.textContent?.trim() ?? '',
+          html_url: linkEl
+            ? `https://github.com/${params.owner}/${params.repo}/issues/${params.issue_number}#${linkEl.getAttribute('id')}`
+            : '',
+          created_at: timeEl?.getAttribute('datetime') ?? '',
+          updated_at: timeEl?.getAttribute('datetime') ?? '',
+        });
+      }
+    }
+
+    return { comments };
   },
 });
