@@ -101,6 +101,20 @@ When an agent calls a tool on a plugin with permission `'off'`, the error respon
 
 The tool returns a structured report including a `suggestions` array of concrete plugin tool ideas derived from the detected APIs, forms, and endpoints. Each suggestion includes a `toolName`, `description`, `approach` (with specific endpoint), and `complexity` rating. Input: `{ url: string, waitSeconds?: number }`. The detection modules are pure analysis functions — they receive pre-collected data and return structured results, keeping the analysis testable independently of the browser.
 
+## Plugin Settings
+
+The server resolves plugin settings between discovery Phase 4 (merge) and Phase 5 (buildRegistry). Settings are stored in `config.json` under `settings.<pluginShortName>` and loaded into `ServerState.pluginSettings` on each reload.
+
+**Settings resolution** (`settings-resolver.ts`): `resolvePluginSettings(plugin, pluginSettings)` computes `resolvedSettings` for each plugin. For `url`-type fields, it derives a Chrome match pattern (`*://hostname/*`) from the user-provided URL and populates `homepage` if the plugin has no static homepage. The derived match pattern is merged into `RegisteredPlugin.urlPatterns`, enabling URL-based tool dispatch without hardcoded patterns.
+
+**`ConfigStatePlugin`**: The `configSchema` and `resolvedSettings` fields are included in each plugin's config state payload (built by `buildConfigStatePayload`), sent to the extension via `sync.full` and `plugin.update` messages. The extension stores these on `PluginMeta` and injects `resolvedSettings` into the MAIN world before adapter execution.
+
+**`savePluginSettings`** (`config.ts`): Persists a plugin's settings map to `config.json` using the same read-modify-write pattern as `savePluginPermissions`. After saving, a reload is triggered so URL patterns are re-derived.
+
+**`POST /plugin-settings`**: HTTP endpoint (bearer auth, rate-limited) for CLI use. Accepts `{ plugin, settings }`, validates field values against the plugin's `configSchema` (type checking, required fields, select options), persists via `savePluginSettings`, and broadcasts `plugins.changed`.
+
+**`config.setPluginSettings`**: JSON-RPC method routed in `extension-protocol.ts` for the side panel's `bg:setPluginSettings` relay.
+
 ## MCP Tool Design Guidelines
 
 - **Tool descriptions must be accurate and informative** — descriptions are shown to AI agents, so clarity is critical for proper tool usage

@@ -28,6 +28,12 @@ The build command produces two files in `dist/`:
 
 The build also auto-registers the plugin in `~/.opentabs/config.json` under `localPlugins` (first build only) and calls `POST /reload` to trigger MCP server rediscovery.
 
+## Config Schema in tools.json
+
+When a plugin's `OpenTabsPlugin` subclass declares a `configSchema` property, `opentabs-plugin build` serializes it into `dist/tools.json` as a top-level `configSchema` field alongside `sdkVersion`, `icons`, and `tools`. If the plugin has no `configSchema` (or it is empty), the field is omitted.
+
+The build command also relaxes the `urlPatterns` non-empty requirement: if `configSchema` contains at least one `required` field of type `'url'`, the plugin may declare an empty `urlPatterns` array — the server derives match patterns at runtime from the user-provided URL setting value.
+
 ## README Generation
 
 The `opentabs-plugin readme` command generates a user-facing README.md from `dist/tools.json` and `package.json`. It reads tool metadata (name, group, summary) and plugin metadata (displayName, description, urlPatterns, homepage) to produce a standardized README with install instructions, setup steps, a grouped tool table (Read/Write classified), and a How It Works section.

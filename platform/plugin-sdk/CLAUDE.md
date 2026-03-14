@@ -126,6 +126,30 @@ Plugin tool schemas are serialized to JSON Schema (via `z.toJSONSchema()`) for t
 - **Fix the source, not the serializer** — when a schema feature conflicts with JSON Schema serialization, the correct fix is always to simplify the schema and move logic to the handler. Do not work around serialization limitations with options like `io: 'input'` — that hides the problem and produces a schema that doesn't match the handler's actual behavior.
 - **`.refine()` callbacks must never throw** — Zod 4 runs `.refine()` callbacks even when the preceding validator has already failed (e.g., `z.url().refine(fn)` calls `fn` even on non-URL strings). If the callback calls a function that can throw on invalid input (like `new URL()`), wrap it in try-catch and return `false`. Never assume the refine callback only receives values that passed the base validator.
 
+## Plugin Settings
+
+Plugins can declare a `configSchema` property on the `OpenTabsPlugin` subclass and in `package.json`'s `opentabs` field. At runtime the platform injects resolved settings into the page's MAIN world (as `globalThis.__openTabs.pluginConfig`) before the adapter IIFE runs.
+
+**`getConfig(key)`** (`config.ts`) — reads a resolved setting value from `globalThis.__openTabs.pluginConfig`. Returns the value as `string | number | boolean | undefined`. Use it inside tool handlers to access user-configured settings:
+
+```typescript
+import { getConfig } from '@opentabs-dev/plugin-sdk';
+
+const instanceUrl = getConfig('instanceUrl') as string | undefined;
+```
+
+**Types** — `ConfigSchema`, `ConfigSettingDefinition`, and `ConfigSettingType` are re-exported from `@opentabs-dev/shared` for convenience. Import them when declaring `configSchema` on the plugin class:
+
+```typescript
+import type { ConfigSchema } from '@opentabs-dev/plugin-sdk';
+
+class MyPlugin extends OpenTabsPlugin {
+  configSchema: ConfigSchema = {
+    instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+  };
+}
+```
+
 ## Why Resources and Prompts Are Not Supported
 
 The MCP spec defines resources (read-only data sources) and prompts (parameterized message templates) alongside tools. OpenTabs intentionally does not support these primitives:

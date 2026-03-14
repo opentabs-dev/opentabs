@@ -161,6 +161,16 @@ import type { TabState } from '@opentabs-dev/shared';
 
 The `debugger` permission in the manifest is required for network capture via the Chrome DevTools Protocol (`chrome.debugger.attach`, `Network.enable`, `Runtime.enable`) in `network-capture.ts`.
 
+### Plugin Settings UI
+
+**`ConfigDialog`** (`src/side-panel/components/ConfigDialog.tsx`): A modal dialog that renders a plugin's `configSchema` as a dynamic form. Supported field types: `url` (text input with URL validation), `string` (text input), `number` (number input), `boolean` (Switch), `select` (Radix Select with options). The form uses an uncontrolled pattern (`defaultValue` + `formRef`) so values are only committed on save. On save, settings are sent via `setPluginSettings` in `bridge.ts`. The `needsSetup(plugin)` helper (exported from `ConfigDialog.tsx`) returns true when the plugin has a `configSchema` with at least one `required` field that has no resolved value.
+
+**NeedsSetup badge**: `PluginCard` shows a Settings icon + "Needs Setup" badge in the plugin card header when `needsSetup(plugin)` is true. When the badge is present, the card content area shows a "Configure" button instead of the tool list, prompting the user to open `ConfigDialog`.
+
+**Settings menu item**: `PluginMenu` includes a "Settings" menu item (Cog icon) when `plugin.configSchema` is defined. Clicking it calls the `onConfigOpen` callback, which `PluginCard` passes to trigger the `ConfigDialog`.
+
+**`bg:setPluginSettings`** message (`extension-messages.ts`): Sent from the side panel via `bridge.setPluginSettings` when the user saves plugin settings. The background handler (`background-message-handlers.ts`) relays it to the MCP server via `sendServerRequest('config.setPluginSettings', ...)`. This message type is in `EXTENSION_ONLY_TYPES` — content scripts cannot send it.
+
 ### Plugin Review UI
 
 **Unreviewed icon**: Plugin cards display a `ShieldQuestion` icon (from lucide-react) next to the plugin name when the plugin's current version has not been reviewed (`reviewed: false` in the sync payload). The icon has a tooltip ("This plugin version has not been reviewed") and uses `text-muted-foreground` color. Browser tools never show this icon. The `reviewed` boolean is computed server-side by comparing `reviewedVersion` against the installed version and included in `ConfigStatePlugin`.

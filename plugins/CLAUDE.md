@@ -53,6 +53,47 @@ cd plugins/<name> && npm install && npm run build
 
 `opentabs-plugin build` auto-registers the plugin in `localPlugins` (first build only) and calls `POST /reload` to trigger server rediscovery. In dev mode, the file watcher also detects changes to `dist/tools.json` and `dist/adapter.iife.js`.
 
+## Plugin Settings (configSchema)
+
+Plugins can declare a `configSchema` to let users provide instance-specific configuration (e.g., the URL of their self-hosted instance). Declare it on the plugin class and in `package.json`:
+
+```typescript
+// src/index.ts
+import type { ConfigSchema } from '@opentabs-dev/plugin-sdk';
+
+class MyPlugin extends OpenTabsPlugin {
+  configSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url',
+      label: 'Instance URL',
+      description: 'The URL of your instance',
+      required: true,
+    },
+  };
+}
+```
+
+```json
+// package.json opentabs field
+{
+  "opentabs": {
+    "displayName": "My Plugin",
+    "urlPatterns": [],
+    "configSchema": {
+      "instanceUrl": {
+        "type": "url",
+        "label": "Instance URL",
+        "required": true
+      }
+    }
+  }
+}
+```
+
+When `configSchema` has at least one `required` field of type `'url'`, `urlPatterns` may be an empty array — the platform derives match patterns at runtime from the configured URL. Read configured values in tool handlers with `getConfig('instanceUrl')` from `@opentabs-dev/plugin-sdk`.
+
+Users configure settings via `opentabs plugin configure <name>` (interactive), `opentabs config set setting.<plugin>.<key> <value>` (scripted), or the side panel ConfigDialog.
+
 ## Quality Checks
 
 Each plugin has a `check` script that runs all quality checks:
