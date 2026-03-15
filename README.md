@@ -1,8 +1,8 @@
 # OpenTabs
 
-**Your browser is already logged in. Let your AI use it.**
+**This is not another Playwright wrapper.**
 
-**This is not another Playwright wrapper.** Chrome's [WebMCP](https://developer.chrome.com/blog/webmcp-epp) is heading in the right direction — websites exposing structured tools to AI agents — but it requires every web service to opt in, and that will take years. OpenTabs doesn't wait. We reverse-engineered the internal APIs that web apps already use behind the scenes and exposed them as [MCP tools](https://modelcontextprotocol.io/) today. Your AI calls the same backend endpoints the web app's own frontend calls — running in your browser, through your existing session. No screenshots. No DOM scraping. No pixel-guessing.
+Every web app has internal APIs — the same endpoints its own frontend calls. Chrome's [WebMCP](https://developer.chrome.com/blog/webmcp-epp) wants websites to expose these to AI agents, but that requires every service to opt in, and it will take years. OpenTabs doesn't wait. We reverse-engineered those APIs and exposed them as [MCP tools](https://modelcontextprotocol.io/) today. Your AI calls the same backend the web app's own frontend calls — through your browser, using your existing session. No screenshots. No DOM scraping. No pixel-guessing.
 
 Here's Claude checking a Robinhood portfolio, ordering from Panda Express, and sending a Discord message — all through the browser, in one shot:
 

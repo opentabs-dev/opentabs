@@ -103,27 +103,26 @@ export default function Home() {
       <section className="container mx-auto max-w-6xl px-4 pt-14 pb-8 lg:px-0 lg:pt-20 lg:pb-10">
         <div className="mx-auto max-w-3xl text-center">
           <Text as="h1" className="mb-6 text-5xl text-foreground lg:text-6xl">
-            Your browser is
+            Every web app
             <br />
-            already logged in
+            is an API
           </Text>
-          <p className="mx-auto mb-4 max-w-xl font-medium text-foreground text-sm">
-            This is not another Playwright wrapper. Chrome&apos;s{' '}
+          <p className="mx-auto mb-4 max-w-xl font-bold text-foreground text-base">
+            This is not another Playwright wrapper.
+          </p>
+          <p className="mx-auto mb-10 max-w-xl text-muted-foreground text-sm leading-relaxed">
+            Chrome&apos;s{' '}
             <Link
               href="https://developer.chrome.com/blog/webmcp-epp"
               target="_blank"
               className="underline underline-offset-4">
               WebMCP
             </Link>{' '}
-            is heading in the right direction, but it requires every web service to opt in — and that will take years. We
-            didn&apos;t wait. We reverse-engineered the internal APIs that web apps already use and exposed them as MCP
-            tools today. No screenshots. No DOM. No guessing.
+            wants websites to expose structured tools to AI agents, but that requires every service to opt in — and it
+            will take years. OpenTabs doesn&apos;t wait. We reverse-engineered the internal APIs that web apps already
+            use and exposed them as MCP tools today. Your AI calls the same backend the frontend calls — through your
+            browser, using your existing session. No screenshots. No DOM. No guessing.
           </p>
-          <p className="mx-auto mb-4 max-w-xl text-lg text-muted-foreground">
-            Most MCP servers ask for your API keys. You&apos;re already logged into Slack, GitHub, Jira, and a dozen
-            other apps in Chrome.
-          </p>
-          <p className="mx-auto mb-10 max-w-xl font-medium text-foreground text-lg">Let your AI use them.</p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/docs/quick-start" passHref>
               <Button>Get Started</Button>
