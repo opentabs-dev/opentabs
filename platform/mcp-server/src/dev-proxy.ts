@@ -24,7 +24,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer, request as httpRequest } from 'node:http';
 import { resolve } from 'node:path';
 import type { Duplex } from 'node:stream';
-import { DEFAULT_HOST, DEFAULT_PORT } from '@opentabs-dev/shared';
+import { DEFAULT_HOST, DEFAULT_PORT, sanitizeEnv } from '@opentabs-dev/shared';
 import { WebSocket, WebSocketServer } from 'ws';
 
 const WORKER_JS = resolve(import.meta.dirname, 'index.js');
@@ -211,14 +211,14 @@ const startWorker = (): void => {
   workerStartCount++;
   const isRestart = workerStartCount > 1;
 
-  const env: Record<string, string | undefined> = {
-    ...process.env,
+  const envOverrides: Record<string, string> = {
     PORT: '0',
     OPENTABS_PROXY: '1',
   };
   if (skipPermissionsOverride !== null) {
-    env.OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS = skipPermissionsOverride ? '1' : '';
+    envOverrides.OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS = skipPermissionsOverride ? '1' : '';
   }
+  const env = sanitizeEnv({ ...process.env, ...envOverrides });
   const child = fork(WORKER_JS, ['--dev'], { env });
   worker = child;
 
