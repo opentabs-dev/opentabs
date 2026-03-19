@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-airtable",
   "description": "OpenTabs plugin for Airtable",
-  "version": "0.0.79",
+  "version": "0.0.80",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -48,11 +48,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.79"
+    "@opentabs-dev/plugin-sdk": "^0.0.80"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.79",
+    "@opentabs-dev/plugin-tools": "^0.0.80",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
