@@ -35,6 +35,9 @@ const getLatestVersion = (): string => {
   const result = spawnSync(platformExec('npm'), ['view', CLI_PACKAGE_NAME, 'version'], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
+  if (result.error) {
+    throw new Error(`Failed to run npm: ${result.error.message}`);
+  }
   const exitCode = result.status ?? 1;
   if (exitCode !== 0) {
     const stderr = result.stderr.toString().trim();
@@ -142,7 +145,7 @@ const restartBackgroundServer = async (port: number): Promise<void> => {
     stdio: 'inherit',
   });
 
-  if ((result.status ?? 1) !== 0) {
+  if (result.error || (result.status ?? 1) !== 0) {
     console.log(pc.yellow('Warning: Failed to restart server. Run manually:'));
     console.log(pc.dim('  opentabs start --background'));
   }
@@ -170,6 +173,7 @@ const getServerStatus = async (port: number): Promise<ServerStatus> => {
 const performUpdate = (version: string): boolean => {
   const target = `${CLI_PACKAGE_NAME}@${version}`;
   const result = spawnSync(platformExec('npm'), ['install', '-g', target], { stdio: 'inherit' });
+  if (result.error) return false;
   return (result.status ?? 1) === 0;
 };
 

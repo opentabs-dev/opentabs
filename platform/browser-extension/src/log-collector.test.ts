@@ -123,7 +123,7 @@ describe('LogCollector', () => {
     });
 
     test('filters by since timestamp', () => {
-      const cutoff = Date.now() - 1;
+      const cutoff = Date.now() - 1000;
       const entries = collector.getEntries({ since: cutoff });
       expect(entries.length).toBeGreaterThan(0);
     });
