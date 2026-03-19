@@ -33,7 +33,7 @@ import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 
 class E2eTestPlugin extends OpenTabsPlugin {
   readonly name = 'e2e-test';
-  readonly description = 'Dead-simple plugin for E2E testing — relays to a local test web server';
+  readonly description = 'Plugin for E2E testing — relays to a local test web server';
   override readonly displayName = 'E2E Test';
   readonly urlPatterns = ['http://localhost/*'];
   override readonly homepage = 'http://localhost:9876';
