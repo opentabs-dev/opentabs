@@ -1,0 +1,137 @@
+name: Publish Changed Plugins
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/*/src/**'
+      - 'plugins/*/package.json'
+      - 'plugins/*/icon.svg'
+
+# Only one publish workflow at a time — queue subsequent runs
+concurrency:
+  group: publish-plugins
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # Skip commits made by this workflow (version bumps) to prevent loops
+    if: "!startsWith(github.event.head_commit.message, 'chore: auto-publish plugin')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Detect changed plugins
+        id: detect
+        run: |
+          # Compare HEAD against HEAD~1 to find changed plugin directories
+          CHANGED_PLUGINS=$(git diff --name-only HEAD~1 HEAD -- 'plugins/' \
+            | grep -oP '^plugins/\K[^/]+' \
+            | sort -u \
+            | while read -r name; do
+                # Only include directories that have a package.json with an opentabs field
+                if [ -f "plugins/$name/package.json" ] && \
+                   grep -q '"opentabs"' "plugins/$name/package.json" 2>/dev/null; then
+                  echo "$name"
+                fi
+              done)
+
+          if [ -z "$CHANGED_PLUGINS" ]; then
+            echo "No plugins to publish"
+            echo "plugins=" >> "$GITHUB_OUTPUT"
+          else
+            echo "Plugins to publish:"
+            echo "$CHANGED_PLUGINS"
+            JSON=$(echo "$CHANGED_PLUGINS" | jq -R -s -c 'split("\n") | map(select(. != ""))')
+            echo "plugins=$JSON" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump, build, and publish changed plugins
+        if: steps.detect.outputs.plugins != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PLUGINS='${{ steps.detect.outputs.plugins }}'
+          PUBLISHED=()
+
+          for PLUGIN in $(echo "$PLUGINS" | jq -r '.[]'); do
+            DIR="plugins/$PLUGIN"
+            echo ""
+            echo "================================================"
+            echo "Publishing: $PLUGIN"
+            echo "================================================"
+
+            # Read current version and package name
+            CURRENT=$(node -p "require('./$DIR/package.json').version")
+            NPM_NAME=$(node -p "require('./$DIR/package.json').name")
+
+            # Check if this version is already on npm
+            NPM_VERSION=$(npm view "$NPM_NAME" version 2>/dev/null || echo "0.0.0")
+
+            if [ "$CURRENT" = "$NPM_VERSION" ]; then
+              # Same version on npm — bump patch
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+              NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+              echo "Bumping $NPM_NAME: $CURRENT -> $NEW_VERSION"
+
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('$DIR/package.json', 'utf8'));
+                pkg.version = '$NEW_VERSION';
+                fs.writeFileSync('$DIR/package.json', JSON.stringify(pkg, null, 2) + '\n');
+              "
+            else
+              # Version differs from npm (e.g., already bumped by lockstep) — publish as-is
+              NEW_VERSION="$CURRENT"
+              echo "Publishing $NPM_NAME@$NEW_VERSION (not yet on npm)"
+            fi
+
+            # Install dependencies and build
+            echo "Installing dependencies..."
+            (cd "$DIR" && npm install --ignore-scripts)
+
+            echo "Building..."
+            (cd "$DIR" && npx tsc)
+
+            # Publish to npm (authenticated via NPM_TOKEN secret)
+            echo "Publishing $NPM_NAME@$NEW_VERSION..."
+            (cd "$DIR" && npm publish --access public) || {
+              echo "::warning::Failed to publish $NPM_NAME@$NEW_VERSION"
+              continue
+            }
+
+            PUBLISHED+=("$PLUGIN")
+            echo "Published $NPM_NAME@$NEW_VERSION"
+          done
+
+          echo "PUBLISHED=${PUBLISHED[*]}" >> "$GITHUB_ENV"
+
+      - name: Commit version bumps
+        if: steps.detect.outputs.plugins != '' && env.PUBLISHED != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          for PLUGIN in $PUBLISHED; do
+            git add "plugins/$PLUGIN/package.json" || true
+            git add "plugins/$PLUGIN/package-lock.json" || true
+          done
+
+          if git diff --cached --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "chore: auto-publish plugin version bumps [skip ci]
+
+          Published: $PUBLISHED"
+            git push
+          fi
