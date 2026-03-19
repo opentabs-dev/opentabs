@@ -18,7 +18,7 @@ import net from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
-import { DEFAULT_PORT, isWindows, platformExec, toErrorMessage } from '@opentabs-dev/shared';
+import { DEFAULT_PORT, isWindows, platformExec, sanitizeEnv, toErrorMessage } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { ensureAuthSecret, getConfigDir, getLogFilePath, getPidFilePath } from '../config.js';
@@ -35,11 +35,11 @@ interface StreamingProcess {
 const spawnStreaming = (
   cmd: string,
   args: string[],
-  opts?: { cwd?: string; env?: Record<string, string | undefined>; stdin?: 'inherit' | 'pipe' | 'ignore' },
+  opts?: { cwd?: string; env?: Record<string, string>; stdin?: 'inherit' | 'pipe' | 'ignore' },
 ): StreamingProcess => {
   const child = spawn(cmd, args, {
     cwd: opts?.cwd,
-    env: opts?.env as NodeJS.ProcessEnv,
+    env: opts?.env,
     stdio: [opts?.stdin ?? 'inherit', 'pipe', 'pipe'],
   });
   const toReadableStream = (readable: Readable | null): ReadableStream<Uint8Array> => {
@@ -311,8 +311,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   const secret = await ensureAuthSecret();
   const isFirstTime = await autoInitialize(configDir);
 
-  const env: Record<string, string | undefined> = { ...process.env };
-  env.PORT = String(port);
+  const env: Record<string, string> = sanitizeEnv({ ...process.env, PORT: String(port) });
 
   const serverArgs: string[] = [];
 
@@ -357,7 +356,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
       process.exit(1);
     });
     const child = spawn(platformExec('node'), [serverEntry, ...serverArgs], {
-      env: env as NodeJS.ProcessEnv,
+      env: env,
       stdio: ['ignore', logStream, logStream],
       detached: true,
     });
