@@ -24,6 +24,7 @@ export {
   isWindows,
   platformExec,
   safeChmod,
+  sanitizeEnv,
 } from './cross-platform.js';
 
 // ---------------------------------------------------------------------------

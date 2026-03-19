@@ -41,6 +41,26 @@ export const platformExec = (cmd: string): string => {
 };
 
 // ---------------------------------------------------------------------------
+// Environment sanitization
+// ---------------------------------------------------------------------------
+
+/**
+ * Strip undefined values from an environment object.
+ *
+ * `process.env` values are `string | undefined`. On Windows, libuv rejects
+ * `undefined` values in the `env` option passed to `spawn` / `fork` with
+ * `EINVAL`. This helper produces a clean `Record<string, string>` safe for
+ * all platforms.
+ */
+export const sanitizeEnv = (env: Record<string, string | undefined>): Record<string, string> => {
+  const clean: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined) clean[key] = value;
+  }
+  return clean;
+};
+
+// ---------------------------------------------------------------------------
 // Atomic file writes
 // ---------------------------------------------------------------------------
 
