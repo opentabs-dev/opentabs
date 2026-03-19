@@ -64,8 +64,7 @@ for (const pluginName of pluginDirs) {
 
   if (mode === 'build') {
     success =
-      (await runInPlugin(pluginName, ['npm', 'install', '--frozen-lockfile'])) &&
-      (await runInPlugin(pluginName, ['npm', 'run', 'build']));
+      (await runInPlugin(pluginName, ['npm', 'install'])) && (await runInPlugin(pluginName, ['npm', 'run', 'build']));
   } else {
     success =
       (await runInPlugin(pluginName, ['npm', 'run', 'type-check'])) &&
