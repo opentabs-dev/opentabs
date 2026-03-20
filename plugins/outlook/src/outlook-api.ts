@@ -134,13 +134,6 @@ const getAuth = (): OutlookAuth | null => {
   return auth;
 };
 
-/** Get the raw access token. */
-export const getGraphToken = (): string => {
-  const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
-  return auth.token;
-};
-
 export const isAuthenticated = (): boolean => {
   if (getAuth() !== null) return true;
   // Fallback: Outlook sets olk-isauthed=1 when the user is signed in

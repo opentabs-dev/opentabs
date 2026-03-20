@@ -46,22 +46,33 @@ export const getAttachmentContent = defineTool({
     // Determine if this is a text-based file we can decode
     const isText =
       contentType.startsWith('text/') ||
+      contentType.includes('+json') ||
+      contentType.includes('+xml') ||
       contentType === 'application/json' ||
       contentType === 'application/xml' ||
       contentType === 'application/csv' ||
+      contentType === 'application/javascript' ||
+      contentType === 'application/yaml' ||
       name.endsWith('.csv') ||
       name.endsWith('.json') ||
       name.endsWith('.xml') ||
       name.endsWith('.txt') ||
       name.endsWith('.md') ||
       name.endsWith('.html') ||
-      name.endsWith('.htm');
+      name.endsWith('.htm') ||
+      name.endsWith('.yaml') ||
+      name.endsWith('.yml') ||
+      name.endsWith('.js') ||
+      name.endsWith('.ts') ||
+      name.endsWith('.py') ||
+      name.endsWith('.sh');
 
     let content: string;
     let encoding: 'text' | 'base64';
 
     if (isText && contentBytes) {
-      content = atob(contentBytes);
+      const bytes = Uint8Array.from(atob(contentBytes), c => c.charCodeAt(0));
+      content = new TextDecoder().decode(bytes);
       encoding = 'text';
     } else {
       content = contentBytes;

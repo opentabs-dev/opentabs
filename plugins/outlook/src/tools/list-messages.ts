@@ -41,6 +41,7 @@ export const listMessages = defineTool({
         $filter: params.filter,
         $count: true,
       },
+      headers: { ConsistencyLevel: 'eventual' },
     });
     return {
       messages: (data.value ?? []).map(mapMessageSummary),

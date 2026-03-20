@@ -22,17 +22,14 @@ export const replyToMessage = defineTool({
     const action = params.reply_all ? 'replyAll' : 'reply';
     await api(`/me/messages/${params.message_id}/${action}`, {
       method: 'POST',
-      body: {
-        comment: params.body,
-        // Graph API reply uses 'comment' for plain text; for HTML we need message body
-        ...(params.body_type === 'html'
+      body:
+        params.body_type === 'html'
           ? {
               message: {
                 body: { contentType: 'HTML', content: params.body },
               },
             }
-          : {}),
-      },
+          : { comment: params.body },
     });
     return { success: true };
   },

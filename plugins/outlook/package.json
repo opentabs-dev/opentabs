@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.0.81",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
@@ -54,7 +54,7 @@
     "@opentabs-dev/plugin-sdk": "^0.0.81"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.5",
+    "@biomejs/biome": "2.4.6",
     "@opentabs-dev/plugin-tools": "^0.0.81",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
