@@ -9,6 +9,7 @@ import { listAskStories } from './tools/list-ask-stories.js';
 import { listShowStories } from './tools/list-show-stories.js';
 import { listJobStories } from './tools/list-job-stories.js';
 import { getStoryComments } from './tools/get-story-comments.js';
+import { submitCommentTool } from './tools/submit-comment.js';
 
 class HackerNewsPlugin extends OpenTabsPlugin {
   readonly name = 'hackernews';
@@ -26,6 +27,7 @@ class HackerNewsPlugin extends OpenTabsPlugin {
     listShowStories,
     listJobStories,
     getStoryComments,
+    submitCommentTool,
   ];
 
   async isReady(): Promise<boolean> {

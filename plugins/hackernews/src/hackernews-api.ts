@@ -1,4 +1,4 @@
-import { ToolError, fetchText } from '@opentabs-dev/plugin-sdk';
+import { ToolError, fetchFromPage, fetchText } from '@opentabs-dev/plugin-sdk';
 
 // --- HTML fetching (same-origin, works within CSP connect-src 'self') ---
 // HN serves a strict CSP: default-src 'self' with no connect-src override.
@@ -169,6 +169,67 @@ export interface ParsedUser {
   karma: number;
   about: string;
 }
+
+// --- Authentication check ---
+
+export const isLoggedIn = (): boolean => {
+  const doc = document;
+  return doc.querySelector('a#logout') !== null;
+};
+
+// --- Comment submission ---
+
+/** Extract the HMAC token from an item or reply page for comment submission. */
+const extractHmac = async (parentId: number): Promise<{ hmac: string; goto: string }> => {
+  const doc = await fetchHtml(`/reply?id=${parentId}&goto=item%3Fid%3D${parentId}%23${parentId}`);
+  const form = doc.querySelector('form[action="comment"]');
+  if (!form) {
+    // Fallback: try the item page (for top-level comments on stories)
+    const itemDoc = await fetchHtml(`/item?id=${parentId}`);
+    const itemForm = itemDoc.querySelector('form[action="comment"]');
+    if (!itemForm) throw ToolError.auth('Comment form not found — make sure you are logged in to Hacker News.');
+    const hmac = itemForm.querySelector<HTMLInputElement>('input[name="hmac"]')?.value;
+    const goto = itemForm.querySelector<HTMLInputElement>('input[name="goto"]')?.value ?? '';
+    if (!hmac) throw ToolError.auth('HMAC token not found — make sure you are logged in to Hacker News.');
+    return { hmac, goto };
+  }
+  const hmac = form.querySelector<HTMLInputElement>('input[name="hmac"]')?.value;
+  const goto = form.querySelector<HTMLInputElement>('input[name="goto"]')?.value ?? '';
+  if (!hmac) throw ToolError.auth('HMAC token not found — make sure you are logged in to Hacker News.');
+  return { hmac, goto };
+};
+
+/** Submit a comment as a reply to a story or comment. */
+export const submitComment = async (parentId: number, text: string): Promise<void> => {
+  if (!isLoggedIn()) {
+    throw ToolError.auth('Not logged in — please log in to Hacker News to post comments.');
+  }
+
+  const { hmac, goto } = await extractHmac(parentId);
+
+  const formData = new FormData();
+  formData.append('parent', String(parentId));
+  formData.append('goto', goto);
+  formData.append('hmac', hmac);
+  formData.append('text', text);
+
+  const response = await fetchFromPage('/comment', {
+    method: 'POST',
+    body: formData,
+    redirect: 'follow',
+  });
+
+  // HN redirects to the item page on success. A non-redirect error means failure.
+  if (!response.ok && response.status !== 302 && response.status !== 301) {
+    const body = await response.text().catch(() => '');
+    if (body.includes('Please confirm your email address')) {
+      throw ToolError.auth('HN requires email confirmation before you can post comments.');
+    }
+    throw ToolError.internal(`Comment submission failed (${response.status}): ${body.substring(0, 200)}`);
+  }
+};
+
+// --- User parsing ---
 
 export const fetchUser = async (username: string): Promise<ParsedUser> => {
   const doc = await fetchHtml(`/user?id=${username}`);
