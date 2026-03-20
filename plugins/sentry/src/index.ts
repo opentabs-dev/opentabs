@@ -1,5 +1,5 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
-import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isSentryAuthenticated, waitForSentryAuth } from './sentry-api.js';
 import { createComment } from './tools/create-comment.js';
 import { getEvent } from './tools/get-event.js';
@@ -29,6 +29,16 @@ class SentryPlugin extends OpenTabsPlugin {
   override readonly displayName = 'Sentry';
   readonly urlPatterns = ['*://*.sentry.io/*'];
   override readonly homepage = 'https://sentry.io';
+  override readonly configSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url' as const,
+      label: 'Sentry URL',
+      description:
+        'The URL of your self-hosted Sentry instance (e.g., https://sentry.example.com). Leave empty to use sentry.io.',
+      required: false,
+      placeholder: 'https://sentry.example.com',
+    },
+  };
   readonly tools: ToolDefinition[] = [
     // Issues
     searchIssues,

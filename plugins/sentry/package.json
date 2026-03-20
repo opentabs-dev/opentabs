@@ -22,7 +22,16 @@
     "urlPatterns": [
       "*://*.sentry.io/*"
     ],
-    "homepage": "https://sentry.io"
+    "homepage": "https://sentry.io",
+    "configSchema": {
+      "instanceUrl": {
+        "type": "url",
+        "label": "Sentry URL",
+        "description": "The URL of your self-hosted Sentry instance (e.g., https://sentry.example.com). Leave empty to use sentry.io.",
+        "required": false,
+        "placeholder": "https://sentry.example.com"
+      }
+    }
   },
   "exports": {
     ".": {
