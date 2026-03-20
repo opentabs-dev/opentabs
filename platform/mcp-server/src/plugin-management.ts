@@ -17,6 +17,7 @@ import {
   isValidPluginPackageName,
   isWindows,
   normalizePluginName,
+  PLATFORM_PACKAGES,
   resolvePluginPackageCandidates,
 } from '@opentabs-dev/shared';
 import { pluginNameFromPackage } from './loader.js';
@@ -269,11 +270,13 @@ const searchNpmPlugins = async (query?: string): Promise<PluginSearchResult[]> =
       filtered = allPackages;
     }
 
+    filtered = filtered.filter(pkg => !PLATFORM_PACKAGES.has(pkg.name));
+
     // Merge: direct probe first, then keyword results (deduplicated by name)
     const seen = new Set<string>();
     const results: PluginSearchResult[] = [];
 
-    if (probeResult) {
+    if (probeResult && !PLATFORM_PACKAGES.has(probeResult.name)) {
       seen.add(probeResult.name);
       results.push({
         name: probeResult.name,
