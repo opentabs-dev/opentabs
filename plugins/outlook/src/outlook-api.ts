@@ -24,7 +24,24 @@ interface OutlookAuth {
 }
 
 /**
+ * Scopes required for mail operations. A token must include at least one of these
+ * to be usable for reading/sending mail.
+ */
+const MAIL_SCOPES = ['mail.read', 'mail.readwrite', 'mail.send'];
+
+/**
+ * Check whether a token's target scopes include at least one mail-related scope.
+ */
+const hasMailScope = (target: string): boolean => {
+  const lower = target.toLowerCase();
+  return MAIL_SCOPES.some(scope => lower.includes(scope));
+};
+
+/**
  * Search MSAL v2 token cache for a valid access token matching a target scope pattern.
+ * When matching Graph API tokens, also verifies the token has mail scopes — some
+ * enterprise tenants issue Graph tokens with User.Read but without Mail.Read, which
+ * causes 403 errors on /me/messages endpoints.
  */
 const findMsalV2Token = (clientId: string, scopeMatch: string): OutlookAuth | null => {
   const tokenKeysRaw = getLocalStorage(`msal.2.token.keys.${clientId}`);
@@ -51,6 +68,13 @@ const findMsalV2Token = (clientId: string, scopeMatch: string): OutlookAuth | nu
 
       const expiresOn = Number.parseInt(parsed.expiresOn, 10);
       if (expiresOn && expiresOn * 1000 < Date.now()) continue;
+
+      // For Graph API tokens, verify mail scopes are present.
+      // Enterprise tenants may have a Graph token with only User.Read that will
+      // 403 on mail endpoints. Skip it so we fall through to the Outlook REST token.
+      if (scopeMatch.includes('graph.microsoft.com') && !hasMailScope(target)) {
+        continue;
+      }
 
       const apiBase = scopeMatch.includes('graph.microsoft.com') ? GRAPH_API_BASE : OUTLOOK_API_BASE;
       return { token: parsed.secret, apiBase };
@@ -166,25 +190,22 @@ const normalizeKeys = (obj: unknown): unknown => {
 };
 
 /**
- * Make an authenticated request to Microsoft mail APIs.
- * Automatically uses whichever API the current token supports (Graph or Outlook REST).
+ * Send an authenticated request and handle the response.
+ * Returns the parsed response or throws on error.
+ * On 401/403, returns `null` to signal the caller to retry with a fresh token.
  */
-export const api = async <T>(
+const sendRequest = async <T>(
+  auth: OutlookAuth,
   endpoint: string,
   options: {
     method?: string;
     body?: unknown;
     query?: Record<string, string | number | boolean | undefined>;
     headers?: Record<string, string>;
-  } = {},
-): Promise<T> => {
-  const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
-
+  },
+): Promise<T | null> => {
   const isOutlookApi = auth.apiBase === OUTLOOK_API_BASE;
 
-  // Outlook REST API uses different $select field names, so drop $select
-  // and let it return all fields. The normalizeKeys step handles casing.
   const query = options.query ? { ...options.query } : undefined;
   if (isOutlookApi && query) {
     delete (query as Record<string, unknown>).$select;
@@ -234,10 +255,8 @@ export const api = async <T>(
     throw ToolError.rateLimited('Microsoft API rate limit exceeded.', retryMs);
   }
 
-  if (response.status === 401 || response.status === 403) {
-    clearAuthCache('outlook');
-    throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
-  }
+  // Signal caller to retry with a fresh token
+  if (response.status === 401 || response.status === 403) return null;
 
   if (response.status === 404) {
     throw ToolError.notFound('The requested resource was not found.');
@@ -262,6 +281,37 @@ export const api = async <T>(
   }
 
   const json = await response.json();
-  // Normalize PascalCase keys from Outlook REST API to camelCase
   return (isOutlookApi ? normalizeKeys(json) : json) as T;
+};
+
+/**
+ * Make an authenticated request to Microsoft mail APIs.
+ * Automatically uses whichever API the current token supports (Graph or Outlook REST).
+ * On 401/403, clears the cached token, re-acquires from MSAL localStorage, and retries once.
+ */
+export const api = async <T>(
+  endpoint: string,
+  options: {
+    method?: string;
+    body?: unknown;
+    query?: Record<string, string | number | boolean | undefined>;
+    headers?: Record<string, string>;
+  } = {},
+): Promise<T> => {
+  let auth = getAuth();
+  if (!auth) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
+
+  const result = await sendRequest<T>(auth, endpoint, options);
+  if (result !== null) return result;
+
+  // 401/403 — clear stale cache, re-acquire token from MSAL, and retry once
+  clearAuthCache('outlook');
+  auth = getAuth();
+  if (!auth) throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
+
+  const retry = await sendRequest<T>(auth, endpoint, options);
+  if (retry !== null) return retry;
+
+  clearAuthCache('outlook');
+  throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
 };

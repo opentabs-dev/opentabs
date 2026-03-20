@@ -4,6 +4,7 @@ import { isAuthenticated, waitForAuth } from './outlook-api.js';
 import { createDraft } from './tools/create-draft.js';
 import { deleteMessage } from './tools/delete-message.js';
 import { forwardMessage } from './tools/forward-message.js';
+import { downloadAttachment } from './tools/download-attachment.js';
 import { getAttachmentContent } from './tools/get-attachment-content.js';
 import { getCurrentUser } from './tools/get-current-user.js';
 import { getMessage } from './tools/get-message.js';
@@ -43,6 +44,7 @@ class OutlookPlugin extends OpenTabsPlugin {
     deleteMessage,
     listAttachments,
     getAttachmentContent,
+    downloadAttachment,
     // Folders
     listFolders,
   ];
