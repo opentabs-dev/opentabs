@@ -163,6 +163,16 @@ See the [Development Setup guide](https://opentabs.dev/docs/contributing/dev-set
 
 This project wouldn't exist without [Claude Code](https://github.com/anthropics/claude-code), [OpenCode](https://github.com/anomalyco/opencode), [Ralph](https://github.com/snarktank/ralph), and [RetroUI](https://github.com/Logging-Studio/RetroUI). Genuinely grateful for all of them.
 
+## Star History
+
+<a href="https://star-history.com/#opentabs-dev/opentabs&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&type=Date" />
+ </picture>
+</a>
+
 ## Disclaimer
 
 OpenTabs is an independent open-source project. It is **not affiliated with, endorsed by, or sponsored by** any of the third-party services it integrates with. All product names, logos, trademarks, and registered trademarks are the property of their respective owners. Use of these names in plugin identifiers is for identification purposes only and does not imply any association or endorsement.
