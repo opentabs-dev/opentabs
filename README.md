@@ -167,9 +167,9 @@ This project wouldn't exist without [Claude Code](https://github.com/anthropics/
 
 <a href="https://star-history.com/#opentabs-dev/opentabs&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&amp;type=Date&amp;theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&amp;type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=opentabs-dev/opentabs&amp;type=Date" />
  </picture>
 </a>
 
