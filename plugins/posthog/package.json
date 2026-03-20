@@ -23,7 +23,16 @@
       "*://us.posthog.com/*",
       "*://eu.posthog.com/*"
     ],
-    "homepage": "https://us.posthog.com"
+    "homepage": "https://us.posthog.com",
+    "configSchema": {
+      "instanceUrl": {
+        "type": "url",
+        "label": "PostHog URL",
+        "description": "The URL of your self-hosted PostHog instance (e.g., https://posthog.example.com). Leave empty to use PostHog Cloud.",
+        "required": false,
+        "placeholder": "https://posthog.example.com"
+      }
+    }
   },
   "exports": {
     ".": {

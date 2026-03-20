@@ -1,5 +1,5 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
-import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './posthog-api.js';
 
 // Users & Organization
@@ -62,6 +62,17 @@ class PostHogPlugin extends OpenTabsPlugin {
   override readonly displayName = 'PostHog';
   readonly urlPatterns = ['*://us.posthog.com/*', '*://eu.posthog.com/*'];
   override readonly homepage = 'https://us.posthog.com';
+
+  override readonly configSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url' as const,
+      label: 'PostHog URL',
+      description:
+        'The URL of your self-hosted PostHog instance (e.g., https://posthog.example.com). Leave empty to use PostHog Cloud.',
+      required: false,
+      placeholder: 'https://posthog.example.com',
+    },
+  };
 
   readonly tools: ToolDefinition[] = [
     // Users & Organization
