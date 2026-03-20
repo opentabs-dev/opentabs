@@ -12,6 +12,7 @@ import {
   DEFAULT_HOST,
   isWindows,
   normalizePluginName,
+  PLATFORM_PACKAGES,
   PLUGIN_PREFIX,
   resolvePluginPackageCandidates,
   TOOLS_FILENAME,
@@ -391,14 +392,14 @@ const handlePluginSearch = async (query?: string): Promise<void> => {
   const seenNames = new Set<string>();
 
   for (const info of directResults) {
-    if (info && !seenNames.has(info.name)) {
+    if (info && !PLATFORM_PACKAGES.has(info.name) && !seenNames.has(info.name)) {
       seenNames.add(info.name);
       results.push(info);
     }
   }
 
   for (const pkg of searchResults) {
-    if (!seenNames.has(pkg.name)) {
+    if (!PLATFORM_PACKAGES.has(pkg.name) && !seenNames.has(pkg.name)) {
       seenNames.add(pkg.name);
       results.push(pkg);
     }
