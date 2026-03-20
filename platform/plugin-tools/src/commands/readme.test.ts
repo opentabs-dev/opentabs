@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ManifestTool } from '@opentabs-dev/shared';
+import type { ConfigSchema, ManifestTool } from '@opentabs-dev/shared';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { PluginMeta } from './readme.js';
 import { classifyTool, extractDomain, extractShortName, generateReadme, groupTools, handleReadme } from './readme.js';
@@ -21,7 +21,7 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
-const writeToolsJson = async (manifest: { tools: ManifestTool[] }): Promise<void> => {
+const writeToolsJson = async (manifest: { tools: ManifestTool[]; configSchema?: ConfigSchema }): Promise<void> => {
   mkdirSync(join(tmpDir, 'dist'), { recursive: true });
   await writeFile(join(tmpDir, 'dist', 'tools.json'), JSON.stringify(manifest), 'utf-8');
 };
@@ -412,5 +412,193 @@ describe('handleReadme — check mode', () => {
     const { errors, exitCode } = await captureOutput(() => handleReadme({ check: true }, tmpDir));
     expect(exitCode).toBe(1);
     expect(errors.some(e => e.includes('out of date'))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateReadme — Configuration section
+// ---------------------------------------------------------------------------
+
+describe('generateReadme — Configuration section', () => {
+  const meta: PluginMeta = {
+    packageName: '@opentabs-dev/opentabs-plugin-acme',
+    displayName: 'Acme',
+    description: 'OpenTabs plugin for Acme',
+    domain: 'acme.com',
+    homepage: 'https://app.acme.com',
+    shortName: 'acme',
+  };
+
+  const sampleConfigSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url',
+      label: 'Instance URL',
+      description: 'The URL of your Acme instance',
+      required: true,
+      placeholder: 'https://acme.example.com',
+    },
+    apiVersion: {
+      type: 'string',
+      label: 'API Version',
+      required: false,
+    },
+  };
+
+  test('renders Configuration section when configSchema is provided', () => {
+    const readme = generateReadme(meta, sampleTools, sampleConfigSchema);
+    expect(readme).toContain('## Configuration');
+    expect(readme).toContain('| Setting | Type | Required | Description |');
+  });
+
+  test('does not render Configuration section without configSchema', () => {
+    const readme = generateReadme(meta, sampleTools);
+    expect(readme).not.toContain('## Configuration');
+  });
+
+  test('does not render Configuration section with empty configSchema', () => {
+    const readme = generateReadme(meta, sampleTools, {});
+    expect(readme).not.toContain('## Configuration');
+  });
+
+  test('renders correct table rows with setting details', () => {
+    const readme = generateReadme(meta, sampleTools, sampleConfigSchema);
+    expect(readme).toContain('| `instanceUrl` | url | Yes | The URL of your Acme instance |');
+    expect(readme).toContain('| `apiVersion` | string | No | API Version |');
+  });
+
+  test('falls back to label when description is absent', () => {
+    const schema: ConfigSchema = {
+      theme: { type: 'string', label: 'Color Theme' },
+    };
+    const readme = generateReadme(meta, sampleTools, schema);
+    expect(readme).toContain('| `theme` | string | No | Color Theme |');
+  });
+
+  test('Configuration section appears between Setup and Tools', () => {
+    const readme = generateReadme(meta, sampleTools, sampleConfigSchema);
+    const setupIdx = readme.indexOf('## Setup');
+    const configIdx = readme.indexOf('## Configuration');
+    const toolsIdx = readme.indexOf('## Tools');
+    expect(setupIdx).toBeLessThan(configIdx);
+    expect(configIdx).toBeLessThan(toolsIdx);
+  });
+
+  test('includes configure command with short name', () => {
+    const readme = generateReadme(meta, sampleTools, sampleConfigSchema);
+    expect(readme).toContain('`opentabs plugin configure acme`');
+  });
+
+  test('plugins without configSchema generate identical output to original format', () => {
+    const withUndefined = generateReadme(meta, sampleTools, undefined);
+    const withoutArg = generateReadme(meta, sampleTools);
+    expect(withUndefined).toBe(withoutArg);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateReadme — config-only plugin (no urlPatterns)
+// ---------------------------------------------------------------------------
+
+describe('generateReadme — config-only plugin (no domain)', () => {
+  const metaNoDomain: PluginMeta = {
+    packageName: '@opentabs-dev/opentabs-plugin-grafana',
+    displayName: 'Grafana',
+    description: 'OpenTabs plugin for Grafana',
+    shortName: 'grafana',
+  };
+
+  test('renders config-based setup when domain is absent', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const readme = generateReadme(metaNoDomain, sampleTools, schema);
+    expect(readme).toContain('Configure the plugin with `opentabs plugin configure grafana`');
+    expect(readme).toContain('Open your configured URL in Chrome and log in');
+    expect(readme).not.toContain('[undefined]');
+  });
+
+  test('does not render domain-based setup link', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const readme = generateReadme(metaNoDomain, sampleTools, schema);
+    expect(readme).not.toContain('Open [');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleReadme — configSchema integration
+// ---------------------------------------------------------------------------
+
+describe('handleReadme — configSchema', () => {
+  const configSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url',
+      label: 'Instance URL',
+      description: 'Your Grafana URL',
+      required: true,
+    },
+  };
+
+  const configOnlyPackageJson = {
+    name: '@opentabs-dev/opentabs-plugin-grafana',
+    version: '1.0.0',
+    main: 'dist/adapter.iife.js',
+    opentabs: {
+      displayName: 'Grafana',
+      description: 'OpenTabs plugin for Grafana',
+      urlPatterns: [],
+      configSchema: {
+        instanceUrl: {
+          type: 'url',
+          label: 'Instance URL',
+          description: 'Your Grafana URL',
+          required: true,
+        },
+      },
+    },
+  };
+
+  test('renders Configuration section from tools.json configSchema', async () => {
+    await writeToolsJson({ tools: sampleTools, configSchema });
+    await writePackageJson(validPackageJson);
+    const { stdout } = await captureOutput(() => handleReadme({ dryRun: true }, tmpDir));
+    expect(stdout).toContain('## Configuration');
+    expect(stdout).toContain('| `instanceUrl` | url | Yes | Your Grafana URL |');
+  });
+
+  test('does not error with empty urlPatterns when configSchema has url field', async () => {
+    await writeToolsJson({ tools: sampleTools, configSchema });
+    await writePackageJson(configOnlyPackageJson);
+    const { exitCode, errors } = await captureOutput(() => handleReadme({ dryRun: true }, tmpDir));
+    expect(exitCode).toBeNull();
+    expect(errors).toHaveLength(0);
+  });
+
+  test('config-only plugin generates valid README with configure step', async () => {
+    await writeToolsJson({ tools: sampleTools, configSchema });
+    await writePackageJson(configOnlyPackageJson);
+    const { stdout } = await captureOutput(() => handleReadme({ dryRun: true }, tmpDir));
+    expect(stdout).toContain('# Grafana');
+    expect(stdout).toContain('Configure the plugin with `opentabs plugin configure grafana`');
+    expect(stdout).toContain('## Configuration');
+    expect(stdout).toContain('## Tools (5)');
+  });
+
+  test('still errors on empty urlPatterns without configSchema', async () => {
+    const noConfigPkg = {
+      name: '@opentabs-dev/opentabs-plugin-broken',
+      version: '1.0.0',
+      main: 'dist/adapter.iife.js',
+      opentabs: {
+        displayName: 'Broken',
+        description: 'OpenTabs plugin for Broken',
+        urlPatterns: ['*://*.broken.com/*'],
+      },
+    };
+    await writeToolsJson({ tools: sampleTools });
+    await writePackageJson(noConfigPkg);
+    const { exitCode } = await captureOutput(() => handleReadme({ dryRun: true }, tmpDir));
+    expect(exitCode).toBeNull();
   });
 });
