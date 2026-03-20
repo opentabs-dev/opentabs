@@ -36,7 +36,7 @@ import {
   test,
   writeTestConfig,
 } from './fixtures.js';
-import { waitForToolList } from './helpers.js';
+import { npmSlackPluginHasArtifacts, waitForToolList } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // WebSocket JSON-RPC helper
@@ -764,7 +764,11 @@ test.describe('WebSocket authentication', () => {
 // plugin.install + plugin.remove happy path (real npm registry, isolated prefix)
 // ---------------------------------------------------------------------------
 
+const slackArtifactsAvailable = npmSlackPluginHasArtifacts();
+
 test.describe('plugin.install + plugin.remove happy path', () => {
+  test.skip(!slackArtifactsAvailable, 'published @opentabs-dev/opentabs-plugin-slack is missing build artifacts');
+
   test('installs an npm plugin via NPM_CONFIG_PREFIX and then removes it', async () => {
     test.slow(); // real npm install + uninstall over the network
     const configDir = createTestConfigDir();

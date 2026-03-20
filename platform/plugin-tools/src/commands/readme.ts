@@ -6,7 +6,7 @@
 
 import { access, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ManifestTool } from '@opentabs-dev/shared';
+import type { ConfigSchema, ManifestTool } from '@opentabs-dev/shared';
 import { parsePluginPackageJson, TOOLS_FILENAME } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
@@ -66,13 +66,13 @@ interface PluginMeta {
   packageName: string;
   displayName: string;
   description: string;
-  domain: string;
-  homepage: string;
+  domain?: string;
+  homepage?: string;
   shortName: string;
 }
 
 /** Generate the README markdown string */
-const generateReadme = (meta: PluginMeta, tools: ManifestTool[]): string => {
+const generateReadme = (meta: PluginMeta, tools: ManifestTool[], configSchema?: ConfigSchema): string => {
   const groups = groupTools(tools);
   const totalCount = tools.length;
 
@@ -103,9 +103,31 @@ const generateReadme = (meta: PluginMeta, tools: ManifestTool[]): string => {
   // Setup
   lines.push('## Setup');
   lines.push('');
-  lines.push(`1. Open [${meta.domain}](${meta.homepage}) in Chrome and log in`);
-  lines.push(`2. Open the OpenTabs side panel — the ${meta.displayName} plugin should appear as **ready**`);
+  if (meta.domain && meta.homepage) {
+    lines.push(`1. Open [${meta.domain}](${meta.homepage}) in Chrome and log in`);
+    lines.push(`2. Open the OpenTabs side panel — the ${meta.displayName} plugin should appear as **ready**`);
+  } else {
+    lines.push(`1. Configure the plugin with \`opentabs plugin configure ${meta.shortName}\``);
+    lines.push('2. Open your configured URL in Chrome and log in');
+    lines.push(`3. Open the OpenTabs side panel — the ${meta.displayName} plugin should appear as **ready**`);
+  }
   lines.push('');
+
+  // Configuration
+  if (configSchema && Object.keys(configSchema).length > 0) {
+    lines.push('## Configuration');
+    lines.push('');
+    lines.push(`Configure settings via \`opentabs plugin configure ${meta.shortName}\` or the side panel.`);
+    lines.push('');
+    lines.push('| Setting | Type | Required | Description |');
+    lines.push('|---|---|---|---|');
+    for (const [key, def] of Object.entries(configSchema)) {
+      const required = def.required ? 'Yes' : 'No';
+      const desc = def.description ?? def.label;
+      lines.push(`| \`${key}\` | ${def.type} | ${required} | ${desc} |`);
+    }
+    lines.push('');
+  }
 
   // Tools
   lines.push(`## Tools (${totalCount})`);
@@ -157,12 +179,14 @@ const handleReadme = async (options: ReadmeOptions, projectDir: string = process
   }
 
   let tools: ManifestTool[];
+  let configSchema: ConfigSchema | undefined;
   try {
     const parsed: unknown = JSON.parse(await readFile(toolsJsonPath, 'utf-8'));
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('not an object');
     const obj = parsed as Record<string, unknown>;
     if (!Array.isArray(obj.tools)) throw new Error('no tools array');
     tools = obj.tools as ManifestTool[];
+    configSchema = (obj.configSchema ?? undefined) as ConfigSchema | undefined;
   } catch {
     console.error(pc.red(`Failed to parse dist/${TOOLS_FILENAME}. Rebuild with opentabs-plugin build.`));
     process.exit(1);
@@ -189,21 +213,21 @@ const handleReadme = async (options: ReadmeOptions, projectDir: string = process
 
   const pkg = result.value;
   const firstPattern = pkg.opentabs.urlPatterns[0];
-  if (!firstPattern) {
+  if (!firstPattern && !pkg.opentabs.configSchema) {
     console.error(pc.red('No urlPatterns defined in package.json opentabs field.'));
     process.exit(1);
   }
-  const domain = extractDomain(firstPattern);
+  const domain = firstPattern ? extractDomain(firstPattern) : undefined;
   const meta: PluginMeta = {
     packageName: pkg.name,
     displayName: pkg.opentabs.displayName,
     description: pkg.opentabs.description,
     domain,
-    homepage: pkg.opentabs.homepage ?? `https://${domain}`,
+    homepage: domain ? (pkg.opentabs.homepage ?? `https://${domain}`) : undefined,
     shortName: extractShortName(pkg.name),
   };
 
-  const readme = generateReadme(meta, tools);
+  const readme = generateReadme(meta, tools, configSchema);
 
   if (options.dryRun) {
     process.stdout.write(readme);

@@ -24,7 +24,12 @@ import {
   test,
   writeTestConfig,
 } from './fixtures.js';
-import { openSidePanel, setupAdapterSymlink, waitForExtensionConnected } from './helpers.js';
+import {
+  npmSlackPluginHasArtifacts,
+  openSidePanel,
+  setupAdapterSymlink,
+  waitForExtensionConnected,
+} from './helpers.js';
 
 /**
  * Check if npm search can find opentabs plugins. Returns true if the npm
@@ -44,6 +49,7 @@ const npmSearchFindsPlugins = (): boolean => {
 };
 
 const searchAvailable = npmSearchFindsPlugins();
+const slackArtifactsAvailable = npmSlackPluginHasArtifacts();
 
 test.describe('Side panel npm search', () => {
   // These two tests require npm search to return opentabs plugin results.
@@ -93,6 +99,7 @@ test.describe('Side panel npm search', () => {
     });
 
     test('install plugin from search results via Install button', async () => {
+      test.skip(!slackArtifactsAvailable, 'published @opentabs-dev/opentabs-plugin-slack is missing build artifacts');
       test.slow();
 
       const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
@@ -145,6 +152,7 @@ test.describe('Side panel npm search', () => {
   });
 
   test('uninstall plugin via three-dot menu and confirmation dialog', async () => {
+    test.skip(!slackArtifactsAvailable, 'published @opentabs-dev/opentabs-plugin-slack is missing build artifacts');
     test.slow();
 
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);

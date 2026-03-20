@@ -96,12 +96,12 @@ jobs:
               echo "Publishing $NPM_NAME@$NEW_VERSION (not yet on npm)"
             fi
 
-            # Install dependencies and build
+            # Install dependencies and full build (tsc + opentabs-plugin build)
             echo "Installing dependencies..."
-            (cd "$DIR" && npm install --ignore-scripts)
+            (cd "$DIR" && npm install)
 
             echo "Building..."
-            (cd "$DIR" && npx tsc)
+            (cd "$DIR" && npm run build)
 
             # Publish to npm (authenticated via NPM_TOKEN secret)
             echo "Publishing $NPM_NAME@$NEW_VERSION..."

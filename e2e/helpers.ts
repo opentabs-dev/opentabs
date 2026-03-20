@@ -4,6 +4,7 @@
  * own copies.
  */
 
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -539,6 +540,23 @@ export const replaceIifeClosing = (iife: string, injection: string): string => {
 export const selectPermission = async (page: Page, ariaLabel: string, optionText: string): Promise<void> => {
   await page.locator(`[aria-label="${ariaLabel}"]`).click();
   await page.locator('[role="option"]', { hasText: optionText }).click();
+};
+
+/**
+ * Check if the latest published @opentabs-dev/opentabs-plugin-slack has the
+ * required build artifacts (adapter.iife.js and tools.json). Returns false if
+ * the published package only has tsc output (missing opentabs-plugin build).
+ */
+export const npmSlackPluginHasArtifacts = (): boolean => {
+  try {
+    const output = execSync('npm pack @opentabs-dev/opentabs-plugin-slack --dry-run 2>&1', {
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    return output.includes('dist/tools.json') && output.includes('dist/adapter.iife.js');
+  } catch {
+    return false;
+  }
 };
 
 /** Expand all collapsed "N hidden" tool sections within a plugin card. */
