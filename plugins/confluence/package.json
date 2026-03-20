@@ -21,7 +21,16 @@
     "description": "OpenTabs plugin for Confluence",
     "urlPatterns": [
       "*://*.atlassian.net/wiki/*"
-    ]
+    ],
+    "configSchema": {
+      "instanceUrl": {
+        "type": "url",
+        "label": "Confluence URL",
+        "description": "The URL of your self-hosted Confluence instance (e.g., https://confluence.example.com). Leave empty to use Confluence Cloud on atlassian.net.",
+        "required": false,
+        "placeholder": "https://confluence.example.com"
+      }
+    }
   },
   "exports": {
     ".": {

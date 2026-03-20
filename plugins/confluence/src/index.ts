@@ -1,5 +1,5 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
-import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './confluence-api.js';
 import { addLabel } from './tools/add-label.js';
 import { createComment } from './tools/create-comment.js';
@@ -25,6 +25,16 @@ class ConfluencePlugin extends OpenTabsPlugin {
   readonly description = 'OpenTabs plugin for Confluence';
   override readonly displayName = 'Confluence';
   readonly urlPatterns = ['*://*.atlassian.net/wiki/*'];
+  override readonly configSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url' as const,
+      label: 'Confluence URL',
+      description:
+        'The URL of your self-hosted Confluence instance (e.g., https://confluence.example.com). Leave empty to use Confluence Cloud on atlassian.net.',
+      required: false,
+      placeholder: 'https://confluence.example.com',
+    },
+  };
   readonly tools: ToolDefinition[] = [
     listSpaces,
     getSpace,
