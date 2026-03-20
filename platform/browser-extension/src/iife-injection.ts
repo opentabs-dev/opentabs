@@ -1,10 +1,27 @@
 import { toErrorMessage } from '@opentabs-dev/shared';
 import { INJECTION_RETRY_DELAY_MS, isValidPluginName } from './constants.js';
+import { sendToServer } from './messaging.js';
 import { getAllPluginMeta } from './plugin-storage.js';
 import { urlMatchesPatterns } from './tab-matching.js';
 
 /** Names reserved for platform use — rejected at the injection layer as defense-in-depth */
 const RESERVED_NAMES = new Set(['system', 'browser', 'opentabs', 'extension', 'config', 'plugin', 'tool', 'mcp']);
+
+/**
+ * Debounced request for the server to re-write adapter files and send sync.full.
+ * Fires at most once per 5 seconds to avoid retry storms when multiple plugins
+ * fail injection simultaneously.
+ */
+let resyncRequestedAt = 0;
+const RESYNC_DEBOUNCE_MS = 5_000;
+
+const requestAdapterResync = (): void => {
+  const now = Date.now();
+  if (now - resyncRequestedAt < RESYNC_DEBOUNCE_MS) return;
+  resyncRequestedAt = now;
+  console.warn('[opentabs] Adapter file missing — requesting server to re-sync adapter files');
+  sendToServer({ jsonrpc: '2.0', method: 'sync.requestFull' });
+};
 
 const isSafePluginName = (name: string): boolean => isValidPluginName(name) && !RESERVED_NAMES.has(name);
 
@@ -266,7 +283,13 @@ const injectAdapterFile = async (
       files: [adapterFile],
     });
   } catch (err) {
-    throw new Error(`Failed to inject adapter file '${adapterFile}' into tab ${String(tabId)}: ${toErrorMessage(err)}`);
+    const msg = toErrorMessage(err);
+    // Adapter file missing on disk — ask the server to re-write adapter files
+    // and re-send sync.full, which triggers re-injection into all matching tabs.
+    if (msg.includes('Could not load file')) {
+      requestAdapterResync();
+    }
+    throw new Error(`Failed to inject adapter file '${adapterFile}' into tab ${String(tabId)}: ${msg}`);
   }
 
   if (adapterHash) {

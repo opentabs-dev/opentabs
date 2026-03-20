@@ -518,6 +518,16 @@ const handleExtensionMessage = (
   const senderConn = senderWs ? findConnectionByWs(state, senderWs) : getAnyConnection(state);
 
   // Route to individual handlers in extension-handlers.ts
+
+  // Self-healing: extension requests full re-sync when adapter files are missing on disk.
+  if (method === 'sync.requestFull') {
+    log.info('Extension requested full re-sync (adapter files likely missing)');
+    void sendSyncFull(state).catch((err: unknown) => {
+      log.error('Failed to re-sync after sync.requestFull:', err);
+    });
+    return;
+  }
+
   if (method === 'tab.syncAll') {
     handleTabSyncAll(params, senderConn);
     return;

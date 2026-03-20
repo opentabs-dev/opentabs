@@ -91,7 +91,12 @@ const ensureExtensionInstalled = async (): Promise<ExtensionInstallResult> => {
       force: true,
       filter: (source: string) => {
         const rel = relative(extensionSrc, source);
-        return rel === '' || !EXTENSION_COPY_EXCLUDE_PATTERN.test(rel);
+        if (rel === '') return true;
+        if (EXTENSION_COPY_EXCLUDE_PATTERN.test(rel)) return false;
+        // Preserve the adapters/ directory — plugin adapter IIFEs are written
+        // there at runtime by the MCP server and must not be overwritten.
+        if (rel === 'adapters' || rel.startsWith('adapters/') || rel.startsWith('adapters\\')) return false;
+        return true;
       },
     });
 

@@ -78,13 +78,17 @@ const installExtension = async (configDir: string): Promise<InstallExtensionResu
     }
   }
 
-  // Copy extension directory, skipping node_modules, src, .git, tsconfig*
+  // Copy extension directory, skipping node_modules, src, .git, tsconfig*,
+  // and preserving the adapters/ directory (written at runtime by the MCP server).
   cpSync(extensionSrc, extensionDest, {
     recursive: true,
     force: true,
     filter: (source: string) => {
       const rel = relative(extensionSrc, source);
-      return rel === '' || !EXTENSION_COPY_EXCLUDE_PATTERN.test(rel);
+      if (rel === '') return true;
+      if (EXTENSION_COPY_EXCLUDE_PATTERN.test(rel)) return false;
+      if (rel === 'adapters' || rel.startsWith('adapters/') || rel.startsWith('adapters\\')) return false;
+      return true;
     },
   });
 
