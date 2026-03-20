@@ -49,6 +49,7 @@ export {
   getLogFilePath,
   getPidFilePath,
   normalizePluginName,
+  PLATFORM_PACKAGES,
   PLUGIN_PREFIX,
   resolvePluginPackageCandidates,
   TOOLS_FILENAME,

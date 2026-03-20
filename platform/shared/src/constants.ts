@@ -59,6 +59,17 @@ export const getPidFilePath = (): string => join(getConfigDir(), 'server.pid');
 /** Prefix for opentabs plugin npm package names */
 export const PLUGIN_PREFIX = 'opentabs-plugin-';
 
+/** Core @opentabs-dev platform packages that are not installable plugins. */
+export const PLATFORM_PACKAGES = new Set([
+  '@opentabs-dev/browser-extension',
+  '@opentabs-dev/cli',
+  '@opentabs-dev/create-plugin',
+  '@opentabs-dev/mcp-server',
+  '@opentabs-dev/plugin-sdk',
+  '@opentabs-dev/plugin-tools',
+  '@opentabs-dev/shared',
+]);
+
 /**
  * Resolve all possible npm package names for a given plugin shorthand.
  *
