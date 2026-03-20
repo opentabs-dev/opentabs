@@ -1,5 +1,5 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
-import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './retool-api.js';
 import { changeUserName } from './tools/change-user-name.js';
 import { cloneApp } from './tools/clone-app.js';
@@ -29,6 +29,16 @@ class RetoolPlugin extends OpenTabsPlugin {
   override readonly displayName = 'Retool';
   readonly urlPatterns = ['*://*.retool.com/*'];
   override readonly homepage = 'https://retool.com';
+  override readonly configSchema: ConfigSchema = {
+    instanceUrl: {
+      type: 'url' as const,
+      label: 'Retool URL',
+      description:
+        'The URL of your self-hosted Retool instance (e.g., https://retool.example.com). Leave empty to use retool.com.',
+      required: false,
+      placeholder: 'https://retool.example.com',
+    },
+  };
   readonly tools: ToolDefinition[] = [
     // Users
     getCurrentUser,

@@ -21,7 +21,17 @@
     "description": "OpenTabs plugin for Retool",
     "urlPatterns": [
       "*://*.retool.com/*"
-    ]
+    ],
+    "homepage": "https://retool.com",
+    "configSchema": {
+      "instanceUrl": {
+        "type": "url",
+        "label": "Retool URL",
+        "description": "The URL of your self-hosted Retool instance (e.g., https://retool.example.com). Leave empty to use retool.com.",
+        "required": false,
+        "placeholder": "https://retool.example.com"
+      }
+    }
   },
   "exports": {
     ".": {
