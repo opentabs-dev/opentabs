@@ -1,0 +1,49 @@
+# Windows E2E Test Environment
+#
+# Runs a real Windows 10 LTSC VM via dockur/windows (QEMU/KVM) for testing
+# OpenTabs on actual Windows. Requires a Linux host with KVM support.
+#
+# Usage:
+#   ssh pc "cd ~/workspace/opentabs && bash e2e/windows/run.sh"
+#
+# The VM boots Windows, silently installs Node.js 22 + Git via the OEM
+# install.bat script, clones the repo, builds, and runs the test suite.
+# Results are written to the ./results/ shared folder.
+#
+# Windows 10 LTSC is used because it's the smallest image (4.6 GB),
+# boots fastest, and has the longest support lifecycle. It represents
+# the most common Windows environment our users run on.
+
+services:
+  windows:
+    image: dockurr/windows
+    container_name: opentabs-windows-e2e
+    environment:
+      # Windows 10 LTSC — smallest image, fastest boot
+      VERSION: "10l"
+      # Generous resources for npm install + tsc build
+      RAM_SIZE: "8G"
+      CPU_CORES: "8"
+      DISK_SIZE: "40G"
+      # Credentials for RDP debugging
+      USERNAME: "opentabs"
+      PASSWORD: "opentabs"
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    ports:
+      # Web-based VNC viewer for debugging
+      - "8006:8006"
+      # RDP for interactive debugging
+      - "3389:3389/tcp"
+      - "3389:3389/udp"
+    volumes:
+      # Persistent VM storage (survives restarts, skip reinstall)
+      - ./storage:/storage
+      # OEM scripts — copied to C:\OEM, install.bat runs post-install
+      - ./oem:/oem
+      # Shared folder — mapped to C:\Users\opentabs\Desktop\Shared
+      - ./results:/shared
+    stop_grace_period: 2m

@@ -1,0 +1,5 @@
+# VM storage (Windows disk image, ~20+ GB)
+storage/
+
+# Test results (generated per run)
+results/
