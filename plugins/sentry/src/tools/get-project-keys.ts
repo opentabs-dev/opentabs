@@ -28,7 +28,9 @@ export const getProjectKeys = defineTool({
   }),
   handle: async params => {
     const orgSlug = getOrgSlug();
-    const { data } = await sentryApi<Record<string, unknown>[]>(`/projects/${orgSlug}/${encodeURIComponent(params.project_slug)}/keys/`);
+    const { data } = await sentryApi<Record<string, unknown>[]>(
+      `/projects/${orgSlug}/${encodeURIComponent(params.project_slug)}/keys/`,
+    );
     return {
       keys: (Array.isArray(data) ? data : []).map(k => {
         const dsn = (k.dsn as Record<string, unknown>) ?? {};
