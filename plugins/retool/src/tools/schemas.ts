@@ -222,14 +222,47 @@ export const mapResource = (r: RawResource) => ({
   updated_at: r.production?.updatedAt ?? '',
 });
 
+// --- Resource Folder ---
+
+export const resourceFolderSchema = z.object({
+  id: z.number().describe('Resource folder ID'),
+  name: z.string().describe('Folder name'),
+  parent_folder_id: z.number().nullable().describe('Parent folder ID'),
+  organization_id: z.number().describe('Organization ID'),
+  system_folder: z.boolean().describe('Whether the folder is a system folder'),
+  access_level: z.string().describe('Access level for the current user'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export interface RawResourceFolder {
+  id?: number;
+  name?: string;
+  parentFolderId?: number | null;
+  organizationId?: number;
+  systemFolder?: boolean;
+  accessLevel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapResourceFolder = (f: RawResourceFolder) => ({
+  id: f.id ?? 0,
+  name: f.name ?? '',
+  parent_folder_id: f.parentFolderId ?? null,
+  organization_id: f.organizationId ?? 0,
+  system_folder: f.systemFolder ?? false,
+  access_level: f.accessLevel ?? '',
+  created_at: f.createdAt ?? '',
+  updated_at: f.updatedAt ?? '',
+});
+
 // --- Workflow ---
 
 export const workflowSchema = z.object({
-  id: z.number().describe('Numeric workflow ID'),
+  id: z.string().describe('Workflow ID (UUID)'),
   name: z.string().describe('Workflow name'),
-  uuid: z.string().describe('Workflow UUID'),
   folder_id: z.number().describe('Parent folder ID'),
-  organization_id: z.number().describe('Organization ID'),
   is_enabled: z.boolean().describe('Whether the workflow is enabled'),
   access_level: z.string().describe('Access level for the current user'),
   created_at: z.string().describe('ISO 8601 creation timestamp'),
@@ -237,11 +270,9 @@ export const workflowSchema = z.object({
 });
 
 export interface RawWorkflow {
-  id?: number;
+  id?: string | number;
   name?: string;
-  uuid?: string;
   folderId?: number;
-  organizationId?: number;
   isEnabled?: boolean;
   accessLevel?: string;
   createdAt?: string;
@@ -249,15 +280,90 @@ export interface RawWorkflow {
 }
 
 export const mapWorkflow = (w: RawWorkflow) => ({
-  id: w.id ?? 0,
+  id: String(w.id ?? ''),
   name: w.name ?? '',
-  uuid: w.uuid ?? '',
   folder_id: w.folderId ?? 0,
-  organization_id: w.organizationId ?? 0,
   is_enabled: w.isEnabled ?? false,
   access_level: w.accessLevel ?? '',
   created_at: w.createdAt ?? '',
   updated_at: w.updatedAt ?? '',
+});
+
+// --- Workflow Run ---
+
+export const workflowRunSchema = z.object({
+  id: z.string().describe('Workflow run ID'),
+  status: z.string().describe('Run status (e.g., success, failed, running)'),
+  trigger_type: z.string().describe('How the run was triggered (e.g., manual, webhook, schedule)'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  execution_time_ms: z.number().describe('Time taken to execute in milliseconds'),
+  input_data_size_bytes: z.number().describe('Input data size in bytes'),
+  output_data_size_bytes: z.number().describe('Output data size in bytes'),
+});
+
+export interface RawWorkflowRun {
+  id?: string;
+  status?: string;
+  triggerType?: string;
+  createdAt?: string;
+  timeTakenToExecuteWorkflow?: number | string;
+  inputDataSizeBytes?: number | string;
+  outputDataSizeBytes?: number | string;
+}
+
+export const mapWorkflowRun = (r: RawWorkflowRun) => ({
+  id: r.id ?? '',
+  status: r.status ?? '',
+  trigger_type: r.triggerType ?? '',
+  created_at: r.createdAt ?? '',
+  execution_time_ms: Number(r.timeTakenToExecuteWorkflow ?? 0),
+  input_data_size_bytes: Number(r.inputDataSizeBytes ?? 0),
+  output_data_size_bytes: Number(r.outputDataSizeBytes ?? 0),
+});
+
+// --- Workflow Trigger ---
+
+export const workflowTriggerSchema = z.object({
+  id: z.string().describe('Trigger ID'),
+  trigger_type: z.string().describe('Trigger type (e.g., webhook, schedule)'),
+  crontab: z.string().describe('Cron expression for schedule triggers'),
+  timezone: z.string().describe('Timezone for schedule triggers'),
+  environment_id: z.string().describe('Associated environment ID'),
+});
+
+export interface RawWorkflowTrigger {
+  id?: string;
+  triggerType?: string;
+  triggerOptions?: { crontab?: string; timezone?: string };
+  environmentId?: string;
+}
+
+export const mapWorkflowTrigger = (t: RawWorkflowTrigger) => ({
+  id: t.id ?? '',
+  trigger_type: t.triggerType ?? '',
+  crontab: t.triggerOptions?.crontab ?? '',
+  timezone: t.triggerOptions?.timezone ?? '',
+  environment_id: t.environmentId ?? '',
+});
+
+// --- Workflow Release ---
+
+export const workflowReleaseSchema = z.object({
+  version: z.number().describe('Release version number'),
+  deployer: z.string().describe('User who deployed this release'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+});
+
+export interface RawWorkflowRelease {
+  version?: number;
+  deployer?: string;
+  createdAt?: string;
+}
+
+export const mapWorkflowRelease = (r: RawWorkflowRelease) => ({
+  version: r.version ?? 0,
+  deployer: r.deployer ?? '',
+  created_at: r.createdAt ?? '',
 });
 
 // --- Environment ---
@@ -372,23 +478,136 @@ export const mapUserSpace = (s: RawUserSpace) => ({
 export const playgroundQuerySchema = z.object({
   id: z.number().describe('Query ID'),
   name: z.string().describe('Query name'),
-  query: z.string().describe('Query text'),
-  resource_id: z.number().describe('Resource ID'),
+  uuid: z.string().describe('Query UUID'),
+  query: z.string().describe('SQL or query text'),
+  resource_id: z.number().describe('Associated resource ID'),
+  resource_uuid: z.string().describe('Associated resource UUID'),
+  shared: z.boolean().describe('Whether the query is shared with the organization'),
+  editor_name: z.string().describe('Name of the last editor'),
   created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
 });
 
 export interface RawPlaygroundQuery {
   id?: number;
   name?: string;
+  uuid?: string;
   query?: string;
   resourceId?: number;
+  resourceUuid?: string;
+  shared?: boolean;
+  editorName?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export const mapPlaygroundQuery = (q: RawPlaygroundQuery) => ({
   id: q.id ?? 0,
   name: q.name ?? '',
+  uuid: q.uuid ?? '',
   query: q.query ?? '',
   resource_id: q.resourceId ?? 0,
+  resource_uuid: q.resourceUuid ?? '',
+  shared: q.shared ?? false,
+  editor_name: q.editorName ?? '',
   created_at: q.createdAt ?? '',
+  updated_at: q.updatedAt ?? '',
+});
+
+// --- Agent ---
+
+export const agentSchema = z.object({
+  id: z.number().describe('Agent ID'),
+  name: z.string().describe('Agent name'),
+  uuid: z.string().describe('Agent UUID'),
+  description: z.string().describe('Agent description'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export interface RawAgent {
+  id?: number;
+  name?: string;
+  uuid?: string;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapAgent = (a: RawAgent) => ({
+  id: a.id ?? 0,
+  name: a.name ?? '',
+  uuid: a.uuid ?? '',
+  description: a.description ?? '',
+  created_at: a.createdAt ?? '',
+  updated_at: a.updatedAt ?? '',
+});
+
+// --- Page Save (edit history entry) ---
+
+export const pageSaveSchema = z.object({
+  id: z.number().describe('Save ID'),
+  user_email: z.string().describe('Email of user who saved'),
+  commit_message: z.string().describe('Commit/change message'),
+  is_released: z.boolean().describe('Whether this save was released'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+});
+
+export interface RawPageSave {
+  id?: number;
+  user?: { email?: string };
+  commitMessage?: string;
+  isReleased?: boolean;
+  createdAt?: string;
+}
+
+export const mapPageSave = (s: RawPageSave) => ({
+  id: s.id ?? 0,
+  user_email: s.user?.email ?? '',
+  commit_message: s.commitMessage ?? '',
+  is_released: s.isReleased ?? false,
+  created_at: s.createdAt ?? '',
+});
+
+// --- App Tag (release/version) ---
+
+export const appTagSchema = z.object({
+  id: z.number().describe('Tag ID'),
+  name: z.string().describe('Tag name (e.g., v1.0)'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+});
+
+export interface RawAppTag {
+  id?: number;
+  name?: string;
+  createdAt?: string;
+}
+
+export const mapAppTag = (t: RawAppTag) => ({
+  id: t.id ?? 0,
+  name: t.name ?? '',
+  created_at: t.createdAt ?? '',
+});
+
+// --- Grid (Retool Database table) ---
+
+export const gridSchema = z.object({
+  id: z.string().describe('Grid ID'),
+  name: z.string().describe('Grid (table) name'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export interface RawGrid {
+  id?: string;
+  name?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapGrid = (g: RawGrid) => ({
+  id: g.id ?? '',
+  name: g.name ?? '',
+  created_at: g.createdAt ?? '',
+  updated_at: g.updatedAt ?? '',
 });

@@ -10,7 +10,7 @@ export const listPlaygroundQueries = defineTool({
     'List all saved playground queries for the current user and the organization. The playground allows running ad-hoc queries against connected resources.',
   summary: 'List saved playground queries',
   icon: 'terminal',
-  group: 'Playground',
+  group: 'Queries',
   input: z.object({}),
   output: z.object({
     user_queries: z.array(playgroundQuerySchema).describe('Personal saved queries'),
