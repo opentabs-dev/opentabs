@@ -2,7 +2,7 @@ import type * as ChildProcess from 'node:child_process';
 import { execFile } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { isErr, isOk } from '@opentabs-dev/shared';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { discoverGlobalNpmPlugins, isAllowedPluginPath, resetGlobalPathsCache, resolvePluginPath } from './resolver.js';
@@ -248,7 +248,7 @@ describe('resolvePluginPath — specifier format detection', () => {
     const parentPluginDir = join(tempDir, 'parent-plugin');
     createPluginDir(parentPluginDir);
 
-    const dirName = tempDir.split('/').pop() ?? '';
+    const dirName = basename(tempDir);
     const result = await resolvePluginPath(`../${dirName}/parent-plugin`, tempDir);
 
     expect(isOk(result)).toBe(true);

@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import type { ConfigSchema, LucideIconName, OpenTabsPlugin, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { z } from 'zod';
@@ -763,25 +763,26 @@ describe('readAndValidateIcons', () => {
 });
 
 describe('resolvePluginPathForComparison', () => {
-  const configDir = '/home/user/.opentabs';
+  const isWin = process.platform === 'win32';
+  const configDir = isWin ? 'C:\\Users\\user\\.opentabs' : '/home/user/.opentabs';
 
-  test('Unix absolute path is returned as-is', () => {
-    expect(resolvePluginPathForComparison('/Users/me/plugins/my-plugin', configDir)).toBe(
-      '/Users/me/plugins/my-plugin',
-    );
+  test('absolute path is returned as-is', () => {
+    const absPath = isWin ? 'C:\\Users\\me\\plugins\\my-plugin' : '/Users/me/plugins/my-plugin';
+    expect(resolvePluginPathForComparison(absPath, configDir)).toBe(absPath);
   });
 
   test('home-relative path is expanded against homedir', () => {
     const result = resolvePluginPathForComparison('~/plugins/my-plugin', configDir);
-    expect(result).toMatch(/^\/.*\/plugins\/my-plugin$/);
+    expect(isAbsolute(result)).toBe(true);
+    expect(result).toContain(join('plugins', 'my-plugin'));
     expect(result).not.toContain('~');
   });
 
   test('relative path is resolved against configDir', () => {
-    expect(resolvePluginPathForComparison('my-plugin', configDir)).toBe('/home/user/.opentabs/my-plugin');
+    expect(resolvePluginPathForComparison('my-plugin', configDir)).toBe(join(configDir, 'my-plugin'));
   });
 
   test('relative path with subdirectory components is resolved against configDir', () => {
-    expect(resolvePluginPathForComparison('../other/plugin', configDir)).toBe('/home/user/other/plugin');
+    expect(resolvePluginPathForComparison('../other/plugin', configDir)).toBe(resolve(configDir, '../other/plugin'));
   });
 });
