@@ -6,6 +6,8 @@
 [![Node.js](https://img.shields.io/badge/node-22%2B-brightgreen)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](https://github.com/opentabs-dev/opentabs/pulls)
+[![CI](https://github.com/opentabs-dev/opentabs/actions/workflows/ci.yml/badge.svg)](https://github.com/opentabs-dev/opentabs/actions/workflows/ci.yml)
+[![Docs](https://github.com/opentabs-dev/opentabs/actions/workflows/ci-docs.yml/badge.svg)](https://github.com/opentabs-dev/opentabs/actions/workflows/ci-docs.yml)
 
 **This is not another Playwright wrapper.**
 
