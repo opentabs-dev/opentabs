@@ -70,7 +70,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/cli": "^4.2.2",
     "@types/chrome": "^0.1.38",
-    "@types/node": "^22.15.0",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
