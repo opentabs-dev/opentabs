@@ -59,7 +59,7 @@
     "@storybook/react-vite": "^10.3.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/chrome": "^0.1.38",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.1",
     "esbuild": "^0.27.3",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
