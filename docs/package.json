@@ -49,7 +49,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/mdast": "^4.0.4",
-    "knip": "^5.84.1",
+    "knip": "^6.0.1",
     "postcss": "^8",
     "tailwindcss": "^4.0.14",
     "typescript": "^5"
