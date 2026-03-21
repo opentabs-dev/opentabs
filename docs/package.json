@@ -45,7 +45,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
     "@tailwindcss/postcss": "^4.0.14",
-    "@types/node": "^22.15.0",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/mdast": "^4.0.4",
