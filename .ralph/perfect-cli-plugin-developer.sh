@@ -78,6 +78,8 @@ Watch mode, iterative rebuild, verify server notification.
 
 ### Phase 6: Test ALL plugin management CLI commands
 Plugin search/install/list/remove, config show/set, server lifecycle, logs, audit.
+Also test the new tool commands: `opentabs tool list`, `opentabs tool list --plugin <name>`, `opentabs tool schema <tool>`, `opentabs tool call <tool> '{}'`.
+Test `plugin configure` with multi-instance URL prompting (enter name + URL pairs, add/remove instances).
 
 ### Phase 7: Test npx binary name resolution
 Test `npx opentabs-plugin build` and `npx @opentabs-dev/plugin-tools build` from outside a plugin directory.

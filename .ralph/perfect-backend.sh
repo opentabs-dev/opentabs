@@ -25,11 +25,19 @@ Read through ALL source files in each backend package. Do not skim — read ever
 
 ### Packages to audit (in order):
 
-1. **platform/mcp-server/src/** — the MCP server (highest priority, most complex)
-2. **platform/cli/src/** — the user-facing CLI
+1. **platform/mcp-server/src/** — the MCP server (highest priority, most complex). Includes:
+   - Tool dispatch pipeline with tabId and instance parameter injection (mcp-setup.ts, mcp-tool-dispatch.ts)
+   - MCP gateway endpoint with 2 meta-tools: opentabs_list_tools, opentabs_call (mcp-gateway.ts)
+   - HTTP tool endpoints: GET /tools, POST /tools/:name/call (http-routes.ts)
+   - Settings resolver with multi-instance URL pattern derivation and instanceMap (settings-resolver.ts)
+   - Plugin management with npm search filtering (plugin-management.ts)
+2. **platform/cli/src/** — the user-facing CLI. Includes:
+   - Tool commands: opentabs tool list/schema/call (commands/tool.ts)
+   - Plugin configure with multi-instance URL prompting (commands/plugin.ts)
+   - Start command showing full MCP, gateway MCP, and CLI-only connection options (commands/start.ts)
 3. **platform/plugin-tools/src/** — the plugin developer CLI
 4. **platform/create-plugin/src/** — the scaffolding CLI
-5. **platform/shared/src/** — shared utilities
+5. **platform/shared/src/** — shared utilities (PLATFORM_PACKAGES constant, config types)
 
 **Do NOT audit** (handled by dedicated scripts):
 - `platform/plugin-sdk/src/` — audited by perfect-sdk.sh

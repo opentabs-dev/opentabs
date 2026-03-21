@@ -64,12 +64,23 @@ For every page you create a story to update, the story MUST include updating `la
 - platform/plugin-sdk/src/index.ts — all SDK exports
 - platform/mcp-server/src/config.ts — config schema
 - platform/mcp-server/src/browser-tools/ — browser tool implementations
-- platform/mcp-server/src/mcp-setup.ts — MCP registration
-- platform/cli/src/cli.ts, platform/cli/src/commands/ — CLI commands
+- platform/mcp-server/src/mcp-setup.ts — MCP registration (tabId + instance parameter injection)
+- platform/mcp-server/src/mcp-gateway.ts — MCP gateway endpoint with 2 meta-tools (opentabs_list_tools, opentabs_call)
+- platform/mcp-server/src/settings-resolver.ts — multi-instance URL settings resolution, instanceMap
+- platform/mcp-server/src/http-routes.ts — HTTP endpoints including GET /tools and POST /tools/:name/call
+- platform/cli/src/cli.ts, platform/cli/src/commands/ — CLI commands including new `tool` command (tool list/schema/call)
+- platform/cli/src/commands/start.ts — start command showing all three connection modes (full MCP, gateway MCP, CLI-only)
 - platform/plugin-tools/src/cli.ts — plugin developer CLI
 - platform/create-plugin/src/index.ts — scaffolding CLI
-- platform/shared/src/constants.ts — DEFAULT_PORT and other constants
+- platform/shared/src/constants.ts — DEFAULT_PORT, PLATFORM_PACKAGES, and other constants
 - Root package.json — engines.node version
+
+### Key features to verify docs cover:
+
+- **Multi-instance plugins**: url-type config fields accept Record<string, string> (instance name → URL), instance parameter injection on tools, per-tab config resolution, plugin_list_tabs instance labels
+- **CLI tool interface**: `opentabs tool list`, `opentabs tool schema`, `opentabs tool call` commands
+- **MCP gateway**: /mcp/gateway endpoint with opentabs_list_tools and opentabs_call meta-tools
+- **Three connection modes**: full MCP (/mcp), gateway MCP (/mcp/gateway), CLI-only (opentabs tool call)
 
 ### What NOT to report (domain-specific):
 

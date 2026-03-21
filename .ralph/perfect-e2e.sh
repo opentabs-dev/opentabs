@@ -32,6 +32,11 @@ Start with shared infrastructure that all tests depend on:
 8. e2e/global-teardown.ts — Playwright global teardown
 9. e2e/orphan-guard.ts — orphan process cleanup
 
+Key recent test files to pay special attention to:
+- e2e/multi-instance.e2e.ts — multi-instance plugin dispatch (uses localhost vs 127.0.0.1 as distinct instances)
+- e2e/tool-http-api.e2e.ts — HTTP tool endpoints (GET /tools, POST /tools/:name/call)
+- e2e/mcp-gateway.e2e.ts — MCP gateway endpoint (/mcp/gateway with 2 meta-tools)
+
 ## Step 3: Systematically audit all E2E test files
 
 Read through ALL test files in e2e/. Do not skim — read every test case, every assertion, every setup/teardown block. Discover all *.e2e.ts files dynamically.

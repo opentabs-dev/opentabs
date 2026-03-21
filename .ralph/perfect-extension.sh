@@ -25,10 +25,10 @@ Read every file in the Chrome extension source:
 - platform/browser-extension/src/side-panel-toggle.ts
 - platform/browser-extension/src/confirmation-badge.ts
 - platform/browser-extension/src/tab-state.ts
-- platform/browser-extension/src/iife-injection.ts
+- platform/browser-extension/src/iife-injection.ts (includes resolvePerTabSettings for multi-instance per-tab config injection, instanceMap propagation through 4 injection paths)
 - platform/browser-extension/src/network-capture.ts
 - platform/browser-extension/src/rate-limiter.ts
-- platform/browser-extension/src/message-router.ts
+- platform/browser-extension/src/message-router.ts (includes parseInstanceMap, instanceMap on ValidatedPluginPayload)
 - platform/browser-extension/src/plugin-storage.ts
 
 ### Offscreen document
@@ -41,9 +41,14 @@ Read every file in the Chrome extension source:
 - platform/browser-extension/src/side-panel/components/*.tsx
 - platform/browser-extension/src/side-panel/constants.ts
 
+### Tool dispatch
+- platform/browser-extension/src/tool-dispatch.ts
+- platform/browser-extension/src/dispatch-helpers.ts
+
 ### Shared types, constants, and build
-- platform/browser-extension/src/extension-messages.ts
+- platform/browser-extension/src/extension-messages.ts (includes PluginMeta with instanceMap, resolvedSettings as Record<string, unknown>)
 - platform/browser-extension/src/constants.ts
+- platform/browser-extension/src/tab-matching.ts
 - platform/browser-extension/build-extension.ts
 - platform/browser-extension/build-side-panel.ts
 

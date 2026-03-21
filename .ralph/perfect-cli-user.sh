@@ -67,11 +67,13 @@ docker exec opentabs-ux-test bash -c 'COMMAND 1>/tmp/cmd-stdout.txt 2>/tmp/cmd-s
 
 **Config management:** config show, config show --json, config show --show-secret, config path, config set port 8080/9515, config set invalidkey foo, config set prot 9515 (typo), config set port notanumber/0/99999, config set browser-tool.browser_execute_script disabled/enabled, config set browser-tool.nonexistent_tool disabled, config set localPlugins.add /tmp/nonexistent, config reset (without/with --confirm), config rotate-secret (without/with --confirm)
 
-**Plugin management:** plugin, plugin search, plugin search slack, plugin search nonexistent, plugin list/list --json, plugin install slack, plugin list --verbose, plugin remove slack (without/with --confirm), plugin install slack again, plugin install nonexistent-plugin, plugin create test-plugin --domain .example.com
+**Plugin management:** plugin, plugin search, plugin search slack, plugin search nonexistent, plugin list/list --json, plugin install slack, plugin list --verbose, plugin remove slack (without/with --confirm), plugin install slack again, plugin install nonexistent-plugin, plugin create test-plugin --domain .example.com, plugin configure slack (interactive instance URL setup)
+
+**Tool interface (CLI mode):** tool, tool list, tool list --json, tool list --plugin slack, tool list --plugin nonexistent, tool schema slack_send_message, tool schema nonexistent_tool, tool call browser_list_tabs, tool call nonexistent_tool '{}', tool call with malformed JSON
 
 **Server lifecycle:** start again (port conflict), stop, background mode (start --background, status, stop), stop when not running, custom port end-to-end (start --port 8888, status/doctor --port 8888)
 
-**Other:** opentabs update, start --show-config, every --help flag
+**Other:** opentabs update, start --show-config (verify all three connection modes: full MCP, gateway MCP, CLI-only are shown), every --help flag
 
 ### Phase 4: Config reset and fresh re-start
 config reset --confirm, config show, doctor, start again
