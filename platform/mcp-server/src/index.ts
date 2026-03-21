@@ -74,6 +74,8 @@ interface HotState {
   server: ServerInstance | null;
   transports: Map<string, WebStandardStreamableHTTPServerTransport>;
   sessionServers: McpServerInstance[];
+  gatewayTransports: Map<string, WebStandardStreamableHTTPServerTransport>;
+  gatewaySessionServers: McpServerInstance[];
   state: ServerState;
   actualPort: number;
   handlers: HotHandlers;
@@ -133,6 +135,9 @@ if (isHotReload) {
 const transports: Map<string, WebStandardStreamableHTTPServerTransport> =
   hotState?.transports ?? new Map<string, WebStandardStreamableHTTPServerTransport>();
 const sessionServers: McpServerInstance[] = hotState?.sessionServers ?? [];
+const gatewayTransports: Map<string, WebStandardStreamableHTTPServerTransport> =
+  hotState?.gatewayTransports ?? new Map<string, WebStandardStreamableHTTPServerTransport>();
+const gatewaySessionServers: McpServerInstance[] = hotState?.gatewaySessionServers ?? [];
 
 // ---------------------------------------------------------------------------
 // Reload orchestration — delegates to reload.ts
@@ -153,6 +158,8 @@ const handlers: HotHandlers = createHandlers({
   state,
   transports,
   sessionServers,
+  gatewayTransports,
+  gatewaySessionServers,
   getHotState,
 });
 
@@ -250,6 +257,8 @@ setHotState({
   server,
   transports,
   sessionServers,
+  gatewayTransports,
+  gatewaySessionServers,
   state,
   actualPort,
   reloadCount,

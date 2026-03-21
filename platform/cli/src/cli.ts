@@ -14,6 +14,7 @@ import {
   registerStartCommand,
   registerStatusCommand,
   registerStopCommand,
+  registerToolCommand,
   registerUpdateCommand,
 } from './commands/index.js';
 import { parsePort } from './parse-port.js';
@@ -50,6 +51,7 @@ registerAuditCommand(program);
 registerDoctorCommand(program);
 registerLogsCommand(program);
 registerPluginCommand(program);
+registerToolCommand(program);
 registerConfigCommand(program);
 registerUpdateCommand(program);
 

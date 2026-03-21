@@ -1,5 +1,6 @@
 import type { WsHandle } from '@opentabs-dev/shared';
 import { describe, expect, test } from 'vitest';
+import { z } from 'zod';
 import type { HotHandlers } from './http-routes.js';
 import {
   checkBearerAuth,
@@ -10,7 +11,7 @@ import {
 } from './http-routes.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import { buildRegistry } from './registry.js';
-import type { ExtensionConnection, PendingDispatch } from './state.js';
+import type { CachedBrowserTool, ExtensionConnection, PendingDispatch } from './state.js';
 import { createState, getAnyConnection, getMergedTabMapping, STATE_SCHEMA_VERSION } from './state.js';
 import { version } from './version.js';
 
@@ -231,8 +232,17 @@ const createTestHandlers = (
   const state = createState();
   const transports = new Map<string, never>();
   const sessionServers: McpServerInstance[] = [];
+  const gatewayTransports = new Map<string, never>();
+  const gatewaySessionServers: McpServerInstance[] = [];
   const getHotState = overrides.getHotState ?? (() => undefined);
-  const handlers = createHandlers({ state, transports, sessionServers, getHotState });
+  const handlers = createHandlers({
+    state,
+    transports,
+    sessionServers,
+    gatewayTransports,
+    gatewaySessionServers,
+    getHotState,
+  });
   return { handlers, state, transports };
 };
 
@@ -1304,6 +1314,710 @@ describe('multi-connection — wsClose scoping', () => {
 
     expect(body.extensionConnected).toBe(true);
     expect(body.extensionConnections).toBe(2);
+  });
+});
+
+/** Shape returned by the GET /tools endpoint */
+interface ToolEntry {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  plugin: string;
+}
+
+describe('GET /tools endpoint', () => {
+  test('returns 401 without bearer auth when secret is set', async () => {
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = 'test-secret';
+
+    const req = new Request('http://localhost:9876/tools', { headers: { Host: 'localhost:9876' } });
+    const res = await handlers.fetch(req, mockServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(401);
+  });
+
+  test('returns 200 with empty array when no plugins or browser tools', async () => {
+    const { handlers } = createTestHandlers();
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
+
+    // Only platform tools should be present
+    expect(tools.some(t => t.plugin === 'platform')).toBe(true);
+    expect(tools.filter(t => t.plugin === 'browser').length).toBe(0);
+  });
+
+  test('returns all tools annotated with plugin names', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
+
+    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    expect(slackTool).toBeDefined();
+    expect(slackTool?.plugin).toBe('slack');
+
+    const browserTool = tools.find(t => t.name === 'browser_list_tabs');
+    expect(browserTool).toBeDefined();
+    expect(browserTool?.plugin).toBe('browser');
+
+    const platformTool = tools.find(t => t.name === 'plugin_inspect');
+    expect(platformTool).toBeDefined();
+    expect(platformTool?.plugin).toBe('platform');
+  });
+
+  test('filters by plugin name with ?plugin= query param', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=slack');
+
+    expect(tools).toHaveLength(1);
+    expect(tools[0]?.name).toBe('slack_send_message');
+    expect(tools[0]?.plugin).toBe('slack');
+  });
+
+  test('filters to browser tools with ?plugin=browser', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+      { name: 'browser_screenshot', description: 'Screenshot', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=browser');
+
+    expect(tools).toHaveLength(2);
+    expect(tools.every(t => t.plugin === 'browser')).toBe(true);
+  });
+
+  test('returns empty array for nonexistent plugin filter', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=nonexistent');
+
+    expect(tools).toEqual([]);
+  });
+
+  test('returns tools with auth when secret is configured', async () => {
+    const secret = 'test-secret';
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = secret;
+
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools', {
+      Authorization: `Bearer ${secret}`,
+    });
+
+    expect(tools.some(t => t.name === 'browser_list_tabs')).toBe(true);
+  });
+
+  test('each tool entry has name, description, inputSchema, and plugin fields', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a Slack message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: { text: { type: 'string' } } },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
+
+    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    expect(slackTool).toBeDefined();
+    expect(slackTool?.name).toBe('slack_send_message');
+    // Description includes the original text (may have a [Disabled] prefix when permission is 'off')
+    expect(slackTool?.description).toContain('Send a Slack message');
+    expect(slackTool?.inputSchema).toBeDefined();
+    expect(typeof slackTool?.inputSchema).toBe('object');
+    expect(slackTool?.plugin).toBe('slack');
+  });
+
+  test('annotates tools from multiple plugins correctly', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send',
+              description: 'Send',
+              icon: 'chat',
+              input_schema: {},
+              output_schema: {},
+            },
+          ],
+        },
+        {
+          name: 'discord',
+          version: '2.0.0',
+          displayName: 'Discord',
+          urlPatterns: ['*://discord.com/*'],
+          excludePatterns: [],
+          source: 'local' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'read_messages',
+              displayName: 'Read',
+              description: 'Read',
+              icon: 'book',
+              input_schema: {},
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
+
+    expect(tools.find(t => t.name === 'slack_send_message')?.plugin).toBe('slack');
+    expect(tools.find(t => t.name === 'discord_read_messages')?.plugin).toBe('discord');
+    expect(tools.find(t => t.name === 'browser_list_tabs')?.plugin).toBe('browser');
+    expect(tools.find(t => t.name === 'plugin_inspect')?.plugin).toBe('platform');
+  });
+
+  test('filters to platform tools with ?plugin=platform', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send',
+              description: 'Send',
+              icon: 'chat',
+              input_schema: {},
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=platform');
+
+    expect(tools.length).toBeGreaterThan(0);
+    expect(tools.every(t => t.plugin === 'platform')).toBe(true);
+    expect(tools.some(t => t.name === 'plugin_inspect')).toBe(true);
+  });
+});
+
+/** Shape returned by the POST /tools/:name/call endpoint */
+interface ToolCallResponse {
+  content: Array<{ type: string; text: string }>;
+  isError?: boolean;
+}
+
+/** POST a JSON body to a route and parse the response */
+const postJson = async <T>(
+  handlers: HotHandlers,
+  url: string,
+  body: unknown,
+  headers?: Record<string, string>,
+): Promise<{ status: number; body: T }> => {
+  const req = new Request(url, {
+    method: 'POST',
+    headers: { Host: new URL(url).host, 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  });
+  const res = (await handlers.fetch(req, mockServer)) as Response;
+  return { status: res.status, body: (await res.json()) as T };
+};
+
+describe('POST /tools/:name/call endpoint', () => {
+  test('returns 401 without bearer auth when secret is set', async () => {
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = 'test-secret';
+
+    const req = new Request('http://localhost:9876/tools/some_tool/call', {
+      method: 'POST',
+      headers: { Host: 'localhost:9876', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arguments: {} }),
+    });
+    const res = (await handlers.fetch(req, mockServer)) as Response;
+
+    expect(res.status).toBe(401);
+  });
+
+  test('returns 404 for unknown tool', async () => {
+    const { handlers } = createTestHandlers();
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/nonexistent_tool/call',
+      { arguments: {} },
+    );
+
+    expect(status).toBe(404);
+    expect(body.isError).toBe(true);
+    expect(body.content[0]?.text).toContain('nonexistent_tool');
+  });
+
+  test('returns 400 for malformed tool call URL (empty tool name)', async () => {
+    const { handlers } = createTestHandlers();
+
+    const req = new Request('http://localhost:9876/tools//call', {
+      method: 'POST',
+      headers: { Host: 'localhost:9876', 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const res = (await handlers.fetch(req, mockServer)) as Response;
+
+    expect(res.status).toBe(400);
+  });
+
+  test('uses empty args when body has no arguments field', async () => {
+    const { handlers } = createTestHandlers();
+
+    // plugin_inspect is a platform tool — calling it with empty args returns an error
+    // about missing "plugin" field, confirming the handler was reached with empty args
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/plugin_inspect/call',
+      {},
+    );
+
+    expect(status).toBe(200);
+    expect(body.isError).toBe(true);
+    expect(body.content[0]?.text).toContain('plugin');
+  });
+
+  test('dispatches platform tool plugin_inspect', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [],
+        },
+      ],
+      [],
+    );
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/plugin_inspect/call',
+      { arguments: { plugin: 'slack' } },
+    );
+
+    expect(status).toBe(200);
+    expect(body.isError).toBeUndefined();
+    const parsed = JSON.parse(body.content[0]?.text ?? '{}');
+    expect(parsed.plugin).toBe('slack');
+  });
+
+  test('dispatches plugin tool and returns error when extension is not connected', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: { text: { type: 'string' } } },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    // Set permission to 'auto' so the tool is callable
+    state.pluginPermissions.slack = { permission: 'auto', reviewedVersion: '1.0.0' };
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/slack_send_message/call',
+      { arguments: { text: 'hello' } },
+    );
+
+    // Should return error because extension is not connected
+    expect(status).toBe(422);
+    expect(body.isError).toBe(true);
+    expect(body.content[0]?.text).toContain('Extension not connected');
+  });
+
+  test('returns 429 when rate limit is exceeded', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    // Exhaust the rate limit (30 calls per minute)
+    for (let i = 0; i < 30; i++) {
+      state.endpointCallTimestamps.set('/tools/call', [
+        ...(state.endpointCallTimestamps.get('/tools/call') ?? []),
+        Date.now(),
+      ]);
+    }
+
+    const req = new Request('http://localhost:9876/tools/some_tool/call', {
+      method: 'POST',
+      headers: { Host: 'localhost:9876', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ arguments: {} }),
+    });
+    const res = (await handlers.fetch(req, mockServer)) as Response;
+
+    expect(res.status).toBe(429);
+  });
+
+  test('works with auth when secret is configured', async () => {
+    const secret = 'test-secret';
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = secret;
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/plugin_inspect/call',
+      { arguments: { plugin: 'nonexistent' } },
+      { Authorization: `Bearer ${secret}` },
+    );
+
+    // plugin_inspect returns error for nonexistent plugin, confirming auth passed
+    expect(status).toBe(200);
+    expect(body.isError).toBe(true);
+    expect(body.content[0]?.text).toContain('not found');
+  });
+
+  test('dispatches browser tool and returns result', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    const mockBrowserTool: CachedBrowserTool = {
+      name: 'browser_test_tool',
+      description: 'A test browser tool',
+      inputSchema: { type: 'object', properties: { query: { type: 'string' } } },
+      tool: {
+        name: 'browser_test_tool',
+        description: 'A test browser tool',
+        input: z.object({ query: z.string().optional() }),
+        handler: async () => ({ result: 'success', items: [1, 2, 3] }),
+      },
+    };
+    state.cachedBrowserTools = [mockBrowserTool];
+    // Enable the browser plugin so tools are callable
+    state.pluginPermissions = { browser: { permission: 'auto' } };
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/browser_test_tool/call',
+      { arguments: { query: 'test' } },
+    );
+
+    expect(status).toBe(200);
+    expect(body.isError).toBeUndefined();
+    expect(body.content).toHaveLength(1);
+    expect(body.content[0]?.type).toBe('text');
+    const parsed = JSON.parse(body.content[0]?.text ?? '{}');
+    expect(parsed.result).toBe('success');
+    expect(parsed.items).toEqual([1, 2, 3]);
+  });
+
+  test('browser tool with disabled permission returns isError', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    const mockBrowserTool: CachedBrowserTool = {
+      name: 'browser_disabled_tool',
+      description: 'A disabled browser tool',
+      inputSchema: { type: 'object' },
+      tool: {
+        name: 'browser_disabled_tool',
+        description: 'A disabled browser tool',
+        input: z.object({}),
+        handler: async () => ({}),
+      },
+    };
+    state.cachedBrowserTools = [mockBrowserTool];
+    // Explicitly disable this specific tool
+    state.pluginPermissions = { browser: { permission: 'auto', tools: { browser_disabled_tool: 'off' } } };
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/browser_disabled_tool/call',
+      { arguments: {} },
+    );
+
+    expect(status).toBe(422);
+    expect(body.isError).toBe(true);
+    expect(body.content[0]?.text).toContain('disabled');
+  });
+
+  test('plugin tool with off permission returns error via checkToolCallable', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    // Default permission is 'off' — do not set pluginPermissions to auto
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/slack_send_message/call',
+      { arguments: {} },
+    );
+
+    // checkToolCallable returns an error for tools on plugins with 'off' permission
+    // The tool exists in the registry, but permission checks happen at dispatch time,
+    // so it reaches handlePluginToolCall which checks permission
+    expect(status).toBe(422);
+    expect(body.isError).toBe(true);
+  });
+
+  test('response content array matches MCP tools/call shape', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [],
+        },
+      ],
+      [],
+    );
+
+    // plugin_inspect returns structured JSON with plugin metadata
+    const { body } = await postJson<ToolCallResponse>(handlers, 'http://localhost:9876/tools/plugin_inspect/call', {
+      arguments: { plugin: 'slack' },
+    });
+
+    // Verify MCP-compatible response shape: content is an array of {type, text} objects
+    expect(Array.isArray(body.content)).toBe(true);
+    expect(body.content.length).toBeGreaterThan(0);
+    for (const item of body.content) {
+      expect(item.type).toBe('text');
+      expect(typeof item.text).toBe('string');
+    }
+  });
+
+  test('browser tool handler error returns isError with 422 status', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    const mockBrowserTool: CachedBrowserTool = {
+      name: 'browser_failing_tool',
+      description: 'A browser tool that fails',
+      inputSchema: { type: 'object' },
+      tool: {
+        name: 'browser_failing_tool',
+        description: 'A browser tool that fails',
+        input: z.object({}),
+        handler: async () => {
+          throw new Error('Something went wrong');
+        },
+      },
+    };
+    state.cachedBrowserTools = [mockBrowserTool];
+    state.pluginPermissions = { browser: { permission: 'auto' } };
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/browser_failing_tool/call',
+      { arguments: {} },
+    );
+
+    expect(status).toBe(422);
+    expect(body.isError).toBe(true);
+    expect(body.content[0]?.text).toContain('Something went wrong');
+  });
+
+  test('browser tool with invalid args returns validation error', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    const mockBrowserTool: CachedBrowserTool = {
+      name: 'browser_strict_tool',
+      description: 'A browser tool with strict input',
+      inputSchema: { type: 'object', properties: { tabId: { type: 'number' } }, required: ['tabId'] },
+      tool: {
+        name: 'browser_strict_tool',
+        description: 'A browser tool with strict input',
+        input: z.object({ tabId: z.number() }),
+        handler: async () => ({}),
+      },
+    };
+    state.cachedBrowserTools = [mockBrowserTool];
+    state.pluginPermissions = { browser: { permission: 'auto' } };
+
+    const { status, body } = await postJson<ToolCallResponse>(
+      handlers,
+      'http://localhost:9876/tools/browser_strict_tool/call',
+      { arguments: { tabId: 'not-a-number' } },
+    );
+
+    expect(status).toBe(422);
+    expect(body.isError).toBe(true);
   });
 });
 

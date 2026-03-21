@@ -30,8 +30,22 @@ import {
 } from './extension-protocol.js';
 import { getLogCount } from './log-buffer.js';
 import { log } from './logger.js';
+import { createGatewayMcpServer } from './mcp-gateway.js';
 import type { McpServerInstance } from './mcp-setup.js';
-import { createMcpServer, notifyToolListChanged } from './mcp-setup.js';
+import {
+  checkToolCallable,
+  createMcpServer,
+  getAllToolsList,
+  notifyToolListChanged,
+  PLATFORM_TOOL_NAMES,
+} from './mcp-setup.js';
+import type { DispatchCallbacks, RequestHandlerExtra } from './mcp-tool-dispatch.js';
+import {
+  handleBrowserToolCall,
+  handlePluginInspect,
+  handlePluginMarkReviewed,
+  handlePluginToolCall,
+} from './mcp-tool-dispatch.js';
 import { performConfigReload } from './reload.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
 import { sdkVersion } from './sdk-version.js';
@@ -47,6 +61,8 @@ interface RouteDeps {
   state: ServerState;
   transports: Map<string, WebStandardStreamableHTTPServerTransport>;
   sessionServers: McpServerInstance[];
+  gatewayTransports: Map<string, WebStandardStreamableHTTPServerTransport>;
+  gatewaySessionServers: McpServerInstance[];
   getHotState: GetHotState;
 }
 
@@ -403,6 +419,107 @@ const handleAudit = (url: URL, state: ServerState, req: Request): Response => {
   return Response.json(entries);
 };
 
+/** Tool listing endpoint (GET /tools) */
+const handleListTools = (req: Request, url: URL, state: ServerState): Response => {
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+
+  const pluginFilter = url.searchParams.get('plugin');
+  const allTools = getAllToolsList(state);
+
+  const annotated = allTools.map(t => {
+    if (state.cachedBrowserTools.some(bt => bt.name === t.name)) {
+      return { ...t, plugin: 'browser' };
+    }
+    if (PLATFORM_TOOL_NAMES.has(t.name)) {
+      return { ...t, plugin: 'platform' };
+    }
+    const lookup = state.registry.toolLookup.get(t.name);
+    return { ...t, plugin: lookup?.pluginName ?? 'unknown' };
+  });
+
+  const filtered = pluginFilter ? annotated.filter(t => t.plugin === pluginFilter) : annotated;
+
+  return Response.json(filtered);
+};
+
+/** Tool invocation endpoint (POST /tools/:name/call) */
+const handleToolCall = async (
+  req: Request,
+  url: URL,
+  state: ServerState,
+  sessionServers: McpServerInstance[],
+): Promise<Response> => {
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+  if (!checkEndpointRateLimit(state, '/tools/call', 30)) {
+    return new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '60' } });
+  }
+
+  // Extract tool name from URL: /tools/<name>/call
+  const match = url.pathname.match(/^\/tools\/([^/]+)\/call$/);
+  if (!match) return Response.json({ error: 'Invalid tool call URL' }, { status: 400 });
+  const toolName = match[1] as string;
+
+  const body = (await req.json().catch(() => null)) as { arguments?: Record<string, unknown> } | null;
+  const args = body?.arguments ?? {};
+
+  // Minimal RequestHandlerExtra for HTTP context (no MCP progress support)
+  const extra: RequestHandlerExtra = {
+    signal: AbortSignal.timeout(300_000),
+    sendNotification: () => Promise.resolve(),
+  };
+
+  const callbacks: DispatchCallbacks = {
+    onToolConfigChanged: () => {
+      for (const srv of sessionServers) notifyToolListChanged(srv);
+    },
+  };
+
+  // Platform tools: always available, bypass permissions
+  if (toolName === 'plugin_inspect') {
+    const result = await handlePluginInspect(state, args);
+    return Response.json(result);
+  }
+  if (toolName === 'plugin_mark_reviewed') {
+    const result = await handlePluginMarkReviewed(state, args, callbacks);
+    return Response.json(result);
+  }
+
+  // Browser tools
+  const cachedBt = state.cachedBrowserTools.find(c => c.name === toolName);
+  if (cachedBt) {
+    const result = await handleBrowserToolCall(state, toolName, args, cachedBt, extra, callbacks);
+    return Response.json(result, { status: result.isError ? 422 : 200 });
+  }
+
+  // Plugin tools
+  const callableCheck = checkToolCallable(state, toolName);
+  if (!callableCheck.ok) {
+    return Response.json({ content: [{ type: 'text', text: callableCheck.error }], isError: true }, { status: 404 });
+  }
+
+  const lookup = state.registry.toolLookup.get(toolName);
+  if (!lookup) {
+    return Response.json(
+      { content: [{ type: 'text', text: `Tool ${toolName} not found` }], isError: true },
+      { status: 404 },
+    );
+  }
+
+  const result = await handlePluginToolCall(
+    state,
+    toolName,
+    args,
+    callableCheck.pluginName,
+    callableCheck.toolName,
+    lookup,
+    extra,
+    callbacks,
+  );
+  return Response.json(result, { status: result.isError ? 422 : 200 });
+};
+
 /** Config/plugin rediscovery endpoint (POST /reload) */
 const handleReload = async (
   req: Request,
@@ -633,6 +750,110 @@ const handleMcp = async (
   return new Response('Method not allowed', { status: 405 });
 };
 
+/** MCP Gateway Streamable HTTP transport (/mcp/gateway — POST/GET/DELETE) */
+const handleGatewayMcp = async (
+  req: Request,
+  server: ServerAdapter,
+  state: ServerState,
+  transports: Map<string, WebStandardStreamableHTTPServerTransport>,
+  sessionServers: McpServerInstance[],
+): Promise<Response> => {
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+  server.timeout(req, 0);
+
+  const sessionId = req.headers.get('mcp-session-id');
+
+  if (req.method === 'POST') {
+    if (sessionId) {
+      const existingTransport = transports.get(sessionId);
+      if (existingTransport) {
+        return existingTransport.handleRequest(req);
+      }
+    }
+
+    if (!checkEndpointRateLimit(state, '/mcp/gateway-session-create', 5)) {
+      return new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '60' } });
+    }
+
+    const body: unknown = await req.json().catch(() => null);
+    if (body && isInitializeRequest(body)) {
+      let sessionServer: McpServerInstance | null = null;
+
+      const removeSession = (): void => {
+        if (sessionServer) {
+          const idx = sessionServers.indexOf(sessionServer);
+          if (idx !== -1) sessionServers.splice(idx, 1);
+          sessionServer = null;
+        }
+      };
+
+      const transport = new WebStandardStreamableHTTPServerTransport({
+        sessionIdGenerator: () => crypto.randomUUID(),
+        onsessioninitialized: (sid: string) => {
+          transports.set(sid, transport);
+          if (sessionServer) {
+            state.sessionTransportIds.set(sessionServer, sid);
+          }
+          log.info(`MCP gateway client connected (session: ${sid})`);
+        },
+        onsessionclosed: (sid: string) => {
+          transports.delete(sid);
+          removeSession();
+          log.info(`MCP gateway client disconnected (session: ${sid})`);
+        },
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          transports.delete(transport.sessionId);
+        }
+        removeSession();
+      };
+
+      try {
+        sessionServer = await createGatewayMcpServer(state);
+        sessionServers.push(sessionServer);
+        await sessionServer.connect(transport);
+        return await transport.handleRequest(req, { parsedBody: body });
+      } catch (err) {
+        removeSession();
+        throw err;
+      }
+    }
+
+    return Response.json(
+      {
+        jsonrpc: '2.0',
+        error: {
+          code: -32600,
+          message: 'Bad Request: missing session or not an initialize request',
+        },
+        id: null,
+      },
+      { status: 400 },
+    );
+  }
+
+  if (req.method === 'GET') {
+    const getTransport = sessionId ? transports.get(sessionId) : undefined;
+    if (getTransport) {
+      return getTransport.handleRequest(req);
+    }
+    return new Response('Missing or invalid session', { status: 400 });
+  }
+
+  if (req.method === 'DELETE') {
+    const delTransport = sessionId ? transports.get(sessionId) : undefined;
+    if (delTransport) {
+      return delTransport.handleRequest(req);
+    }
+    return new Response('Missing or invalid session', { status: 400 });
+  }
+
+  return new Response('Method not allowed', { status: 405 });
+};
+
 /** Dev-only: set outdated plugins for E2E testing (POST /__test/set-outdated) */
 const handleTestSetOutdated = async (req: Request, state: ServerState): Promise<Response> => {
   if (!isDev()) return new Response('Not Found', { status: 404 });
@@ -695,7 +916,7 @@ const handleTestSimulateUpdate = async (req: Request, state: ServerState): Promi
 // --- Main router ---
 
 const createHandleFetch =
-  ({ state, transports, sessionServers, getHotState }: RouteDeps) =>
+  ({ state, transports, sessionServers, gatewayTransports, gatewaySessionServers, getHotState }: RouteDeps) =>
   async (req: Request, server: ServerAdapter): Promise<Response | undefined> => {
     const url = new URL(req.url);
 
@@ -726,6 +947,9 @@ const createHandleFetch =
     if (url.pathname === '/ws-info' && req.method === 'GET') return handleWsInfo(req, url, state);
     if (url.pathname === '/health' && req.method === 'GET') return handleHealth(req, state, transports, getHotState);
     if (url.pathname === '/audit' && req.method === 'GET') return handleAudit(url, state, req);
+    if (url.pathname === '/tools' && req.method === 'GET') return handleListTools(req, url, state);
+    if (url.pathname.startsWith('/tools/') && url.pathname.endsWith('/call') && req.method === 'POST')
+      return handleToolCall(req, url, state, sessionServers);
     if (url.pathname === '/reload' && req.method === 'POST')
       return handleReload(req, state, sessionServers, transports);
     if (url.pathname === '/extension/reload' && req.method === 'POST') return handleExtensionReload(req, state);
@@ -734,6 +958,8 @@ const createHandleFetch =
     if (url.pathname === '/__test/set-outdated' && req.method === 'POST') return handleTestSetOutdated(req, state);
     if (url.pathname === '/__test/simulate-update' && req.method === 'POST')
       return handleTestSimulateUpdate(req, state);
+    if (url.pathname === '/mcp/gateway')
+      return handleGatewayMcp(req, server, state, gatewayTransports, gatewaySessionServers);
     if (url.pathname === '/mcp') return handleMcp(req, server, state, transports, sessionServers);
 
     return new Response('Not Found', { status: 404 });

@@ -171,7 +171,7 @@ const handleConfigShow = async (options: ConfigShowOptions & { port?: number }):
       const port = resolvePort(options);
       const mcpUrl = `http://127.0.0.1:${port}/mcp`;
       console.log('');
-      console.log(pc.dim('  MCP client config (add to your client):'));
+      console.log(pc.dim('  Connection modes:'));
       console.log('');
       printMcpClientConfigs(mcpUrl, secret, false, false);
     }
