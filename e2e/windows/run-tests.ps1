@@ -13,10 +13,12 @@
 # ============================================================================
 
 $ErrorActionPreference = "Continue"
-$RepoDir = "C:\opentabs"
-$SharedDir = "C:\Users\opentabs\Desktop\Shared"
+$RepoDir = if ($env:OPENTABS_REPO_DIR) { $env:OPENTABS_REPO_DIR } else { "C:\opentabs" }
+$SharedDir = if ($env:OPENTABS_RESULTS_DIR) { $env:OPENTABS_RESULTS_DIR } else { "C:\Users\opentabs\Desktop\Shared" }
 $ResultFile = Join-Path $SharedDir "results.log"
 $DetailFile = Join-Path $SharedDir "results-detail.log"
+
+New-Item -ItemType Directory -Path $SharedDir -Force | Out-Null
 
 function Log($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"

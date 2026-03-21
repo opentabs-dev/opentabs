@@ -43,3 +43,59 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  windows:
+    runs-on: windows-latest
+    concurrency:
+      group: windows-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test
+
+  windows-e2e:
+    needs: windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+    concurrency:
+      group: windows-e2e-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run Windows E2E tests
+        shell: pwsh
+        run: |
+          $env:OPENTABS_REPO_DIR = $PWD.Path
+          $env:OPENTABS_RESULTS_DIR = Join-Path $env:RUNNER_TEMP "windows-results"
+          powershell -ExecutionPolicy Bypass -File e2e/windows/run-tests.ps1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-e2e-results
+          path: ${{ runner.temp }}/windows-results/
+          retention-days: 7
