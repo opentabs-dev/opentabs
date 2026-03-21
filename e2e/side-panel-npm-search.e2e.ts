@@ -29,6 +29,7 @@ import {
   openSidePanel,
   setupAdapterSymlink,
   waitForExtensionConnected,
+  waitForLog,
 } from './helpers.js';
 
 /**
@@ -185,14 +186,17 @@ test.describe('Side panel npm search', () => {
     let mcpClient: ReturnType<typeof createMcpClient> | undefined;
 
     try {
+      // Verify the Slack plugin was discovered by the server before checking the UI.
+      // npm auto-discovery (npm root -g + scan) can be slow on macOS CI runners
+      // with cold npm caches — give it up to 90s.
+      await waitForLog(server, 'Discovered plugin: slack', 90_000);
+
       await waitForExtensionConnected(server);
 
       const sidePanelPage = await openSidePanel(context);
       await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
 
-      // Wait for the Slack plugin card to appear (discovered via npm auto-discovery).
-      // npm auto-discovery calls `npm root -g` and scans the isolated prefix directory,
-      // which can be slow in CI/Docker environments with cold npm caches.
+      // Wait for the Slack plugin card to appear in the side panel.
       const slackTrigger = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Slack' });
       await expect(slackTrigger).toBeVisible({ timeout: 60_000 });
 
