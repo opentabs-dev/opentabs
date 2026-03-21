@@ -249,6 +249,52 @@ const injectPluginConfig = async (tabId: number, settings: Record<string, unknow
 };
 
 /**
+ * Resolve per-tab settings for multi-instance plugins.
+ * For url-type fields stored as Record<string, string> (instance name → URL),
+ * replaces the map with the single URL value matching this tab's instance.
+ * Non-url fields (string, number, boolean) pass through unchanged.
+ */
+const resolvePerTabSettings = (
+  settings: Record<string, unknown>,
+  instanceMap: Record<string, string> | undefined,
+  tabUrl: string | undefined,
+): Record<string, unknown> => {
+  if (!instanceMap || !tabUrl) return settings;
+
+  let matchedInstance: string | undefined;
+  try {
+    const tabHost = new URL(tabUrl).hostname;
+    for (const [name, pattern] of Object.entries(instanceMap)) {
+      const patternHost = pattern.replace('*://', '').replace('/*', '');
+      if (tabHost === patternHost) {
+        matchedInstance = name;
+        break;
+      }
+    }
+  } catch {
+    // Invalid tabUrl — fall through without instance resolution
+  }
+
+  const resolved: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(settings)) {
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // url-type field stored as Record<string, string> — resolve to this instance's URL
+      const urlMap = value as Record<string, string>;
+      if (matchedInstance && urlMap[matchedInstance] !== undefined) {
+        resolved[key] = urlMap[matchedInstance];
+      } else {
+        // Fallback: use the first URL in the map
+        const firstValue = Object.values(urlMap)[0];
+        resolved[key] = firstValue ?? '';
+      }
+    } else {
+      resolved[key] = value;
+    }
+  }
+  return resolved;
+};
+
+/**
  * Inject an adapter file into a single tab via chrome.scripting.executeScript.
  *
  * Uses content-hashed filenames so each adapter version gets a unique path,
@@ -262,6 +308,8 @@ const injectAdapterFile = async (
   adapterHash?: string,
   adapterFilePath?: string,
   resolvedSettings?: Record<string, unknown>,
+  instanceMap?: Record<string, string>,
+  tabUrl?: string,
 ): Promise<void> => {
   // Inject relays in ISOLATED world before the adapter IIFE (MAIN world)
   // so postMessage listeners are in place when the adapter starts.
@@ -270,7 +318,10 @@ const injectAdapterFile = async (
 
   // Inject resolved settings into MAIN world before the adapter IIFE so
   // getConfig() returns values in onActivate and tool handlers.
-  await injectPluginConfig(tabId, resolvedSettings ?? {});
+  // For multi-instance plugins, resolve url-type fields to the single URL
+  // matching this tab's instance so getConfig('instanceUrl') returns a string.
+  const perTabSettings = resolvePerTabSettings(resolvedSettings ?? {}, instanceMap, tabUrl);
+  await injectPluginConfig(tabId, perTabSettings);
 
   const adapterFile = adapterFilePath ?? `adapters/${pluginName}.js`;
   try {
@@ -317,14 +368,21 @@ const injectAdapterFile = async (
   }
 };
 
+/** Tab ID with its current URL, returned by queryMatchingTabs */
+interface MatchedTab {
+  tabId: number;
+  url: string;
+}
+
 /**
- * Collect all unique tab IDs matching the given URL patterns,
+ * Collect all unique tabs matching the given URL patterns,
  * excluding tabs whose URL matches any exclude pattern.
  * Queries each pattern independently and deduplicates by tab ID.
+ * Returns tab IDs with their URLs for per-tab config resolution.
  */
-const queryMatchingTabIds = async (urlPatterns: string[], excludePatterns?: string[]): Promise<number[]> => {
+const queryMatchingTabs = async (urlPatterns: string[], excludePatterns?: string[]): Promise<MatchedTab[]> => {
   const seen = new Set<number>();
-  const ids: number[] = [];
+  const matched: MatchedTab[] = [];
   for (const pattern of urlPatterns) {
     try {
       const tabs = await chrome.tabs.query({ url: pattern });
@@ -339,14 +397,24 @@ const queryMatchingTabIds = async (urlPatterns: string[], excludePatterns?: stri
             continue;
           }
           seen.add(tab.id);
-          ids.push(tab.id);
+          matched.push({ tabId: tab.id, url: tab.url ?? '' });
         }
       }
     } catch (err) {
       console.warn(`[opentabs] chrome.tabs.query failed for pattern ${pattern}:`, err);
     }
   }
-  return ids;
+  return matched;
+};
+
+/**
+ * Collect all unique tab IDs matching the given URL patterns,
+ * excluding tabs whose URL matches any exclude pattern.
+ * Queries each pattern independently and deduplicates by tab ID.
+ */
+const queryMatchingTabIds = async (urlPatterns: string[], excludePatterns?: string[]): Promise<number[]> => {
+  const matched = await queryMatchingTabs(urlPatterns, excludePatterns);
+  return matched.map(t => t.tabId);
 };
 
 /**
@@ -434,17 +502,18 @@ const injectPluginIntoMatchingTabs = async (
   skipIfHashMatches?: string,
   excludePatterns?: string[],
   resolvedSettings?: Record<string, unknown>,
+  instanceMap?: Record<string, string>,
 ): Promise<number[]> => {
   if (!isSafePluginName(pluginName)) {
     console.warn(`[opentabs] Skipping injection for unsafe plugin name: ${pluginName}`);
     return [];
   }
 
-  const tabIds = await queryMatchingTabIds(urlPatterns, excludePatterns);
+  const matchedTabs = await queryMatchingTabs(urlPatterns, excludePatterns);
 
   // Process all tabs in parallel: check presence + inject
   const results = await Promise.allSettled(
-    tabIds.map(async tabId => {
+    matchedTabs.map(async ({ tabId, url }) => {
       if (!forceReinject && (await isAdapterPresent(tabId, pluginName))) {
         return tabId;
       }
@@ -467,7 +536,7 @@ const injectPluginIntoMatchingTabs = async (
         await prepareForReinjection(tabId);
       }
 
-      await injectAdapterFile(tabId, pluginName, adapterHash, adapterFile, resolvedSettings);
+      await injectAdapterFile(tabId, pluginName, adapterHash, adapterFile, resolvedSettings, instanceMap, url);
       return tabId;
     }),
   );
@@ -523,7 +592,15 @@ const injectPluginsIntoTab = async (tabId: number, tabUrl: string): Promise<void
   await Promise.allSettled(
     needsInjection.map(async plugin => {
       try {
-        await injectAdapterFile(tabId, plugin.name, plugin.adapterHash, plugin.adapterFile, plugin.resolvedSettings);
+        await injectAdapterFile(
+          tabId,
+          plugin.name,
+          plugin.adapterHash,
+          plugin.adapterFile,
+          plugin.resolvedSettings,
+          plugin.instanceMap,
+          tabUrl,
+        );
       } catch (err) {
         console.warn(`[opentabs] Injection failed for tab ${String(tabId)}, plugin ${plugin.name}:`, err);
       }
@@ -619,6 +696,7 @@ const reinjectStoredPlugins = async (): Promise<void> => {
         undefined,
         plugin.excludePatterns,
         plugin.resolvedSettings,
+        plugin.instanceMap,
       ),
     ),
   );

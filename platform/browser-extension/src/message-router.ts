@@ -134,6 +134,7 @@ interface ValidatedPluginPayload {
   adapterHash?: string;
   adapterFile?: string;
   resolvedSettings?: Record<string, unknown>;
+  instanceMap?: Record<string, string>;
   iconSvg?: string;
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
@@ -182,12 +183,28 @@ const toPluginMeta = (p: ValidatedPluginPayload): PluginMeta => ({
   adapterHash: p.adapterHash,
   adapterFile: p.adapterFile,
   resolvedSettings: p.resolvedSettings,
+  instanceMap: p.instanceMap,
   iconSvg: p.iconSvg,
   iconInactiveSvg: p.iconInactiveSvg,
   iconDarkSvg: p.iconDarkSvg,
   iconDarkInactiveSvg: p.iconDarkInactiveSvg,
   tools: p.tools,
 });
+
+/** Parse and validate an instanceMap (Record<string, string>) from a raw payload value. */
+const parseInstanceMap = (raw: unknown): Record<string, string> | undefined => {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
+  const obj = raw as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  let hasEntries = false;
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      result[key] = value;
+      hasEntries = true;
+    }
+  }
+  return hasEntries ? result : undefined;
+};
 
 /** Parse and validate a resolvedSettings object from a raw payload value.
  *  Accepts primitives (string, number, boolean) and plain objects (url field maps). */
@@ -289,6 +306,7 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
     adapterHash: typeof obj.adapterHash === 'string' ? obj.adapterHash : undefined,
     adapterFile: typeof obj.adapterFile === 'string' ? obj.adapterFile : undefined,
     resolvedSettings: parseResolvedSettings(obj.resolvedSettings),
+    instanceMap: parseInstanceMap(obj.instanceMap),
     iconSvg: typeof obj.iconSvg === 'string' ? obj.iconSvg : undefined,
     iconInactiveSvg: typeof obj.iconInactiveSvg === 'string' ? obj.iconInactiveSvg : undefined,
     iconDarkSvg: typeof obj.iconDarkSvg === 'string' ? obj.iconDarkSvg : undefined,
@@ -393,6 +411,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
         meta.adapterHash,
         meta.excludePatterns,
         meta.resolvedSettings,
+        meta.instanceMap,
       ),
     ),
   );
@@ -430,6 +449,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
       iconDarkSvg: p.iconDarkSvg,
       iconDarkInactiveSvg: p.iconDarkInactiveSvg,
       ...extractServerOnlyFields(raw),
+      ...(p.instanceMap ? { instanceMap: p.instanceMap } : {}),
     };
   });
 
@@ -508,6 +528,7 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
     undefined,
     meta.excludePatterns,
     meta.resolvedSettings,
+    meta.instanceMap,
   );
 
   // Report updated tab state to the server after re-injection so the MCP
@@ -537,6 +558,7 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
     iconDarkSvg: validated.iconDarkSvg,
     iconDarkInactiveSvg: validated.iconDarkInactiveSvg,
     ...extractServerOnlyFields(params),
+    ...(validated.instanceMap ? { instanceMap: validated.instanceMap } : {}),
   };
   const otherPlugins = existingCache.plugins.filter(p => p.name !== validated.name);
   updateServerStateCache({ plugins: [...otherPlugins, updatedPlugin] });

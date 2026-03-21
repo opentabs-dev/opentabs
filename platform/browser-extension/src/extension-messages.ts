@@ -258,6 +258,8 @@ export interface PluginMeta {
   adapterHash?: string;
   adapterFile?: string;
   resolvedSettings?: Record<string, unknown>;
+  /** Instance name → Chrome match pattern mapping for multi-instance url settings */
+  instanceMap?: Record<string, string>;
   iconSvg?: string;
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
