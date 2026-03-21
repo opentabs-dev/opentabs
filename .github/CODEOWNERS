@@ -1,0 +1,17 @@
+# Default — core team reviews everything
+* @opentabs-dev/core
+
+# Platform packages
+/platform/ @opentabs-dev/core
+
+# Plugins
+/plugins/ @opentabs-dev/core
+
+# Docs site
+/docs/ @opentabs-dev/core
+
+# E2E tests
+/e2e/ @opentabs-dev/core
+
+# CI/CD and GitHub configuration
+/.github/ @opentabs-dev/core
