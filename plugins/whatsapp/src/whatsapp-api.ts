@@ -436,10 +436,7 @@ export const deleteMessages = async (chat: WAChatModel, msgIds: string[]): Promi
 
 export const revokeMessages = async (chat: WAChatModel, msgIds: string[]): Promise<void> => {
   const mod = waRequire<{
-    sendRevokeMsgs: (
-      chat: WAChatModel,
-      msgSet: { type: string; list: WAMsgModel[] },
-    ) => Promise<unknown>;
+    sendRevokeMsgs: (chat: WAChatModel, msgSet: { type: string; list: WAMsgModel[] }) => Promise<unknown>;
   }>('WAWebChatSendMessages');
   if (!mod) throw ToolError.internal('WAWebChatSendMessages module not available');
   const msgs = chat.msgs.getModelsArray().filter(m => msgIds.includes(m.id._serialized));
