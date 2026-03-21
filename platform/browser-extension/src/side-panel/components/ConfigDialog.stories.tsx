@@ -19,7 +19,7 @@ const Wrapper = ({
   displayName = 'SQLPad',
 }: {
   schema: ConfigSchema;
-  resolved?: Record<string, string | number | boolean>;
+  resolved?: Record<string, unknown>;
   displayName?: string;
 }) => {
   const [open, setOpen] = useState(true);
@@ -145,7 +145,7 @@ const PreFilledValues: Story = {
     <Wrapper
       schema={preFilledSchema}
       resolved={{
-        instanceUrl: 'https://sqlpad.mycompany.com',
+        instanceUrl: { production: 'https://sqlpad.mycompany.com', staging: 'https://sqlpad.staging.mycompany.com' },
         apiToken: 'sk-abc123',
         maxResults: 50,
         enableNotifications: true,
