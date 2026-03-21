@@ -34,10 +34,16 @@ export const createTweet = defineTool({
       };
     }
 
-    const data = await graphqlMutation<{
-      data: { create_tweet: { tweet_results: { result: RawTweetResult } } };
-    }>('CreateTweet', variables);
+    const data = await graphqlMutation<Record<string, unknown>>('CreateTweet', variables);
 
-    return { tweet: mapTweet(data.data.create_tweet.tweet_results.result) };
+    const tweetResult = (data as any)?.data?.create_tweet?.tweet_results
+      ?.result as RawTweetResult | undefined;
+    if (!tweetResult) {
+      const errors = (data as any)?.errors;
+      const msg = Array.isArray(errors) ? errors.map((e: any) => e.message).join('; ') : undefined;
+      throw new Error(msg ?? `CreateTweet returned unexpected response: ${JSON.stringify(data).slice(0, 500)}`);
+    }
+
+    return { tweet: mapTweet(tweetResult) };
   },
 });
