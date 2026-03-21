@@ -783,7 +783,7 @@ const promptField = async (
   key: string,
   definition: ConfigSettingDefinition,
   currentValue: unknown,
-): Promise<string | number | boolean | undefined> => {
+): Promise<string | number | boolean | Record<string, string> | undefined> => {
   const label = definition.label || key;
   const required = definition.required === true;
   const hasCurrentValue = currentValue !== undefined && currentValue !== null;
@@ -855,7 +855,95 @@ const promptField = async (
     }
   }
 
-  // url or string
+  // url — multi-instance name→URL pairs
+  if (definition.type === 'url') {
+    const currentMap =
+      typeof currentValue === 'object' && currentValue !== null && !Array.isArray(currentValue)
+        ? (currentValue as Record<string, string>)
+        : {};
+    const currentEntries = Object.entries(currentMap);
+    const entries: Array<{ name: string; url: string }> = [];
+
+    let instanceNum = 1;
+    const promptInstance = async (
+      defaultName?: string,
+      defaultUrl?: string,
+    ): Promise<{ name: string; url: string }> => {
+      console.log(`  ${pc.dim(`Instance ${instanceNum}:`)}`);
+
+      let name = '';
+      while (true) {
+        const nameHint = defaultName ?? '';
+        const namePrompt = nameHint ? `    Name [${nameHint}]: ` : '    Name: ';
+        const nameAnswer = await rl.question(namePrompt);
+        name = nameAnswer.trim() || defaultName || '';
+        if (name.length === 0) {
+          console.log(pc.red('    Instance name is required.'));
+          continue;
+        }
+        if (entries.some(e => e.name === name)) {
+          console.log(pc.red(`    Instance name "${name}" is already used. Choose a different name.`));
+          continue;
+        }
+        break;
+      }
+
+      let url = '';
+      while (true) {
+        const urlHint = defaultUrl ?? definition.placeholder ?? '';
+        const urlPrompt = urlHint ? `    URL [${urlHint}]: ` : '    URL: ';
+        const urlAnswer = await rl.question(urlPrompt);
+        url = urlAnswer.trim() || defaultUrl || '';
+        if (url.length === 0) {
+          console.log(pc.red('    URL is required.'));
+          continue;
+        }
+        try {
+          new URL(url);
+        } catch {
+          console.log(pc.red('    Invalid URL. Enter a valid URL (e.g., https://example.com).'));
+          continue;
+        }
+        break;
+      }
+
+      return { name, url };
+    };
+
+    // Prompt for existing entries first (as defaults)
+    for (const [existingName, existingUrl] of currentEntries) {
+      const entry = await promptInstance(existingName, existingUrl);
+      entries.push(entry);
+      instanceNum++;
+    }
+
+    // If no existing entries, prompt for the first one
+    if (entries.length === 0) {
+      const entry = await promptInstance();
+      entries.push(entry);
+      instanceNum++;
+    }
+
+    // Ask to add more instances
+    while (true) {
+      const addMore = await rl.question('  Add another instance? (y/n) [n]: ');
+      if (addMore.trim().toLowerCase() === 'y') {
+        const entry = await promptInstance();
+        entries.push(entry);
+        instanceNum++;
+      } else {
+        break;
+      }
+    }
+
+    const result: Record<string, string> = {};
+    for (const entry of entries) {
+      result[entry.name] = entry.url;
+    }
+    return result;
+  }
+
+  // string
   const hint = hasCurrentValue ? String(currentValue) : (definition.placeholder ?? '');
   const prompt = hint ? `  Value [${hint}]: ` : '  Value: ';
 
@@ -866,14 +954,6 @@ const promptField = async (
     if (answer.trim() === '' && required) {
       console.log(pc.red('  This field is required.'));
       continue;
-    }
-    if (definition.type === 'url') {
-      try {
-        new URL(answer.trim());
-      } catch {
-        console.log(pc.red('  Invalid URL. Enter a valid URL (e.g., https://example.com).'));
-        continue;
-      }
     }
     return answer.trim();
   }
