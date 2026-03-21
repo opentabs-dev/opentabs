@@ -26,12 +26,51 @@ import {
   appendAuditEntry,
   consumeReviewToken,
   generateReviewToken,
+  getMergedTabMapping,
   getToolPermission,
   validateReviewToken,
 } from './state.js';
 
 /** Maximum concurrent tool dispatches per plugin to prevent tab performance degradation */
 const MAX_CONCURRENT_DISPATCHES_PER_PLUGIN = 5;
+
+/**
+ * Extract the hostname from a Chrome match pattern (e.g., `*://hostname/*` → `hostname`).
+ * Returns undefined if the pattern doesn't match the expected format.
+ */
+const hostnameFromPattern = (pattern: string): string | undefined => {
+  const match = pattern.match(/^\*:\/\/([^/]+)\/\*$/);
+  return match?.[1];
+};
+
+/**
+ * Find a tab matching a specific instance's Chrome match pattern within a plugin's
+ * tab mapping. Scans all extension connections' tab mappings for the plugin and
+ * returns the tab ID of the first tab whose URL hostname matches the pattern hostname.
+ * Prefers ready tabs over non-ready ones.
+ */
+const findTabForInstance = (state: ServerState, pluginName: string, pattern: string): number | undefined => {
+  const patternHost = hostnameFromPattern(pattern);
+  if (!patternHost) return undefined;
+
+  const mergedTabs = getMergedTabMapping(state);
+  const mapping = mergedTabs.get(pluginName);
+  if (!mapping) return undefined;
+
+  let fallback: number | undefined;
+  for (const tab of mapping.tabs) {
+    try {
+      const tabHost = new URL(tab.url).hostname;
+      if (tabHost === patternHost) {
+        if (tab.ready) return tab.tabId;
+        fallback ??= tab.tabId;
+      }
+    } catch {
+      // Skip tabs with invalid URLs
+    }
+  }
+  return fallback;
+};
 
 /** Keys that could trigger prototype pollution in JSON deserialization */
 const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -306,12 +345,13 @@ const handlePluginToolCall = async (
     if (askResult !== 'allow') return askResult;
   }
 
-  // Extract platform-injected tabId before validation — the plugin's own
-  // schema doesn't know about tabId, so it must be stripped before Ajv runs
-  // (otherwise plugins with additionalProperties: false would reject it).
+  // Extract platform-injected tabId and instance before validation — the plugin's
+  // own schema doesn't know about these, so they must be stripped before Ajv runs
+  // (otherwise plugins with additionalProperties: false would reject them).
   // Use destructuring instead of delete to avoid mutating the caller's object.
-  const { tabId: rawTabId, ...pluginArgs } = args;
+  const { tabId: rawTabId, instance: rawInstance, ...pluginArgs } = args;
   const tabId = typeof rawTabId === 'number' && Number.isInteger(rawTabId) && rawTabId > 0 ? rawTabId : undefined;
+  const instance = typeof rawInstance === 'string' && rawInstance.length > 0 ? rawInstance : undefined;
 
   // Validate args against the tool's JSON Schema before dispatching.
   // The validator is pre-compiled at discovery time for performance.
@@ -400,6 +440,42 @@ const handlePluginToolCall = async (
       };
     }
 
+    // Resolve instance name to a specific tab ID. When instance is provided,
+    // it takes precedence over tabId — match the tab whose URL corresponds
+    // to the instance's derived match pattern.
+    let resolvedTabId = tabId;
+    if (instance !== undefined) {
+      const plugin = state.registry.plugins.get(pluginName);
+      const pattern = plugin?.instanceMap?.[instance];
+      if (!pattern) {
+        success = false;
+        const validInstances = Object.keys(plugin?.instanceMap ?? {}).join(', ');
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Unknown instance "${instance}" for plugin "${pluginName}". Valid instances: ${validInstances}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      const matchingTabId = findTabForInstance(state, pluginName, pattern);
+      if (matchingTabId === undefined) {
+        success = false;
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `No open tab found for instance "${instance}" (pattern: ${pattern}). Open the ${instance} instance in your browser.`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      resolvedTabId = matchingTabId;
+    }
+
     log.debug('tool.call: dispatching', `${pluginName}/${toolBaseName}`);
 
     // Extract progressToken from MCP request _meta and build onProgress callback
@@ -418,7 +494,12 @@ const handlePluginToolCall = async (
     const result = await dispatchToExtension(
       state,
       'tool.dispatch',
-      { plugin: pluginName, tool: toolBaseName, input: pluginArgs, ...(tabId !== undefined && { tabId }) },
+      {
+        plugin: pluginName,
+        tool: toolBaseName,
+        input: pluginArgs,
+        ...(resolvedTabId !== undefined && { tabId: resolvedTabId }),
+      },
       { label: `${pluginName}/${toolBaseName}`, progressToken, onProgress },
     );
     const rawOutput = (result as Record<string, unknown>).output ?? result;
