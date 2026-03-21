@@ -108,16 +108,13 @@ export default function Home() {
             is an API
           </Text>
           <p className="mx-auto mb-10 max-w-xl text-muted-foreground text-sm leading-relaxed">
-            Web apps already have internal APIs — the same ones their frontends use. OpenTabs reverse-engineered them and
-            exposed them as{' '}
-            <Link
-              href="https://modelcontextprotocol.io/"
-              target="_blank"
-              className="underline underline-offset-4">
+            Web apps already have internal APIs — the same ones their frontends use. OpenTabs reverse-engineered them
+            and exposed them as{' '}
+            <Link href="https://modelcontextprotocol.io/" target="_blank" className="underline underline-offset-4">
               MCP tools
             </Link>{' '}
-            today. Your AI calls the same backend the frontend calls — through your browser, using your existing session.
-            No screenshots. No DOM. No guessing.
+            today. Your AI calls the same backend the frontend calls — through your browser, using your existing
+            session. No screenshots. No DOM. No guessing.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href="/docs/quick-start" passHref>
@@ -291,8 +288,8 @@ export default function Home() {
             Safe by default
           </Text>
           <p className="text-muted-foreground">
-            Your browser sessions are precious. Everything is off until you turn it on — and you control exactly how much
-            trust to give each plugin.
+            Your browser sessions are precious. Everything is off until you turn it on — and you control exactly how
+            much trust to give each plugin.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -328,11 +325,11 @@ export default function Home() {
               How is this different from browser automation (Playwright, Stagehand, Browser-Use)?
             </p>
             <p className="max-w-3xl text-muted-foreground text-sm leading-relaxed">
-              Browser automation simulates what a human would do — click, type, read the screen. Works on any site out of
-              the box, but the cost is speed, tokens, and the knowledge stays trapped in that one session. OpenTabs
-              plugins call the web app&apos;s internal APIs directly. A send-message tool isn&apos;t clicking a text box —
-              it&apos;s making the same API call the frontend makes. Fast, cheap on tokens, and the knowledge is packaged
-              into a reusable plugin. The tradeoff is you need a plugin per site, and internal APIs can change.
+              Browser automation simulates what a human would do — click, type, read the screen. Works on any site out
+              of the box, but the cost is speed, tokens, and the knowledge stays trapped in that one session. OpenTabs
+              plugins call the web app&apos;s internal APIs directly. A send-message tool isn&apos;t clicking a text box
+              — it&apos;s making the same API call the frontend makes. Fast, cheap on tokens, and the knowledge is
+              packaged into a reusable plugin. The tradeoff is you need a plugin per site, and internal APIs can change.
             </p>
           </div>
           <div>
@@ -346,7 +343,8 @@ export default function Home() {
               </Link>{' '}
               is the right long-term direction — websites opt in and expose tools to AI agents natively. But adoption
               depends on every service choosing to participate, and that takes years. OpenTabs is the proactive version:
-              reverse-engineer the APIs and expose them today. If WebMCP becomes widespread, plugins can evolve to use it.
+              reverse-engineer the APIs and expose them today. If WebMCP becomes widespread, plugins can evolve to use
+              it.
             </p>
           </div>
           <div>
@@ -354,8 +352,8 @@ export default function Home() {
             <p className="max-w-3xl text-muted-foreground text-sm leading-relaxed">
               If one works well for you, use it. OpenTabs started for apps that don&apos;t have MCP support. Along the
               way, I noticed: setting up separate API keys for each service adds up, public APIs sometimes have stricter
-              rate limits, and the web app is always the superset. I see OpenTabs and official servers as complementary —
-              mix and match.
+              rate limits, and the web app is always the superset. I see OpenTabs and official servers as complementary
+              — mix and match.
             </p>
           </div>
         </div>
