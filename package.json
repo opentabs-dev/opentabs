@@ -64,12 +64,12 @@
     "@babel/core": "^7.29.0",
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
-    "@biomejs/biome": "2.4.6",
+    "@biomejs/biome": "2.4.8",
     "@opentabs-dev/shared": "*",
     "@playwright/test": "^1.58.2",
     "@resvg/resvg-js": "^2.6.2",
-    "@tailwindcss/cli": "^4.2.1",
-    "@types/chrome": "^0.1.37",
+    "@tailwindcss/cli": "^4.2.2",
+    "@types/chrome": "^0.1.38",
     "@types/node": "^22.15.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -80,10 +80,10 @@
     "knip": "^6.0.1",
     "lefthook": "^2.1.3",
     "minimatch": "^10.2.4",
-    "tailwindcss": "^4.2.1",
+    "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
-    "ws": "^8.19.0"
+    "ws": "^8.20.0"
   }
 }
