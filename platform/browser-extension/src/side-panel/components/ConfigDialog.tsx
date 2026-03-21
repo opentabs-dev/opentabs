@@ -14,7 +14,7 @@ interface ConfigDialogProps {
   pluginName: string;
   displayName: string;
   configSchema: ConfigSchema;
-  resolvedSettings?: Record<string, string | number | boolean>;
+  resolvedSettings?: Record<string, unknown>;
 }
 
 const isValidUrl = (value: string): boolean => {
@@ -180,7 +180,7 @@ const ConfigDialog = ({
 /** Returns true when a plugin has required config fields that are not yet configured */
 const needsSetup = (
   configSchema: ConfigSchema | undefined,
-  resolvedSettings: Record<string, string | number | boolean> | undefined,
+  resolvedSettings: Record<string, unknown> | undefined,
 ): boolean => {
   if (!configSchema) return false;
   return Object.entries(configSchema).some(

@@ -345,8 +345,8 @@ export interface ConfigStatePlugin {
   update?: { latestVersion: string; updateCommand: string };
   /** Plugin's configuration schema, if declared */
   configSchema?: import('./manifest.js').ConfigSchema;
-  /** Resolved setting values for this plugin */
-  resolvedSettings?: Record<string, string | number | boolean>;
+  /** Resolved setting values for this plugin. url fields store the full Record<string, string> map. */
+  resolvedSettings?: Record<string, unknown>;
 }
 
 /** A plugin that failed discovery, sent to the side panel for display */

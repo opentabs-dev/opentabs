@@ -231,15 +231,12 @@ const injectReadinessRelay = async (tabId: number): Promise<void> => {
  * Sets globalThis.__openTabs.pluginConfig so getConfig() works in
  * onActivate and tool handlers. Must run before the adapter IIFE.
  */
-const injectPluginConfig = async (
-  tabId: number,
-  settings: Record<string, string | number | boolean>,
-): Promise<void> => {
+const injectPluginConfig = async (tabId: number, settings: Record<string, unknown>): Promise<void> => {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (config: Record<string, string | number | boolean>) => {
+      func: (config: Record<string, unknown>) => {
         const ot = ((globalThis as Record<string, unknown>).__openTabs ?? {}) as Record<string, unknown>;
         (globalThis as Record<string, unknown>).__openTabs = ot;
         ot.pluginConfig = config;
@@ -264,7 +261,7 @@ const injectAdapterFile = async (
   pluginName: string,
   adapterHash?: string,
   adapterFilePath?: string,
-  resolvedSettings?: Record<string, string | number | boolean>,
+  resolvedSettings?: Record<string, unknown>,
 ): Promise<void> => {
   // Inject relays in ISOLATED world before the adapter IIFE (MAIN world)
   // so postMessage listeners are in place when the adapter starts.
@@ -436,7 +433,7 @@ const injectPluginIntoMatchingTabs = async (
   adapterFile?: string,
   skipIfHashMatches?: string,
   excludePatterns?: string[],
-  resolvedSettings?: Record<string, string | number | boolean>,
+  resolvedSettings?: Record<string, unknown>,
 ): Promise<number[]> => {
   if (!isSafePluginName(pluginName)) {
     console.warn(`[opentabs] Skipping injection for unsafe plugin name: ${pluginName}`);

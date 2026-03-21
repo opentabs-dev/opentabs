@@ -257,7 +257,7 @@ export interface PluginMeta {
   sourcePath?: string;
   adapterHash?: string;
   adapterFile?: string;
-  resolvedSettings?: Record<string, string | number | boolean>;
+  resolvedSettings?: Record<string, unknown>;
   iconSvg?: string;
   iconInactiveSvg?: string;
   iconDarkSvg?: string;

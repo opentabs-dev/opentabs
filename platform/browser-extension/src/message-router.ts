@@ -133,7 +133,7 @@ interface ValidatedPluginPayload {
   sourcePath?: string;
   adapterHash?: string;
   adapterFile?: string;
-  resolvedSettings?: Record<string, string | number | boolean>;
+  resolvedSettings?: Record<string, unknown>;
   iconSvg?: string;
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
@@ -149,7 +149,7 @@ interface ServerOnlyPluginFields {
   sdkVersion?: string;
   update?: { latestVersion: string; updateCommand: string };
   configSchema?: ConfigSchema;
-  resolvedSettings?: Record<string, string | number | boolean>;
+  resolvedSettings?: Record<string, unknown>;
 }
 
 /** Extract server-only fields from a raw JSON payload with runtime type validation. */
@@ -165,7 +165,7 @@ const extractServerOnlyFields = (raw: Record<string, unknown> | undefined): Serv
     ? { configSchema: raw.configSchema as ConfigSchema }
     : {}),
   ...(raw?.resolvedSettings && typeof raw.resolvedSettings === 'object'
-    ? { resolvedSettings: raw.resolvedSettings as Record<string, string | number | boolean> }
+    ? { resolvedSettings: raw.resolvedSettings as Record<string, unknown> }
     : {}),
 });
 
@@ -189,14 +189,18 @@ const toPluginMeta = (p: ValidatedPluginPayload): PluginMeta => ({
   tools: p.tools,
 });
 
-/** Parse and validate a resolvedSettings object from a raw payload value. */
-const parseResolvedSettings = (raw: unknown): Record<string, string | number | boolean> | undefined => {
+/** Parse and validate a resolvedSettings object from a raw payload value.
+ *  Accepts primitives (string, number, boolean) and plain objects (url field maps). */
+const parseResolvedSettings = (raw: unknown): Record<string, unknown> | undefined => {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
   const obj = raw as Record<string, unknown>;
-  const result: Record<string, string | number | boolean> = {};
+  const result: Record<string, unknown> = {};
   let hasEntries = false;
   for (const [key, value] of Object.entries(obj)) {
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      result[key] = value;
+      hasEntries = true;
+    } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
       result[key] = value;
       hasEntries = true;
     }

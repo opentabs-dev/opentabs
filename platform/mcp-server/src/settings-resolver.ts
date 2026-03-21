@@ -16,8 +16,10 @@ interface ResolvedSettings {
   effectiveUrlPatterns: string[];
   /** Static homepage or derived from the first url-type setting value */
   effectiveHomepage: string | undefined;
-  /** Validated setting values (invalid values are excluded) */
-  resolvedValues: Record<string, string | number | boolean>;
+  /** Validated setting values (invalid values are excluded). url fields store the full Record<string, string> map. */
+  resolvedValues: Record<string, unknown>;
+  /** Instance name → Chrome match pattern mapping for multi-instance url settings */
+  instanceMap: Record<string, string>;
 }
 
 /**
@@ -51,8 +53,9 @@ const resolvePluginSettings = (
   userSettings: Record<string, unknown> | undefined,
 ): ResolvedSettings => {
   const derivedPatterns: string[] = [];
-  const resolvedValues: Record<string, string | number | boolean> = {};
+  const resolvedValues: Record<string, unknown> = {};
   let derivedHomepage: string | undefined;
+  let instanceMap: Record<string, string> = {};
 
   if (configSchema && userSettings) {
     for (const [key, definition] of Object.entries(configSchema)) {
@@ -60,19 +63,35 @@ const resolvePluginSettings = (
       if (rawValue === undefined || rawValue === null) continue;
 
       if (definition.type === 'url') {
-        if (typeof rawValue !== 'string' || rawValue.length === 0) {
-          log.warn(`Plugin "${pluginName}" setting "${key}": expected a URL string, got ${typeof rawValue} — skipping`);
+        if (typeof rawValue !== 'object' || rawValue === null || Array.isArray(rawValue)) {
+          log.warn(
+            `Plugin "${pluginName}" setting "${key}": expected a Record<string, string>, got ${typeof rawValue} — skipping`,
+          );
           continue;
         }
-        const pattern = deriveMatchPattern(rawValue);
-        if (!pattern) {
-          log.warn(`Plugin "${pluginName}" setting "${key}": invalid URL "${rawValue}" — skipping`);
-          continue;
+        const urlMap = rawValue as Record<string, string>;
+        const validEntries: Record<string, string> = {};
+        for (const [instanceName, url] of Object.entries(urlMap)) {
+          if (typeof url !== 'string' || url.length === 0) {
+            log.warn(
+              `Plugin "${pluginName}" setting "${key}" instance "${instanceName}": expected a URL string — skipping`,
+            );
+            continue;
+          }
+          const pattern = deriveMatchPattern(url);
+          if (!pattern) {
+            log.warn(
+              `Plugin "${pluginName}" setting "${key}" instance "${instanceName}": invalid URL "${url}" — skipping`,
+            );
+            continue;
+          }
+          derivedPatterns.push(pattern);
+          validEntries[instanceName] = pattern;
+          if (!derivedHomepage) derivedHomepage = url;
         }
-        derivedPatterns.push(pattern);
-        resolvedValues[key] = rawValue;
-        if (!derivedHomepage) {
-          derivedHomepage = rawValue;
+        if (Object.keys(validEntries).length > 0) {
+          instanceMap = { ...instanceMap, ...validEntries };
+          resolvedValues[key] = rawValue;
         }
       } else if (definition.type === 'string') {
         if (typeof rawValue === 'string') {
@@ -98,6 +117,7 @@ const resolvePluginSettings = (
     effectiveUrlPatterns: [...staticUrlPatterns, ...derivedPatterns],
     effectiveHomepage: staticHomepage ?? derivedHomepage,
     resolvedValues,
+    instanceMap,
   };
 };
 
