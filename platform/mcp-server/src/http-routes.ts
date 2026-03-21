@@ -31,7 +31,7 @@ import {
 import { getLogCount } from './log-buffer.js';
 import { log } from './logger.js';
 import type { McpServerInstance } from './mcp-setup.js';
-import { createMcpServer, notifyToolListChanged } from './mcp-setup.js';
+import { createMcpServer, getAllToolsList, notifyToolListChanged, PLATFORM_TOOL_NAMES } from './mcp-setup.js';
 import { performConfigReload } from './reload.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
 import { sdkVersion } from './sdk-version.js';
@@ -403,6 +403,30 @@ const handleAudit = (url: URL, state: ServerState, req: Request): Response => {
   return Response.json(entries);
 };
 
+/** Tool listing endpoint (GET /tools) */
+const handleListTools = (req: Request, url: URL, state: ServerState): Response => {
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+
+  const pluginFilter = url.searchParams.get('plugin');
+  const allTools = getAllToolsList(state);
+
+  const annotated = allTools.map(t => {
+    if (state.cachedBrowserTools.some(bt => bt.name === t.name)) {
+      return { ...t, plugin: 'browser' };
+    }
+    if (PLATFORM_TOOL_NAMES.has(t.name)) {
+      return { ...t, plugin: 'platform' };
+    }
+    const lookup = state.registry.toolLookup.get(t.name);
+    return { ...t, plugin: lookup?.pluginName ?? 'unknown' };
+  });
+
+  const filtered = pluginFilter ? annotated.filter(t => t.plugin === pluginFilter) : annotated;
+
+  return Response.json(filtered);
+};
+
 /** Config/plugin rediscovery endpoint (POST /reload) */
 const handleReload = async (
   req: Request,
@@ -726,6 +750,7 @@ const createHandleFetch =
     if (url.pathname === '/ws-info' && req.method === 'GET') return handleWsInfo(req, url, state);
     if (url.pathname === '/health' && req.method === 'GET') return handleHealth(req, state, transports, getHotState);
     if (url.pathname === '/audit' && req.method === 'GET') return handleAudit(url, state, req);
+    if (url.pathname === '/tools' && req.method === 'GET') return handleListTools(req, url, state);
     if (url.pathname === '/reload' && req.method === 'POST')
       return handleReload(req, state, sessionServers, transports);
     if (url.pathname === '/extension/reload' && req.method === 'POST') return handleExtensionReload(req, state);

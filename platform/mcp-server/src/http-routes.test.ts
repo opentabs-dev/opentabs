@@ -1307,6 +1307,187 @@ describe('multi-connection — wsClose scoping', () => {
   });
 });
 
+/** Shape returned by the GET /tools endpoint */
+interface ToolEntry {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  plugin: string;
+}
+
+describe('GET /tools endpoint', () => {
+  test('returns 401 without bearer auth when secret is set', async () => {
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = 'test-secret';
+
+    const req = new Request('http://localhost:9876/tools', { headers: { Host: 'localhost:9876' } });
+    const res = await handlers.fetch(req, mockServer);
+
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(401);
+  });
+
+  test('returns 200 with empty array when no plugins or browser tools', async () => {
+    const { handlers } = createTestHandlers();
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
+
+    // Only platform tools should be present
+    expect(tools.some(t => t.plugin === 'platform')).toBe(true);
+    expect(tools.filter(t => t.plugin === 'browser').length).toBe(0);
+  });
+
+  test('returns all tools annotated with plugin names', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
+
+    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    expect(slackTool).toBeDefined();
+    expect(slackTool?.plugin).toBe('slack');
+
+    const browserTool = tools.find(t => t.name === 'browser_list_tabs');
+    expect(browserTool).toBeDefined();
+    expect(browserTool?.plugin).toBe('browser');
+
+    const platformTool = tools.find(t => t.name === 'plugin_inspect');
+    expect(platformTool).toBeDefined();
+    expect(platformTool?.plugin).toBe('platform');
+  });
+
+  test('filters by plugin name with ?plugin= query param', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=slack');
+
+    expect(tools).toHaveLength(1);
+    expect(tools[0]?.name).toBe('slack_send_message');
+    expect(tools[0]?.plugin).toBe('slack');
+  });
+
+  test('filters to browser tools with ?plugin=browser', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.registry = buildRegistry(
+      [
+        {
+          name: 'slack',
+          version: '1.0.0',
+          displayName: 'Slack',
+          urlPatterns: ['*://app.slack.com/*'],
+          excludePatterns: [],
+          source: 'npm' as const,
+          iife: '(function(){})()',
+          tools: [
+            {
+              name: 'send_message',
+              displayName: 'Send Message',
+              description: 'Send a message',
+              icon: 'chat',
+              input_schema: { type: 'object', properties: {} },
+              output_schema: {},
+            },
+          ],
+        },
+      ],
+      [],
+    );
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+      { name: 'browser_screenshot', description: 'Screenshot', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=browser');
+
+    expect(tools).toHaveLength(2);
+    expect(tools.every(t => t.plugin === 'browser')).toBe(true);
+  });
+
+  test('returns empty array for nonexistent plugin filter', async () => {
+    const { handlers, state } = createTestHandlers();
+
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=nonexistent');
+
+    expect(tools).toEqual([]);
+  });
+
+  test('returns tools with auth when secret is configured', async () => {
+    const secret = 'test-secret';
+    const { handlers, state } = createTestHandlers();
+    state.wsSecret = secret;
+
+    state.cachedBrowserTools = [
+      { name: 'browser_list_tabs', description: 'List tabs', inputSchema: { type: 'object' }, tool: {} as never },
+    ];
+
+    const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools', {
+      Authorization: `Bearer ${secret}`,
+    });
+
+    expect(tools.some(t => t.name === 'browser_list_tabs')).toBe(true);
+  });
+});
+
 describe('multi-connection — wsOpen with explicit connectionId', () => {
   test('two connections with different IDs coexist', () => {
     const { handlers, state } = createTestHandlers();
