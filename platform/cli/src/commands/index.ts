@@ -6,4 +6,5 @@ export { registerPluginCommand } from './plugin.js';
 export { registerStartCommand } from './start.js';
 export { handleStatus, registerStatusCommand } from './status.js';
 export { registerStopCommand } from './stop.js';
+export { registerToolCommand } from './tool.js';
 export { registerUpdateCommand } from './update.js';
