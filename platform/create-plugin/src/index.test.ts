@@ -292,7 +292,7 @@ describe('create-opentabs-plugin CLI', () => {
       expect(lint.status ?? 1).toBe(0);
 
       // npm run format:check — scaffolded code must match biome format config out of the box
-      const formatCheck = spawnSync('npm', ['run', 'format:check'], { cwd: projectDir, env: buildEnv });
+      const formatCheck = spawnSync('npm', ['run', 'format:check'], { cwd: projectDir, env: buildEnv, shell: true });
       if ((formatCheck.status ?? 1) !== 0) {
         console.error('format:check stdout:', formatCheck.stdout.toString());
         console.error('format:check stderr:', formatCheck.stderr.toString());
