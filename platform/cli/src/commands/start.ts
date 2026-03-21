@@ -166,7 +166,7 @@ const printFirstTimeInstructions = (extensionDest: string, port: number, secret:
   console.log(`     b. Enable "Developer mode" (top-right toggle)`);
   console.log(`     c. Click "Load unpacked" and select: ${pc.cyan(extensionDest)}`);
   console.log('');
-  console.log('  2. Configure your MCP client:');
+  console.log('  2. Connect your AI agent (pick one):');
   console.log('');
   printMcpClientConfigs(mcpUrl, secret, false);
 };
@@ -222,22 +222,49 @@ const getMcpClientConfigs = (
 
 const printMcpClientConfigs = (mcpUrl: string, secret: string | null, primaryOnly = false, showHint = true): void => {
   const pad = '     ';
+  const gatewayUrl = mcpUrl.replace(/\/mcp$/, '/mcp/gateway');
   const configs = getMcpClientConfigs(mcpUrl, secret);
   const displayConfigs = primaryOnly ? configs.slice(0, 1) : configs;
 
+  // Section 1: Full MCP (recommended)
+  console.log(`${pad}${pc.bold('Full MCP')} ${pc.dim('(all tools — recommended for most users):')}`);
+  console.log('');
   for (const { label, file, json, cliCommand } of displayConfigs) {
     if (cliCommand) {
-      console.log(pc.dim(`${pad}${pc.bold(label)} — recommended, add via CLI:`));
-      console.log(pc.dim(`${pad}  ${cliCommand}`));
-      console.log('');
-      console.log(pc.dim(`${pad}${pc.bold(label)} — manual alternative (${file}):`));
-      console.log(pc.dim(indent(JSON.stringify(json, null, 2), pad)));
+      console.log(pc.dim(`${pad}  ${pc.bold(label)} — add via CLI:`));
+      console.log(pc.dim(`${pad}    ${cliCommand}`));
     } else {
-      console.log(pc.dim(`${pad}${pc.bold(label)} (${file}):`));
-      console.log(pc.dim(indent(JSON.stringify(json, null, 2), pad)));
+      console.log(pc.dim(`${pad}  ${pc.bold(label)} (${file}):`));
+      console.log(pc.dim(indent(JSON.stringify(json, null, 2), `${pad}  `)));
     }
     console.log('');
   }
+
+  // Section 2: Gateway MCP (2 meta-tools)
+  const gatewayConfigs = getMcpClientConfigs(gatewayUrl, secret);
+  const displayGatewayConfigs = primaryOnly ? gatewayConfigs.slice(0, 1) : gatewayConfigs;
+
+  console.log(`${pad}${pc.bold('Gateway MCP')} ${pc.dim('(2 meta-tools — minimal context footprint):')}`);
+  console.log('');
+  for (const { label, cliCommand } of displayGatewayConfigs) {
+    if (cliCommand) {
+      console.log(pc.dim(`${pad}  ${pc.bold(label)}:`));
+      // Replace the server name to avoid conflict with full MCP registration
+      const gatewayCli = cliCommand.replace(' opentabs ', ' opentabs-gateway ');
+      console.log(pc.dim(`${pad}    ${gatewayCli}`));
+    } else {
+      console.log(pc.dim(`${pad}  ${pc.bold(label)}: use URL ${gatewayUrl}`));
+    }
+    console.log('');
+  }
+
+  // Section 3: CLI only
+  console.log(`${pad}${pc.bold('CLI only')} ${pc.dim('(no MCP registration — use shell commands):')}`);
+  console.log('');
+  console.log(pc.dim(`${pad}  opentabs tool list                              ${pc.dim('# discover tools')}`));
+  console.log(pc.dim(`${pad}  opentabs tool schema <name>                     ${pc.dim('# view tool schema')}`));
+  console.log(pc.dim(`${pad}  opentabs tool call <name> '{"key": "value"}'    ${pc.dim('# invoke a tool')}`));
+  console.log('');
 
   if (primaryOnly) {
     const otherClients = configs
@@ -250,22 +277,12 @@ const printMcpClientConfigs = (mcpUrl: string, secret: string | null, primaryOnl
     console.log('');
   }
 
-  console.log(
-    pc.dim(
-      `${pad}For manual configuration, consult your MCP client's documentation for adding a Streamable HTTP server`,
-    ),
-  );
-  if (secret) {
-    console.log(pc.dim(`${pad}pointing to ${mcpUrl} with Authorization: Bearer ${secret}`));
-  } else {
-    console.log(pc.dim(`${pad}pointing to ${mcpUrl} with an Authorization: Bearer header`));
-  }
   if (!primaryOnly && showHint) {
     console.log(
       pc.dim(`${pad}Run ${pc.bold('opentabs config show --show-secret')} to see MCP client configuration at any time.`),
     );
+    console.log('');
   }
-  console.log('');
 };
 
 const handleStart = async (options: StartOptions): Promise<void> => {
@@ -290,7 +307,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   if (options.showConfig) {
     const secret = await ensureAuthSecret();
-    console.log(pc.dim('  MCP client config (add to your client):'));
+    console.log(pc.dim('  Connection modes:'));
     console.log('');
     printMcpClientConfigs(`http://127.0.0.1:${port}/mcp`, secret, false, false);
     process.exit(0);
@@ -343,6 +360,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
     console.log('');
     const label = (s: string) => `  ${pc.cyan(s.padEnd(15))}`;
     console.log(`${label('MCP endpoint:')}http://127.0.0.1:${port}/mcp`);
+    console.log(`${label('MCP gateway:')}http://127.0.0.1:${port}/mcp/gateway`);
     console.log(`${label('Health check:')}http://127.0.0.1:${port}/health`);
     console.log(`${label('Log file:')}${logFilePath}`);
     console.log('');
