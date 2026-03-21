@@ -144,7 +144,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: PW_WORKERS=3 npm run test:e2e
 
       - name: Upload Playwright report
         if: failure()
