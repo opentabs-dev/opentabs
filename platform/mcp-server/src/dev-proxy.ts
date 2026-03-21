@@ -53,10 +53,12 @@ interface ProxySession {
   workerSessionId: string;
   /** The JSON body of the client's initialize request (replayed to new workers). */
   initializeBody: unknown;
-  /** Active SSE response streams for this session (GET /mcp). */
+  /** Active SSE response streams for this session. */
   sseStreams: Set<ServerResponse>;
   /** Authorization header value from the client (forwarded to the worker). */
   authHeader: string | null;
+  /** Original URL path for this session (e.g., '/mcp' or '/mcp/gateway'). */
+  path: string;
   /**
    * The single upstream SSE connection to the worker for this session.
    * The MCP SDK enforces exactly one GET SSE stream per session — opening a
@@ -109,7 +111,7 @@ const reinitializeSessions = async (port: number): Promise<void> => {
         headers.Authorization = session.authHeader;
       }
 
-      const initRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      const initRes = await fetch(`http://127.0.0.1:${port}${session.path}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(session.initializeBody),
@@ -147,7 +149,7 @@ const reinitializeSessions = async (port: number): Promise<void> => {
         notifHeaders.Authorization = session.authHeader;
       }
 
-      await fetch(`http://127.0.0.1:${port}/mcp`, {
+      await fetch(`http://127.0.0.1:${port}${session.path}`, {
         method: 'POST',
         headers: notifHeaders,
         body: JSON.stringify({
@@ -362,7 +364,7 @@ const connectUpstreamSse = (session: ProxySession, port: number): void => {
     {
       hostname: '127.0.0.1',
       port,
-      path: '/mcp',
+      path: session.path,
       method: 'GET',
       headers,
     },
@@ -453,7 +455,8 @@ const handleMcpPost = async (req: IncomingMessage, res: ServerResponse, port: nu
       headers.Host = req.headers.host;
     }
 
-    const workerRes = await fetch(`http://127.0.0.1:${port}/mcp`, {
+    const mcpPath = req.url ?? '/mcp';
+    const workerRes = await fetch(`http://127.0.0.1:${port}${mcpPath}`, {
       method: 'POST',
       headers,
       body: bodyStr,
@@ -473,6 +476,7 @@ const handleMcpPost = async (req: IncomingMessage, res: ServerResponse, port: nu
         initializeBody: body,
         sseStreams: new Set(),
         authHeader: authHeader ?? null,
+        path: mcpPath,
         upstreamSse: null,
       };
       sessions.set(proxySessionId, session);
@@ -514,7 +518,7 @@ const handleMcpPost = async (req: IncomingMessage, res: ServerResponse, port: nu
         {
           hostname: '127.0.0.1',
           port,
-          path: '/mcp',
+          path: session.path,
           method: 'POST',
           headers: forwardHeaders,
         },
@@ -550,7 +554,7 @@ const handleMcpPost = async (req: IncomingMessage, res: ServerResponse, port: nu
     {
       hostname: '127.0.0.1',
       port,
-      path: '/mcp',
+      path: req.url ?? '/mcp',
       method: 'POST',
       headers: req.headers,
     },
@@ -648,7 +652,7 @@ const handleMcpDelete = (req: IncomingMessage, res: ServerResponse, port: number
     {
       hostname: '127.0.0.1',
       port,
-      path: '/mcp',
+      path: session.path,
       method: 'DELETE',
       headers: forwardHeaders,
     },
