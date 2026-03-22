@@ -243,13 +243,11 @@ See [CLAUDE.md](CLAUDE.md) for the full architecture documentation, plugin disco
 
 ## Publishing
 
-Platform packages are published to npm under the `@opentabs-dev` scope:
+Platform packages are published to npm via the "Publish Platform Packages" GitHub Actions workflow:
 
-```bash
-./scripts/publish.sh <version>
-```
-
-This bumps versions, rebuilds, and publishes in dependency order. See [CLAUDE.md](CLAUDE.md) for npm authentication setup.
+1. Go to **Actions** → **Publish Platform Packages** → **Run workflow**
+2. Enter the target version (e.g., `0.0.82`)
+3. The workflow bumps versions, builds, publishes in dependency order, updates plugins, and commits + tags
 
 ## Creating a Pull Request
 
