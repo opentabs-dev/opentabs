@@ -39,8 +39,8 @@ const config: KnipConfig = {
         'esbuild-plugin-babel.d.ts',
       ],
       ignoreDependencies: [
-        // CSS-only dependency imported via @import in styles.css (knip cannot trace CSS imports)
-        'tw-animate-css',
+        // Required at runtime by rolldown-vite (aliased as "vite") for Storybook builds
+        'rollup',
       ],
     },
     'platform/create-plugin': {},
