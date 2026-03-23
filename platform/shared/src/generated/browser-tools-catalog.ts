@@ -16,6 +16,14 @@ export interface BrowserToolMeta {
 
 export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
+    name: 'browser_batch_get_tab_content',
+    description:
+      'Extract text content from multiple tabs in parallel. Much faster than calling browser_get_tab_content multiple times. Returns an array of results with title, URL, and content for each tab. Tabs that fail (closed, navigating) return an error field instead of content.',
+    summary: 'Extract text from multiple tabs in parallel',
+    icon: 'files',
+    group: 'Page Inspection',
+  },
+  {
     name: 'browser_clear_console_logs',
     description: 'Clear the console log buffer for a browser tab without disabling capture.',
     summary: 'Clear captured console logs for a tab',
