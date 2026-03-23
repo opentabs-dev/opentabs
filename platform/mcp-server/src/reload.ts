@@ -546,6 +546,8 @@ const performConfigReload = async (
   await previousLink;
   const startTs = Date.now();
 
+  const previousPluginCount = state.registry.plugins.size;
+
   try {
     // Clear and restart the sweep timer so it uses fresh references
     restartSweepTimer(state, transports, sessionServers);
@@ -576,6 +578,14 @@ const performConfigReload = async (
     // so reloadCore itself does not notify — each caller is responsible.)
     for (const srv of sessionServers) {
       notifyToolListChanged(srv);
+    }
+
+    // If the plugin count changed, MCP clients likely need to refetch tools.
+    // Streamable HTTP transports silently drop server-initiated notifications
+    // when the client has no standalone SSE stream open (common with Claude Code).
+    // Log a hint so the user knows to reconnect.
+    if (previousPluginCount !== state.registry.plugins.size && sessionServers.length > 0) {
+      log.info('Plugin list changed — MCP clients may need to reconnect (/mcp in Claude Code) to pick up new tools');
     }
 
     log.info(`Config reload complete: ${state.registry.plugins.size} plugin(s) in ${Date.now() - startTs}ms`);

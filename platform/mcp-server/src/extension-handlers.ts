@@ -919,6 +919,10 @@ const handlePluginInstall = async (
       params: { ...buildConfigStatePayload(state) },
     });
 
+    log.info(
+      `Plugin "${result.plugin.name}" installed — MCP clients may need to reconnect (/mcp in Claude Code) to see new tools`,
+    );
+
     sendToExtension(state, {
       jsonrpc: '2.0',
       result,
@@ -949,6 +953,10 @@ const handlePluginUpdateFromRegistry = async (
       method: 'plugins.changed',
       params: { ...buildConfigStatePayload(state) },
     });
+
+    log.info(
+      `Plugin "${result.plugin.name}" updated — MCP clients may need to reconnect (/mcp in Claude Code) to see updated tools`,
+    );
 
     sendToExtension(state, {
       jsonrpc: '2.0',
@@ -985,6 +993,10 @@ const handlePluginRemove = async (
       method: 'plugins.changed',
       params: { ...buildConfigStatePayload(state) },
     });
+
+    log.info(
+      `Plugin "${pluginName}" removed — MCP clients may need to reconnect (/mcp in Claude Code) to see updated tools`,
+    );
 
     sendToExtension(state, {
       jsonrpc: '2.0',
