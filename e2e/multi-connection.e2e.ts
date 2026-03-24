@@ -596,6 +596,357 @@ test.describe('Multi-connection WebSocket support', () => {
     }
   });
 
+  // -------------------------------------------------------------------------
+  // Cross-profile browser tool dispatch tests
+  // -------------------------------------------------------------------------
+
+  test('browser_get_tab_content routes to the correct connection via browserTabOwnership', async ({
+    mcpServer,
+    mcpClient,
+  }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta');
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Set up handleListTabs on both connections
+      const handleListTabs = (ws: WebSocket, fakeTabs: Array<Record<string, unknown>>) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: fakeTabs }));
+            }
+          } catch {
+            // Ignore non-JSON
+          }
+        });
+      };
+
+      handleListTabs(wsAlpha, [
+        { id: 1001, title: 'Alpha Tab', url: 'http://localhost/alpha', active: true, windowId: 1 },
+      ]);
+      handleListTabs(wsBeta, [
+        { id: 2001, title: 'Beta Tab', url: 'http://localhost/beta', active: true, windowId: 2 },
+      ]);
+
+      // Populate browserTabOwnership
+      await mcpClient.callTool('browser_list_tabs');
+
+      // Set up getTabContent handlers that return connection-specific markers
+      const setupGetTabContentHandler = (ws: WebSocket, marker: string) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.getTabContent' && msg.id !== undefined) {
+              ws.send(
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: msg.id,
+                  result: { content: `content-from-${marker}`, title: 'Test', url: 'http://test' },
+                }),
+              );
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+      setupGetTabContentHandler(wsAlpha, 'alpha');
+      setupGetTabContentHandler(wsBeta, 'beta');
+
+      // Call with alpha's tabId — should route to alpha
+      const resultAlpha = await mcpClient.callTool('browser_get_tab_content', { tabId: 1001 });
+      expect(resultAlpha.isError).toBe(false);
+      expect(resultAlpha.content).toContain('content-from-alpha');
+
+      // Call with beta's tabId — should route to beta
+      const resultBeta = await mcpClient.callTool('browser_get_tab_content', { tabId: 2001 });
+      expect(resultBeta.isError).toBe(false);
+      expect(resultBeta.content).toContain('content-from-beta');
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
+  test('browser_execute_script routes to the correct connection via browserTabOwnership', async ({
+    mcpServer,
+    mcpClient,
+  }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta');
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Set up handleListTabs
+      const handleListTabs = (ws: WebSocket, fakeTabs: Array<Record<string, unknown>>) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: fakeTabs }));
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+
+      handleListTabs(wsAlpha, [
+        { id: 1001, title: 'Alpha Tab', url: 'http://localhost/alpha', active: true, windowId: 1 },
+      ]);
+      handleListTabs(wsBeta, [
+        { id: 2001, title: 'Beta Tab', url: 'http://localhost/beta', active: true, windowId: 2 },
+      ]);
+
+      await mcpClient.callTool('browser_list_tabs');
+
+      // Set up executeScript handlers with connection-specific markers
+      const setupExecHandler = (ws: WebSocket, marker: string) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.executeScript' && msg.id !== undefined) {
+              ws.send(
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: msg.id,
+                  result: { result: `executed-on-${marker}` },
+                }),
+              );
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+      setupExecHandler(wsAlpha, 'alpha');
+      setupExecHandler(wsBeta, 'beta');
+
+      // Call with alpha's tabId — should route to alpha
+      const result = await mcpClient.callTool('browser_execute_script', {
+        tabId: 1001,
+        code: 'return document.title',
+      });
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('executed-on-alpha');
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
+  test('browser_navigate_tab routes to the correct connection via browserTabOwnership', async ({
+    mcpServer,
+    mcpClient,
+  }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta');
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Set up handleListTabs
+      const handleListTabs = (ws: WebSocket, fakeTabs: Array<Record<string, unknown>>) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: fakeTabs }));
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+
+      handleListTabs(wsAlpha, [
+        { id: 1001, title: 'Alpha Tab', url: 'http://localhost/alpha', active: true, windowId: 1 },
+      ]);
+      handleListTabs(wsBeta, [
+        { id: 2001, title: 'Beta Tab', url: 'http://localhost/beta', active: true, windowId: 2 },
+      ]);
+
+      await mcpClient.callTool('browser_list_tabs');
+
+      // Set up navigateTab handlers with connection-specific markers
+      const setupNavHandler = (ws: WebSocket, marker: string) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.navigateTab' && msg.id !== undefined) {
+              ws.send(
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: msg.id,
+                  result: { navigated: marker },
+                }),
+              );
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+      setupNavHandler(wsAlpha, 'alpha');
+      setupNavHandler(wsBeta, 'beta');
+
+      // Call with alpha's tabId — should route to alpha
+      const result = await mcpClient.callTool('browser_navigate_tab', {
+        tabId: 1001,
+        url: 'https://example.com',
+      });
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('alpha');
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
+  test('browser tool with unknown tabId falls back gracefully', async ({ mcpServer, mcpClient }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta');
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Set up handleListTabs
+      const handleListTabs = (ws: WebSocket, fakeTabs: Array<Record<string, unknown>>) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: fakeTabs }));
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+
+      handleListTabs(wsAlpha, [
+        { id: 1001, title: 'Alpha Tab', url: 'http://localhost/alpha', active: true, windowId: 1 },
+      ]);
+      handleListTabs(wsBeta, [
+        { id: 2001, title: 'Beta Tab', url: 'http://localhost/beta', active: true, windowId: 2 },
+      ]);
+
+      await mcpClient.callTool('browser_list_tabs');
+
+      // Set up getTabContent handlers on both — either could respond for the unknown tab
+      const setupGetTabContentHandler = (ws: WebSocket, marker: string) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.getTabContent' && msg.id !== undefined) {
+              ws.send(
+                JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: msg.id,
+                  result: { content: `fallback-from-${marker}`, title: 'Test', url: 'http://test' },
+                }),
+              );
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+      setupGetTabContentHandler(wsAlpha, 'alpha');
+      setupGetTabContentHandler(wsBeta, 'beta');
+
+      // Call with an unknown tabId (9999) — should fall back to some connection, not crash
+      const result = await mcpClient.callTool('browser_get_tab_content', { tabId: 9999 });
+      expect(result.isError).toBe(false);
+      // The result should contain a marker from either connection (we don't know which one)
+      expect(result.content).toMatch(/fallback-from-(alpha|beta)/);
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
+  test('after disconnect, browser tools targeting remaining connection tabs still work', async ({
+    mcpServer,
+    mcpClient,
+  }) => {
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-beta');
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Set up handleListTabs
+      const handleListTabs = (ws: WebSocket, fakeTabs: Array<Record<string, unknown>>) => {
+        ws.addEventListener('message', (event: MessageEvent) => {
+          try {
+            const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+            if (msg.method === 'browser.listTabs' && msg.id !== undefined) {
+              ws.send(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: fakeTabs }));
+            }
+          } catch {
+            // Ignore
+          }
+        });
+      };
+
+      handleListTabs(wsAlpha, [
+        { id: 1001, title: 'Alpha Tab', url: 'http://localhost/alpha', active: true, windowId: 1 },
+      ]);
+      handleListTabs(wsBeta, [
+        { id: 2001, title: 'Beta Tab', url: 'http://localhost/beta', active: true, windowId: 2 },
+      ]);
+
+      await mcpClient.callTool('browser_list_tabs');
+
+      // Set up getTabContent handler on beta
+      wsBeta.addEventListener('message', (event: MessageEvent) => {
+        try {
+          const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+          if (msg.method === 'browser.getTabContent' && msg.id !== undefined) {
+            wsBeta?.send(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: msg.id,
+                result: { content: 'content-from-beta-after-disconnect', title: 'Test', url: 'http://test' },
+              }),
+            );
+          }
+        } catch {
+          // Ignore
+        }
+      });
+
+      // Disconnect alpha
+      wsAlpha.close();
+      wsAlpha = undefined;
+      await mcpServer.waitForHealth(h => h.extensionConnections <= 1, 10_000);
+
+      // Repopulate browserTabOwnership with only beta's tabs
+      // Set up listTabs handler again since we need a fresh call
+      // (beta already has its handler from above)
+      const listResult = await mcpClient.callTool('browser_list_tabs');
+      expect(listResult.isError).toBe(false);
+
+      // Call browser_get_tab_content with beta's tabId — should still work
+      const result = await mcpClient.callTool('browser_get_tab_content', { tabId: 2001 });
+      expect(result.isError).toBe(false);
+      expect(result.content).toContain('content-from-beta-after-disconnect');
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
   test('health endpoint shows extensionConnections count accurately', async ({ mcpServer }) => {
     // Initially no connections
     const h0 = await mcpServer.health();
