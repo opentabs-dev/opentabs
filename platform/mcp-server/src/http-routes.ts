@@ -1056,6 +1056,13 @@ const createHandleWsClose =
     if (closedConn) {
       log.info(`Extension WebSocket disconnected (connectionId: ${closedConn.connectionId})`);
 
+      // Remove browser tab ownership entries for the disconnected connection
+      for (const [tabId, connId] of state.browserTabOwnership) {
+        if (connId === closedConn.connectionId) {
+          state.browserTabOwnership.delete(tabId);
+        }
+      }
+
       // Reject pending dispatches sent over this connection.
       // Dispatches with matching connectionId are always rejected.
       // Dispatches without a connectionId (legacy) are rejected only when no connections remain.

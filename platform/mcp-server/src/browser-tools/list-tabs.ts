@@ -23,10 +23,18 @@ const listTabs = defineBrowserTool({
   handler: async (_args, state) => {
     const responses = await dispatchToAllConnections(state, 'browser.listTabs', {});
     const allTabs: Array<Record<string, unknown>> = [];
+
+    // Rebuild browser tab ownership index for cross-profile routing
+    state.browserTabOwnership.clear();
     for (const { connectionId, result } of responses) {
       const tabs = Array.isArray(result) ? result : [];
       for (const tab of tabs) {
-        allTabs.push({ ...(tab as Record<string, unknown>), connectionId });
+        const tabObj = tab as Record<string, unknown>;
+        allTabs.push({ ...tabObj, connectionId });
+        const id = tabObj.id;
+        if (typeof id === 'number') {
+          state.browserTabOwnership.set(id, connectionId);
+        }
       }
     }
     return allTabs;

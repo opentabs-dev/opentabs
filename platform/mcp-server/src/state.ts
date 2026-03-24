@@ -327,6 +327,9 @@ export interface ServerState {
   adaptersDirReady: boolean;
   /** In-memory review tokens: token string → ReviewToken. Lost on restart (intentional). */
   reviewTokens: Map<string, ReviewToken>;
+  /** Browser tab ownership: Chrome tab ID → connectionId. Populated by browser_list_tabs,
+   *  used by getConnectionForTab to route browser tool dispatches to the correct profile. */
+  browserTabOwnership: Map<number, string>;
   /** Pending connectionId for the next WsHandle open — set during upgrade, consumed in the open handler */
   _pendingConnectionId?: string;
 }
@@ -383,6 +386,7 @@ export const createState = (): ServerState => ({
   endpointCallTimestamps: new Map(),
   adaptersDirReady: false,
   reviewTokens: new Map(),
+  browserTabOwnership: new Map(),
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */
@@ -458,8 +462,16 @@ export const getAnyConnection = (state: ServerState): ExtensionConnection | unde
   return state.extensionConnections.values().next().value as ExtensionConnection;
 };
 
-/** Finds which connection owns a given tabId by scanning all connections' tabMappings */
+/** Finds which connection owns a given tabId by checking the browser tab ownership
+ *  index first (populated by browser_list_tabs), then scanning plugin tabMappings. */
 export const getConnectionForTab = (state: ServerState, tabId: number): ExtensionConnection | undefined => {
+  // Check browser tab ownership index (populated by browser_list_tabs)
+  const ownerConnectionId = state.browserTabOwnership.get(tabId);
+  if (ownerConnectionId) {
+    const conn = state.extensionConnections.get(ownerConnectionId);
+    if (conn) return conn;
+  }
+  // Fall back to plugin tabMapping scan
   for (const conn of state.extensionConnections.values()) {
     for (const mapping of conn.tabMapping.values()) {
       if (mapping.tabs.some(t => t.tabId === tabId)) {
