@@ -79,6 +79,7 @@ interface StartOptions {
   port?: number;
   showConfig?: boolean;
   background?: boolean;
+  stdio?: boolean;
 }
 
 const resolveServerEntry = (): string => {
@@ -258,7 +259,31 @@ const printMcpClientConfigs = (mcpUrl: string, secret: string | null, primaryOnl
     console.log('');
   }
 
-  // Section 3: CLI only
+  // Section 3: stdio bridge (auto-start)
+  console.log(
+    `${pad}${pc.bold('Auto-start via stdio')} ${pc.dim('(MCP client spawns the bridge — no manual server start):')}`,
+  );
+  console.log('');
+  console.log(pc.dim(`${pad}  ${pc.bold('Claude Code')} (~/.claude.json):`));
+  console.log(
+    pc.dim(
+      indent(
+        JSON.stringify(
+          {
+            mcpServers: {
+              opentabs: { command: 'opentabs', args: ['start', '--stdio'] },
+            },
+          },
+          null,
+          2,
+        ),
+        `${pad}  `,
+      ),
+    ),
+  );
+  console.log('');
+
+  // Section 4: CLI only
   console.log(`${pad}${pc.bold('CLI only')} ${pc.dim('(no MCP registration — use shell commands):')}`);
   console.log('');
   console.log(pc.dim(`${pad}  opentabs tool list                              ${pc.dim('# discover tools')}`));
@@ -286,6 +311,16 @@ const printMcpClientConfigs = (mcpUrl: string, secret: string | null, primaryOnl
 };
 
 const handleStart = async (options: StartOptions): Promise<void> => {
+  // stdio mode: run the bridge instead of starting a new server
+  if (options.stdio) {
+    if (options.background) {
+      console.error(pc.red('Error: --stdio and --background cannot be used together.'));
+      process.exit(1);
+    }
+    const { handleStdioBridge } = await import('./stdio-bridge.js');
+    return handleStdioBridge(resolvePort(options));
+  }
+
   const serverEntry = resolveServerEntry();
 
   if (
@@ -488,6 +523,7 @@ const registerStartCommand = (program: Command): void => {
     .description('Start the MCP server')
     .option('--port <number>', 'Server port (default: 9515)', parsePort)
     .option('--background', 'Start the server in the background')
+    .option('--stdio', 'Use stdio transport (bridge to existing HTTP server for MCP client auto-start)')
     .option('--show-config', 'Print MCP client configuration and exit without starting the server')
     .addHelpText(
       'after',
@@ -495,6 +531,7 @@ const registerStartCommand = (program: Command): void => {
 Examples:
   $ opentabs start
   $ opentabs start --background
+  $ opentabs start --stdio
   $ opentabs start --port 3000
   $ opentabs start --show-config
 
