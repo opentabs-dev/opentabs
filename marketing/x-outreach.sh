@@ -15,7 +15,7 @@
 #   - X/Twitter tab open in Chrome, logged in
 #
 # Usage:
-#   ./marketing/x-outreach.sh                            # run forever (1.5–2.5h randomized)
+#   ./marketing/x-outreach.sh                            # run forever (45m–1.5h randomized)
 #   INTERVAL_MIN=60 INTERVAL_MAX=120 ./marketing/x-outreach.sh  # 1–2 min (for testing)
 #   DRY_RUN=1 ./marketing/x-outreach.sh                 # evaluate but don't post
 
@@ -25,8 +25,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
 STATE_FILE="$SCRIPT_DIR/x-state.json"
-INTERVAL_MIN="${INTERVAL_MIN:-5400}"   # default: 1.5 hours
-INTERVAL_MAX="${INTERVAL_MAX:-9000}"   # default: 2.5 hours
+INTERVAL_MIN="${INTERVAL_MIN:-2700}"   # default: 45 min
+INTERVAL_MAX="${INTERVAL_MAX:-5400}"   # default: 1.5 hours
 DRY_RUN="${DRY_RUN:-0}"
 
 mkdir -p "$LOG_DIR"
