@@ -231,10 +231,11 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
   };
 
   const rl = createInterface({ input: process.stdin });
+  const inflight = new Set<Promise<void>>();
 
   let buffer = '';
 
-  rl.on('line', async (line: string) => {
+  rl.on('line', (line: string) => {
     buffer += line;
 
     let parsed: unknown;
@@ -251,6 +252,7 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
 
     log(`-> ${method ?? 'response'}${isNotification ? ' (notification)' : ''}`);
 
+    const work = (async () => {
     try {
       const response = await fetch(mcpUrl, {
         method: 'POST',
@@ -300,15 +302,21 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
         process.stdout.write(`${errorResponse}\n`);
       }
     }
+    })();
+    inflight.add(work);
+    work.finally(() => inflight.delete(work));
   });
 
-  // stdin EOF = MCP client disconnected
+  // stdin EOF = MCP client disconnected; wait for in-flight requests to finish
   await new Promise<void>(resolve => {
     rl.on('close', () => {
-      log('stdin closed, shutting down bridge');
+      log('stdin closed, waiting for in-flight requests...');
       resolve();
     });
   });
+  if (inflight.size > 0) {
+    await Promise.allSettled(inflight);
+  }
 
   // Clean up: abort notification stream and delete session
   notificationAbort.abort();
