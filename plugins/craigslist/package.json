@@ -48,10 +48,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.81"
+    "@opentabs-dev/plugin-sdk": "^0.0.82"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.81",
+    "@opentabs-dev/plugin-tools": "^0.0.82",
     "@biomejs/biome": "2.4.5",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
