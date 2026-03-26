@@ -114,6 +114,10 @@ OpenTabs plugins call the web app's internal APIs directly. A send-message tool 
 
 OpenTabs is the proactive version. Instead of waiting, we reverse-engineer the APIs and expose them today. If WebMCP becomes widespread, plugins can evolve to use it — but you don't have to wait.
 
+**2,000 tools? Won't that blow up my context window?**
+
+No. Three connection modes — pick the one that fits. **Full MCP** (`/mcp`) gives you everything upfront. **Gateway** (`/mcp/gateway`) exposes 2 meta-tools and lets your AI discover the rest on demand. **CLI mode** has zero MCP overhead — your AI just calls `opentabs tool call` via shell. Most users enable 3–5 plugins and only those tools load into context. See the [Connection Modes docs](https://opentabs.dev/docs/reference/mcp-server#connection-modes) for details.
+
 **Why not just use official MCP servers?**
 
 If one works well for you, use it. I started building OpenTabs for apps that don't have MCP support — many had none when I began, and some probably never will. Along the way, I noticed: setting up separate API keys or OAuth flows for each service adds up. Public APIs sometimes have stricter rate limits or a smaller feature set. The web app is always the superset.

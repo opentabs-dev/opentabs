@@ -6,6 +6,96 @@ lastUpdated: 2026-03-10
 
 Everything here describes the server that `opentabs start` runs on your machine. It's a single localhost HTTP process — port 9515 by default. AI clients connect to `/mcp`, the Chrome extension connects to `/ws`. No cloud, no relay, no accounts. Just a process running locally, bridging your AI agent and your browser.
 
+## Connection Modes
+
+OpenTabs supports three ways for AI agents to use its tools — each trading context cost for discoverability.
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Mode</Table.Head>
+      <Table.Head>Context cost</Table.Head>
+      <Table.Head>How it works</Table.Head>
+      <Table.Head>Best for</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">Full MCP</Table.Cell>
+      <Table.Cell>All enabled tools in context</Table.Cell>
+      <Table.Cell>Standard MCP — connect to `/mcp`, all tool schemas loaded upfront.</Table.Cell>
+      <Table.Cell>Maximum capability, autocomplete-style tool use.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Gateway MCP</Table.Cell>
+      <Table.Cell>2 tools in context</Table.Cell>
+      <Table.Cell>Connect to `/mcp/gateway` — exposes `opentabs_list_tools` and `opentabs_call`. AI discovers tools on demand.</Table.Cell>
+      <Table.Cell>Many plugins enabled but context window is limited.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">CLI mode</Table.Cell>
+      <Table.Cell>Zero MCP overhead</Table.Cell>
+      <Table.Cell>No MCP connection. AI calls `opentabs tool list` and `opentabs tool call` via shell.</Table.Cell>
+      <Table.Cell>Agents with Bash access (Claude Code). Minimal context footprint.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+### Full MCP
+
+The default. Your AI client connects to `/mcp` and receives every tool from enabled plugins plus built-in browser tools. This is what `opentabs start` prints config blocks for.
+
+If you only enable a few plugins, the context cost is modest — 5 plugins with 20 tools each is ~100 tools. Disabled plugins (permission `off`) are still listed but marked as `[Disabled]` in descriptions.
+
+### Gateway MCP
+
+Connect to `/mcp/gateway` instead of `/mcp`. The AI sees exactly 2 tools:
+
+- **`opentabs_list_tools`** — discover available tools, optionally filtered by plugin name
+- **`opentabs_call`** — invoke any tool by name with arguments
+
+The workflow: call `opentabs_list_tools` to see what's available, then `opentabs_call` to use a specific tool. Full capability, minimal context.
+
+```json
+{
+  "mcpServers": {
+    "opentabs": {
+      "type": "http",
+      "url": "http://127.0.0.1:9515/mcp/gateway",
+      "headers": {
+        "Authorization": "Bearer <secret>"
+      }
+    }
+  }
+}
+```
+
+### CLI Mode
+
+No MCP connection at all. Your AI uses the `opentabs` CLI via Bash:
+
+```bash
+# Discover tools
+opentabs tool list
+opentabs tool list --plugin slack
+
+# View a tool's input schema
+opentabs tool schema slack_send_message
+
+# Call a tool
+opentabs tool call slack_send_message '{"channel":"C123","text":"hello"}'
+```
+
+The server must be running (`opentabs start`), but the AI doesn't need an MCP configuration — it just needs Bash access and knowledge that `opentabs tool call` exists.
+
+For Claude Code, add a line to your project's `CLAUDE.md`:
+
+```
+Use `opentabs tool list` and `opentabs tool call <name> '<json>'` to interact with web apps via the browser.
+```
+
+---
+
 ## HTTP Endpoints
 
 The server runs on port 9515 by default (override with the `PORT` environment variable or `--port` flag).
@@ -25,6 +115,24 @@ The server runs on port 9515 by default (override with the `PORT` environment va
       <Table.Cell>POST, GET, DELETE</Table.Cell>
       <Table.Cell>Bearer token</Table.Cell>
       <Table.Cell>MCP Streamable HTTP transport — AI clients connect here.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/mcp/gateway`</Table.Cell>
+      <Table.Cell>POST, GET, DELETE</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Gateway MCP endpoint — 2 meta-tools (`opentabs_list_tools`, `opentabs_call`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/tools`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>REST tool listing — used by `opentabs tool list`. Supports `?plugin=` filter.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/tools/:name/call`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>REST tool invocation — used by `opentabs tool call`.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`/ws`</Table.Cell>

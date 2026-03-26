@@ -762,6 +762,156 @@ opentabs config rotate-secret --confirm
 
 ---
 
+## opentabs tool
+
+Discover and invoke tools from the running server. Has three subcommands: `list`, `schema`, and `call`. These commands talk to the server via REST (`GET /tools`, `POST /tools/:name/call`) — no MCP connection required.
+
+This is the foundation of [CLI mode](/docs/reference/mcp-server#connection-modes) — your AI agent can discover and call tools via shell without any MCP configuration.
+
+### opentabs tool list
+
+List available tools from the running server. **Alias:** `opentabs tool ls`
+
+```bash
+opentabs tool list [options]
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--plugin <name>`</Table.Cell>
+      <Table.Cell>Filter by plugin name (e.g., `slack`, `browser`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--json`</Table.Cell>
+      <Table.Cell>Output full tool schemas as JSON.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--port <number>`</Table.Cell>
+      <Table.Cell>Server port (default: `9515`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Tools are grouped by plugin with descriptions. Use `--json` to get full input schemas for programmatic use.
+
+```bash
+# List all tools
+opentabs tool list
+
+# Filter to one plugin
+opentabs tool list --plugin slack
+
+# Full schemas as JSON
+opentabs tool list --json
+```
+
+### opentabs tool schema
+
+Show the full input schema for a specific tool.
+
+```bash
+opentabs tool schema <name> [options]
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Argument</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`<name>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Tool name (e.g., `slack_send_message`, `browser_list_tabs`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Returns the tool's name, description, and full JSON Schema for its input parameters.
+
+```bash
+opentabs tool schema slack_send_message
+opentabs tool schema browser_list_tabs
+```
+
+### opentabs tool call
+
+Invoke a tool on the running server and print the result.
+
+```bash
+opentabs tool call <name> [json] [options]
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Argument/Option</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`<name>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Tool name (e.g., `slack_send_message`, `browser_list_tabs`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`[json]`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Tool arguments as a JSON string.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--params <json>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Tool arguments as JSON (alternative to positional arg, takes precedence).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--instance <name>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Target a named instance (for multi-instance plugins).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--tab-id <id>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Target a specific browser tab by ID.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--port <number>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Server port (default: `9515`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Results are printed to stdout as JSON. If the result is an error, it's printed to stderr and the process exits with code 1. The tool call has a 5-minute timeout.
+
+```bash
+# Call a tool with no arguments
+opentabs tool call browser_list_tabs
+
+# Call with JSON arguments
+opentabs tool call slack_send_message '{"channel":"C123","text":"hello"}'
+
+# Use --params flag instead
+opentabs tool call slack_send_message --params '{"channel":"C123","text":"hello"}'
+
+# Target a specific tab
+opentabs tool call slack_send_message '{"channel":"C123","text":"hi"}' --tab-id 42
+```
+
+---
+
 ## opentabs update
 
 Update the OpenTabs CLI to the latest version.
