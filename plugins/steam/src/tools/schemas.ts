@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+const stripHtmlTags = (html: string): string => {
+  let result = html;
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result;
+};
+
 // --- Price ---
 
 export const priceSchema = z.object({
@@ -158,7 +168,7 @@ export const mapAppDetails = (d: RawAppDetails) => ({
   ...(d.metacritic ? { metacritic: { score: d.metacritic.score ?? 0, url: d.metacritic.url ?? '' } } : {}),
   ...(d.price_overview ? { price_overview: mapPrice(d.price_overview) } : {}),
   ...(d.recommendations ? { recommendations: { total: d.recommendations.total ?? 0 } } : {}),
-  supported_languages: (d.supported_languages ?? '').replace(/<[^>]+>/g, ''),
+  supported_languages: stripHtmlTags(d.supported_languages ?? ''),
   required_age: typeof d.required_age === 'string' ? Number(d.required_age) || 0 : (d.required_age ?? 0),
 });
 

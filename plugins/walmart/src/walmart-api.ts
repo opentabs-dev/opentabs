@@ -142,5 +142,11 @@ export const getStoreId = (): string => {
 
 export const stripHtml = (html: string | undefined | null): string => {
   if (!html) return '';
-  return html.replace(/<[^>]+>/g, '').trim();
+  let result = html;
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result.trim();
 };

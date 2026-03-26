@@ -72,11 +72,11 @@ const findMsalV2Token = (clientId: string, scopeMatch: string): OutlookAuth | nu
       // For Graph API tokens, verify mail scopes are present.
       // Enterprise tenants may have a Graph token with only User.Read that will
       // 403 on mail endpoints. Skip it so we fall through to the Outlook REST token.
-      if (scopeMatch.includes('graph.microsoft.com') && !hasMailScope(target)) {
+      if (scopeMatch === 'graph.microsoft.com' && !hasMailScope(target)) {
         continue;
       }
 
-      const apiBase = scopeMatch.includes('graph.microsoft.com') ? GRAPH_API_BASE : OUTLOOK_API_BASE;
+      const apiBase = scopeMatch === 'graph.microsoft.com' ? GRAPH_API_BASE : OUTLOOK_API_BASE;
       return { token: parsed.secret, apiBase };
     } catch {
       // skip invalid entries
@@ -101,7 +101,7 @@ const findMsalV1Token = (clientId: string): OutlookAuth | null => {
   if (!tokenKeys.accessToken) return null;
 
   for (const key of tokenKeys.accessToken) {
-    if (!key.includes('graph.microsoft.com')) continue;
+    if (!/(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(key)) continue;
     const raw = getLocalStorage(key);
     if (!raw) continue;
     try {

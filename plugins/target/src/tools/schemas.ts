@@ -423,5 +423,13 @@ export const mapOrder = (o: RawOrder) => ({
 
 // --- Helpers ---
 
-/** Strip HTML tags from a string */
-const stripHtml = (html: string): string => html.replace(/<[^>]+>/g, '').trim();
+/** Strip HTML tags from a string, looping until stable for nested markup */
+const stripHtml = (html: string): string => {
+  let result = html;
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result.trim();
+};

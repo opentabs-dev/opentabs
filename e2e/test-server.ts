@@ -140,7 +140,8 @@ const recordInvocation = (req: IncomingMessage, path: string, body: unknown) => 
   });
 };
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+const MAX_DELAY_MS = 30_000;
+const sleep = (ms: number) => new Promise(r => setTimeout(r, Math.min(ms, MAX_DELAY_MS)));
 
 /**
  * If error mode is on, send a 500 JSON error and return true.

@@ -22,7 +22,7 @@ interface ExcelAuth {
 const getGraphToken = (): string | null => {
   // Search localStorage for MSAL access tokens scoped to Graph API
   const entry = findLocalStorageEntry(
-    key => key.includes('accesstoken') && key.includes('graph.microsoft.com') && key.includes(MSAL_CLIENT_ID),
+    key => key.includes('accesstoken') && /(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(key) && key.includes(MSAL_CLIENT_ID),
   );
   if (!entry) return null;
 

@@ -34,7 +34,7 @@ export const searchFiles = defineTool({
     next_page_token: z.string().describe('Token for the next page, empty if no more results'),
   }),
   handle: async params => {
-    const clauses: string[] = [`fullText contains '${params.query.replace(/'/g, "\\'")}'`];
+    const clauses: string[] = [`fullText contains '${params.query.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`];
     if (params.mime_type) clauses.push(`mimeType = '${params.mime_type}'`);
     if (!params.include_trashed) clauses.push('trashed = false');
 

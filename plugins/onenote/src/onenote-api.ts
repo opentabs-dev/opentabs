@@ -37,7 +37,7 @@ const extractMsalToken = (): string | null => {
   }
 
   // Look for a Graph API access token
-  const graphKey = tokenKeys.accessToken?.find(k => k.includes('graph.microsoft.com') || k.includes('notes.create'));
+  const graphKey = tokenKeys.accessToken?.find(k => /(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(k) || k.includes('notes.create'));
   if (!graphKey) return null;
 
   const entryStr = findLocalStorageEntry(key => key === graphKey);

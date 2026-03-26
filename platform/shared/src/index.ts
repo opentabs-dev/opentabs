@@ -434,21 +434,12 @@ export interface PluginUninstallParams {
 // Security constants — shared between MCP server and Chrome extension
 // ---------------------------------------------------------------------------
 
-/** URL schemes that must be rejected by browser tools to prevent injection attacks */
-export const BLOCKED_URL_SCHEMES: readonly string[] = [
-  'javascript:',
-  'data:',
-  'file:',
-  'chrome:',
-  'chrome-extension:',
-  'blob:',
-];
-
-/** Check if a URL uses a blocked scheme. Returns true if the URL is dangerous or unparseable. */
+/** Returns true if the URL uses a blocked (non-http/https) scheme or is unparseable. */
 export const isBlockedUrlScheme = (url: string): boolean => {
   try {
     const parsed = new URL(url);
-    return BLOCKED_URL_SCHEMES.includes(parsed.protocol);
+    // Allowlist approach: only http(s) are safe. This catches javascript:, data:, file:, etc.
+    return parsed.protocol !== 'http:' && parsed.protocol !== 'https:';
   } catch {
     return true;
   }
@@ -512,7 +503,7 @@ export const validateUrlPattern = (pattern: string): string | null => {
     return `URL pattern "${pattern}" is too broad — restrict to specific domains`;
   }
 
-  const match = pattern.match(/^(\*|https?):\/\/(.+?)(\/.*)$/);
+  const match = pattern.match(/^(\*|https?):\/\/([^/]+)(\/.*)$/s);
   if (!match) {
     return `URL pattern "${pattern}" is not a valid Chrome match pattern — expected <scheme>://<host>/<path> where scheme is *, http, or https and path starts with / (e.g., https://example.com/*)`;
   }

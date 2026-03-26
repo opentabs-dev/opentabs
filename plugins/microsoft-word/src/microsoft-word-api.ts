@@ -50,7 +50,7 @@ const getAuth = (): MsWordAuth | null => {
 
   // Find the Graph API access token (scope contains graph.microsoft.com)
   for (const key of tokenKeys.accessToken) {
-    if (!key.includes('graph.microsoft.com')) continue;
+    if (!/(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(key)) continue;
     const raw = getLocalStorage(key);
     if (!raw) continue;
     try {

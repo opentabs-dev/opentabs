@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+/** Strip HTML tags, looping until stable to handle nested/malformed markup */
+const stripHtmlTags = (html: string): string => {
+  let result = html;
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result;
+};
+
 // --- Search result ---
 
 export const searchResultSchema = z.object({
@@ -23,7 +34,7 @@ export interface RawSearchResult {
 export const mapSearchResult = (r: RawSearchResult) => ({
   pageid: r.pageid ?? 0,
   title: r.title ?? '',
-  snippet: (r.snippet ?? '').replace(/<[^>]+>/g, ''),
+  snippet: stripHtmlTags(r.snippet ?? ''),
   size: r.size ?? 0,
   wordcount: r.wordcount ?? 0,
   timestamp: r.timestamp ?? '',

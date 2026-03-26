@@ -18,7 +18,7 @@ export const getUserProfile = defineTool({
   output: z.object({ user: userSchema }),
   handle: async params => {
     const data = await gql<{ user: RawUser | null }>(`{
-      user(login: "${params.login.replace(/"/g, '\\"')}") {
+      user(login: "${params.login.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}") {
         id login displayName description
         profileImageURL(width: 300)
         createdAt

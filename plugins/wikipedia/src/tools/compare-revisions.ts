@@ -15,17 +15,27 @@ interface CompareResponse {
   error?: { code?: string; info?: string };
 }
 
-const stripDiffHtml = (html: string): string =>
-  html
+const stripDiffHtml = (html: string): string => {
+  let result = html
     .replace(/<td class="diff-deletedline"[^>]*>(.*?)<\/td>/gs, '- $1\n')
     .replace(/<td class="diff-addedline"[^>]*>(.*?)<\/td>/gs, '+ $1\n')
-    .replace(/<td class="diff-context"[^>]*>(.*?)<\/td>/gs, '  $1\n')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<td class="diff-context"[^>]*>(.*?)<\/td>/gs, '  $1\n');
+  // Decode HTML entities before stripping remaining tags so that encoded
+  // angle brackets inside text content are decoded first, then the tag
+  // stripping pass removes only actual markup — not decoded content.
+  result = result
+    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .trim();
+    .replace(/&quot;/g, '"');
+  // Strip remaining HTML tags — loop until stable for nested/malformed markup
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result.trim();
+};
 
 export const compareRevisions = defineTool({
   name: 'compare_revisions',

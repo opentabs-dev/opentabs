@@ -29,7 +29,15 @@ interface ActivityResult {
   commentsById?: { [key: string]: RawComment };
 }
 
-const stripHtml = (html: string): string => html.replace(/<[^>]+>/g, '').trim();
+const stripHtml = (html: string): string => {
+  let result = html;
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result.trim();
+};
 
 const activitySchema = z.object({
   id: z.string().describe('Activity ID'),

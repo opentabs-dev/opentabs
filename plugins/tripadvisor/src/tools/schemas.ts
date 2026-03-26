@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+const stripHtmlTags = (html: string): string => {
+  let result = html;
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/<[^>]+>/g, '');
+  } while (result !== prev);
+  return result;
+};
+
 // --- Location / Place ---
 
 export const locationSchema = z.object({
@@ -150,7 +160,7 @@ export interface RawReview {
 export const mapReview = (r: RawReview): z.infer<typeof reviewSchema> => ({
   id: r.id ?? 0,
   title: r.title ?? '',
-  text: r.text ?? r.htmlText?.htmlContent?.replace(/<[^>]+>/g, '') ?? '',
+  text: r.text ?? stripHtmlTags(r.htmlText?.htmlContent ?? ''),
   rating: r.rating ?? 0,
   author: r.userProfile?.displayName ?? r.author ?? '',
   author_location: r.userProfile?.hometown?.locationName ?? r.authorLocation ?? '',

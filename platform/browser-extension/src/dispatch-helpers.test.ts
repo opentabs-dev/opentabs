@@ -310,7 +310,7 @@ describe('dispatchWithTabFallback', () => {
       if (tabId === 1) return Promise.resolve({ id: 1, url: 'https://other.com/page' } as chrome.tabs.Tab);
       return Promise.resolve({ id: 2, url: 'https://example.com/b' } as chrome.tabs.Tab);
     });
-    mockUrlMatchesPatterns.mockImplementation(url => url.includes('example.com'));
+    mockUrlMatchesPatterns.mockImplementation(url => new URL(url).hostname === 'example.com');
 
     const executeOnTab = vi.fn<(tabId: number) => Promise<DispatchResult>>();
     executeOnTab.mockResolvedValue({ type: 'success', output: 'ok' });

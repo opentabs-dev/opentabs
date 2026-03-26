@@ -27,7 +27,7 @@ export const getGameClips = defineTool({
     const data = await gql<{
       game: { clips: { edges: Array<{ node: RawClip }> } } | null;
     }>(`{
-      game(name: "${params.name.replace(/"/g, '\\"')}") {
+      game(name: "${params.name.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}") {
         clips(first: ${first}, criteria: { period: ${period} }) {
           edges {
             node {

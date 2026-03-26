@@ -20,7 +20,7 @@ export const searchCategories = defineTool({
     const data = await gql<{
       searchFor: { games: { items: RawGame[] } };
     }>(`{
-      searchFor(userQuery: "${params.query.replace(/"/g, '\\"')}", platform: "web", options: { targets: [{ index: GAME }] }) {
+      searchFor(userQuery: "${params.query.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", platform: "web", options: { targets: [{ index: GAME }] }) {
         games {
           items { id name displayName viewersCount broadcastersCount boxArtURL }
         }

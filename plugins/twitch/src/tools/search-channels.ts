@@ -40,7 +40,7 @@ export const searchChannels = defineTool({
         channels: { items: RawChannelItem[] };
       };
     }>(`{
-      searchFor(userQuery: "${params.query.replace(/"/g, '\\"')}", platform: "web", options: { targets: [{ index: CHANNEL }] }) {
+      searchFor(userQuery: "${params.query.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", platform: "web", options: { targets: [{ index: CHANNEL }] }) {
         channels {
           items {
             id login displayName

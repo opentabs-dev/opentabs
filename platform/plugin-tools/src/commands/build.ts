@@ -426,12 +426,26 @@ const convertToolSchemas = (tool: ToolDefinition) => {
  * Minify an SVG string by removing XML comments, collapsing whitespace
  * between tags to a single space, and trimming leading/trailing whitespace.
  */
-const minifySvg = (svg: string): string =>
-  svg
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/>\s+</g, '> <')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
+/**
+ * Safely encode a string as a JavaScript string literal for code generation.
+ * Uses JSON.stringify (which handles all special characters) and additionally
+ * escapes sequences that could break out of script contexts.
+ */
+const jsStringLiteral = (value: string): string =>
+  JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
+
+const minifySvg = (svg: string): string => {
+  let result = svg.replace(/<!--[\s\S]*?-->/g, '');
+  // Collapse whitespace between tags to a single space
+  result = result.replace(/>\s+</g, '> <');
+  // Collapse remaining runs of whitespace — loop until stable
+  let prev: string;
+  do {
+    prev = result;
+    result = result.replace(/\s{2,}/g, ' ');
+  } while (result !== prev);
+  return result.trim();
+};
 
 /** Result of reading and validating icon files from a plugin directory */
 interface IconResult {
@@ -1127,7 +1141,9 @@ const runBuild = async (projectDir: string): Promise<void> => {
   // finds it at the end of the file, as required by the source map spec.
   // The '__adapterHash' property name must match ADAPTER_HASH_PROP in
   // platform/browser-extension/src/constants.ts.
-  const hashAndFreeze = `(function(){var o=(globalThis).__openTabs;if(o&&o.adapters&&o.adapters[${JSON.stringify(plugin.name)}]){var a=o.adapters[${JSON.stringify(plugin.name)}];a.__adapterHash=${JSON.stringify(adapterHash)};if(a.tools&&Array.isArray(a.tools)){for(var i=0;i<a.tools.length;i++){Object.freeze(a.tools[i]);}Object.freeze(a.tools);}Object.freeze(a);Object.defineProperty(o.adapters,${JSON.stringify(plugin.name)},{value:a,writable:false,configurable:false,enumerable:true});Object.defineProperty(o,"adapters",{value:o.adapters,writable:false,configurable:false});}})();`;
+  const safeName = jsStringLiteral(plugin.name);
+  const safeHash = jsStringLiteral(adapterHash);
+  const hashAndFreeze = `(function(){var o=(globalThis).__openTabs;if(o&&o.adapters&&o.adapters[${safeName}]){var a=o.adapters[${safeName}];a.__adapterHash=${safeHash};if(a.tools&&Array.isArray(a.tools)){for(var i=0;i<a.tools.length;i++){Object.freeze(a.tools[i]);}Object.freeze(a.tools);}Object.freeze(a);Object.defineProperty(o.adapters,${safeName},{value:a,writable:false,configurable:false,enumerable:true});Object.defineProperty(o,"adapters",{value:o.adapters,writable:false,configurable:false});}})();`;
   await writeFile(iifePath, iifeContent + hashAndFreeze + sourceMappingUrlSuffix, 'utf-8');
   const iifeSize = (await stat(iifePath)).size;
   console.log(`  Written: ${pc.bold(`dist/${ADAPTER_FILENAME}`)} (${formatBytes(iifeSize)})`);

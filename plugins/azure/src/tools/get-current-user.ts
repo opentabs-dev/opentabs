@@ -38,7 +38,7 @@ const extractUserProfile = () => {
   // Enrich from ARM token JWT payload
   for (let i = 0; i < sessionStorage.length; i++) {
     const key = sessionStorage.key(i);
-    if (!key?.includes('accesstoken') || !key.includes('management.core.windows.net')) {
+    if (!key?.includes('accesstoken') || !/(?:^|[\s/])management\.core\.windows\.net(?:[/\s]|$)/.test(key)) {
       continue;
     }
     try {
