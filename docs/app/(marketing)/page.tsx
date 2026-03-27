@@ -348,17 +348,14 @@ export default function Home() {
             </p>
           </div>
           <div>
-            <p className="mb-3 font-bold text-foreground">
-              2,000 tools? Won&apos;t that blow up my context window?
-            </p>
+            <p className="mb-3 font-bold text-foreground">2,000 tools? Won&apos;t that blow up my context window?</p>
             <p className="max-w-3xl text-muted-foreground text-sm leading-relaxed">
               No. OpenTabs has three connection modes — pick the one that fits.{' '}
               <strong className="text-foreground">Full MCP</strong> gives you everything upfront.{' '}
               <strong className="text-foreground">Gateway</strong> exposes 2 meta-tools and lets your AI discover the
-              rest on demand.{' '}
-              <strong className="text-foreground">CLI mode</strong> has zero MCP overhead — your AI just calls{' '}
-              <code className="bg-card px-1 py-0.5 text-xs">opentabs tool call</code> via shell. Most users enable 3–5
-              plugins and only those tools load into context.{' '}
+              rest on demand. <strong className="text-foreground">CLI mode</strong> has zero MCP overhead — your AI just
+              calls <code className="bg-card px-1 py-0.5 text-xs">opentabs tool call</code> via shell. Most users enable
+              3–5 plugins and only those tools load into context.{' '}
               <Link href="/docs/reference/mcp-server#connection-modes" className="underline underline-offset-4">
                 Learn more
               </Link>

@@ -21,7 +21,9 @@ interface PowerPointAuth {
 }
 
 const getGraphToken = (): string | null => {
-  const entry = findLocalStorageEntry(k => k.includes('accesstoken') && /(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(k));
+  const entry = findLocalStorageEntry(
+    k => k.includes('accesstoken') && /(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(k),
+  );
   if (!entry) return null;
   try {
     const data = JSON.parse(entry.value) as { secret?: string; expiresOn?: string };
