@@ -19,22 +19,24 @@ export const handleBrowserListTabs = async (id: string | number): Promise<void> 
 
 /**
  * Opens a new Chrome tab with the specified URL.
- * @param params - Expects `{ url: string }`. URL is optional — when omitted, Chrome opens its
- *   default new-tab page. Internal callers (e.g., analyze-site) omit the URL to create a blank
- *   tab for network capture setup. The MCP-facing tool requires a URL via Zod schema.
- *   Rejects blocked URL schemes (javascript:, data:, etc.) when a URL is provided.
+ * @param params - Expects `{ url: string }`. Rejects blocked URL schemes (javascript:, data:, etc.)
+ *   but allows `about:blank` for internal callers (e.g., analyze-site) that need a blank tab
+ *   for network capture setup before navigating to the real URL.
  * @returns The new tab's ID, title, URL, and window ID.
  */
 export const handleBrowserOpenTab = async (params: Record<string, unknown>, id: string | number): Promise<void> => {
   try {
-    let url: string | undefined;
-    if (typeof params.url === 'string' && params.url.length > 0) {
+    const rawUrl = params.url;
+    let url: string;
+    if (typeof rawUrl === 'string' && rawUrl === 'about:blank') {
+      url = rawUrl;
+    } else {
       const validated = requireUrl(params, id);
       if (validated === null) return;
       url = validated;
     }
-    const tab = await chrome.tabs.create(url ? { url } : {});
-    sendSuccessResult(id, { id: tab.id, title: tab.title ?? '', url: tab.url ?? url ?? '', windowId: tab.windowId });
+    const tab = await chrome.tabs.create({ url });
+    sendSuccessResult(id, { id: tab.id, title: tab.title ?? '', url: tab.url ?? url, windowId: tab.windowId });
   } catch (err) {
     sendErrorResult(id, err);
   }
