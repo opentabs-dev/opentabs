@@ -88,7 +88,7 @@ const startBackgroundServer = async (port: number, log: LogFn): Promise<boolean>
   });
   child.unref();
 
-  const crashed = await new Promise<boolean>(resolve => {
+  const exitedEarly = await new Promise<boolean>(resolve => {
     const timer = setTimeout(() => {
       child.removeAllListeners('exit');
       resolve(false);
@@ -99,7 +99,7 @@ const startBackgroundServer = async (port: number, log: LogFn): Promise<boolean>
     });
   });
 
-  if (crashed) {
+  if (exitedEarly) {
     log('Background server exited unexpectedly');
     return false;
   }
@@ -172,7 +172,7 @@ const openNotificationStream = (
               const data = line.slice(6).trim();
               if (data) {
                 process.stdout.write(`${data}\n`);
-                log(`<< notification: ${data.slice(0, 100)}...`);
+                log(`<< notification: ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
               }
             }
           }
@@ -233,10 +233,16 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
   const rl = createInterface({ input: process.stdin });
   const inflight = new Set<Promise<void>>();
 
+  const MAX_BUFFER = 10 * 1024 * 1024;
   let buffer = '';
 
   rl.on('line', (line: string) => {
     buffer += line;
+    if (buffer.length > MAX_BUFFER) {
+      log('Buffer overflow, resetting');
+      buffer = '';
+      return;
+    }
 
     let parsed: unknown;
     try {
@@ -253,55 +259,55 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
     log(`-> ${method ?? 'response'}${isNotification ? ' (notification)' : ''}`);
 
     const work = (async () => {
-    try {
-      const response = await fetch(mcpUrl, {
-        method: 'POST',
-        headers: baseHeaders(),
-        body: JSON.stringify(parsed),
-        signal: AbortSignal.timeout(300_000),
-      });
-
-      // Capture session ID from the initialize response
-      if (method === 'initialize' && !sessionId) {
-        const newSessionId = response.headers.get('mcp-session-id');
-        if (newSessionId) {
-          sessionId = newSessionId;
-          log(`Session established: ${sessionId}`);
-
-          // Now that we have a session, open the notification stream
-          openNotificationStream(mcpUrl, sessionId, secret, log, notificationAbort);
-        }
-      }
-
-      if (isNotification) {
-        return;
-      }
-
-      const body = await response.text();
-
-      // SSE responses contain one or more "data: {...}" lines
-      if (body.includes('event: ') || body.includes('data: ')) {
-        for (const data of extractDataFromSse(body)) {
-          process.stdout.write(`${data}\n`);
-          log(`<- ${data.slice(0, 100)}...`);
-        }
-      } else if (body.trim()) {
-        process.stdout.write(`${body}\n`);
-        log(`<- ${body.slice(0, 100)}...`);
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      log(`Error proxying request: ${errorMessage}`);
-
-      if ('id' in message) {
-        const errorResponse = JSON.stringify({
-          jsonrpc: '2.0',
-          id: message.id,
-          error: { code: -32603, message: `Bridge proxy error: ${errorMessage}` },
+      try {
+        const response = await fetch(mcpUrl, {
+          method: 'POST',
+          headers: baseHeaders(),
+          body: JSON.stringify(parsed),
+          signal: AbortSignal.timeout(300_000),
         });
-        process.stdout.write(`${errorResponse}\n`);
+
+        // Capture session ID from the initialize response
+        if (method === 'initialize' && !sessionId) {
+          const newSessionId = response.headers.get('mcp-session-id');
+          if (newSessionId) {
+            sessionId = newSessionId;
+            log(`Session established: ${sessionId}`);
+
+            // Now that we have a session, open the notification stream
+            openNotificationStream(mcpUrl, sessionId, secret, log, notificationAbort);
+          }
+        }
+
+        if (isNotification) {
+          return;
+        }
+
+        const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+        const body = await response.text();
+
+        if (contentType.includes('text/event-stream')) {
+          for (const data of extractDataFromSse(body)) {
+            process.stdout.write(`${data}\n`);
+            log(`<- ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
+          }
+        } else if (body.trim()) {
+          process.stdout.write(`${body}\n`);
+          log(`<- ${body.slice(0, 100)}${body.length > 100 ? '...' : ''}`);
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log(`Error proxying request: ${errorMessage}`);
+
+        if ('id' in message) {
+          const errorResponse = JSON.stringify({
+            jsonrpc: '2.0',
+            id: message.id,
+            error: { code: -32603, message: `Bridge proxy error: ${errorMessage}` },
+          });
+          process.stdout.write(`${errorResponse}\n`);
+        }
       }
-    }
     })();
     inflight.add(work);
     work.finally(() => inflight.delete(work));
