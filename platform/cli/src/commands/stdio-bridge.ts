@@ -24,6 +24,33 @@ import { createInterface } from 'node:readline';
 import { DEFAULT_PORT } from '@opentabs-dev/shared';
 import { ensureAuthSecret, getConfigDir } from '../config.js';
 
+// ---------------------------------------------------------------------------
+// Sequential stdout writer — prevents interleaving when the notification
+// stream reader and POST response handler write concurrently.
+// ---------------------------------------------------------------------------
+
+type StdoutWriter = (data: string) => void;
+
+const createStdoutWriter = (): StdoutWriter => {
+  const queue: string[] = [];
+  let draining = false;
+
+  const drain = (): void => {
+    if (draining) return;
+    draining = true;
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (item !== undefined) process.stdout.write(item);
+    }
+    draining = false;
+  };
+
+  return (data: string) => {
+    queue.push(data);
+    drain();
+  };
+};
+
 const getLogsDir = (): string => join(getConfigDir(), 'logs');
 
 const getStdioBridgeLogPath = async (): Promise<string> => {
@@ -126,66 +153,109 @@ const extractDataFromSse = (body: string): string[] => {
  * Open a long-running GET SSE stream for server-initiated notifications.
  * The MCP Streamable HTTP spec sends tools/list_changed, logging, and other
  * server notifications over a standalone GET stream (not as POST responses).
+ *
+ * Reconnects automatically with exponential backoff if the stream drops
+ * unexpectedly (e.g., server restart during hot reload, network hiccup).
  */
 const openNotificationStream = (
   mcpUrl: string,
   sessionId: string,
   secret: string,
   log: LogFn,
+  writeStdout: StdoutWriter,
   abortController: AbortController,
 ): void => {
-  const streamUrl = mcpUrl;
-  const doOpen = async (): Promise<void> => {
-    try {
-      const response = await fetch(streamUrl, {
-        method: 'GET',
-        headers: {
-          Accept: 'text/event-stream',
-          Authorization: `Bearer ${secret}`,
-          'Mcp-Session-Id': sessionId,
-        },
-        signal: abortController.signal,
-      });
+  const MAX_BACKOFF_MS = 30_000;
+  const INITIAL_BACKOFF_MS = 1_000;
 
-      if (!response.ok || !response.body) {
-        log(`Notification stream failed: ${String(response.status)}`);
-        return;
-      }
+  const connect = async (): Promise<void> => {
+    let backoff = INITIAL_BACKOFF_MS;
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let sseBuffer = '';
+    while (!abortController.signal.aborted) {
+      try {
+        const response = await fetch(mcpUrl, {
+          method: 'GET',
+          headers: {
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${secret}`,
+            'Mcp-Session-Id': sessionId,
+          },
+          signal: abortController.signal,
+        });
 
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        if (!response.ok || !response.body) {
+          log(`Notification stream failed: ${String(response.status)}, retrying in ${String(backoff)}ms`);
+          if (abortController.signal.aborted) return;
+          await new Promise<void>(resolve => {
+            const timer = setTimeout(resolve, backoff);
+            abortController.signal.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer);
+                resolve();
+              },
+              { once: true },
+            );
+          });
+          backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
+          continue;
+        }
 
-        sseBuffer += decoder.decode(value, { stream: true });
+        // Connected successfully — reset backoff
+        backoff = INITIAL_BACKOFF_MS;
+        log('Notification stream connected');
 
-        // Process complete SSE events (separated by double newlines)
-        const events = sseBuffer.split('\n\n');
-        sseBuffer = events.pop() ?? '';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
 
-        for (const event of events) {
-          for (const line of event.split('\n')) {
-            if (line.startsWith('data: ')) {
-              const data = line.slice(6).trim();
-              if (data) {
-                process.stdout.write(`${data}\n`);
-                log(`<< notification: ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+
+          const events = sseBuffer.split('\n\n');
+          sseBuffer = events.pop() ?? '';
+
+          for (const event of events) {
+            for (const line of event.split('\n')) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
+                if (data) {
+                  writeStdout(`${data}\n`);
+                  log(`<< notification: ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
+                }
               }
             }
           }
         }
+
+        // Stream ended without abort — reconnect
+        if (!abortController.signal.aborted) {
+          log(`Notification stream ended unexpectedly, reconnecting in ${String(backoff)}ms`);
+        }
+      } catch (error: unknown) {
+        if (abortController.signal.aborted) return;
+        const msg = error instanceof Error ? error.message : String(error);
+        log(`Notification stream error: ${msg}, reconnecting in ${String(backoff)}ms`);
       }
-    } catch (error: unknown) {
+
+      // Wait before reconnecting — abort-aware so shutdown is prompt
       if (abortController.signal.aborted) return;
-      const msg = error instanceof Error ? error.message : String(error);
-      log(`Notification stream error: ${msg}`);
+      await new Promise<void>(resolve => {
+        const timer = setTimeout(resolve, backoff);
+        const onAbort = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        abortController.signal.addEventListener('abort', onAbort, { once: true });
+      });
+      backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
     }
   };
 
-  doOpen().catch(() => {});
+  connect().catch(() => {});
 };
 
 /**
@@ -219,6 +289,7 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
   const mcpUrl = `http://127.0.0.1:${String(port)}/mcp`;
   let sessionId: string | null = null;
   const notificationAbort = new AbortController();
+  const writeStdout = createStdoutWriter();
 
   const baseHeaders = (): Record<string, string> => {
     const h: Record<string, string> = {
@@ -275,7 +346,7 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
             log(`Session established: ${sessionId}`);
 
             // Now that we have a session, open the notification stream
-            openNotificationStream(mcpUrl, sessionId, secret, log, notificationAbort);
+            openNotificationStream(mcpUrl, sessionId, secret, log, writeStdout, notificationAbort);
           }
         }
 
@@ -288,11 +359,11 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
 
         if (contentType.includes('text/event-stream')) {
           for (const data of extractDataFromSse(body)) {
-            process.stdout.write(`${data}\n`);
+            writeStdout(`${data}\n`);
             log(`<- ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
           }
         } else if (body.trim()) {
-          process.stdout.write(`${body}\n`);
+          writeStdout(`${body}\n`);
           log(`<- ${body.slice(0, 100)}${body.length > 100 ? '...' : ''}`);
         }
       } catch (error: unknown) {
@@ -305,7 +376,7 @@ const runBridge = async (port: number, secret: string, log: LogFn): Promise<void
             id: message.id,
             error: { code: -32603, message: `Bridge proxy error: ${errorMessage}` },
           });
-          process.stdout.write(`${errorResponse}\n`);
+          writeStdout(`${errorResponse}\n`);
         }
       }
     })();
