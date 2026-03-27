@@ -790,7 +790,7 @@ const DEFAULT_WAIT_SECONDS = 5;
  * Orchestrate a comprehensive site analysis.
  *
  * Flow:
- * 1. Open tab to about:blank
+ * 1. Open a blank tab
  * 2. Enable network capture (before any real page requests fire)
  * 3. Navigate to target URL (CDP debugger is attached; captures all requests from load start)
  * 4. Wait for API calls (configurable wait time)
@@ -808,9 +808,9 @@ const analyzeSite = async (
   let tabId: number | null = null;
 
   try {
-    // Step 1: Open a new tab to about:blank so network capture can be enabled
-    // before any target-URL requests fire
-    const openResult = await dispatchToExtension(state, 'browser.openTab', { url: 'about:blank' });
+    // Step 1: Open a new blank tab so network capture can be enabled
+    // before any target-URL requests fire (no URL — Chrome opens a blank page)
+    const openResult = await dispatchToExtension(state, 'browser.openTab', {});
     if (
       typeof openResult !== 'object' ||
       openResult === null ||

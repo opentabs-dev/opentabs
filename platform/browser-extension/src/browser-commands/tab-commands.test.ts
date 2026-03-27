@@ -69,19 +69,33 @@ describe('handleBrowserOpenTab', () => {
     mockSendToServer.mockReset();
   });
 
-  test('rejects missing url', async () => {
+  test('opens blank tab when url is missing', async () => {
+    mockTabsCreate.mockResolvedValueOnce({
+      id: 99,
+      title: '',
+      url: 'chrome://newtab/',
+      windowId: 1,
+    } as chrome.tabs.Tab);
     await handleBrowserOpenTab({}, 'req-1');
+    expect(mockTabsCreate).toHaveBeenCalledWith({});
     expect(firstSentMessage()).toMatchObject({
       jsonrpc: '2.0',
       id: 'req-1',
-      error: { code: -32602, message: 'Missing or invalid url parameter' },
+      result: { id: 99 },
     });
   });
 
-  test('rejects non-string url', async () => {
+  test('opens blank tab when url is non-string', async () => {
+    mockTabsCreate.mockResolvedValueOnce({
+      id: 100,
+      title: '',
+      url: 'chrome://newtab/',
+      windowId: 1,
+    } as chrome.tabs.Tab);
     await handleBrowserOpenTab({ url: 42 }, 'req-2');
+    expect(mockTabsCreate).toHaveBeenCalledWith({});
     expect(firstSentMessage()).toMatchObject({
-      error: { code: -32602 },
+      result: { id: 100 },
     });
   });
 
