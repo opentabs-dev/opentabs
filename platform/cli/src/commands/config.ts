@@ -183,6 +183,8 @@ const PLUGIN_PERMISSION_PREFIX = 'plugin-permission.';
 const SETTING_PREFIX = 'setting.';
 const LOCAL_PLUGINS_ADD = 'localPlugins.add';
 const LOCAL_PLUGINS_REMOVE = 'localPlugins.remove';
+const ALLOWED_DIRS_ADD = 'allowedDirectories.add';
+const ALLOWED_DIRS_REMOVE = 'allowedDirectories.remove';
 const PORT_KEY = 'port';
 
 const SUPPORTED_KEYS = `Supported keys:
@@ -191,7 +193,9 @@ const SUPPORTED_KEYS = `Supported keys:
   setting.<plugin>.<key>            Set a plugin setting (e.g., setting.sqlpad.instanceUrl)
   port                              Set the server port (value: 1-65535)
   localPlugins.add                  Add a local plugin path (value: absolute or relative path)
-  localPlugins.remove               Remove a local plugin path (value: path to remove)`;
+  localPlugins.remove               Remove a local plugin path (value: path to remove)
+  allowedDirectories.add            Add an allowed directory for local plugins (value: absolute path)
+  allowedDirectories.remove         Remove an allowed directory (value: path to remove)`;
 
 const loadConfig = async (): Promise<{ config: Record<string, unknown>; configPath: string }> => {
   const configPath = getConfigPath();
@@ -470,6 +474,55 @@ const handleSetLocalPluginsRemove = async (value: string, options: { port?: numb
   await notifyServer({ port: options.port, warnIfNotRunning: true });
 };
 
+const handleSetAllowedDirsAdd = async (value: string, options: { port?: number }): Promise<void> => {
+  const expandedValue = value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
+  const dirPath = resolve(expandedValue);
+  const { config, configPath } = await loadConfig();
+
+  if (!Array.isArray(config.additionalAllowedDirectories)) {
+    config.additionalAllowedDirectories = [];
+  }
+  const dirs = config.additionalAllowedDirectories as string[];
+
+  if (dirs.includes(dirPath)) {
+    console.log(`${pc.dim('Already registered:')} ${dirPath}`);
+    return;
+  }
+
+  if (!existsSync(dirPath)) {
+    console.error(pc.red(`Error: Directory does not exist: ${dirPath}`));
+    process.exit(1);
+  }
+
+  dirs.push(dirPath);
+  await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`${pc.green('Added allowed directory:')} ${dirPath}`);
+  await notifyServer({ port: options.port, warnIfNotRunning: true });
+};
+
+const handleSetAllowedDirsRemove = async (value: string, options: { port?: number }): Promise<void> => {
+  const expandedValue = value.startsWith('~/') ? join(homedir(), value.slice(2)) : value;
+  const dirPath = resolve(expandedValue);
+  const { config, configPath } = await loadConfig();
+
+  if (!Array.isArray(config.additionalAllowedDirectories)) {
+    console.error(pc.red(`Directory not found in allowedDirectories: ${dirPath}`));
+    process.exit(1);
+  }
+  const dirs = config.additionalAllowedDirectories as string[];
+  const index = dirs.findIndex(d => resolve(d) === dirPath);
+
+  if (index === -1) {
+    console.error(pc.red(`Directory not found in allowedDirectories: ${dirPath}`));
+    process.exit(1);
+  }
+
+  dirs.splice(index, 1);
+  await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`${pc.green('Removed allowed directory:')} ${dirPath}`);
+  await notifyServer({ port: options.port, warnIfNotRunning: true });
+};
+
 const levenshtein = (a: string, b: string): number => {
   const n = b.length;
   let prev = Array.from({ length: n + 1 }, (_, j) => j);
@@ -492,6 +545,8 @@ const KNOWN_KEYS = [
   PORT_KEY,
   LOCAL_PLUGINS_ADD,
   LOCAL_PLUGINS_REMOVE,
+  ALLOWED_DIRS_ADD,
+  ALLOWED_DIRS_REMOVE,
 ];
 
 const suggestKey = (input: string): string | null => {
@@ -546,6 +601,12 @@ const handleConfigSet = async (
   }
   if (key === LOCAL_PLUGINS_REMOVE) {
     return handleSetLocalPluginsRemove(value, options);
+  }
+  if (key === ALLOWED_DIRS_ADD) {
+    return handleSetAllowedDirsAdd(value, options);
+  }
+  if (key === ALLOWED_DIRS_REMOVE) {
+    return handleSetAllowedDirsRemove(value, options);
   }
 
   console.error(pc.red(`Unknown config key: ${key}`));

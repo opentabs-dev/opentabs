@@ -46,6 +46,8 @@ interface OpentabsConfig {
   permissions: Record<string, PluginPermissionConfig>;
   /** Per-plugin settings: plugin name → { settingKey: value } */
   settings: Record<string, Record<string, unknown>>;
+  /** Extra directories where local plugins may reside (extends the default homedir/tmpdir/cwd roots) */
+  additionalAllowedDirectories?: string[];
 }
 
 /** Version marker file for the managed extension install */
@@ -176,7 +178,11 @@ const parseConfigRecord = (record: Record<string, unknown>): OpentabsConfig => {
   const permissions = parsePluginsConfig(record.permissions);
   const settings = parseSettingsConfig(record.settings);
 
-  return { localPlugins, permissions, settings };
+  const additionalAllowedDirectories = Array.isArray(record.additionalAllowedDirectories)
+    ? (record.additionalAllowedDirectories as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
+
+  return { localPlugins, permissions, settings, additionalAllowedDirectories };
 };
 
 /**
@@ -204,6 +210,7 @@ const loadConfig = async (): Promise<OpentabsConfig> => {
       localPlugins: [],
       permissions: {},
       settings: {},
+      additionalAllowedDirectories: [],
     };
     await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
     log.info(`Created default config at ${configPath}`);
@@ -272,6 +279,7 @@ const savePluginPermissions = async (
       localPlugins: current.localPlugins,
       permissions: plugins,
       settings: current.settings,
+      additionalAllowedDirectories: current.additionalAllowedDirectories,
     };
     await atomicWriteConfig(configPath, `${JSON.stringify(updated, null, 2)}\n`);
   })();
@@ -311,6 +319,7 @@ const savePluginSettings = async (
       localPlugins: current.localPlugins,
       permissions: current.permissions,
       settings,
+      additionalAllowedDirectories: current.additionalAllowedDirectories,
     };
     await atomicWriteConfig(configPath, `${JSON.stringify(updated, null, 2)}\n`);
   })();

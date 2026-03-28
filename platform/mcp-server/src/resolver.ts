@@ -23,7 +23,12 @@ import { log } from './logger.js';
  * Plugins must reside under the user's home directory or the system temp directory.
  * The temp directory allowance supports E2E tests and development workflows.
  */
-const getAllowedRoots = (): string[] => [homedir(), tmpdir(), process.cwd()];
+const getAllowedRoots = (extraDirs: readonly string[] = []): string[] => [
+  homedir(),
+  tmpdir(),
+  process.cwd(),
+  ...extraDirs,
+];
 
 /**
  * Resolve a path to its canonical form, following symlinks.
@@ -44,9 +49,12 @@ const safeRealpath = async (path: string): Promise<string> => {
  * Checks against both raw and resolved roots to handle non-existent paths
  * where realpath falls back to the unresolved input.
  */
-const isAllowedPluginPath = async (resolvedPath: string): Promise<boolean> => {
+const isAllowedPluginPath = async (
+  resolvedPath: string,
+  extraAllowedDirs: readonly string[] = [],
+): Promise<boolean> => {
   const realPath = await safeRealpath(resolvedPath);
-  const rawRoots = getAllowedRoots();
+  const rawRoots = getAllowedRoots(extraAllowedDirs);
   const realRoots = await Promise.all(rawRoots.map(safeRealpath));
 
   // Deduplicate: on macOS, raw /var/... and resolved /private/var/... differ
@@ -112,11 +120,15 @@ const resolveNpmPackage = (specifier: string): Result<string, string> => {
  *
  * Returns the directory path containing the plugin's package.json.
  */
-const resolvePluginPath = async (specifier: string, configDir: string): Promise<Result<string, string>> => {
+const resolvePluginPath = async (
+  specifier: string,
+  configDir: string,
+  extraAllowedDirs: readonly string[] = [],
+): Promise<Result<string, string>> => {
   if (isLocalPath(specifier)) {
     const resolvedPath = resolveLocalPath(specifier, configDir);
 
-    if (!(await isAllowedPluginPath(resolvedPath))) {
+    if (!(await isAllowedPluginPath(resolvedPath, extraAllowedDirs))) {
       return err(`Path outside allowed directories: ${resolvedPath}`);
     }
 

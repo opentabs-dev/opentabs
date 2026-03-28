@@ -35,6 +35,7 @@ const discoverPlugins = async (
   localPlugins: string[],
   configDir: string,
   pluginSettings?: Record<string, Record<string, unknown>>,
+  additionalAllowedDirs?: readonly string[],
 ): Promise<DiscoveryResult> => {
   log.info('Starting plugin discovery...');
 
@@ -61,7 +62,7 @@ const discoverPlugins = async (
   });
 
   const loadLocal = localPlugins.map(async (specifier): Promise<LoadedPlugin | null> => {
-    const resolveResult = await resolvePluginPath(specifier, configDir);
+    const resolveResult = await resolvePluginPath(specifier, configDir, additionalAllowedDirs);
     if (isErr(resolveResult)) {
       // "Path not found" means the directory no longer exists — treat as a stale config
       // entry and skip silently (only log, don't add to failedPlugins).

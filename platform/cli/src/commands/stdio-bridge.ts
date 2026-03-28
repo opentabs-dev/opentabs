@@ -1,0 +1,439 @@
+/**
+ * stdio-to-HTTP bridge for MCP clients that spawn the server as a child process.
+ *
+ * Instead of starting a second MCP server (which would conflict on the port),
+ * this bridge connects to an existing HTTP server:
+ *
+ * 1. Check if the server is already running on the target port
+ * 2. If not, start it in the background and wait for health
+ * 3. Transparently proxy JSON-RPC from stdin to POST /mcp, responses to stdout
+ * 4. Open a GET SSE stream for server-initiated notifications (tools/list_changed, logging)
+ * 5. On stdin EOF, send DELETE /mcp to clean up the session, then exit
+ *
+ * The bridge does NOT pre-initialize -- it lets the client's own `initialize`
+ * request pass through and captures the Mcp-Session-Id from the response.
+ *
+ * All diagnostic output goes to a log file and stderr -- never stdout,
+ * which is reserved exclusively for the MCP protocol.
+ */
+
+import { createWriteStream } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createInterface } from 'node:readline';
+import { DEFAULT_PORT } from '@opentabs-dev/shared';
+import { ensureAuthSecret, getConfigDir } from '../config.js';
+
+// ---------------------------------------------------------------------------
+// Sequential stdout writer — prevents interleaving when the notification
+// stream reader and POST response handler write concurrently.
+// ---------------------------------------------------------------------------
+
+type StdoutWriter = (data: string) => void;
+
+const createStdoutWriter = (): StdoutWriter => {
+  const queue: string[] = [];
+  let draining = false;
+
+  const drain = (): void => {
+    if (draining) return;
+    draining = true;
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (item !== undefined) process.stdout.write(item);
+    }
+    draining = false;
+  };
+
+  return (data: string) => {
+    queue.push(data);
+    drain();
+  };
+};
+
+const getLogsDir = (): string => join(getConfigDir(), 'logs');
+
+const getStdioBridgeLogPath = async (): Promise<string> => {
+  const logsDir = getLogsDir();
+  await mkdir(logsDir, { recursive: true, mode: 0o700 });
+  return join(logsDir, 'stdio-bridge.log');
+};
+
+type LogFn = (message: string) => void;
+
+const createLogger = (logPath: string): { log: LogFn; close: () => void } => {
+  const stream = createWriteStream(logPath, { flags: 'a', mode: 0o600 });
+  const log: LogFn = (message: string) => {
+    const ts = new Date().toISOString();
+    const line = `[stdio-bridge] ${ts} ${message}\n`;
+    stream.write(line);
+    process.stderr.write(line);
+  };
+  return { log, close: () => stream.end() };
+};
+
+const waitForHealth = async (port: number, secret: string, log: LogFn, maxWaitMs = 15_000): Promise<boolean> => {
+  const url = `http://127.0.0.1:${String(port)}/health`;
+  const start = Date.now();
+  const interval = 500;
+  while (Date.now() - start < maxWaitMs) {
+    try {
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${secret}` },
+        signal: AbortSignal.timeout(2000),
+      });
+      if (response.ok) return true;
+    } catch {
+      // Server not ready yet
+    }
+    await new Promise(resolve => setTimeout(resolve, interval));
+  }
+  log(`Server did not become healthy within ${String(maxWaitMs)}ms`);
+  return false;
+};
+
+const isServerRunning = async (port: number): Promise<boolean> => {
+  try {
+    const response = await fetch(`http://127.0.0.1:${String(port)}/health`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+const startBackgroundServer = async (port: number, log: LogFn): Promise<boolean> => {
+  const { spawn } = await import('node:child_process');
+  log(`Starting background server on port ${String(port)}...`);
+
+  const cliEntry = process.argv[1] ?? 'opentabs';
+  const child = spawn(process.execPath, [cliEntry, 'start', '--background', '--port', String(port)], {
+    stdio: ['ignore', 'ignore', 'ignore'],
+    detached: true,
+    env: { ...process.env, PORT: String(port) },
+  });
+  child.unref();
+
+  const exitedEarly = await new Promise<boolean>(resolve => {
+    const timer = setTimeout(() => {
+      child.removeAllListeners('exit');
+      resolve(false);
+    }, 3000);
+    child.on('exit', () => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+
+  if (exitedEarly) {
+    log('Background server exited unexpectedly');
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Extract all JSON data lines from an SSE response body.
+ * SSE format: "event: message\ndata: {...}\n\n"
+ */
+const extractDataFromSse = (body: string): string[] => {
+  const results: string[] = [];
+  for (const line of body.split('\n')) {
+    if (line.startsWith('data: ')) {
+      const data = line.slice(6).trim();
+      if (data) results.push(data);
+    }
+  }
+  return results;
+};
+
+/**
+ * Open a long-running GET SSE stream for server-initiated notifications.
+ * The MCP Streamable HTTP spec sends tools/list_changed, logging, and other
+ * server notifications over a standalone GET stream (not as POST responses).
+ *
+ * Reconnects automatically with exponential backoff if the stream drops
+ * unexpectedly (e.g., server restart during hot reload, network hiccup).
+ */
+const openNotificationStream = (
+  mcpUrl: string,
+  sessionId: string,
+  secret: string,
+  log: LogFn,
+  writeStdout: StdoutWriter,
+  abortController: AbortController,
+): void => {
+  const MAX_BACKOFF_MS = 30_000;
+  const INITIAL_BACKOFF_MS = 1_000;
+
+  const connect = async (): Promise<void> => {
+    let backoff = INITIAL_BACKOFF_MS;
+
+    while (!abortController.signal.aborted) {
+      try {
+        const response = await fetch(mcpUrl, {
+          method: 'GET',
+          headers: {
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${secret}`,
+            'Mcp-Session-Id': sessionId,
+          },
+          signal: abortController.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          log(`Notification stream failed: ${String(response.status)}, retrying in ${String(backoff)}ms`);
+          if (abortController.signal.aborted) return;
+          await new Promise<void>(resolve => {
+            const timer = setTimeout(resolve, backoff);
+            abortController.signal.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer);
+                resolve();
+              },
+              { once: true },
+            );
+          });
+          backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
+          continue;
+        }
+
+        // Connected successfully — reset backoff
+        backoff = INITIAL_BACKOFF_MS;
+        log('Notification stream connected');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
+
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+
+          const events = sseBuffer.split('\n\n');
+          sseBuffer = events.pop() ?? '';
+
+          for (const event of events) {
+            for (const line of event.split('\n')) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6).trim();
+                if (data) {
+                  writeStdout(`${data}\n`);
+                  log(`<< notification: ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
+                }
+              }
+            }
+          }
+        }
+
+        // Stream ended without abort — reconnect
+        if (!abortController.signal.aborted) {
+          log(`Notification stream ended unexpectedly, reconnecting in ${String(backoff)}ms`);
+        }
+      } catch (error: unknown) {
+        if (abortController.signal.aborted) return;
+        const msg = error instanceof Error ? error.message : String(error);
+        log(`Notification stream error: ${msg}, reconnecting in ${String(backoff)}ms`);
+      }
+
+      // Wait before reconnecting — abort-aware so shutdown is prompt
+      if (abortController.signal.aborted) return;
+      await new Promise<void>(resolve => {
+        const timer = setTimeout(resolve, backoff);
+        const onAbort = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        abortController.signal.addEventListener('abort', onAbort, { once: true });
+      });
+      backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
+    }
+  };
+
+  connect().catch(() => {});
+};
+
+/**
+ * Send DELETE /mcp to clean up the HTTP session on disconnect.
+ */
+const deleteSession = async (mcpUrl: string, sessionId: string, secret: string, log: LogFn): Promise<void> => {
+  try {
+    await fetch(mcpUrl, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Mcp-Session-Id': sessionId,
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    log('Session deleted');
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    log(`Failed to delete session: ${msg}`);
+  }
+};
+
+/**
+ * Main bridge loop: transparently proxy JSON-RPC between stdin/stdout and HTTP /mcp.
+ *
+ * The bridge does NOT pre-initialize. The client sends its own `initialize` request,
+ * which the bridge forwards to the server. The bridge captures the Mcp-Session-Id
+ * from the response and uses it for all subsequent requests.
+ */
+const runBridge = async (port: number, secret: string, log: LogFn): Promise<void> => {
+  const mcpUrl = `http://127.0.0.1:${String(port)}/mcp`;
+  let sessionId: string | null = null;
+  const notificationAbort = new AbortController();
+  const writeStdout = createStdoutWriter();
+
+  const baseHeaders = (): Record<string, string> => {
+    const h: Record<string, string> = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      Authorization: `Bearer ${secret}`,
+    };
+    if (sessionId) h['Mcp-Session-Id'] = sessionId;
+    return h;
+  };
+
+  const rl = createInterface({ input: process.stdin });
+  const inflight = new Set<Promise<void>>();
+
+  const MAX_BUFFER = 10 * 1024 * 1024;
+  let buffer = '';
+
+  rl.on('line', (line: string) => {
+    buffer += line;
+    if (buffer.length > MAX_BUFFER) {
+      log('Buffer overflow, resetting');
+      buffer = '';
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(buffer);
+    } catch {
+      return;
+    }
+    buffer = '';
+
+    const message = parsed as Record<string, unknown>;
+    const isNotification = !('id' in message);
+    const method = message.method as string | undefined;
+
+    log(`-> ${method ?? 'response'}${isNotification ? ' (notification)' : ''}`);
+
+    const work = (async () => {
+      try {
+        const response = await fetch(mcpUrl, {
+          method: 'POST',
+          headers: baseHeaders(),
+          body: JSON.stringify(parsed),
+          signal: AbortSignal.timeout(300_000),
+        });
+
+        // Capture session ID from the initialize response
+        if (method === 'initialize' && !sessionId) {
+          const newSessionId = response.headers.get('mcp-session-id');
+          if (newSessionId) {
+            sessionId = newSessionId;
+            log(`Session established: ${sessionId}`);
+
+            // Now that we have a session, open the notification stream
+            openNotificationStream(mcpUrl, sessionId, secret, log, writeStdout, notificationAbort);
+          }
+        }
+
+        if (isNotification) {
+          return;
+        }
+
+        const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+        const body = await response.text();
+
+        if (contentType.includes('text/event-stream')) {
+          for (const data of extractDataFromSse(body)) {
+            writeStdout(`${data}\n`);
+            log(`<- ${data.slice(0, 100)}${data.length > 100 ? '...' : ''}`);
+          }
+        } else if (body.trim()) {
+          writeStdout(`${body}\n`);
+          log(`<- ${body.slice(0, 100)}${body.length > 100 ? '...' : ''}`);
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log(`Error proxying request: ${errorMessage}`);
+
+        if ('id' in message) {
+          const errorResponse = JSON.stringify({
+            jsonrpc: '2.0',
+            id: message.id,
+            error: { code: -32603, message: `Bridge proxy error: ${errorMessage}` },
+          });
+          writeStdout(`${errorResponse}\n`);
+        }
+      }
+    })();
+    inflight.add(work);
+    work.finally(() => inflight.delete(work));
+  });
+
+  // stdin EOF = MCP client disconnected; wait for in-flight requests to finish
+  await new Promise<void>(resolve => {
+    rl.on('close', () => {
+      log('stdin closed, waiting for in-flight requests...');
+      resolve();
+    });
+  });
+  if (inflight.size > 0) {
+    await Promise.allSettled(inflight);
+  }
+
+  // Clean up: abort notification stream and delete session
+  notificationAbort.abort();
+  if (sessionId) {
+    await deleteSession(mcpUrl, sessionId, secret, log);
+  }
+};
+
+/**
+ * Entry point for `opentabs start --stdio`.
+ */
+export const handleStdioBridge = async (port?: number): Promise<void> => {
+  const targetPort = port ?? DEFAULT_PORT;
+  const logPath = await getStdioBridgeLogPath();
+  const { log, close: closeLog } = createLogger(logPath);
+
+  log(`Bridge starting (target port: ${String(targetPort)})`);
+
+  const secret = await ensureAuthSecret();
+
+  const running = await isServerRunning(targetPort);
+  if (!running) {
+    log('Server not running, starting in background...');
+    const started = await startBackgroundServer(targetPort, log);
+    if (!started) {
+      log('Failed to start background server');
+      process.exit(1);
+    }
+    const healthy = await waitForHealth(targetPort, secret, log);
+    if (!healthy) {
+      log('Server failed health check after background start');
+      process.exit(1);
+    }
+    log('Background server is healthy');
+  } else {
+    log('Server already running');
+  }
+
+  await runBridge(targetPort, secret, log);
+
+  log('Bridge exiting');
+  closeLog();
+};
