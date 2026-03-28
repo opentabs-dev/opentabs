@@ -82,7 +82,7 @@
     "minimatch": "^10.2.4",
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest": "^4.1.2",
     "ws": "^8.20.0"
   }
