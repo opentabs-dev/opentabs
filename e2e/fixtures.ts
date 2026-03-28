@@ -208,6 +208,8 @@ interface OpentabsConfig {
   tools?: Record<string, boolean>;
   /** Per-plugin settings (short plugin name → key/value pairs). */
   settings?: Record<string, Record<string, unknown>>;
+  /** Extra directories allowed for local plugin resolution (beyond ~/). */
+  additionalAllowedDirectories?: string[];
 }
 
 /**
