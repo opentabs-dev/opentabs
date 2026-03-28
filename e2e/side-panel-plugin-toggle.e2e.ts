@@ -835,9 +835,15 @@ test.describe('Side panel — plugin-level re-selection clears overrides', () =>
       await expect(echoToolSelect).toContainText('Off', { timeout: 10_000 });
 
       // Verify the per-tool override was removed from config.json
-      const config = readTestConfig(configDir);
-      const pluginPerms = config.permissions?.['e2e-test'];
-      expect(pluginPerms?.tools).toBeUndefined();
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.permissions?.['e2e-test']?.tools;
+          },
+          { timeout: 10_000, message: 'per-tool overrides should be cleared from config.json' },
+        )
+        .toBeUndefined();
 
       await sidePanelPage.close();
     } finally {
