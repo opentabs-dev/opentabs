@@ -1250,13 +1250,7 @@ const handleBuild = async (options: { watch?: boolean }): Promise<void> => {
     watcher = watch(distDir, { recursive: true }, (_event, filename) => {
       // Only react to .js file changes (tsc output), skip adapter.iife.js
       // and temporary wrapper files to avoid rebuild loops
-      if (
-        !filename ||
-        !filename.endsWith('.js') ||
-        filename === ADAPTER_FILENAME ||
-        filename.startsWith('_adapter_entry_')
-      )
-        return;
+      if (!filename?.endsWith('.js') || filename === ADAPTER_FILENAME || filename.startsWith('_adapter_entry_')) return;
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => void rebuild(), DEBOUNCE_MS);
     });

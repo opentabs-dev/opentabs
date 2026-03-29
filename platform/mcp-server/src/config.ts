@@ -21,6 +21,7 @@ import {
   type PluginPermissionConfig,
   type ToolPermission,
 } from '@opentabs-dev/shared';
+import { CURRENT_CONFIG_VERSION } from './config-migrations.js';
 import { log } from './logger.js';
 
 const VALID_TOOL_PERMISSIONS = new Set<string>(['off', 'ask', 'auto']);
@@ -216,7 +217,7 @@ const loadConfig = async (): Promise<OpentabsConfig> => {
       permissions: {},
       settings: {},
       additionalAllowedDirectories: [],
-      version: 2,
+      version: CURRENT_CONFIG_VERSION,
     };
     await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
     log.info(`Created default config at ${configPath}`);

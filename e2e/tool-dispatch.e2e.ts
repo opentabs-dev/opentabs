@@ -735,7 +735,7 @@ test.describe('Sequential tool calls', () => {
 
     // Verify extension is still connected before starting the barrage
     const h = await mcpServer.health();
-    if (!h || !h.extensionConnected) {
+    if (!h?.extensionConnected) {
       throw new Error(
         `Extension not connected before sequential calls.\n` +
           `Health: ${JSON.stringify(h)}\n` +
