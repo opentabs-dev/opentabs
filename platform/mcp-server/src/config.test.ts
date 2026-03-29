@@ -47,6 +47,7 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     expect(config.localPlugins).toEqual([]);
     expect(config.permissions).toEqual({});
+    expect(config.version).toBe(2);
 
     // File was created on disk
     expect(existsSync(configPath)).toBe(true);
@@ -69,6 +70,7 @@ describe('loadConfig / saveConfig round-trip', () => {
       settings: {
         sqlpad: { instanceUrl: 'https://sqlpad.example.com' },
       },
+      version: 2,
     };
     await saveConfigWrapped(custom);
 
@@ -76,6 +78,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     expect(loaded.localPlugins).toEqual(custom.localPlugins);
     expect(loaded.permissions).toEqual(custom.permissions);
     expect(loaded.settings).toEqual(custom.settings);
+    expect(loaded.version).toBe(custom.version);
   });
 
   test('filters non-string elements from localPlugins array', async () => {
@@ -125,6 +128,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     const config = await loadConfig();
     expect(config.localPlugins).toEqual(['/some/plugin']);
     expect(config.permissions).toEqual({});
+    expect(config.version).toBe(2);
   });
 
   test('default config has empty permissions map', async () => {
@@ -147,8 +151,8 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     const config = await loadConfig();
     expect(config.settings).toEqual({
-      sqlpad: { instanceUrl: 'https://sqlpad.example.com', port: 3000 },
-      jira: { baseUrl: 'https://jira.company.com' },
+      sqlpad: { instanceUrl: { default: 'https://sqlpad.example.com' }, port: 3000 },
+      jira: { baseUrl: { default: 'https://jira.company.com' } },
     });
   });
 
@@ -199,6 +203,7 @@ describe('savePluginPermissions round-trip', () => {
       localPlugins: ['/my/plugin'],
       permissions: {},
       settings: {},
+      version: 2,
     };
     await saveConfigWrapped(initial);
 
@@ -223,6 +228,7 @@ describe('savePluginPermissions round-trip', () => {
       localPlugins: [],
       permissions: { slack: { permission: 'auto' } },
       settings: {},
+      version: 2,
     };
     await saveConfigWrapped(initial);
 
@@ -245,6 +251,7 @@ describe('savePluginPermissions round-trip', () => {
       settings: {
         sqlpad: { instanceUrl: 'https://sqlpad.example.com' },
       },
+      version: 2,
     };
     await saveConfigWrapped(initial);
 
@@ -270,6 +277,7 @@ describe('savePluginSettings round-trip', () => {
       localPlugins: ['/my/plugin'],
       permissions: { slack: { permission: 'auto' } },
       settings: {},
+      version: 2,
     };
     await saveConfigWrapped(initial);
 
@@ -291,6 +299,7 @@ describe('savePluginSettings round-trip', () => {
       localPlugins: [],
       permissions: {},
       settings: { old_plugin: { key: 'old-value' } },
+      version: 2,
     };
     await saveConfigWrapped(initial);
 
@@ -331,6 +340,7 @@ describe('saveConfig error propagation', () => {
       localPlugins: [],
       permissions: {},
       settings: {},
+      version: 2,
     };
 
     await expect(saveConfig(state, config)).rejects.toThrow();
@@ -348,6 +358,7 @@ describe('saveConfig error propagation', () => {
       localPlugins: ['/test/path'],
       permissions: {},
       settings: {},
+      version: 2,
     };
 
     // First write fails
