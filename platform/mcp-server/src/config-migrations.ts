@@ -24,8 +24,22 @@ type MigrationFn = (config: Record<string, unknown>) => Record<string, unknown>;
 const migrations: Map<number, MigrationFn> = new Map();
 
 // v1 → v2: convert url-type setting strings to Record<string, string>
-// (migration body added in US-003)
-migrations.set(2, config => config);
+migrations.set(2, config => {
+  const settings = config.settings;
+  if (!settings || typeof settings !== 'object') return config;
+
+  for (const pluginSettings of Object.values(settings as Record<string, unknown>)) {
+    if (!pluginSettings || typeof pluginSettings !== 'object') continue;
+    const fields = pluginSettings as Record<string, unknown>;
+    for (const [key, value] of Object.entries(fields)) {
+      if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
+        fields[key] = { default: value };
+      }
+    }
+  }
+
+  return config;
+});
 
 /**
  * Run sequential config migrations from the config's current version up to
