@@ -94,6 +94,72 @@ export const paginationSchema = z.object({
   end_cursor: z.string().describe('Cursor for fetching the next page, or empty'),
 });
 
+export const attachmentSchema = z.object({
+  id: z.string().describe('Attachment UUID'),
+  title: z.string().describe('Attachment title'),
+  subtitle: z.string().describe('Attachment subtitle'),
+  url: z.string().describe('Attachment URL'),
+  source_type: z.string().describe('Source type (e.g. github, slack, figma)'),
+  creator_name: z.string().describe('Creator display name'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export const initiativeSchema = z.object({
+  id: z.string().describe('Initiative UUID'),
+  name: z.string().describe('Initiative name'),
+  description: z.string().describe('Initiative description in markdown'),
+  status: z.string().describe('Initiative status (Planned, Active, Completed)'),
+  color: z.string().describe('Initiative color hex code'),
+  icon: z.string().describe('Initiative icon emoji'),
+  owner_name: z.string().describe('Initiative owner display name, or empty if none'),
+  url: z.string().describe('URL to the initiative in Linear'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export const documentSchema = z.object({
+  id: z.string().describe('Document UUID'),
+  title: z.string().describe('Document title'),
+  content: z.string().describe('Document content in markdown'),
+  slug_id: z.string().describe('Document slug ID for URL construction'),
+  icon: z.string().describe('Document icon emoji'),
+  creator_name: z.string().describe('Creator display name'),
+  project_name: z.string().describe('Associated project name, or empty'),
+  url: z.string().describe('URL to the document in Linear'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export const milestoneSchema = z.object({
+  id: z.string().describe('Milestone UUID'),
+  name: z.string().describe('Milestone name'),
+  description: z.string().describe('Milestone description'),
+  target_date: z.string().describe('Target date (YYYY-MM-DD), or empty if none'),
+  sort_order: z.number().describe('Sort order within the project'),
+});
+
+export const statusUpdateSchema = z.object({
+  id: z.string().describe('Status update UUID'),
+  body: z.string().describe('Status update body in markdown'),
+  health: z.string().describe('Health status (onTrack, atRisk, offTrack)'),
+  user_name: z.string().describe('Author display name'),
+  created_at: z.string().describe('ISO 8601 creation timestamp'),
+  updated_at: z.string().describe('ISO 8601 last update timestamp'),
+});
+
+export const issueHistorySchema = z.object({
+  id: z.string().describe('History entry UUID'),
+  actor_name: z.string().describe('User who made the change'),
+  from_state_name: z.string().describe('Previous state name, or empty'),
+  to_state_name: z.string().describe('New state name, or empty'),
+  from_assignee_name: z.string().describe('Previous assignee, or empty'),
+  to_assignee_name: z.string().describe('New assignee, or empty'),
+  from_priority: z.number().describe('Previous priority, or 0'),
+  to_priority: z.number().describe('New priority, or 0'),
+  created_at: z.string().describe('ISO 8601 timestamp of the change'),
+});
+
 // --- Defensive mappers ---
 
 interface RawIssue {
@@ -266,4 +332,136 @@ export const mapCycle = (c: RawCycle | undefined) => ({
   ends_at: c?.endsAt ?? '',
   is_active: c?.isActive ?? false,
   completed_at: c?.completedAt ?? '',
+});
+
+interface RawAttachment {
+  id?: string;
+  title?: string;
+  subtitle?: string;
+  url?: string;
+  sourceType?: string;
+  creator?: { name?: string; displayName?: string };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapAttachment = (a: RawAttachment | undefined) => ({
+  id: a?.id ?? '',
+  title: a?.title ?? '',
+  subtitle: a?.subtitle ?? '',
+  url: a?.url ?? '',
+  source_type: a?.sourceType ?? '',
+  creator_name: a?.creator?.displayName ?? a?.creator?.name ?? '',
+  created_at: a?.createdAt ?? '',
+  updated_at: a?.updatedAt ?? '',
+});
+
+interface RawInitiative {
+  id?: string;
+  name?: string;
+  description?: string;
+  status?: string;
+  color?: string;
+  icon?: string;
+  owner?: { name?: string; displayName?: string };
+  url?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapInitiative = (i: RawInitiative | undefined) => ({
+  id: i?.id ?? '',
+  name: i?.name ?? '',
+  description: i?.description ?? '',
+  status: i?.status ?? '',
+  color: i?.color ?? '',
+  icon: i?.icon ?? '',
+  owner_name: i?.owner?.displayName ?? i?.owner?.name ?? '',
+  url: i?.url ?? '',
+  created_at: i?.createdAt ?? '',
+  updated_at: i?.updatedAt ?? '',
+});
+
+interface RawDocument {
+  id?: string;
+  title?: string;
+  content?: string;
+  slugId?: string;
+  icon?: string;
+  creator?: { name?: string; displayName?: string };
+  project?: { name?: string };
+  url?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapDocument = (d: RawDocument | undefined) => ({
+  id: d?.id ?? '',
+  title: d?.title ?? '',
+  content: d?.content ?? '',
+  slug_id: d?.slugId ?? '',
+  icon: d?.icon ?? '',
+  creator_name: d?.creator?.displayName ?? d?.creator?.name ?? '',
+  project_name: d?.project?.name ?? '',
+  url: d?.url ?? '',
+  created_at: d?.createdAt ?? '',
+  updated_at: d?.updatedAt ?? '',
+});
+
+interface RawMilestone {
+  id?: string;
+  name?: string;
+  description?: string;
+  targetDate?: string;
+  sortOrder?: number;
+}
+
+export const mapMilestone = (m: RawMilestone | undefined) => ({
+  id: m?.id ?? '',
+  name: m?.name ?? '',
+  description: m?.description ?? '',
+  target_date: m?.targetDate ?? '',
+  sort_order: m?.sortOrder ?? 0,
+});
+
+interface RawStatusUpdate {
+  id?: string;
+  body?: string;
+  health?: string;
+  user?: { name?: string; displayName?: string };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const mapStatusUpdate = (s: RawStatusUpdate | undefined) => ({
+  id: s?.id ?? '',
+  body: s?.body ?? '',
+  health: s?.health ?? '',
+  user_name: s?.user?.displayName ?? s?.user?.name ?? '',
+  created_at: s?.createdAt ?? '',
+  updated_at: s?.updatedAt ?? '',
+});
+
+interface RawIssueHistory {
+  id?: string;
+  actor?: { name?: string; displayName?: string };
+  fromState?: { name?: string };
+  toState?: { name?: string };
+  fromAssignee?: { name?: string; displayName?: string };
+  toAssignee?: { name?: string; displayName?: string };
+  fromPriority?: number;
+  toPriority?: number;
+  createdAt?: string;
+}
+
+export const mapIssueHistory = (h: RawIssueHistory | undefined) => ({
+  id: h?.id ?? '',
+  actor_name: h?.actor?.displayName ?? h?.actor?.name ?? '',
+  from_state_name: h?.fromState?.name ?? '',
+  to_state_name: h?.toState?.name ?? '',
+  from_assignee_name: h?.fromAssignee?.displayName ?? h?.fromAssignee?.name ?? '',
+  to_assignee_name: h?.toAssignee?.displayName ?? h?.toAssignee?.name ?? '',
+  from_priority: h?.fromPriority ?? 0,
+  to_priority: h?.toPriority ?? 0,
+  created_at: h?.createdAt ?? '',
 });
