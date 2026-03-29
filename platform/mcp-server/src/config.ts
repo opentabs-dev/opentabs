@@ -21,7 +21,7 @@ import {
   type PluginPermissionConfig,
   type ToolPermission,
 } from '@opentabs-dev/shared';
-import { CURRENT_CONFIG_VERSION } from './config-migrations.js';
+import { CURRENT_CONFIG_VERSION, migrateConfig } from './config-migrations.js';
 import { log } from './logger.js';
 
 const VALID_TOOL_PERMISSIONS = new Set<string>(['off', 'ask', 'auto']);
@@ -232,7 +232,8 @@ const loadConfig = async (): Promise<OpentabsConfig> => {
     throw new Error(`Config at ${configPath} is unreadable after retries`);
   }
 
-  return parseConfigRecord(record);
+  const migrated = await migrateConfig(configPath, record);
+  return parseConfigRecord(migrated);
 };
 
 /**

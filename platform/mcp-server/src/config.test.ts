@@ -128,7 +128,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     const config = await loadConfig();
     expect(config.localPlugins).toEqual(['/some/plugin']);
     expect(config.permissions).toEqual({});
-    expect(config.version).toBe(1);
+    expect(config.version).toBe(2);
   });
 
   test('default config has empty permissions map', async () => {
@@ -151,8 +151,8 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     const config = await loadConfig();
     expect(config.settings).toEqual({
-      sqlpad: { instanceUrl: 'https://sqlpad.example.com', port: 3000 },
-      jira: { baseUrl: 'https://jira.company.com' },
+      sqlpad: { instanceUrl: { default: 'https://sqlpad.example.com' }, port: 3000 },
+      jira: { baseUrl: { default: 'https://jira.company.com' } },
     });
   });
 
