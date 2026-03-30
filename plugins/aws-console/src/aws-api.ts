@@ -27,6 +27,18 @@ interface AwsSessionInfo {
 
 // --- Credential Interception ---
 
+/** Active MutationObserver for iframe discovery — disconnected after credentials are captured. */
+let iframeObserver: MutationObserver | null = null;
+
+/** Disconnect the iframe MutationObserver if still active. */
+export const disconnectCredentialObserver = (): void => {
+  if (iframeObserver) {
+    iframeObserver.disconnect();
+    iframeObserver = null;
+    log.debug('Disconnected credential interception MutationObserver');
+  }
+};
+
 /**
  * Install credential interception hooks on service iframes.
  *
@@ -70,6 +82,7 @@ const installCredentialInterceptor = (): void => {
           ) {
             setAuthCache<AwsCredentials>('aws-console', c as AwsCredentials);
             log.debug('Captured AWS credentials from iframe credential exchange');
+            disconnectCredentialObserver();
           }
         } catch {
           // Ignore non-credential responses
@@ -104,7 +117,7 @@ const installCredentialInterceptor = (): void => {
   }
 
   // Watch for new iframes added to the DOM
-  const observer = new MutationObserver(mutations => {
+  iframeObserver = new MutationObserver(mutations => {
     for (const m of mutations) {
       for (const node of m.addedNodes) {
         if (node instanceof HTMLIFrameElement) {
@@ -120,10 +133,10 @@ const installCredentialInterceptor = (): void => {
   });
 
   if (document.body) {
-    observer.observe(document.body, { childList: true, subtree: true });
+    iframeObserver.observe(document.body, { childList: true, subtree: true });
   } else {
     document.addEventListener('DOMContentLoaded', () => {
-      observer.observe(document.body, { childList: true, subtree: true });
+      iframeObserver?.observe(document.body, { childList: true, subtree: true });
     });
   }
 };
@@ -365,7 +378,14 @@ const classifyError = (status: number, body: string, service: string): never => 
   }
   if (status === 400) {
     const msgMatch = body.match(/<Message>(.*?)<\/Message>/);
-    const jsonMsg = body.startsWith('{') ? (JSON.parse(body) as { Message?: string }).Message : undefined;
+    let jsonMsg: string | undefined;
+    if (body.startsWith('{')) {
+      try {
+        jsonMsg = (JSON.parse(body) as { Message?: string }).Message;
+      } catch {
+        // Malformed JSON body — fall through to generic message
+      }
+    }
     throw ToolError.validation(msgMatch?.[1] ?? jsonMsg ?? `AWS ${service} bad request (400).`);
   }
   const msgMatch = body.match(/<Message>(.*?)<\/Message>/);
