@@ -138,6 +138,7 @@ describe('performReload', () => {
     const conn: ExtensionConnection = {
       ws: { send() {}, close() {} },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
@@ -506,6 +507,7 @@ describe('performConfigReload', () => {
     const conn: ExtensionConnection = {
       ws: { send() {}, close() {} },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };

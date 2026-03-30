@@ -139,6 +139,8 @@ export interface TabMapping {
 export interface ExtensionConnection {
   ws: WsHandle;
   connectionId: string;
+  /** Short human-readable label ('A', 'B', 'C', ...) assigned sequentially per unique connectionId */
+  profileLabel: string;
   /** Tab-to-plugin mapping for this connection */
   tabMapping: Map<string, TabMapping>;
   /** Tab IDs with active network capture for this connection */
@@ -338,6 +340,10 @@ export interface ServerState {
   browserTabOwnership: Map<number, string>;
   /** Pending connectionId for the next WsHandle open — set during upgrade, consumed in the open handler */
   _pendingConnectionId?: string;
+  /** Counter for assigning sequential profile labels ('A', 'B', 'C', ...) */
+  nextProfileLabel: number;
+  /** Maps connectionId → profile label for reuse on same-profile reconnect */
+  profileLabelMap: Map<string, string>;
   /** Coalescing state for POST /reload — multiple concurrent requests share one performConfigReload call */
   pendingReload: {
     promise: Promise<{ plugins: number; durationMs: number }>;
@@ -404,6 +410,8 @@ export const createState = (): ServerState => ({
   reviewTokens: new Map(),
   browserTabOwnership: new Map(),
   pendingReload: null,
+  nextProfileLabel: 0,
+  profileLabelMap: new Map(),
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */
@@ -471,6 +479,16 @@ export const consumeReviewToken = (state: ServerState, token: string): void => {
   if (entry) {
     entry.used = true;
   }
+};
+
+/** Assign a stable profile label for a connectionId, reusing labels on reconnect */
+export const assignProfileLabel = (state: ServerState, connectionId: string): string => {
+  const existing = state.profileLabelMap.get(connectionId);
+  if (existing) return existing;
+  const label = String.fromCharCode(65 + state.nextProfileLabel);
+  state.nextProfileLabel++;
+  state.profileLabelMap.set(connectionId, label);
+  return label;
 };
 
 /** Returns any active extension connection, or undefined if none exist */

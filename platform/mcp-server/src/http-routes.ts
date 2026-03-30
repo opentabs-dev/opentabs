@@ -50,7 +50,13 @@ import { performConfigReload } from './reload.js';
 import { sanitizeErrorMessage } from './sanitize-error.js';
 import { sdkVersion } from './sdk-version.js';
 import type { AuditEntry, ExtensionConnection, ServerState } from './state.js';
-import { getMergedTabMapping, isExtensionConnected, prefixedToolName, STATE_SCHEMA_VERSION } from './state.js';
+import {
+  assignProfileLabel,
+  getMergedTabMapping,
+  isExtensionConnected,
+  prefixedToolName,
+  STATE_SCHEMA_VERSION,
+} from './state.js';
 import { version } from './version.js';
 
 /** Opaque HotState accessor — index.ts injects the getter */
@@ -1045,14 +1051,16 @@ const createHandleWsOpen =
       }
     }
 
+    const profileLabel = assignProfileLabel(state, connectionId);
     const conn: ExtensionConnection = {
       ws,
       connectionId,
+      profileLabel,
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
     state.extensionConnections.set(connectionId, conn);
-    log.info(`Extension WebSocket connected (connectionId: ${connectionId})`);
+    log.info(`Extension WebSocket connected [${profileLabel}] (connectionId: ${connectionId})`);
 
     void sendSyncFull(state)
       .then(() => {
@@ -1094,7 +1102,9 @@ const createHandleWsClose =
     }
 
     if (closedConn) {
-      log.info(`Extension WebSocket disconnected (connectionId: ${closedConn.connectionId})`);
+      log.info(
+        `Extension WebSocket disconnected [${closedConn.profileLabel}] (connectionId: ${closedConn.connectionId})`,
+      );
 
       // Remove browser tab ownership entries for the disconnected connection
       for (const [tabId, connId] of state.browserTabOwnership) {

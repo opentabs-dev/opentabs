@@ -17,6 +17,7 @@ describe('reloadExtension handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: { send: (data: string) => sent.push(data), close: () => {} },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -41,6 +42,7 @@ describe('reloadExtension handler', () => {
         close: () => {},
       },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -64,6 +66,7 @@ describe('reloadExtension handler', () => {
         close: () => {},
       },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
