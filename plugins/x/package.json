@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-x",
   "description": "OpenTabs plugin for X (Twitter)",
-  "version": "0.0.84",
+  "version": "0.0.85",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
