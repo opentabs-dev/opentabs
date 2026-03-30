@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Solutions for common OpenTabs issues — connection problems, plugin state issues, timeouts, diagnostics, and build errors.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-03-29
 ---
 
 ## First steps
@@ -34,7 +34,7 @@ If the server isn't running, start it with `opentabs start`.
 
 **Symptom**: After the server restarts, the extension takes several seconds to reconnect.
 
-The extension uses exponential backoff: 1s, 2s, 4s, 8s, up to a 30-second cap. Backoff resets after a successful connection. To force an immediate reconnect, close and reopen the side panel.
+The extension uses exponential backoff: 1s, 2s, then capped at 3 seconds. Backoff resets after a successful connection. To force an immediate reconnect, close and reopen the side panel.
 
 ---
 
