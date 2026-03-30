@@ -13,8 +13,8 @@ const titleDetailsSchema = z.object({
   maturity_description: z.string().describe('Description of the maturity rating'),
   content_reasons: z.array(z.string()).describe('Content advisory reasons (e.g., "violence", "language")'),
   genres: z.string().describe('Genre tags'),
-  cast: z.array(z.string()).describe('Cast member names'),
-  creators: z.array(z.string()).describe('Creator/director names'),
+  cast: z.array(z.string()).describe('Cast member names (may be empty — not always available from the cache)'),
+  creators: z.array(z.string()).describe('Creator/director names (may be empty — not always available from the cache)'),
   is_original: z.boolean().describe('Whether this is a Netflix Original'),
   playback_badges: z.array(z.string()).describe('Quality badges (e.g., VIDEO_ULTRA_HD, AUDIO_FIVE_DOT_ONE)'),
   watch_status: z.string().describe('Watch status'),
@@ -29,8 +29,8 @@ export const getTitleDetails = defineTool({
   name: 'get_title_details',
   displayName: 'Get Title Details',
   description:
-    'Get comprehensive details about a Netflix title including cast, creators, content advisory, quality badges, and user rating. More detailed than get_title — use this when you need cast/crew information or content advisories.',
-  summary: 'Get full details including cast and crew',
+    'Get comprehensive details about a Netflix title including content advisory, quality badges, and user rating. More detailed than get_title — use this when you need content advisories or playback badges.',
+  summary: 'Get full details including advisories and badges',
   icon: 'info',
   group: 'Browse',
   input: z.object({
@@ -70,15 +70,38 @@ export const getTitleDetails = defineTool({
 
         await pe.get.bind(pe)(...paths);
       }
+
+      // Re-read Apollo cache after pathEvaluator fetch
+      if (apolloClient?.cache) {
+        const cacheData = apolloClient.cache.extract();
+        apolloData = cacheData[`Movie:{"videoId":${videoId}}`] ?? cacheData[`Show:{"videoId":${videoId}}`] ?? null;
+      }
+      if (!apolloData) apolloData = readApolloTitle(params.video_id);
     }
 
     // Build the response from available data sources
     const contentAdvisory = apolloData?.contentAdvisory as Record<string, unknown> | undefined;
     const reasons = (contentAdvisory?.reasons as Array<{ text?: string }> | undefined) ?? [];
     const playbackBadges = (apolloData?.playbackBadges as string[] | undefined) ?? [];
-    const textEvidence = apolloData?.[Object.keys(apolloData).find(k => k.startsWith('textEvidence')) ?? ''] as
-      | Array<{ text?: string }>
-      | undefined;
+
+    // textEvidence keys (e.g., textEvidence({"field":"genres"})) contain genre tags
+    let genres = '';
+    if (apolloData) {
+      for (const k of Object.keys(apolloData)) {
+        if (k.startsWith('textEvidence(') || k.startsWith('textEvidence')) {
+          const tags = apolloData[k] as Array<{ text?: string }> | undefined;
+          if (tags?.[0]?.text) {
+            genres = tags[0].text;
+            break;
+          }
+        }
+      }
+    }
+
+    // Synopsis comes from contextualSynopsis or synopsis fields
+    const contextualSynopsis = apolloData?.contextualSynopsis as { text?: string } | undefined;
+    const synopsisField = apolloData?.synopsis as { value?: string } | undefined;
+    const synopsis = contextualSynopsis?.text ?? synopsisField?.value ?? '';
 
     return {
       title: {
@@ -86,14 +109,14 @@ export const getTitleDetails = defineTool({
         title: (apolloData?.title as string | undefined) ?? titleVal ?? '',
         type: (apolloData?.__typename as string | undefined)?.toLowerCase() ?? '',
         year: (apolloData?.latestYear as number | undefined) ?? 0,
-        synopsis: textEvidence?.[0]?.text ?? '',
+        synopsis,
         maturity_rating: (contentAdvisory?.certificationValue as string | undefined) ?? '',
         maturity_description: (contentAdvisory?.maturityDescription as string | undefined) ?? '',
         content_reasons: reasons.map(r => r.text ?? '').filter(Boolean),
-        genres: textEvidence?.[0]?.text ?? '',
+        genres,
         cast: [],
         creators: [],
-        is_original: false,
+        is_original: (apolloData?.isOriginal as boolean | undefined) ?? false,
         playback_badges: playbackBadges,
         watch_status: (apolloData?.watchStatus as string | undefined) ?? 'NOT_WATCHED',
         is_in_my_list: (apolloData?.isInPlaylist as boolean | undefined) ?? false,
