@@ -30,7 +30,7 @@ export const getRatings = defineTool({
     ratings: z.array(ratingSchema).describe('Individual analyst ratings'),
   }),
   handle: async params => {
-    const data = await api<RatingsResponse>(`/midlands/ratings/?ids=${params.instrument_id}`);
+    const data = await api<RatingsResponse>('/midlands/ratings/', { query: { ids: params.instrument_id } });
     const first = data.results?.[0];
     if (!first) {
       return {

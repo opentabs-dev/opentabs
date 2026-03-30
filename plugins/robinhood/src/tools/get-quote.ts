@@ -18,7 +18,7 @@ export const getQuote = defineTool({
     quotes: z.array(quoteSchema).describe('List of stock quotes'),
   }),
   handle: async params => {
-    const data = await api<{ results: RawQuote[] }>(`/marketdata/quotes/?symbols=${params.symbols}`);
+    const data = await api<{ results: RawQuote[] }>('/marketdata/quotes/', { query: { symbols: params.symbols } });
     return { quotes: (data.results ?? []).map(mapQuote) };
   },
 });

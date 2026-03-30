@@ -18,7 +18,7 @@ export const searchInstruments = defineTool({
     instruments: z.array(instrumentSchema).describe('Matching instruments'),
   }),
   handle: async params => {
-    const data = await api<{ results: RawInstrument[] }>(`/instruments/?query=${params.query}`);
+    const data = await api<{ results: RawInstrument[] }>('/instruments/', { query: { query: params.query } });
     return { instruments: (data.results ?? []).map(mapInstrument) };
   },
 });

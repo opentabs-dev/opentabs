@@ -299,7 +299,6 @@ export const mapHistorical = (h: RawHistorical) => ({
 export const orderSchema = z.object({
   id: z.string().describe('Order UUID'),
   instrument_id: z.string().describe('Instrument UUID'),
-  symbol: z.string().describe('Ticker symbol (resolved from instrument URL)'),
   side: z.string().describe('Order side: buy or sell'),
   type: z.string().describe('Order type: market, limit, stop, stop_limit'),
   state: z.string().describe('Order state: filled, cancelled, confirmed, queued, rejected, etc.'),
@@ -331,7 +330,6 @@ export interface RawOrder {
 export const mapOrder = (o: RawOrder) => ({
   id: o.id ?? '',
   instrument_id: o.instrument_id ?? '',
-  symbol: '',
   side: o.side ?? '',
   type: o.type ?? '',
   state: o.state ?? '',

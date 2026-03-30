@@ -18,7 +18,7 @@ export const getEarnings = defineTool({
     earnings: z.array(earningsSchema).describe('Earnings reports by quarter'),
   }),
   handle: async params => {
-    const data = await api<{ results: RawEarnings[] }>(`/marketdata/earnings/?symbol=${params.symbol}`);
+    const data = await api<{ results: RawEarnings[] }>('/marketdata/earnings/', { query: { symbol: params.symbol } });
     return { earnings: (data.results ?? []).map(mapEarnings) };
   },
 });

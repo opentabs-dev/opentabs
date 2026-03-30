@@ -39,9 +39,14 @@ export const getHistoricals = defineTool({
       .describe('Historical data grouped by symbol'),
   }),
   handle: async params => {
-    const data = await api<HistoricalsResponse>(
-      `/marketdata/historicals/?symbols=${params.symbols}&interval=${params.interval}&span=${params.span}&bounds=${params.bounds}`,
-    );
+    const data = await api<HistoricalsResponse>('/marketdata/historicals/', {
+      query: {
+        symbols: params.symbols,
+        interval: params.interval,
+        span: params.span,
+        bounds: params.bounds,
+      },
+    });
     return {
       results: (data.results ?? []).map(r => ({
         symbol: r.symbol ?? '',
