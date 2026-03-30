@@ -527,21 +527,6 @@ const performReload = async (
       }
     }
 
-    // Version check: async via `npm view`, best-effort on every reload
-    try {
-      await checkForUpdates(state);
-    } catch {
-      // Update check is best-effort — failures are not actionable
-    }
-
-    if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
-      sendToExtension(state, {
-        jsonrpc: '2.0',
-        method: 'plugins.changed',
-        params: { ...buildConfigStatePayload(state) },
-      });
-    }
-
     const durationMs = Date.now() - startTs;
     return {
       lastReloadTimestamp: Date.now(),
@@ -584,25 +569,6 @@ const performConfigReload = async (
 
     await reloadCore({ state, sessionServers, transports });
 
-    // Version check: run on every config reload so newly published versions are detected.
-    // Best-effort — failures do not affect the reload result.
-    try {
-      await checkForUpdates(state);
-    } catch {
-      // Update check is best-effort — failures are not actionable
-    }
-
-    // If outdated plugins were found, push the update data to the extension.
-    // reloadCore's sync.full was sent before the version check ran, so it
-    // did not include the fresh outdated data — send a follow-up notification.
-    if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
-      sendToExtension(state, {
-        jsonrpc: '2.0',
-        method: 'plugins.changed',
-        params: { ...buildConfigStatePayload(state) },
-      });
-    }
-
     // Notify all MCP clients that tool lists changed after config reload.
     // (performReload handles its own notification after handler re-registration,
     // so reloadCore itself does not notify — each caller is responsible.)
@@ -627,5 +593,25 @@ const performConfigReload = async (
   }
 };
 
+/**
+ * Run a version check (via `npm view`) and notify the extension if outdated
+ * plugins are found. Called fire-and-forget after initial startup and on a
+ * periodic timer — NOT during reload, to keep the reload path fast.
+ */
+const runVersionCheck = async (state: ServerState): Promise<void> => {
+  try {
+    await checkForUpdates(state);
+  } catch {
+    // best-effort
+  }
+  if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      method: 'plugins.changed',
+      params: { ...buildConfigStatePayload(state) },
+    });
+  }
+};
+
 export type { ReloadResult };
-export { performConfigReload, performReload };
+export { performConfigReload, performReload, runVersionCheck };

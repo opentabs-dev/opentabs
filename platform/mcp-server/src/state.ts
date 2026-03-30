@@ -306,6 +306,8 @@ export interface ServerState {
   activeDispatches: Map<string, number>;
   /** Periodic timer for sweeping stale MCP sessions between hot reloads */
   sweepTimerId: ReturnType<typeof setInterval> | null;
+  /** Periodic timer for npm version checks (runs every 6 hours) */
+  versionCheckTimerId: ReturnType<typeof setInterval> | null;
   /** Timestamp (ms since epoch) when the server process first started — survives hot reloads */
   startedAt: number;
   /** Discovery errors from the most recent reload — used by config.getState for the side panel */
@@ -384,6 +386,7 @@ export const createState = (): ServerState => ({
   configWriteMutex: Promise.resolve(),
   activeDispatches: new Map(),
   sweepTimerId: null,
+  versionCheckTimerId: null,
   startedAt: Date.now(),
   discoveryErrors: [],
   auditLog: [],

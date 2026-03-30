@@ -58,6 +58,12 @@ const installShutdownHandlers = (getState: () => ServerState): void => {
       state.sweepTimerId = null;
     }
 
+    // 3b. Stop periodic version check timer
+    if (state.versionCheckTimerId !== null) {
+      clearInterval(state.versionCheckTimerId);
+      state.versionCheckTimerId = null;
+    }
+
     // 4. Stop file watchers (release OS handles)
     stopFileWatching(state);
 
