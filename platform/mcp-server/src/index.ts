@@ -51,6 +51,7 @@ import { createNodeServer } from './server-node.js';
 import { installShutdownHandlers } from './shutdown.js';
 import type { ServerState } from './state.js';
 import { createState } from './state.js';
+import { initTelemetry, trackEvent } from './telemetry.js';
 import { version } from './version.js';
 
 // =========================================================================
@@ -138,6 +139,14 @@ const sessionServers: McpServerInstance[] = hotState?.sessionServers ?? [];
 const gatewayTransports: Map<string, WebStandardStreamableHTTPServerTransport> =
   hotState?.gatewayTransports ?? new Map<string, WebStandardStreamableHTTPServerTransport>();
 const gatewaySessionServers: McpServerInstance[] = hotState?.gatewaySessionServers ?? [];
+
+// ---------------------------------------------------------------------------
+// Telemetry — initialized once on first load (fire-and-forget, non-blocking)
+// ---------------------------------------------------------------------------
+
+if (!isHotReload) {
+  void initTelemetry();
+}
 
 // ---------------------------------------------------------------------------
 // Reload orchestration — delegates to reload.ts
@@ -246,6 +255,15 @@ const actualPort = server.port;
 if (!isHotReload) {
   const modeLabel = isDev() ? ' (dev mode)' : '';
   log.info(`MCP server v${version} listening on http://${HOST}:${actualPort}${modeLabel}`);
+
+  trackEvent('server_started', {
+    version,
+    os: process.platform,
+    arch: process.arch,
+    nodeVersion: process.version,
+    pluginCount: state.registry.plugins.size,
+    mode: isDev() ? 'dev' : 'production',
+  });
 }
 
 // When running under the dev proxy (forked with OPENTABS_PROXY=1), report
