@@ -14,6 +14,7 @@ import type { McpClient, McpServer } from './fixtures.js';
 import {
   cleanupTestConfigDir,
   createMcpClient,
+  createTestConfigDir,
   E2E_TEST_PLUGIN_DIR,
   expect,
   readPluginToolNames,
@@ -201,6 +202,73 @@ test.describe('Stress: rapid config writes (10x in 2 seconds)', () => {
       await client?.close();
       await server?.kill();
       if (configDir) cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+test.describe('Stress: hot reload spam (5x rapid SIGUSR1)', () => {
+  test('5 rapid hot reloads stabilize with correct state and working dispatch', async () => {
+    const configDir = createTestConfigDir();
+    const server = await startMcpServer(configDir, true);
+
+    try {
+      // Verify server is healthy before triggering reloads
+      const initialHealth = await server.health();
+      expect(initialHealth).not.toBeNull();
+      if (!initialHealth) throw new Error('health returned null');
+      expect(initialHealth.status).toBe('ok');
+
+      // Create an MCP client and verify tools are available
+      const client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+
+      const expectedToolNames = readPluginToolNames();
+      const toolsBefore = await client.listTools();
+      for (const name of expectedToolNames) {
+        expect(toolsBefore.some(t => t.name === name)).toBe(true);
+      }
+
+      // Clear logs to isolate hot-reload output
+      server.logs.length = 0;
+
+      // Fire 5 SIGUSR1 signals with 500ms between each. Each signal triggers
+      // startWorker() in the dev proxy, which kills the current worker and
+      // forks a new one. Only the final worker's 'ready' IPC message produces
+      // a stable state — intermediate workers are killed before they finish
+      // starting.
+      for (let i = 0; i < 5; i++) {
+        server.triggerHotReload();
+        if (i < 4) await delay(500);
+      }
+
+      // Wait for the final 'Hot reload complete' log. The proxy logs this
+      // when the last-forked worker sends its 'ready' IPC message.
+      await waitForLog(server, 'Hot reload complete', 30_000);
+
+      // Verify the server is healthy after all 5 rapid reloads
+      const healthAfter = await server.health();
+      expect(healthAfter).not.toBeNull();
+      if (!healthAfter) throw new Error('health returned null after rapid reloads');
+      expect(healthAfter.status).toBe('ok');
+
+      // Verify tools/list returns the expected tools. The MCP client
+      // auto-reinitializes the session after a worker restart.
+      const toolsAfter = await client.listTools();
+      for (const name of expectedToolNames) {
+        expect(toolsAfter.some(t => t.name === name)).toBe(true);
+      }
+
+      // Verify no error logs related to process management or state corruption
+      const errorPatterns = ['deadlock', 'state corruption', 'uncaughtException'];
+      const joinedLogs = server.logs.join('\n');
+      for (const pattern of errorPatterns) {
+        expect(joinedLogs).not.toContain(pattern);
+      }
+
+      await client.close();
+    } finally {
+      await server.kill();
+      cleanupTestConfigDir(configDir);
     }
   });
 });
