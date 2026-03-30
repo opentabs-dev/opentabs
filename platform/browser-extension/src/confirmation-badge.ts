@@ -10,9 +10,6 @@ interface PendingConfirmationParams {
   receivedAt: number;
 }
 
-/** Pending confirmation count for badge tracking */
-let pendingConfirmationCount = 0;
-
 /** Single notification ID for the consolidated confirmation notification */
 const NOTIFICATION_ID = 'opentabs-confirmation';
 
@@ -21,8 +18,8 @@ const pendingConfirmations = new Map<string, PendingConfirmationParams>();
 
 /** Update the extension badge to show pending confirmation count */
 const updateConfirmationBadge = (): void => {
-  if (pendingConfirmationCount > 0) {
-    chrome.action.setBadgeText({ text: String(pendingConfirmationCount) }).catch(() => {});
+  if (pendingConfirmations.size > 0) {
+    chrome.action.setBadgeText({ text: String(pendingConfirmations.size) }).catch(() => {});
     chrome.action.setBadgeBackgroundColor({ color: '#ffdb33' }).catch(() => {});
   } else {
     chrome.action.setBadgeText({ text: '' }).catch(() => {});
@@ -36,19 +33,17 @@ const updateConfirmationBadge = (): void => {
  * the side panel is open (the dialog is already visible).
  */
 const syncConfirmationNotification = (): void => {
-  if (pendingConfirmationCount <= 0 || isSidePanelOpen()) {
+  if (pendingConfirmations.size === 0 || isSidePanelOpen()) {
     chrome.notifications.clear(NOTIFICATION_ID).catch(() => {});
     return;
   }
 
   let message: string;
-  if (pendingConfirmationCount === 1 && pendingConfirmations.size === 1) {
+  if (pendingConfirmations.size === 1) {
     const info = pendingConfirmations.values().next().value as PendingConfirmationParams;
     message = `${info.plugin}: ${info.tool}`;
-  } else if (pendingConfirmationCount > 1) {
-    message = `${pendingConfirmationCount} tools awaiting approval`;
   } else {
-    message = '1 tool awaiting approval';
+    message = `${pendingConfirmations.size} tools awaiting approval`;
   }
 
   chrome.notifications
@@ -82,26 +77,21 @@ const notifyConfirmationRequest = (params: Record<string, unknown>): void => {
     return;
   }
 
-  pendingConfirmationCount++;
-  updateConfirmationBadge();
-
   pendingConfirmations.set(id, { id, tool, plugin, params: rawParams, receivedAt });
+  updateConfirmationBadge();
 
   syncConfirmationNotification();
 };
 
 /**
- * Decrement pending confirmation count, update badge, and sync the Chrome
- * notification for the resolved confirmation.
+ * Remove a pending confirmation by id, update badge, and sync the Chrome
+ * notification. No-op when id is undefined or not found in the pending map.
  */
 const clearConfirmationBadge = (id?: string): void => {
-  if (id !== undefined) {
-    if (!pendingConfirmations.has(id)) {
-      return;
-    }
-    pendingConfirmations.delete(id);
+  if (id === undefined || !pendingConfirmations.has(id)) {
+    return;
   }
-  pendingConfirmationCount = Math.max(0, pendingConfirmationCount - 1);
+  pendingConfirmations.delete(id);
   updateConfirmationBadge();
   syncConfirmationNotification();
 };
@@ -109,7 +99,6 @@ const clearConfirmationBadge = (id?: string): void => {
 /** Reset all pending confirmation tracking and clear the notification (e.g., on disconnect) */
 const clearAllConfirmationBadges = (): void => {
   pendingConfirmations.clear();
-  pendingConfirmationCount = 0;
   updateConfirmationBadge();
   chrome.notifications.clear(NOTIFICATION_ID).catch(() => {});
 };

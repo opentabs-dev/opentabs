@@ -132,7 +132,7 @@ describe('notifyConfirmationRequest', () => {
     expect(mockNotificationsClear).toHaveBeenCalledWith(NOTIFICATION_ID);
   });
 
-  test('duplicate id does not increment pendingConfirmationCount a second time', () => {
+  test('duplicate id does not increment badge count a second time', () => {
     notifyConfirmationRequest({ id: 'req-1', tool: 'a', plugin: 'slack', params: {} });
     mockSetBadgeText.mockClear();
 
@@ -203,14 +203,19 @@ describe('clearConfirmationBadge', () => {
     );
   });
 
-  test('does not underflow below zero', () => {
+  test('is a no-op when id is undefined', () => {
     notifyConfirmationRequest({ id: 'req-1', tool: 'a', plugin: 'slack', params: {} });
-    clearConfirmationBadge('req-1'); // count → 0
     mockSetBadgeText.mockClear();
+    mockNotificationsCreate.mockClear();
+    mockNotificationsClear.mockClear();
 
-    clearConfirmationBadge(); // should stay at 0
+    clearConfirmationBadge(); // undefined id — no-op
 
-    expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
+    expect(mockSetBadgeText).not.toHaveBeenCalled();
+    expect(mockNotificationsCreate).not.toHaveBeenCalled();
+    expect(mockNotificationsClear).not.toHaveBeenCalled();
+    // Map still has the entry
+    expect(getPendingConfirmations()).toHaveLength(1);
   });
 
   test('re-used id after clearAllConfirmationBadges can be cleared again', () => {
@@ -242,14 +247,14 @@ describe('clearAllConfirmationBadges', () => {
     expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
   });
 
-  test('resets count so subsequent clears do not underflow', () => {
+  test('subsequent clearConfirmationBadge(undefined) is a no-op after reset', () => {
     notifyConfirmationRequest({ id: 'req-1', tool: 'a', plugin: 'slack', params: {} });
     clearAllConfirmationBadges();
     mockSetBadgeText.mockClear();
 
-    clearConfirmationBadge(); // count is 0, should stay at 0
+    clearConfirmationBadge(); // undefined id — no-op
 
-    expect(mockSetBadgeText).toHaveBeenCalledWith({ text: '' });
+    expect(mockSetBadgeText).not.toHaveBeenCalled();
   });
 
   test('is idempotent when called with nothing pending', () => {
