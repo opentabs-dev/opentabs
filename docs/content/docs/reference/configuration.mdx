@@ -1,7 +1,7 @@
 ---
 title: Configuration
 description: Reference for the ~/.opentabs/config.json configuration file, environment variables, and directory structure.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-03-29
 ---
 
 All settings live in one JSON file at `~/.opentabs/config.json`. You won't need to touch it often — the side panel handles permissions, and `opentabs-plugin build` registers local plugins automatically. But it's worth knowing what's in there, especially if you want to configure permissions by hand or adjust the server port.
@@ -44,6 +44,24 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell className="*:text-xs">`9515`</Table.Cell>
       <Table.Cell>CLI-side port setting, persisted by `opentabs config set port`. Used as a fallback by CLI commands when neither `--port` nor `OPENTABS_PORT` is set. The MCP server itself reads its port from the `PORT` environment variable, set by `opentabs start`.</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`localPluginDirs`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell className="*:text-xs">`[]`</Table.Cell>
+      <Table.Cell>Parent directories whose immediate children are auto-scanned for plugins. Each child directory that contains a valid plugin is treated as a local plugin.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`settings`</Table.Cell>
+      <Table.Cell className="*:text-xs">`Record<string, Record<string, unknown>>`</Table.Cell>
+      <Table.Cell className="*:text-xs">`{}`</Table.Cell>
+      <Table.Cell>Per-plugin settings values. Keys are plugin short names. Values are key-value maps matching the plugin's `configSchema`. See [settings](#settings) below.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`additionalAllowedDirectories`</Table.Cell>
+      <Table.Cell className="*:text-xs">`string[]`</Table.Cell>
+      <Table.Cell className="*:text-xs">`[]`</Table.Cell>
+      <Table.Cell>Extra directories where local plugins may reside, extending the default allowed roots (home directory, temp directory, current working directory).</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -69,6 +87,11 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
         "browser_screenshot_tab": "auto",
         "browser_execute_script": "off"
       }
+    }
+  },
+  "settings": {
+    "jira": {
+      "instanceUrl": "https://mycompany.atlassian.net"
     }
   }
 }
@@ -181,6 +204,19 @@ Permissions are managed through the Chrome extension side panel. The side panel 
 ### Bypassing permissions
 
 Set the `OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS=1` environment variable to bypass approval prompts for tools in `'ask'` mode (they run as `'auto'`). Tools set to `'off'` remain disabled. **This is dangerous and intended only for CI/testing environments.** In normal usage, configure per-plugin and per-tool permissions via the side panel or `config.json`.
+
+### settings
+
+Stores user-provided configuration values for plugins that declare a `configSchema`. Keys are plugin short names (e.g., `jira`, `slack`). Values are key-value maps whose keys match the field names declared in the plugin's `configSchema`.
+
+`url`-type settings are stored as `Record<string, string>` maps from instance name to URL, enabling plugins that work across multiple user-specific instances without hardcoded URL patterns.
+
+Two CLI interfaces are available for configuring settings:
+
+- **Interactive:** `opentabs plugin configure <name>` — prompts for each field, shows current value as default, validates input.
+- **Scripted:** `opentabs config set setting.<plugin>.<key> <value>` — sets a single setting non-interactively. Pass an empty string to remove a key.
+
+Settings are also configurable through the Chrome extension side panel, which shows a **Needs Setup** badge on plugins that have required fields unset.
 
 ## Plugin discovery
 
