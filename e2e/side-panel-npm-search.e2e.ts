@@ -156,6 +156,74 @@ test.describe('Side panel npm search', () => {
     });
   });
 
+  test.describe('stress', () => {
+    test.skip(!searchAvailable, 'npm search index does not include opentabs-plugin packages');
+
+    test('rapid search query spam settles to final query without crash', async () => {
+      test.slow();
+
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-search-stress-'));
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: {
+          'e2e-test': { permission: 'auto' },
+          browser: { permission: 'auto' },
+        },
+      });
+
+      const server = await startMcpServer(configDir, false);
+      const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+      setupAdapterSymlink(configDir, extensionDir);
+
+      const pageErrors: Error[] = [];
+
+      try {
+        await waitForExtensionConnected(server);
+
+        const sidePanelPage = await openSidePanel(context);
+        sidePanelPage.on('pageerror', err => pageErrors.push(err));
+        await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+        const searchInput = sidePanelPage.getByPlaceholder('Search plugins and tools...');
+
+        // Type 10 different queries with 50ms between each to stress the debounce
+        const queries = ['a', 'ab', 'abc', 'react', 'slack', 'dis', 'disc', 'disco', 'discord', 'todoist'];
+        for (const query of queries) {
+          await searchInput.fill(query);
+          await sidePanelPage.waitForTimeout(50);
+        }
+
+        // Wait for final debounce (400ms) + network response to settle
+        await sidePanelPage.waitForTimeout(2_000);
+
+        // Verify no crash — side panel should still be responsive
+        await expect(searchInput).toBeVisible();
+
+        // If results appeared, they should be from a recent query, not stale ones.
+        // We can't assert specific npm results, but we verify no zombie state.
+        const availableSection = sidePanelPage.getByText('Available');
+        if (await availableSection.isVisible()) {
+          // Available section is present — results loaded for some query
+          await expect(sidePanelPage.getByRole('button', { name: 'Install' }).first()).toBeVisible({ timeout: 5_000 });
+        }
+
+        // Clear search and verify clean state
+        await searchInput.fill('');
+        await expect(availableSection).toBeHidden({ timeout: 5_000 });
+
+        expect(pageErrors).toHaveLength(0);
+
+        await sidePanelPage.close();
+      } finally {
+        await context.close().catch(() => {});
+        await server.kill();
+        fs.rmSync(cleanupDir, { recursive: true, force: true });
+        cleanupTestConfigDir(configDir);
+      }
+    });
+  });
+
   test('uninstall plugin via three-dot menu and confirmation dialog', async () => {
     test.skip(!slackArtifactsAvailable, 'published @opentabs-dev/opentabs-plugin-slack is missing build artifacts');
     test.skip(
