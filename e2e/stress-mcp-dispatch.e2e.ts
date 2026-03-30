@@ -130,26 +130,36 @@ test.describe('Hot reload during active tool dispatch', () => {
     );
 
     // Trigger hot reload (SIGUSR1 → worker kill + restart)
+    const reloadTime = Date.now();
     mcpServer.triggerHotReload();
 
-    // All 5 calls must settle within 30s — no infinite hang. Use
+    // All 5 calls must settle — no infinite hang. Use
     // Promise.allSettled so individual failures don't short-circuit.
     const settled = await Promise.allSettled(callPromises);
+    const settleElapsed = Date.now() - reloadTime;
 
-    // Verify every call resolved (not rejected with an unhandled error)
-    // and each is either a success or an isError response.
+    // In-flight calls must settle within 15s of the hot reload trigger,
+    // not hang for the full 30s dispatch timeout.
+    expect(settleElapsed, `in-flight calls took ${settleElapsed}ms to settle (limit: 15s)`).toBeLessThan(15_000);
+
     for (const [i, outcome] of settled.entries()) {
       if (outcome.status === 'fulfilled') {
-        // Tool returned a response — may be success or isError
         const result = outcome.value;
-        expect(
-          typeof result.isError === 'boolean',
-          `call ${i}: expected isError to be a boolean, got ${typeof result.isError}`,
-        ).toBe(true);
+        if (result.isError) {
+          // Error must identify the failure cause — not empty or generic
+          expect(
+            /disconnected|timed out|dispatch|worker/i.test(result.content),
+            `call ${i}: error message must identify the failure cause, got: ${result.content.slice(0, 100)}`,
+          ).toBe(true);
+        } else {
+          // Success must have valid content
+          expect(result.content.length).toBeGreaterThan(0);
+        }
+      } else {
+        // Rejected = transport error (acceptable during hot reload)
+        const err = (outcome as PromiseRejectedResult).reason;
+        console.log(`call ${i} rejected: ${String(err).slice(0, 100)}`);
       }
-      // 'rejected' is also acceptable — the MCP client may throw on
-      // connection reset during hot reload. The key invariant is that
-      // it settled (didn't hang).
     }
 
     // Wait for hot reload to finish and extension to reconnect
