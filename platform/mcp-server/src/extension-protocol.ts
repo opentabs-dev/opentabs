@@ -157,6 +157,8 @@ interface DispatchOptions {
   progressToken?: string | number;
   /** Callback to emit an MCP ProgressNotification when tool.progress arrives for this dispatch */
   onProgress?: (progress: number, total: number, message?: string) => void;
+  /** Plugin name for smart dispatch routing — when set, resolveConnection prefers a connection with a ready tab for this plugin */
+  pluginName?: string;
 }
 
 /**
@@ -165,7 +167,11 @@ interface DispatchOptions {
  * Falls back to any available connection when tabId is absent or not found
  * (the extension may have just opened the tab and not yet reported it via tab.syncAll).
  */
-const resolveConnection = (state: ServerState, params: Record<string, unknown>): ExtensionConnection | undefined => {
+const resolveConnection = (
+  state: ServerState,
+  params: Record<string, unknown>,
+  pluginName?: string,
+): ExtensionConnection | undefined => {
   if (state.extensionConnections.size === 0) return undefined;
   if (state.extensionConnections.size === 1) {
     return state.extensionConnections.values().next().value as ExtensionConnection;
@@ -181,6 +187,25 @@ const resolveConnection = (state: ServerState, params: Record<string, unknown>):
   if (tabId !== undefined) {
     const conn = getConnectionForTab(state, tabId);
     if (conn) return conn;
+  }
+  // Plugin-aware routing: prefer a connection with a ready tab for the target plugin
+  if (pluginName !== undefined) {
+    let bestConn: ExtensionConnection | undefined;
+    let bestState: 'ready' | 'unavailable' | 'closed' | undefined;
+    for (const conn of state.extensionConnections.values()) {
+      const mapping = conn.tabMapping.get(pluginName);
+      if (!mapping) continue;
+      const s = mapping.state;
+      if (s === 'ready') return conn;
+      if (s === 'unavailable' && bestState !== 'unavailable') {
+        bestConn = conn;
+        bestState = 'unavailable';
+      } else if (s === 'closed' && bestState === undefined) {
+        bestConn = conn;
+        bestState = 'closed';
+      }
+    }
+    if (bestConn) return bestConn;
   }
   return getAnyConnection(state);
 };
@@ -271,7 +296,7 @@ const dispatchToExtension = (
   // Backward-compatible: options can be a string (label) for existing callers
   const opts: DispatchOptions = typeof options === 'string' ? { label: options } : (options ?? {});
 
-  const conn = resolveConnection(state, params);
+  const conn = resolveConnection(state, params, opts.pluginName);
   if (!conn) {
     return Promise.reject(new Error('Extension not connected'));
   }
