@@ -17,10 +17,17 @@ import {
   launchExtensionContext,
   readPluginToolNames,
   startMcpServer,
+  startTestServer,
   test,
   writeTestConfig,
 } from './fixtures.js';
-import { openSidePanel, setupAdapterSymlink, waitForExtensionConnected, waitForLog } from './helpers.js';
+import {
+  openSidePanel,
+  openTestAppTab,
+  setupAdapterSymlink,
+  waitForExtensionConnected,
+  waitForLog,
+} from './helpers.js';
 
 /** Build a tools map from the e2e-test plugin's prefixed tool names. */
 const buildToolsMap = (): Record<string, boolean> => {
@@ -174,6 +181,147 @@ test.describe('Side panel — browser tool groups', () => {
       await context.close().catch(() => {});
       await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+test.describe('stress', () => {
+  test('rapid search cycling does not cause stale group rendering', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const tools = buildToolsMap();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-bt-groups-stress-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let testServer: Awaited<ReturnType<typeof startTestServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
+
+    const pageErrors: Error[] = [];
+
+    try {
+      server = await startMcpServer(configDir, true);
+      testServer = await startTestServer();
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      await openTestAppTab(context, testServer.url, server, testServer);
+      const sidePanelPage = await openSidePanel(context);
+      sidePanelPage.on('pageerror', error => pageErrors.push(error));
+
+      await expect(sidePanelPage.getByText('Browser')).toBeVisible({ timeout: 30_000 });
+
+      // Expand browser card initially to confirm tools are visible
+      const browserCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Browser' });
+      await browserCard.click();
+      const browserItem = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'Browser' });
+      await expect(browserItem.locator('span.uppercase.tracking-wider').first()).toBeVisible({ timeout: 5_000 });
+
+      const searchInput = sidePanelPage.locator('input[placeholder*="earch"]');
+
+      // Rapid search cycling: type 'tab', 'page', 'inspect' in quick succession
+      for (const term of ['tab', 'page', 'inspect']) {
+        await searchInput.fill(term);
+        await new Promise(r => setTimeout(r, 100));
+      }
+
+      // Clear the search
+      await searchInput.fill('');
+      await new Promise(r => setTimeout(r, 300));
+
+      // Verify browser card is still visible after clearing search
+      const browserCardAfter = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Browser' });
+      await expect(browserCardAfter).toBeVisible({ timeout: 5_000 });
+
+      // Expand and verify tool groups still render
+      await browserCardAfter.click();
+      const browserItemAfter = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'Browser' });
+      const groupHeaders = browserItemAfter.locator('span.uppercase.tracking-wider');
+      await expect(groupHeaders.first()).toBeVisible({ timeout: 5_000 });
+
+      const headerCount = await groupHeaders.count();
+      expect(headerCount).toBeGreaterThanOrEqual(3);
+
+      expect(pageErrors).toHaveLength(0);
+
+      await sidePanelPage.close();
+    } finally {
+      await context?.close().catch(() => {});
+      await server?.kill();
+      await testServer?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
+  test('special characters in search do not crash', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const tools = buildToolsMap();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-bt-groups-special-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let testServer: Awaited<ReturnType<typeof startTestServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
+
+    const pageErrors: Error[] = [];
+
+    try {
+      server = await startMcpServer(configDir, true);
+      testServer = await startTestServer();
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      await openTestAppTab(context, testServer.url, server, testServer);
+      const sidePanelPage = await openSidePanel(context);
+      sidePanelPage.on('pageerror', error => pageErrors.push(error));
+
+      await expect(sidePanelPage.getByText('Browser')).toBeVisible({ timeout: 30_000 });
+
+      const searchInput = sidePanelPage.locator('input[placeholder*="earch"]');
+
+      // Test regex-special characters
+      await searchInput.fill('^$.*+()[]{}|\\');
+      await new Promise(r => setTimeout(r, 300));
+
+      // Page should still be functional (no crash)
+      await expect(sidePanelPage.locator('input[placeholder*="earch"]')).toBeVisible();
+
+      // Clear and test HTML injection attempt
+      await searchInput.fill('');
+      await searchInput.fill('<script>alert(1)</script>');
+      await new Promise(r => setTimeout(r, 300));
+
+      // Page should still be functional
+      await expect(sidePanelPage.locator('input[placeholder*="earch"]')).toBeVisible();
+
+      // Clear and verify cards are still visible
+      await searchInput.fill('');
+      await new Promise(r => setTimeout(r, 300));
+      await expect(sidePanelPage.getByText('Browser')).toBeVisible({ timeout: 5_000 });
+
+      expect(pageErrors).toHaveLength(0);
+
+      await sidePanelPage.close();
+    } finally {
+      await context?.close().catch(() => {});
+      await server?.kill();
+      await testServer?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
   });
