@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-pinterest",
   "description": "OpenTabs plugin for Pinterest",
-  "version": "0.0.82",
+  "version": "0.0.83",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
