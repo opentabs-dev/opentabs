@@ -11,6 +11,7 @@ playwright-report/
 .env.*.local
 /.ralph/*.pid
 /.ralph/*.log
+/.ralph/logs/
 /.ralph/worktrees/
 /.ralph/archive/
 /.ralph/prd-*

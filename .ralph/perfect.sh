@@ -16,6 +16,15 @@ set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Log directory and timestamped log file.
+LOG_DIR="$SCRIPT_DIR/logs"
+mkdir -p "$LOG_DIR"
+LOG_FILE="$LOG_DIR/perfect-$(TZ=America/Los_Angeles date +'%Y-%m-%d-%H%M%S').log"
+
+# Tee all stdout+stderr to both terminal and log file.
+# The log file gets ANSI codes stripped for readability.
+exec > >(tee >(sed 's/\x1b\[[0-9;]*m//g' >> "$LOG_FILE")) 2>&1
+
 # Colors
 CYAN='\033[36m'
 GREEN='\033[32m'
@@ -51,6 +60,7 @@ if [ ${#SCRIPTS[@]} -eq 0 ]; then
 fi
 
 echo -e "$(ts) ${BOLD}Launching ${#SCRIPTS[@]} perfect scripts in parallel:${RESET}"
+echo -e "$(ts) ${DIM}  Log: $LOG_FILE${RESET}"
 echo ""
 
 PIDS=()
