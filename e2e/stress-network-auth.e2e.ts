@@ -261,6 +261,100 @@ test.describe('Stress: Health endpoint under rapid polling', () => {
   });
 });
 
+test.describe('Stress: Audit log under rapid tool calls', () => {
+  test('50 sequential tool calls are all captured with correct ordering', async () => {
+    test.slow();
+
+    const configDir = createTestConfigDir();
+    let server: McpServer | undefined;
+    let testSrv: TestServer | undefined;
+    let extensionCleanupDir: string | undefined;
+    let extensionCtx: Awaited<ReturnType<typeof launchExtensionContext>> | undefined;
+
+    try {
+      server = await startMcpServer(configDir, false);
+      testSrv = await startTestServer();
+
+      extensionCtx = await launchExtensionContext(server.port, server.secret);
+      extensionCleanupDir = extensionCtx.cleanupDir;
+      setupAdapterSymlink(configDir, extensionCtx.extensionDir);
+
+      const mcpClient = createMcpClient(server.port, server.secret);
+      await mcpClient.initialize();
+
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received');
+
+      // Open a page so e2e-test plugin has a matching tab
+      const page = await extensionCtx.context.newPage();
+      await page.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
+
+      // Wait for the plugin to become ready
+      await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 30_000);
+
+      // Fire 50 echo calls sequentially (tests ordering, not throughput)
+      const CALL_COUNT = 50;
+      for (let i = 0; i < CALL_COUNT; i++) {
+        const result = await mcpClient.callTool('e2e-test_echo', { message: `audit-seq-${i}` });
+        expect(result.isError).toBe(false);
+      }
+
+      // Fetch audit log with limit high enough to capture all entries
+      const auditRes = await fetch(`http://localhost:${server.port}/audit?limit=100`, {
+        headers: { Authorization: `Bearer ${server.secret}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditRes.ok).toBe(true);
+
+      const entries = (await auditRes.json()) as Array<{
+        timestamp: string;
+        tool: string;
+        plugin: string;
+        success: boolean;
+      }>;
+
+      // Filter to only the echo calls we made (audit may contain other tool entries)
+      const echoEntries = entries.filter(e => e.tool === 'e2e-test_echo');
+      expect(echoEntries.length).toBeGreaterThanOrEqual(CALL_COUNT);
+
+      // Verify all echo entries have correct tool name and success flag
+      for (const entry of echoEntries) {
+        expect(entry.tool).toBe('e2e-test_echo');
+        expect(entry.success).toBe(true);
+      }
+
+      // Verify timestamps are in descending order (newest first)
+      for (let i = 1; i < entries.length; i++) {
+        const previous = entries[i - 1];
+        const current = entries[i];
+        if (!previous || !current) throw new Error(`Missing entry at index ${i}`);
+        expect(new Date(previous.timestamp).getTime()).toBeGreaterThanOrEqual(new Date(current.timestamp).getTime());
+      }
+
+      // Verify auditSummary in health shows totalInvocations >= 50
+      const healthRes = await fetch(`http://localhost:${server.port}/health`, {
+        headers: { Authorization: `Bearer ${server.secret}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(healthRes.ok).toBe(true);
+
+      const health = (await healthRes.json()) as {
+        auditSummary?: { totalInvocations: number };
+      };
+      expect(health.auditSummary).toBeDefined();
+      expect(health.auditSummary?.totalInvocations).toBeGreaterThanOrEqual(CALL_COUNT);
+
+      await mcpClient.close();
+    } finally {
+      if (extensionCtx) await extensionCtx.context.close().catch(() => {});
+      if (testSrv) await testSrv.kill().catch(() => {});
+      if (server) await server.kill().catch(() => {});
+      if (extensionCleanupDir) fs.rmSync(extensionCleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
 test.describe('Stress: Secret rotation during active session', () => {
   test('old client gets auth error after secret rotation, new client succeeds', async () => {
     test.slow();
