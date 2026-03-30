@@ -76,7 +76,7 @@ Publish to npm and anyone can `opentabs plugin install` it. See the [Plugin Deve
 - **AI-assisted code review.** Your AI reviews the adapter source before you enable it.
 - **Version-aware.** When a plugin updates, permissions reset. New code, new review.
 - **Three permission levels.** Off, Ask (confirmation dialog), or Auto. Per-plugin or per-tool.
-- **Runs locally.** No cloud. No telemetry. Everything in `~/.opentabs/`. Full audit log.
+- **Runs locally.** No cloud. Everything in `~/.opentabs/`. Full audit log. Anonymous [telemetry](https://opentabs.dev/docs/reference/telemetry) (opt-out).
 
 ## How This Was Built
 

@@ -62,6 +62,12 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell className="*:text-xs">`[]`</Table.Cell>
       <Table.Cell>Extra directories where local plugins may reside, extending the default allowed roots (home directory, temp directory, current working directory).</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`telemetry`</Table.Cell>
+      <Table.Cell className="*:text-xs">`boolean`</Table.Cell>
+      <Table.Cell className="*:text-xs">`true`</Table.Cell>
+      <Table.Cell>Enable or disable anonymous telemetry. Set to `false` to opt out. See [Telemetry](/docs/reference/telemetry) for details.</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -272,6 +278,21 @@ Local plugins override npm plugins of the same name. Discovery runs at server st
       <Table.Cell className="font-medium">`OPENTABS_SKIP_NPM_DISCOVERY`</Table.Cell>
       <Table.Cell>_(unset)_</Table.Cell>
       <Table.Cell>Set to `1` to disable npm auto-discovery of globally installed plugins. Useful for testing and CI environments.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OPENTABS_TELEMETRY_DISABLED`</Table.Cell>
+      <Table.Cell>_(unset)_</Table.Cell>
+      <Table.Cell>Set to `1` to disable anonymous telemetry. See [Telemetry](/docs/reference/telemetry).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`DO_NOT_TRACK`</Table.Cell>
+      <Table.Cell>_(unset)_</Table.Cell>
+      <Table.Cell>Set to `1` to disable telemetry. Community standard ([consoledonottrack.com](https://consoledonottrack.com/)). Takes effect if `OPENTABS_TELEMETRY_DISABLED` is not set.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`OPENTABS_TELEMETRY_DEBUG`</Table.Cell>
+      <Table.Cell>_(unset)_</Table.Cell>
+      <Table.Cell>Set to `1` to print telemetry events to stderr instead of sending them. Useful for verifying what data is collected.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>

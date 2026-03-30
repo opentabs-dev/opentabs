@@ -50,6 +50,7 @@ export const navConfig: INavigationConfig = {
         { title: 'Configuration', href: '/docs/reference/configuration' },
         { title: 'MCP Server', href: '/docs/reference/mcp-server' },
         { title: 'Browser Tools', href: '/docs/reference/browser-tools' },
+        { title: 'Telemetry', href: '/docs/reference/telemetry' },
         {
           title: 'Troubleshooting',
           href: '/docs/reference/troubleshooting',

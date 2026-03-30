@@ -1,0 +1,133 @@
+---
+title: Telemetry
+description: What anonymous usage data OpenTabs collects, why, and how to opt out.
+lastUpdated: 2026-03-30
+---
+
+OpenTabs collects **completely anonymous** telemetry data to help improve the platform. This page explains what is collected, why, and how to disable it.
+
+Telemetry is enabled by default. You can opt out at any time with a single command.
+
+## Why is telemetry collected?
+
+Telemetry helps us understand how OpenTabs is used in practice — what platforms people run it on, how many plugins are loaded, and whether the server starts in dev or production mode. This data guides decisions about which Node.js versions to support, when to optimize startup time, and where to focus testing.
+
+We do not collect any personally identifiable information, plugin names, tool calls, or anything about what you do with OpenTabs.
+
+## What is collected?
+
+A single event — `server_started` — is sent each time the MCP server starts. It includes:
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Property</Table.Head>
+      <Table.Head>Example</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`version`</Table.Cell>
+      <Table.Cell className="*:text-xs">`0.0.82`</Table.Cell>
+      <Table.Cell>OpenTabs server version.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`os`</Table.Cell>
+      <Table.Cell className="*:text-xs">`darwin`</Table.Cell>
+      <Table.Cell>Operating system (`process.platform`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`arch`</Table.Cell>
+      <Table.Cell className="*:text-xs">`arm64`</Table.Cell>
+      <Table.Cell>Processor architecture (`process.arch`).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`nodeVersion`</Table.Cell>
+      <Table.Cell className="*:text-xs">`v22.11.0`</Table.Cell>
+      <Table.Cell>Node.js version.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`pluginCount`</Table.Cell>
+      <Table.Cell className="*:text-xs">`12`</Table.Cell>
+      <Table.Cell>Number of loaded plugins (count only, not names).</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`mode`</Table.Cell>
+      <Table.Cell className="*:text-xs">`production`</Table.Cell>
+      <Table.Cell>`dev` or `production`.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+That's it. No plugin names, no tool calls, no file paths, no environment variables, no error messages, no browsing data.
+
+## How is identity handled?
+
+Each installation is assigned a random UUID (v4), stored at `~/.opentabs/telemetry-id`. This ID contains no personal information — it is a random string used solely to count unique installations. It is never correlated with any other identifier.
+
+You can view your anonymous ID:
+
+```bash
+opentabs telemetry status
+```
+
+## How to opt out
+
+### CLI command (recommended)
+
+```bash
+opentabs telemetry disable
+```
+
+To re-enable later:
+
+```bash
+opentabs telemetry enable
+```
+
+Check the current status:
+
+```bash
+opentabs telemetry status
+```
+
+### Environment variable
+
+```bash
+export OPENTABS_TELEMETRY_DISABLED=1
+```
+
+Or use the community-standard `DO_NOT_TRACK`:
+
+```bash
+export DO_NOT_TRACK=1
+```
+
+### Config file
+
+Set `telemetry` to `false` in `~/.opentabs/config.json`:
+
+```json
+{
+  "telemetry": false
+}
+```
+
+The check order is: `OPENTABS_TELEMETRY_DISABLED` → `DO_NOT_TRACK` → config file. The first match wins.
+
+## Verifying what is sent
+
+Set the debug environment variable to print telemetry events to stderr instead of sending them:
+
+```bash
+OPENTABS_TELEMETRY_DEBUG=1 opentabs start
+```
+
+Events are printed to stderr in the format `[telemetry] event_name {"key":"value"}`. Nothing is sent to the network in debug mode.
+
+## Data handling
+
+Telemetry is sent to [PostHog](https://posthog.com/) (US region). Events are fire-and-forget — telemetry errors are caught silently and never affect server operation. The telemetry module has a 2-second shutdown timeout so it cannot delay process exit.
+
+We do not sell telemetry data. Aggregated, de-identified data may be used to report on platform adoption.
