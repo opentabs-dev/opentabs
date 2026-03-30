@@ -255,6 +255,112 @@ describe('setLocalStorage', () => {
       });
     }
   });
+
+  describe('iframe fallback', () => {
+    test('persists value via iframe when localStorage is undefined', () => {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const store: Record<string, string> = {};
+      const mockIframe = {
+        style: {} as CSSStyleDeclaration,
+        contentWindow: {
+          localStorage: {
+            setItem: (k: string, v: string) => {
+              store[k] = v;
+            },
+          },
+        },
+      };
+      const createElementSpy = vi
+        .spyOn(document, 'createElement')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const removeChildSpy = vi
+        .spyOn(document.body, 'removeChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      try {
+        setLocalStorage('fb-key', 'fb-value');
+        expect(store['fb-key']).toBe('fb-value');
+      } finally {
+        createElementSpy.mockRestore();
+        appendChildSpy.mockRestore();
+        removeChildSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+
+    test('emits log.warn when iframe fallback is used', () => {
+      const entries: LogEntry[] = [];
+      const restore = _setLogTransport(entry => entries.push(entry));
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const mockIframe = {
+        style: {} as CSSStyleDeclaration,
+        contentWindow: {
+          localStorage: { setItem: () => {} },
+        },
+      };
+      const createElementSpy = vi
+        .spyOn(document, 'createElement')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const removeChildSpy = vi
+        .spyOn(document.body, 'removeChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      try {
+        setLocalStorage('warn-key', 'value');
+        expect(entries).toHaveLength(1);
+        expect(entries[0]?.level).toBe('warning');
+        expect(entries[0]?.message).toContain('iframe fallback');
+        expect(entries[0]?.message).toContain('warn-key');
+      } finally {
+        restore();
+        createElementSpy.mockRestore();
+        appendChildSpy.mockRestore();
+        removeChildSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+
+    test('returns gracefully when iframe creation throws SecurityError', () => {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(() => {
+        throw new DOMException('Not allowed', 'SecurityError');
+      });
+      try {
+        expect(() => setLocalStorage('key', 'value')).not.toThrow();
+      } finally {
+        createElementSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -309,6 +415,112 @@ describe('removeLocalStorage', () => {
         writable: true,
       });
     }
+  });
+
+  describe('iframe fallback', () => {
+    test('removes key via iframe when localStorage is undefined', () => {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const store: Record<string, string | undefined> = { 'to-remove': 'value' };
+      const mockIframe = {
+        style: {} as CSSStyleDeclaration,
+        contentWindow: {
+          localStorage: {
+            removeItem: (k: string) => {
+              delete store[k];
+            },
+          },
+        },
+      };
+      const createElementSpy = vi
+        .spyOn(document, 'createElement')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const removeChildSpy = vi
+        .spyOn(document.body, 'removeChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      try {
+        removeLocalStorage('to-remove');
+        expect(store['to-remove']).toBeUndefined();
+      } finally {
+        createElementSpy.mockRestore();
+        appendChildSpy.mockRestore();
+        removeChildSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+
+    test('emits log.warn when iframe fallback is used', () => {
+      const entries: LogEntry[] = [];
+      const restore = _setLogTransport(entry => entries.push(entry));
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const mockIframe = {
+        style: {} as CSSStyleDeclaration,
+        contentWindow: {
+          localStorage: { removeItem: () => {} },
+        },
+      };
+      const createElementSpy = vi
+        .spyOn(document, 'createElement')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const removeChildSpy = vi
+        .spyOn(document.body, 'removeChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      try {
+        removeLocalStorage('warn-key');
+        expect(entries).toHaveLength(1);
+        expect(entries[0]?.level).toBe('warning');
+        expect(entries[0]?.message).toContain('iframe fallback');
+        expect(entries[0]?.message).toContain('warn-key');
+      } finally {
+        restore();
+        createElementSpy.mockRestore();
+        appendChildSpy.mockRestore();
+        removeChildSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+
+    test('returns gracefully when iframe creation throws SecurityError', () => {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation(() => {
+        throw new DOMException('Not allowed', 'SecurityError');
+      });
+      try {
+        expect(() => removeLocalStorage('key')).not.toThrow();
+      } finally {
+        createElementSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
   });
 });
 

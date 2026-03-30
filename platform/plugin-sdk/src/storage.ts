@@ -5,6 +5,35 @@
 import { log } from './log.js';
 
 /**
+ * Creates a hidden same-origin iframe, accesses its localStorage, and passes
+ * it to the provided callback. Cleans up the iframe in a finally block.
+ * Returns null if the iframe or its storage is inaccessible.
+ */
+const withIframeFallback = <T>(fn: (storage: Storage) => T): T | null => {
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    try {
+      const iframeStorage = iframe.contentWindow?.localStorage;
+      return iframeStorage ? fn(iframeStorage) : null;
+    } finally {
+      document.body.removeChild(iframe);
+    }
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Accesses window.localStorage via property lookup (not the bare identifier).
+ * Returns the Storage object, or undefined if the property is missing (e.g.,
+ * Discord deletes it). Throws if the getter itself throws (e.g., SecurityError
+ * in sandboxed iframes) — callers must catch.
+ */
+const getWindowLocalStorage = (): Storage | undefined => window.localStorage as Storage | undefined;
+
+/**
  * Reads a value from localStorage. Returns null if the key is not found or
  * if storage access throws (e.g., SecurityError in sandboxed iframes).
  *
@@ -14,15 +43,10 @@ import { log } from './log.js';
  * from the main window.
  */
 export const getLocalStorage = (key: string): string | null => {
-  // Access via window.localStorage (property lookup) rather than the bare
-  // `localStorage` identifier. Some apps (e.g., Discord) delete the property
-  // from the global scope, which makes the bare identifier throw a
-  // ReferenceError. Property access on `window` returns undefined instead.
   let storage: Storage | undefined;
   try {
-    storage = window.localStorage as Storage | undefined;
+    storage = getWindowLocalStorage();
   } catch {
-    // Throwing getter (e.g., SecurityError in sandboxed iframes) — give up.
     return null;
   }
 
@@ -30,27 +54,11 @@ export const getLocalStorage = (key: string): string | null => {
     try {
       return storage.getItem(key);
     } catch {
-      // getItem threw (SecurityError, etc.) — storage exists but is
-      // inaccessible, give up.
       return null;
     }
   }
 
-  // localStorage is undefined — some apps (e.g., Discord) delete the property.
-  // Same-origin iframes retain access to the underlying storage.
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    try {
-      const iframeStorage = iframe.contentWindow?.localStorage;
-      return iframeStorage ? iframeStorage.getItem(key) : null;
-    } finally {
-      document.body.removeChild(iframe);
-    }
-  } catch {
-    return null;
-  }
+  return withIframeFallback(s => s.getItem(key));
 };
 
 /**
@@ -73,7 +81,7 @@ export const findLocalStorageEntry = (predicate: (key: string) => boolean): { ke
 
   let storage: Storage | undefined;
   try {
-    storage = window.localStorage as Storage | undefined;
+    storage = getWindowLocalStorage();
   } catch {
     return null;
   }
@@ -86,33 +94,40 @@ export const findLocalStorageEntry = (predicate: (key: string) => boolean): { ke
     }
   }
 
-  // localStorage is undefined — fall back to same-origin iframe.
-  try {
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-    try {
-      const iframeStorage = iframe.contentWindow?.localStorage;
-      return iframeStorage ? search(iframeStorage) : null;
-    } finally {
-      document.body.removeChild(iframe);
-    }
-  } catch {
-    return null;
-  }
+  return withIframeFallback(s => search(s));
 };
 
 /**
  * Writes a value to localStorage. Logs a warning if storage access throws
  * (e.g., SecurityError in sandboxed iframes or QuotaExceededError when storage is full).
+ *
+ * When localStorage is undefined (deleted by the host app, e.g., Discord),
+ * falls back to writing via a same-origin iframe's localStorage and logs a
+ * warning so plugin developers have diagnostic visibility.
  */
 export const setLocalStorage = (key: string, value: string): void => {
+  let storage: Storage | undefined;
   try {
-    const storage = window.localStorage as Storage | undefined;
-    storage?.setItem(key, value);
+    storage = getWindowLocalStorage();
   } catch (error) {
     log.warn(`setLocalStorage failed for key "${key}"`, error);
+    return;
   }
+
+  if (storage) {
+    try {
+      storage.setItem(key, value);
+    } catch (error) {
+      log.warn(`setLocalStorage failed for key "${key}"`, error);
+    }
+    return;
+  }
+
+  log.warn(`setLocalStorage: localStorage unavailable, using iframe fallback for key "${key}"`);
+  withIframeFallback(s => {
+    s.setItem(key, value);
+    return true;
+  });
 };
 
 /**
@@ -144,14 +159,34 @@ export const setSessionStorage = (key: string, value: string): void => {
 /**
  * Removes a key from localStorage. Logs a warning if storage access throws
  * (e.g., SecurityError in sandboxed iframes).
+ *
+ * When localStorage is undefined (deleted by the host app, e.g., Discord),
+ * falls back to removing via a same-origin iframe's localStorage and logs a
+ * warning so plugin developers have diagnostic visibility.
  */
 export const removeLocalStorage = (key: string): void => {
+  let storage: Storage | undefined;
   try {
-    const storage = window.localStorage as Storage | undefined;
-    storage?.removeItem(key);
+    storage = getWindowLocalStorage();
   } catch (error) {
     log.warn(`removeLocalStorage failed for key "${key}"`, error);
+    return;
   }
+
+  if (storage) {
+    try {
+      storage.removeItem(key);
+    } catch (error) {
+      log.warn(`removeLocalStorage failed for key "${key}"`, error);
+    }
+    return;
+  }
+
+  log.warn(`removeLocalStorage: localStorage unavailable, using iframe fallback for key "${key}"`);
+  withIframeFallback(s => {
+    s.removeItem(key);
+    return true;
+  });
 };
 
 /**
