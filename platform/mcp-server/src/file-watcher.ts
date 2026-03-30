@@ -21,7 +21,7 @@
  */
 
 import type { FSWatcher } from 'node:fs';
-import { statSync, watch } from 'node:fs';
+import { readdirSync, statSync, watch } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { ManifestTool } from '@opentabs-dev/shared';
@@ -46,6 +46,11 @@ const STALE_WATCHER_WINDOW_MS = 5 * 60 * 1000;
 
 /** Maximum number of detection timestamps to keep (prevents unbounded growth) */
 const MAX_DETECTION_TIMESTAMPS = 20;
+
+/** Debounce interval for localPluginDirs parent directory watchers (ms).
+ *  Longer than plugin dist/ watcher debounce (200ms) since directory creation
+ *  + plugin build takes time and may produce multiple fs events. */
+const PLUGIN_DIR_DEBOUNCE_MS = 1000;
 
 /** Callbacks for file watcher events */
 interface FileWatcherCallbacks {
@@ -520,6 +525,92 @@ const watchPlugin = (
 };
 
 /**
+ * Get the set of immediate child directory names in a parent directory.
+ * Returns an empty set if the directory does not exist or cannot be read.
+ */
+const getChildDirNames = (parentDir: string): Set<string> => {
+  try {
+    const entries = readdirSync(parentDir, { withFileTypes: true });
+    return new Set(entries.filter(e => e.isDirectory()).map(e => e.name));
+  } catch {
+    return new Set();
+  }
+};
+
+/**
+ * Start watching localPluginDirs parent directories for new/removed plugin
+ * subdirectories. When the set of immediate child directories changes,
+ * triggers a config reload to re-run plugin discovery.
+ *
+ * Each directory gets its own fs.watch() watcher with a debounce that
+ * compares the current directory listing to a snapshot taken at watcher
+ * start. Only fires onConfigChanged when the child directory set actually
+ * changes (not when files inside existing children change).
+ *
+ * Watchers are stored on FileWatchingState.pluginDirWatchers for cleanup.
+ */
+const startPluginDirWatching = (state: ServerState, resolvedDirs: string[], callbacks: FileWatcherCallbacks): void => {
+  const fw = state.fileWatching;
+  const gen = fw.generation;
+
+  for (const dir of resolvedDirs) {
+    // Skip non-existent directories
+    try {
+      if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
+        log.warn(`Plugin dir watcher: ${dir} is not a directory — skipping`);
+        continue;
+      }
+    } catch {
+      log.warn(`Plugin dir watcher: Cannot access ${dir} — skipping`);
+      continue;
+    }
+
+    // Snapshot the current child directories at watcher start
+    let knownChildren = getChildDirNames(dir);
+
+    try {
+      const watcher = watch(dir, (_eventType, _filename) => {
+        const key = `pluginDir:${dir}`;
+        const existing = fw.timers.get(key);
+        if (existing) clearTimeout(existing);
+
+        fw.timers.set(
+          key,
+          setTimeout(() => {
+            fw.timers.delete(key);
+            if (state.fileWatching.generation !== gen) return;
+
+            // Compare current children with the snapshot
+            const currentChildren = getChildDirNames(dir);
+            const added = [...currentChildren].filter(c => !knownChildren.has(c));
+            const removed = [...knownChildren].filter(c => !currentChildren.has(c));
+
+            if (added.length === 0 && removed.length === 0) return;
+
+            knownChildren = currentChildren;
+            log.info(
+              `Plugin dir watcher: ${dir} children changed` +
+                (added.length > 0 ? ` (added: ${added.join(', ')})` : '') +
+                (removed.length > 0 ? ` (removed: ${removed.join(', ')})` : '') +
+                ' — triggering reload',
+            );
+            callbacks.onConfigChanged();
+          }, PLUGIN_DIR_DEBOUNCE_MS),
+        );
+      });
+      watcher.on('error', err => {
+        log.warn(`Plugin dir watcher: Error on ${dir}: ${err instanceof Error ? err.message : String(err)}`);
+        watcher.close();
+      });
+      fw.pluginDirWatchers.push(watcher);
+      log.info(`Plugin dir watcher: Watching ${dir} for new plugin subdirectories`);
+    } catch (err) {
+      log.warn(`Plugin dir watcher: Could not watch ${dir}:`, err);
+    }
+  }
+};
+
+/**
  * Start watching the config directory for changes to config.json.
  * Uses directory-level watching (not file-level) because on macOS, file-level
  * fs.watch() via kqueue fails to deliver events after a close + recreate cycle.
@@ -783,6 +874,12 @@ const stopFileWatching = (state: ServerState): void => {
   }
   fw.entries.length = 0;
 
+  // Close plugin dir watchers
+  for (const watcher of fw.pluginDirWatchers) {
+    watcher.close();
+  }
+  fw.pluginDirWatchers.length = 0;
+
   // Close config watcher
   if (fw.configWatcher) {
     fw.configWatcher.close();
@@ -802,4 +899,4 @@ const stopFileWatching = (state: ServerState): void => {
 };
 
 export type { FileWatcherCallbacks };
-export { handleToolsJsonChange, startConfigWatching, startFileWatching, stopFileWatching };
+export { handleToolsJsonChange, startConfigWatching, startFileWatching, startPluginDirWatching, stopFileWatching };

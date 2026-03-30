@@ -2,9 +2,18 @@ import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs';
 import { chmod, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeEach, describe, expect, test } from 'vitest';
+import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { OpentabsConfig } from './config.js';
-import { loadConfig, saveConfig, savePluginPermissions, savePluginSettings, writeAuthFile } from './config.js';
+import {
+  KNOWN_CONFIG_KEYS,
+  levenshtein,
+  loadConfig,
+  saveConfig,
+  savePluginPermissions,
+  savePluginSettings,
+  writeAuthFile,
+} from './config.js';
+import { log } from './logger.js';
 
 // Override OPENTABS_CONFIG_DIR for test isolation.
 // Config functions read this env var lazily on each call.
@@ -47,7 +56,7 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     expect(config.localPlugins).toEqual([]);
     expect(config.permissions).toEqual({});
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
 
     // File was created on disk
     expect(existsSync(configPath)).toBe(true);
@@ -70,7 +79,7 @@ describe('loadConfig / saveConfig round-trip', () => {
       settings: {
         sqlpad: { instanceUrl: 'https://sqlpad.example.com' },
       },
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(custom);
 
@@ -128,7 +137,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     const config = await loadConfig();
     expect(config.localPlugins).toEqual(['/some/plugin']);
     expect(config.permissions).toEqual({});
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
   });
 
   test('default config has empty permissions map', async () => {
@@ -203,7 +212,7 @@ describe('savePluginPermissions round-trip', () => {
       localPlugins: ['/my/plugin'],
       permissions: {},
       settings: {},
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -228,7 +237,7 @@ describe('savePluginPermissions round-trip', () => {
       localPlugins: [],
       permissions: { slack: { permission: 'auto' } },
       settings: {},
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -251,7 +260,7 @@ describe('savePluginPermissions round-trip', () => {
       settings: {
         sqlpad: { instanceUrl: 'https://sqlpad.example.com' },
       },
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -277,7 +286,7 @@ describe('savePluginSettings round-trip', () => {
       localPlugins: ['/my/plugin'],
       permissions: { slack: { permission: 'auto' } },
       settings: {},
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -299,7 +308,7 @@ describe('savePluginSettings round-trip', () => {
       localPlugins: [],
       permissions: {},
       settings: { old_plugin: { key: 'old-value' } },
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -340,7 +349,7 @@ describe('saveConfig error propagation', () => {
       localPlugins: [],
       permissions: {},
       settings: {},
-      version: 2,
+      version: 3,
     };
 
     await expect(saveConfig(state, config)).rejects.toThrow();
@@ -358,7 +367,7 @@ describe('saveConfig error propagation', () => {
       localPlugins: ['/test/path'],
       permissions: {},
       settings: {},
-      version: 2,
+      version: 3,
     };
 
     // First write fails
@@ -439,5 +448,178 @@ describe('writeAuthFile', () => {
 
     const content = JSON.parse(await readFile(authPath, 'utf-8')) as Record<string, unknown>;
     expect(content.secret).toBe('second-secret');
+  });
+});
+
+describe('levenshtein', () => {
+  test('returns 0 for identical strings', () => {
+    expect(levenshtein('abc', 'abc')).toBe(0);
+  });
+
+  test('returns length of the other string when one is empty', () => {
+    expect(levenshtein('', 'abc')).toBe(3);
+    expect(levenshtein('hello', '')).toBe(5);
+  });
+
+  test('returns 0 for two empty strings', () => {
+    expect(levenshtein('', '')).toBe(0);
+  });
+
+  test('computes single-character edits', () => {
+    expect(levenshtein('cat', 'bat')).toBe(1); // substitution
+    expect(levenshtein('cat', 'cats')).toBe(1); // insertion
+    expect(levenshtein('cats', 'cat')).toBe(1); // deletion
+  });
+
+  test('computes multi-character edits', () => {
+    expect(levenshtein('kitten', 'sitting')).toBe(3);
+    expect(levenshtein('saturday', 'sunday')).toBe(3);
+  });
+
+  test('handles close config key typos', () => {
+    expect(levenshtein('localPlugin', 'localPlugins')).toBe(1);
+    expect(levenshtein('permisions', 'permissions')).toBe(1);
+    expect(levenshtein('setings', 'settings')).toBe(1);
+  });
+});
+
+describe('KNOWN_CONFIG_KEYS', () => {
+  test('contains all OpentabsConfig fields', () => {
+    expect(KNOWN_CONFIG_KEYS).toContain('version');
+    expect(KNOWN_CONFIG_KEYS).toContain('localPlugins');
+    expect(KNOWN_CONFIG_KEYS).toContain('localPluginDirs');
+    expect(KNOWN_CONFIG_KEYS).toContain('permissions');
+    expect(KNOWN_CONFIG_KEYS).toContain('settings');
+    expect(KNOWN_CONFIG_KEYS).toContain('additionalAllowedDirectories');
+    expect(KNOWN_CONFIG_KEYS.size).toBe(6);
+  });
+});
+
+describe('unknown config key warnings', () => {
+  beforeEach(async () => {
+    process.env.OPENTABS_CONFIG_DIR = TEST_BASE_DIR;
+    await removeConfig();
+  });
+
+  test('warns about unknown top-level config keys', async () => {
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
+    try {
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          localPlugins: [],
+          permissions: {},
+          settings: {},
+          version: 3,
+          unknownField: true,
+        }),
+      );
+
+      await loadConfig();
+
+      const unknownKeyWarning = warnSpy.mock.calls.find(
+        call => typeof call[0] === 'string' && call[0].includes('Unknown config key "unknownField"'),
+      );
+      expect(unknownKeyWarning).toBeDefined();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test('suggests close matches with did-you-mean', async () => {
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
+    try {
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          localPlugin: [],
+          permissions: {},
+          version: 3,
+        }),
+      );
+
+      await loadConfig();
+
+      const suggestion = warnSpy.mock.calls.find(
+        call => typeof call[0] === 'string' && call[0].includes("did you mean 'localPlugins'"),
+      );
+      expect(suggestion).toBeDefined();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test('does not suggest when distance exceeds threshold', async () => {
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
+    try {
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          localPlugins: [],
+          permissions: {},
+          version: 3,
+          zzzzzzzzz: 'far from any known key',
+        }),
+      );
+
+      await loadConfig();
+
+      const warning = warnSpy.mock.calls.find(
+        call => typeof call[0] === 'string' && call[0].includes('Unknown config key "zzzzzzzzz"'),
+      );
+      expect(warning).toBeDefined();
+      expect(warning![0]).not.toContain('did you mean');
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test('does not warn about known keys', async () => {
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
+    try {
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          localPlugins: [],
+          localPluginDirs: [],
+          permissions: {},
+          settings: {},
+          additionalAllowedDirectories: [],
+          version: 3,
+        }),
+      );
+
+      await loadConfig();
+
+      const unknownKeyWarning = warnSpy.mock.calls.find(
+        call => typeof call[0] === 'string' && call[0].includes('Unknown config key'),
+      );
+      expect(unknownKeyWarning).toBeUndefined();
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  test('server still loads config successfully despite unknown keys', async () => {
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
+    try {
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          localPlugins: ['/some/plugin'],
+          permissions: { slack: { permission: 'auto' } },
+          settings: {},
+          version: 3,
+          extraField: 'ignored',
+          anotherExtra: 42,
+        }),
+      );
+
+      const config = await loadConfig();
+      expect(config.localPlugins).toEqual(['/some/plugin']);
+      expect(config.permissions).toEqual({ slack: { permission: 'auto' } });
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

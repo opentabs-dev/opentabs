@@ -198,6 +198,8 @@ interface PluginPermissionConfig {
 interface OpentabsConfig {
   /** Filesystem paths to locally-developed plugin directories. */
   localPlugins: string[];
+  /** Parent directories whose immediate children are auto-scanned for plugins. */
+  localPluginDirs?: string[];
   /** Per-plugin permission configuration (plugin name → permission config). */
   permissions?: Record<string, PluginPermissionConfig>;
   /**

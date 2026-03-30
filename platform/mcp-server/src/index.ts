@@ -45,7 +45,7 @@ import { createHandlers } from './http-routes.js';
 import { log } from './logger.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import type { ReloadResult } from './reload.js';
-import { performReload } from './reload.js';
+import { performReload, runVersionCheck } from './reload.js';
 import type { NodeServer } from './server-node.js';
 import { createNodeServer } from './server-node.js';
 import { installShutdownHandlers } from './shutdown.js';
@@ -144,6 +144,15 @@ const gatewaySessionServers: McpServerInstance[] = hotState?.gatewaySessionServe
 // ---------------------------------------------------------------------------
 
 const reloadResult: ReloadResult = await performReload(state, sessionServers, transports, isHotReload);
+
+// Schedule periodic version checks (fire-and-forget, not on the reload path).
+// Clear any existing timer from a previous hot reload iteration before setting a new one.
+if (state.versionCheckTimerId !== null) {
+  clearInterval(state.versionCheckTimerId);
+  state.versionCheckTimerId = null;
+}
+void runVersionCheck(state);
+state.versionCheckTimerId = setInterval(() => void runVersionCheck(state), 6 * 60 * 60 * 1000);
 
 // ---------------------------------------------------------------------------
 // Handler functions — created fresh on every module evaluation

@@ -85,6 +85,8 @@ export interface FileWatchingState {
   mtimePollDetections: number;
   /** Timestamps (ms since epoch) of recent mtime poll detections — used for stale watcher warning */
   mtimePollDetectionTimestamps: number[];
+  /** FSWatchers for localPluginDirs parent directories — triggers rediscovery when children appear/disappear */
+  pluginDirWatchers: FSWatcher[];
 }
 
 /** How a plugin was discovered: auto-discovered from global node_modules or explicitly listed in localPlugins */
@@ -284,6 +286,8 @@ export interface ServerState {
   extensionConnections: Map<string, ExtensionConnection>;
   /** Local plugin paths from config */
   pluginPaths: string[];
+  /** Parent directories for auto-scanning plugins */
+  localPluginDirs: string[];
   /** Pending tool dispatches keyed by JSON-RPC id */
   pendingDispatches: Map<string | number, PendingDispatch>;
   /** Outdated npm plugins detected on startup */
@@ -304,6 +308,8 @@ export interface ServerState {
   activeDispatches: Map<string, number>;
   /** Periodic timer for sweeping stale MCP sessions between hot reloads */
   sweepTimerId: ReturnType<typeof setInterval> | null;
+  /** Periodic timer for npm version checks (runs every 6 hours) */
+  versionCheckTimerId: ReturnType<typeof setInterval> | null;
   /** Timestamp (ms since epoch) when the server process first started — survives hot reloads */
   startedAt: number;
   /** Discovery errors from the most recent reload — used by config.getState for the side panel */
@@ -332,6 +338,13 @@ export interface ServerState {
   browserTabOwnership: Map<number, string>;
   /** Pending connectionId for the next WsHandle open — set during upgrade, consumed in the open handler */
   _pendingConnectionId?: string;
+  /** Coalescing state for POST /reload — multiple concurrent requests share one performConfigReload call */
+  pendingReload: {
+    promise: Promise<{ plugins: number; durationMs: number }>;
+    resolve: (result: { plugins: number; durationMs: number }) => void;
+    reject: (err: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null;
 }
 
 /** Increment when changing the type of an existing ServerState field */
@@ -354,6 +367,7 @@ export const createState = (): ServerState => ({
   registry: EMPTY_REGISTRY,
   extensionConnections: new Map(),
   pluginPaths: [],
+  localPluginDirs: [],
   pendingDispatches: new Map(),
   outdatedPlugins: [],
   browserTools: [],
@@ -367,6 +381,7 @@ export const createState = (): ServerState => ({
     mtimeLastPollAt: null,
     mtimePollDetections: 0,
     mtimePollDetectionTimestamps: [],
+    pluginDirWatchers: [],
   },
   wsSecret: null,
   cachedBrowserTools: [],
@@ -374,6 +389,7 @@ export const createState = (): ServerState => ({
   configWriteMutex: Promise.resolve(),
   activeDispatches: new Map(),
   sweepTimerId: null,
+  versionCheckTimerId: null,
   startedAt: Date.now(),
   discoveryErrors: [],
   auditLog: [],
@@ -387,6 +403,7 @@ export const createState = (): ServerState => ({
   adaptersDirReady: false,
   reviewTokens: new Map(),
   browserTabOwnership: new Map(),
+  pendingReload: null,
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */

@@ -347,10 +347,10 @@ const askTest = base.extend<AskPermissionFixtures>({
 });
 
 // ---------------------------------------------------------------------------
-// US-005: Rate limiting on POST /reload endpoint
+// US-005 / US-003: POST /reload uses coalescing (no rate limiting)
 // ---------------------------------------------------------------------------
 
-test.describe('Rate limiting on POST /reload endpoint', () => {
+test.describe('POST /reload coalescing', () => {
   let configDir = '';
 
   test.beforeEach(() => {
@@ -361,7 +361,7 @@ test.describe('Rate limiting on POST /reload endpoint', () => {
     if (configDir) cleanupTestConfigDir(configDir);
   });
 
-  test('returns 429 after exceeding rate limit of 10 requests per minute', async () => {
+  test('rapid sequential reloads all succeed (no 429)', async () => {
     const server = await startMcpServer(configDir, true);
     try {
       await server.waitForHealth(h => h.status === 'ok');
@@ -371,22 +371,19 @@ test.describe('Rate limiting on POST /reload endpoint', () => {
       if (server.secret) headers.Authorization = `Bearer ${server.secret}`;
 
       const statuses: number[] = [];
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 15; i++) {
         const res = await fetch(url, { method: 'POST', headers });
         statuses.push(res.status);
       }
 
-      // First 10 should succeed (200), remaining should be rate-limited (429)
-      const successes = statuses.filter(s => s === 200);
-      const rateLimited = statuses.filter(s => s === 429);
-      expect(successes).toHaveLength(10);
-      expect(rateLimited.length).toBeGreaterThanOrEqual(2);
+      // All requests should succeed — coalescing replaces rate limiting
+      expect(statuses.every(s => s === 200)).toBe(true);
     } finally {
       await server.kill();
     }
   });
 
-  test('429 response includes Retry-After header', async () => {
+  test('concurrent reload requests all return 200', async () => {
     const server = await startMcpServer(configDir, true);
     try {
       await server.waitForHealth(h => h.status === 'ok');
@@ -395,16 +392,16 @@ test.describe('Rate limiting on POST /reload endpoint', () => {
       const headers: Record<string, string> = {};
       if (server.secret) headers.Authorization = `Bearer ${server.secret}`;
 
-      // Exhaust the rate limit
-      for (let i = 0; i < 10; i++) {
-        await fetch(url, { method: 'POST', headers });
-      }
+      // Fire 5 concurrent requests
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () => fetch(url, { method: 'POST', headers, signal: AbortSignal.timeout(30_000) })),
+      );
 
-      // 11th request should be rate-limited with Retry-After header
-      const res = await fetch(url, { method: 'POST', headers });
-      expect(res.status).toBe(429);
-      expect(await res.text()).toBe('Too Many Requests');
-      expect(res.headers.get('Retry-After')).toBe('60');
+      for (const res of results) {
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { ok: boolean };
+        expect(body.ok).toBe(true);
+      }
     } finally {
       await server.kill();
     }

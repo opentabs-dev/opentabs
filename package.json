@@ -49,6 +49,7 @@
     "type-check:docs": "npm run --prefix docs type-check",
     "check:docs": "npm run --prefix docs check",
     "build:plugins": "tsx scripts/plugins.ts --build",
+    "build:plugins:affected": "tsx scripts/plugins.ts --build --affected",
     "check:plugins": "tsx scripts/plugins.ts --check",
     "dev:mcp": "tsx scripts/dev-mcp.ts",
     "storybook": "npm run --prefix platform/browser-extension storybook",
