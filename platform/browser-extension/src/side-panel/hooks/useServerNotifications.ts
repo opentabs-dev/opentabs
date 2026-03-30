@@ -15,6 +15,8 @@ interface UseServerNotificationsParams {
 
 interface UseServerNotificationsResult {
   handleNotification: (data: Record<string, unknown>) => void;
+  clearSeenId: (id: string) => void;
+  clearAllSeenIds: () => void;
 }
 
 /**
@@ -121,7 +123,15 @@ const useServerNotifications = ({
     }
   };
 
-  return { handleNotification };
+  const clearSeenId = (id: string): void => {
+    seenConfirmationIds.current.delete(id);
+  };
+
+  const clearAllSeenIds = (): void => {
+    seenConfirmationIds.current.clear();
+  };
+
+  return { handleNotification, clearSeenId, clearAllSeenIds };
 };
 
 export { useServerNotifications };

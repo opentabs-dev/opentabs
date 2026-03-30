@@ -76,7 +76,7 @@ const App = () => {
     pluginsRef.current = plugins;
   }, [connected, loading, plugins]);
 
-  const { handleNotification } = useServerNotifications({
+  const { handleNotification, clearSeenId, clearAllSeenIds } = useServerNotifications({
     setPlugins,
     setActiveTools,
     setPendingConfirmations,
@@ -336,6 +336,7 @@ const App = () => {
           setServerSourcePath(undefined);
           setActiveTools(new Set());
           setPendingConfirmations([]);
+          clearAllSeenIds();
           setSearchQuery('');
           clearTimeout(npmSearchTimer.current);
           setNpmResults([]);
@@ -377,11 +378,12 @@ const App = () => {
       clearTimeout(npmSearchTimer.current);
       chrome.runtime.onMessage.removeListener(listener);
     };
-  }, [handleNotification]);
+  }, [handleNotification, clearAllSeenIds]);
 
   const handleConfirmationRespond = (id: string, decision: 'allow' | 'deny', alwaysAllow?: boolean) => {
     sendConfirmationResponse(id, decision, alwaysAllow);
     setPendingConfirmations(prev => prev.filter(c => c.id !== id));
+    clearSeenId(id);
   };
 
   const hasContent = plugins.length > 0 || failedPlugins.length > 0 || browserTools.length > 0;
