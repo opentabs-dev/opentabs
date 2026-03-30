@@ -1,4 +1,4 @@
-import type { TabState } from '@opentabs-dev/shared';
+import type { PluginTabInfo, TabState } from '@opentabs-dev/shared';
 import { useEffect, useRef } from 'react';
 import { VALID_PLUGIN_NAME } from '../../constants.js';
 import type { PluginState } from '../bridge.js';
@@ -74,7 +74,18 @@ const useServerNotifications = ({
       ) {
         const pluginName = params.plugin;
         const newState = params.state as TabState;
-        setPlugins(prev => prev.map(p => (p.name === pluginName ? { ...p, tabState: newState } : p)));
+        const newTabs = Array.isArray(params.tabs) ? (params.tabs as PluginTabInfo[]) : undefined;
+        setPlugins(prev =>
+          prev.map(p =>
+            p.name === pluginName
+              ? {
+                  ...p,
+                  tabState: newState,
+                  ...(newTabs !== undefined ? { tabs: newTabs.length > 0 ? newTabs : undefined } : {}),
+                }
+              : p,
+          ),
+        );
       }
     }
 
