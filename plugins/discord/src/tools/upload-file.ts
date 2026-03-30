@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { discordApi } from '../discord-api.js';
 import { mapMessage, messageSchema } from './schemas.js';
@@ -31,7 +31,12 @@ export const uploadFile = defineTool({
   handle: async params => {
     let blob: Blob;
     if (params.is_base64) {
-      const binary = atob(params.content);
+      let binary: string;
+      try {
+        binary = atob(params.content);
+      } catch {
+        throw ToolError.validation('Invalid base64 content — ensure the content is valid base64-encoded data');
+      }
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i);
