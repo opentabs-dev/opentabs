@@ -145,4 +145,97 @@ test.describe('Cross-system stress tests', () => {
       cleanupTestConfigDir(configDir);
     }
   });
+
+  test('Multiple MCP sessions calling tools concurrently', async () => {
+    test.slow();
+
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cross-sessions-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: {
+        'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+        browser: { permission: 'auto' },
+      },
+    });
+
+    const server = await startMcpServer(configDir);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    const client1 = createMcpClient(server.port, server.secret);
+    const client2 = createMcpClient(server.port, server.secret);
+    const client3 = createMcpClient(server.port, server.secret);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // Open test app tab and wait for adapter injection
+      await openTestAppTab(context, testServer.url, server, testServer);
+
+      // Initialize all 3 clients
+      await client1.initialize();
+      await client2.initialize();
+      await client3.initialize();
+
+      // Verify session IDs are all different
+      expect(client1.sessionId).toBeTruthy();
+      expect(client2.sessionId).toBeTruthy();
+      expect(client3.sessionId).toBeTruthy();
+      expect(client1.sessionId).not.toBe(client2.sessionId);
+      expect(client1.sessionId).not.toBe(client3.sessionId);
+      expect(client2.sessionId).not.toBe(client3.sessionId);
+
+      // Warm up: verify echo tool is callable
+      await waitForToolResult(client1, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 15_000);
+
+      // Fire 15 calls in parallel (5 per client, each with unique prefix)
+      const makeEchoCalls = (client: ReturnType<typeof createMcpClient>, prefix: string) =>
+        Array.from({ length: 5 }, (_, i) => client.callTool('e2e-test_echo', { message: `${prefix}${i}` }));
+
+      const allCalls = [
+        ...makeEchoCalls(client1, 'c1-'),
+        ...makeEchoCalls(client2, 'c2-'),
+        ...makeEchoCalls(client3, 'c3-'),
+      ];
+
+      const results = await Promise.all(allCalls);
+
+      // All 15 calls should succeed
+      for (const result of results) {
+        expect(result.isError).toBe(false);
+      }
+
+      // Parse results and verify each client's results contain only its own prefix
+      const c1Results = results.slice(0, 5);
+      const c2Results = results.slice(5, 10);
+      const c3Results = results.slice(10, 15);
+
+      for (const r of c1Results) {
+        const parsed = JSON.parse(r.content) as { message: string };
+        expect(parsed.message).toMatch(/^c1-/);
+      }
+      for (const r of c2Results) {
+        const parsed = JSON.parse(r.content) as { message: string };
+        expect(parsed.message).toMatch(/^c2-/);
+      }
+      for (const r of c3Results) {
+        const parsed = JSON.parse(r.content) as { message: string };
+        expect(parsed.message).toMatch(/^c3-/);
+      }
+    } finally {
+      await client1.close().catch(() => {});
+      await client2.close().catch(() => {});
+      await client3.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
 });
