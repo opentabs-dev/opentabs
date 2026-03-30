@@ -19,7 +19,7 @@ const getAuth = (): ConfluenceAuth | null => {
   const persisted = getAuthCache<ConfluenceAuth>('confluence');
   if (persisted) return persisted;
 
-  const accountId = getMetaContent('ajs-remote-user');
+  const accountId = getMetaContent('ajs-atlassian-account-id') ?? getMetaContent('ajs-remote-user');
   const baseUrl = getMetaContent('ajs-base-url');
   const cloudId = getMetaContent('ajs-cloud-id');
 
