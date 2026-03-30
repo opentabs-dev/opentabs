@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import {
   cleanupTestConfigDir,
   createMcpClient,
@@ -27,6 +28,7 @@ import {
 import {
   BROWSER_TOOL_NAMES,
   openSidePanel,
+  selectPermission,
   setupAdapterSymlink,
   waitForExtensionConnected,
   waitForLog,
@@ -373,6 +375,92 @@ test.describe('Side panel real-time state propagation', () => {
       await context.close().catch(() => {});
       await server.kill();
       await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stress tests — inline helpers
+// ---------------------------------------------------------------------------
+
+const tick = (ms = 100) => new Promise(r => setTimeout(r, ms));
+const collectPageErrors = (page: Page): string[] => {
+  const errors: string[] = [];
+  page.on('pageerror', (err: Error) => errors.push(err.message));
+  return errors;
+};
+
+// ---------------------------------------------------------------------------
+// Stress tests
+// ---------------------------------------------------------------------------
+
+test.describe('stress', () => {
+  test('rapid permission changes propagate correctly without UI lag', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-realtime-stress-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: { 'e2e-test': { permission: 'auto' } },
+    });
+
+    const server = await startMcpServer(configDir, true, undefined, { OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '' });
+    const mcpClient = createMcpClient(server.port, server.secret);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+      await mcpClient.initialize();
+
+      const sidePanelPage = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sidePanelPage);
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Expand plugin card to reveal permission select
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+      await expect(sidePanelPage.locator('[aria-label="Permission for e2e-test plugin"]')).toBeVisible({
+        timeout: 5_000,
+      });
+
+      // Rapidly toggle permission 5x: Off → Auto → Off → Auto → Off
+      const sequence: Array<'Off' | 'Auto'> = ['Off', 'Auto', 'Off', 'Auto', 'Off'];
+      for (const value of sequence) {
+        await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', value);
+        await tick(100);
+      }
+
+      // Verify the final value ('Off') is shown in the UI
+      const pluginSelect = sidePanelPage.locator('[aria-label="Permission for e2e-test plugin"]');
+      await expect(pluginSelect).toContainText('Off', { timeout: 10_000 });
+
+      // Change back to 'Auto' and verify all tools are enabled via MCP server
+      await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', 'Auto');
+      await expect(pluginSelect).toContainText('Auto', { timeout: 10_000 });
+
+      await expect
+        .poll(
+          async () => {
+            const toolList = await mcpClient.listTools();
+            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            return echo !== undefined && !echo.description.startsWith('[Disabled]');
+          },
+          { timeout: 15_000, message: 'e2e-test_echo should be enabled after switching back to Auto' },
+        )
+        .toBe(true);
+
+      expect(pageErrors).toEqual([]);
+
+      await sidePanelPage.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }

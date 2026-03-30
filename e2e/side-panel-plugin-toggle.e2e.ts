@@ -26,6 +26,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import {
   cleanupTestConfigDir,
   createMcpClient,
@@ -1051,6 +1052,210 @@ test.describe('Side panel — skipPermissions mode and group headers', () => {
       // Change browser permission back to 'auto' to verify selects still work
       await selectPermission(sidePanelPage, 'Permission for browser tools', 'Auto');
       await expect(browserTrigger).toContainText('Auto', { timeout: 5_000 });
+
+      await sidePanelPage.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stress tests — rapid cycling, race conditions, and boundary values
+// ---------------------------------------------------------------------------
+
+const tick = (ms = 100) => new Promise(r => setTimeout(r, ms));
+const collectPageErrors = (page: Page): string[] => {
+  const errors: string[] = [];
+  page.on('pageerror', (err: Error) => errors.push(err.message));
+  return errors;
+};
+
+test.describe('stress', () => {
+  test('rapid permission cycling across plugin, tool, and browser selects', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-stress-cycle-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: {
+        browser: { permission: 'auto' },
+        'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+      },
+    });
+
+    const server = await startMcpServer(configDir, true, undefined, { OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '' });
+    const mcpClient = createMcpClient(server.port, server.secret);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+      await mcpClient.initialize();
+
+      const sidePanelPage = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sidePanelPage);
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Expand plugin card to reveal tool rows
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+      await expect(sidePanelPage.locator('[aria-label="Permission for echo tool"]')).toBeVisible({ timeout: 5_000 });
+
+      // Expand browser card to reveal browser tool rows
+      const browserCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Browser' });
+      await browserCard.click();
+      await expect(sidePanelPage.locator('[aria-label="Permission for browser_list_tabs tool"]')).toBeVisible({
+        timeout: 5_000,
+      });
+
+      const permValues: Array<'Off' | 'Ask' | 'Auto'> = ['Off', 'Ask', 'Auto'];
+
+      // Cycle Off → Ask → Auto 3 times, interleaving plugin, tool, and browser selects
+      for (let cycle = 0; cycle < 3; cycle++) {
+        for (const value of permValues) {
+          await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', value);
+          await tick(50);
+          await selectPermission(sidePanelPage, 'Permission for echo tool', value);
+          await tick(50);
+          await selectPermission(sidePanelPage, 'Permission for browser tools', value);
+          await tick(50);
+        }
+      }
+
+      // After all cycles, everything should end at 'Auto'
+      const pluginSelect = sidePanelPage.locator('[aria-label="Permission for e2e-test plugin"]');
+      const echoSelect = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      const browserSelect = sidePanelPage.locator('[aria-label="Permission for browser tools"]');
+
+      await expect(pluginSelect).toContainText('Auto', { timeout: 10_000 });
+      await expect(echoSelect).toContainText('Auto', { timeout: 10_000 });
+      await expect(browserSelect).toContainText('Auto', { timeout: 10_000 });
+
+      // Verify server state: e2e-test_echo and browser_list_tabs should not be disabled
+      await expect
+        .poll(
+          async () => {
+            const toolList = await mcpClient.listTools();
+            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const listTabs = toolList.find(t => t.name === 'browser_list_tabs');
+            return (
+              echo !== undefined &&
+              !echo.description.startsWith('[Disabled]') &&
+              listTabs !== undefined &&
+              !listTabs.description.startsWith('[Disabled]')
+            );
+          },
+          {
+            timeout: 15_000,
+            message: 'e2e-test_echo and browser_list_tabs should not be disabled after cycling to Auto',
+          },
+        )
+        .toBe(true);
+
+      expect(pageErrors).toEqual([]);
+
+      await sidePanelPage.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
+  test('override clearing: changing plugin permission clears per-tool overrides', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-stress-override-'));
+    // Pre-seed with per-tool override: plugin is 'off', but echo has 'ask' override
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: {
+        'e2e-test': { permission: 'off', tools: { echo: 'ask' }, reviewedVersion: pluginVersion },
+      },
+    });
+
+    const server = await startMcpServer(configDir, true, undefined, { OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '' });
+    const mcpClient = createMcpClient(server.port, server.secret);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+      await mcpClient.initialize();
+
+      const sidePanelPage = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sidePanelPage);
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Expand plugin card
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+
+      // Verify echo shows 'Ask' (the per-tool override, not the plugin default 'Off')
+      const echoSelect = sidePanelPage.locator('[aria-label="Permission for echo tool"]');
+      await expect(echoSelect).toContainText('Ask', { timeout: 5_000 });
+
+      // Change plugin permission to 'Auto' — this should clear per-tool overrides
+      await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', 'Auto');
+
+      // Verify echo now shows 'Auto' (override cleared, inherits from plugin default)
+      await expect(echoSelect).toContainText('Auto', { timeout: 10_000 });
+
+      // Verify config.json tools map is cleared
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.permissions?.['e2e-test']?.tools;
+          },
+          { timeout: 10_000, message: 'per-tool overrides should be cleared from config.json after plugin change' },
+        )
+        .toBeUndefined();
+
+      // Now set echo to 'Off' (fresh per-tool override)
+      await selectPermission(sidePanelPage, 'Permission for echo tool', 'Off');
+      await expect(echoSelect).toContainText('Off', { timeout: 5_000 });
+
+      // Verify the override was written to config
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.permissions?.['e2e-test']?.tools?.echo;
+          },
+          { timeout: 10_000, message: 'echo should have per-tool override of off' },
+        )
+        .toBe('off');
+
+      // Change plugin permission back to 'Auto' — should clear the fresh override
+      await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', 'Auto');
+      await expect(echoSelect).toContainText('Auto', { timeout: 10_000 });
+
+      // Verify tools map cleared again
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.permissions?.['e2e-test']?.tools;
+          },
+          { timeout: 10_000, message: 'per-tool overrides should be cleared again after second plugin change' },
+        )
+        .toBeUndefined();
+
+      expect(pageErrors).toEqual([]);
 
       await sidePanelPage.close();
     } finally {

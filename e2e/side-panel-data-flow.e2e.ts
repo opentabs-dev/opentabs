@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import {
   cleanupTestConfigDir,
   createMcpClient,
@@ -592,6 +593,129 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       await mcpClient.close().catch(() => {});
       await context.close().catch(() => {});
       await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Stress tests — simultaneous tool calls and activity border behavior
+// ---------------------------------------------------------------------------
+
+const collectPageErrors = (page: Page): string[] => {
+  const errors: string[] = [];
+  page.on('pageerror', (err: Error) => errors.push(err.message));
+  return errors;
+};
+
+test.describe('stress', () => {
+  test('simultaneous tool calls show activity border and clear after completion', async () => {
+    // 1. Full setup: MCP server + test server + extension + MCP client
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const prefixedToolNames = readPluginToolNames();
+    const tools: Record<string, boolean> = {};
+    for (const t of prefixedToolNames) {
+      tools[t] = true;
+    }
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-stress-simul-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    const server = await startMcpServer(configDir, true);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    const mcpClient = createMcpClient(server.port, server.secret);
+
+    try {
+      // 2. Wait for extension to connect
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // 3. Open test app tab and wait for ready state
+      const appTab = await context.newPage();
+      await appTab.goto(testServer.url, { waitUntil: 'load' });
+
+      await expect
+        .poll(
+          async () => {
+            try {
+              const res = await fetch(`http://localhost:${server.port}/health`, {
+                headers: { Authorization: `Bearer ${server.secret ?? ''}` },
+                signal: AbortSignal.timeout(3_000),
+              });
+              const body = (await res.json()) as {
+                pluginDetails?: Array<{ name: string; tabState: string }>;
+              };
+              return body.pluginDetails?.find(p => p.name === 'e2e-test')?.tabState;
+            } catch {
+              return undefined;
+            }
+          },
+          {
+            timeout: 30_000,
+            message: 'Server tab state for e2e-test did not become ready',
+          },
+        )
+        .toBe('ready');
+
+      // 4. Initialize MCP client
+      await mcpClient.initialize();
+
+      // 5. Open side panel and expand plugin card
+      const sidePanelPage = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sidePanelPage);
+
+      await sidePanelPage.reload({ waitUntil: 'load' });
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({
+        timeout: 15_000,
+      });
+
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+
+      // Verify tool rows are visible
+      await expect(sidePanelPage.getByText('Echo', { exact: true })).toBeVisible({ timeout: 5_000 });
+
+      // 6. Set slow mode so tools take long enough to observe activity borders
+      await testServer.setSlow(3_000);
+
+      // 7. Verify no activity border before tool calls.
+      // Both PluginIcon and ToolIcon get the flash class when active, so
+      // multiple elements may match — use toHaveCount(0) instead of
+      // toBeHidden to avoid strict-mode violations.
+      const activityBorderLocator = sidePanelPage.locator('.animate-activity-border-flash');
+      await expect(activityBorderLocator).toHaveCount(0, { timeout: 2_000 });
+
+      // 8. Call two tools simultaneously and verify activity border appears.
+      // Use .first() for the visibility assertion since multiple elements
+      // (PluginIcon + individual ToolIcons) will have the flash class.
+      const [result1, result2] = await Promise.all([
+        mcpClient.callTool('e2e-test_echo', { message: 'parallel-a' }),
+        mcpClient.callTool('e2e-test_greet', { name: 'parallel-b' }),
+        expect(activityBorderLocator.first()).toBeVisible({ timeout: 10_000 }),
+      ]);
+      expect(result1.isError).toBe(false);
+      expect(result2.isError).toBe(false);
+
+      // 9. Verify all activity borders disappear after both tools complete
+      await expect(activityBorderLocator).toHaveCount(0, { timeout: 10_000 });
+
+      // 10. Reset slow mode
+      await testServer.setSlow(0);
+
+      // 11. Assert zero uncaught JS errors
+      expect(pageErrors).toEqual([]);
+
+      await sidePanelPage.close();
+      await appTab.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      await testServer.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
