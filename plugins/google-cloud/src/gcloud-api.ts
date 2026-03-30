@@ -115,6 +115,8 @@ const classifyGapiError = (err: {
       throw ToolError.rateLimited(message);
     case 400:
       throw ToolError.validation(message);
+    case 0:
+      throw ToolError.timeout(message);
     default:
       throw ToolError.internal(message);
   }
