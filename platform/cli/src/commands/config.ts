@@ -285,6 +285,49 @@ const handleSetToolPermission = async (key: string, value: string, options: { po
   await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
 
   console.log(`${pluginName}.${toolName}: ${colorPermission(permission)}`);
+
+  // Validate the tool exists in the running server's registry
+  try {
+    const port = resolvePort(options);
+    const secret = await readAuthSecret();
+    const headers: Record<string, string> = {};
+    if (secret) headers.Authorization = `Bearer ${secret}`;
+
+    const res = await fetch(`http://${DEFAULT_HOST}:${port}/health`, {
+      headers,
+      signal: AbortSignal.timeout(3_000),
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as Record<string, unknown>;
+
+      let toolExists = false;
+      if (pluginName === 'browser') {
+        const browserToolNames = Array.isArray(data.browserToolNames) ? (data.browserToolNames as string[]) : [];
+        toolExists = browserToolNames.includes(toolName);
+      } else {
+        const pluginDetails = Array.isArray(data.pluginDetails)
+          ? (data.pluginDetails as { name: string; tools?: string[] }[])
+          : [];
+        const plugin = pluginDetails.find(p => p.name === pluginName);
+        if (plugin) {
+          const prefixedName = `${pluginName}_${toolName}`;
+          toolExists = Array.isArray(plugin.tools) && plugin.tools.includes(prefixedName);
+        }
+      }
+
+      if (!toolExists) {
+        console.log(
+          pc.yellow(
+            `Warning: tool "${toolName}" not found in plugin "${pluginName}". The permission was saved but may have no effect.`,
+          ),
+        );
+      }
+    }
+  } catch {
+    // Server not reachable — skip validation silently
+  }
+
   await notifyServer({ port: options.port, warnIfNotRunning: true });
 };
 
