@@ -317,6 +317,9 @@ export const postFormData: PostFormData = (async (
   schema?: z.ZodType,
 ): Promise<unknown> => {
   const extraHeaders = init?.headers ? Object.fromEntries(new Headers(init.headers).entries()) : {};
+  // The browser must auto-set Content-Type to multipart/form-data with boundary.
+  // Any explicit Content-Type overrides this and omits the boundary, breaking multipart parsing.
+  delete extraHeaders['content-type'];
   return fetchJSONImpl(
     url,
     {

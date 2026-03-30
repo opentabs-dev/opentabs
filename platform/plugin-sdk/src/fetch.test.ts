@@ -798,6 +798,15 @@ describe('postFormData', () => {
     expect(data.contentType).toMatch(/^multipart\/form-data/);
     expect(data.hasCookies).toBe(false);
   });
+
+  test('strips user-provided Content-Type header to preserve multipart boundary', async () => {
+    const formData = new FormData();
+    formData.append('field', 'value');
+    const data = await postFormData<{ contentType: string; hasCookies: boolean }>(`${baseUrl}/echo-headers`, formData, {
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect(data?.contentType).toMatch(/^multipart\/form-data/);
+  });
 });
 
 // ---------------------------------------------------------------------------
