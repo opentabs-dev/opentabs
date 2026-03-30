@@ -183,6 +183,64 @@ test.describe('Side panel auto-refresh — POST /reload', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Stress tests — rapid POST /reload spam
+// ---------------------------------------------------------------------------
+
+test.describe('stress', () => {
+  test('rapid POST /reload spam settles to correct state without duplicate cards', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const tools = buildToolsMap();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-reload-stress-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    const server = await startMcpServer(configDir, true);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    const pageErrors: Error[] = [];
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'Config watcher: Watching', 10_000);
+
+      // Open side panel and verify plugin is visible
+      const sidePanelPage = await openSidePanel(context);
+      sidePanelPage.on('pageerror', err => pageErrors.push(err));
+      await expect(sidePanelPage.locator('text=E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Fire 3 POST /reload requests sequentially with 200ms between each
+      for (let i = 0; i < 3; i++) {
+        const res = await postReload(server.port, configDir);
+        expect(res.ok).toBe(true);
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      // Wait for the side panel to settle after rapid reloads
+      await new Promise(r => setTimeout(r, 1_000));
+
+      // Verify E2E Test is still visible
+      await expect(sidePanelPage.locator('text=E2E Test')).toBeVisible({ timeout: 10_000 });
+
+      // Verify exactly 1 plugin card (no duplicates).
+      // The INSTALLED section renders plugin names inside accordion triggers.
+      const pluginNames = sidePanelPage.getByText('E2E Test', { exact: true });
+      await expect(pluginNames).toHaveCount(1);
+
+      // Verify zero page errors
+      expect(pageErrors).toHaveLength(0);
+
+      await sidePanelPage.close();
+    } finally {
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Side panel recovery after dev proxy hot reload (process restart)
 // ---------------------------------------------------------------------------
 
