@@ -11,6 +11,7 @@
  * while all reload logic lives here and is freely editable.
  */
 
+import { realpath } from 'node:fs/promises';
 import type { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { browserTools } from './browser-tools/index.js';
 import { getConfigDir, loadConfig, loadSecret, savePluginPermissions } from './config.js';
@@ -32,6 +33,7 @@ import { log } from './logger.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import { notifyToolListChanged, rebuildCachedBrowserTools, registerMcpHandlers } from './mcp-setup.js';
 import { buildRegistry } from './registry.js';
+import { resolveLocalPath, scanLocalPluginDir } from './resolver.js';
 import type { CachedBrowserTool, ServerState } from './state.js';
 import { isExtensionConnected } from './state.js';
 import { checkForUpdates } from './version-check.js';
@@ -258,8 +260,31 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
   try {
     const config = await loadConfig();
     const configDir = getConfigDir();
+
+    // Expand localPluginDirs into individual plugin paths
+    const expandedDirPaths: string[] = [];
+    for (const dirSpec of config.localPluginDirs ?? []) {
+      const resolved = resolveLocalPath(dirSpec, configDir);
+      const scanned = await scanLocalPluginDir(resolved);
+      expandedDirPaths.push(...scanned);
+    }
+
+    // Deduplicate: localPlugins entries take precedence (appear first)
+    const allLocalPaths = [...config.localPlugins, ...expandedDirPaths];
+    const seen = new Set<string>();
+    const dedupedPaths: string[] = [];
+    for (const p of allLocalPaths) {
+      const resolved = await realpath(resolveLocalPath(p, configDir)).catch(() => resolveLocalPath(p, configDir));
+      if (!seen.has(resolved)) {
+        seen.add(resolved);
+        dedupedPaths.push(p);
+      }
+    }
+
+    state.localPluginDirs = config.localPluginDirs ?? [];
+
     const { registry, errors } = await discoverPlugins(
-      config.localPlugins,
+      dedupedPaths,
       configDir,
       config.settings,
       config.additionalAllowedDirectories ?? [],
