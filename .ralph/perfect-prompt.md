@@ -14,7 +14,7 @@ Use a two-phase collect-then-filter approach. This prevents context loss (findin
 
 ### Phase 1 — Collect
 
-As you read each file, **immediately record every potential finding** using TodoWrite. Include the file path, a one-line description, and the suspected consequence. Do NOT evaluate whether it passes the Validation Checklist yet. Do NOT discard anything during this phase. Capture everything that looks like it might be an issue — you will filter later.
+As you read each file, **immediately record every potential finding** using TaskCreate. Include the file path, a one-line description, and the suspected consequence. Do NOT evaluate whether it passes the Validation Checklist yet. Do NOT discard anything during this phase. Capture everything that looks like it might be an issue — you will filter later.
 
 ### Phase 2 — Filter
 
