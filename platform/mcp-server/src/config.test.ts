@@ -568,7 +568,7 @@ describe('unknown config key warnings', () => {
         call => typeof call[0] === 'string' && call[0].includes('Unknown config key "zzzzzzzzz"'),
       );
       expect(warning).toBeDefined();
-      expect(warning![0]).not.toContain('did you mean');
+      expect(warning?.[0]).not.toContain('did you mean');
     } finally {
       warnSpy.mockRestore();
     }

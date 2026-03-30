@@ -171,16 +171,19 @@ const KNOWN_CONFIG_KEYS = new Set([
 const levenshtein = (a: string, b: string): number => {
   const m = a.length;
   const n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
-    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
-  );
+  const dp = new Int32Array((m + 1) * (n + 1));
+  const at = (i: number, j: number): number => dp[i * (n + 1) + j] as number;
+  const set = (i: number, j: number, v: number) => {
+    dp[i * (n + 1) + j] = v;
+  };
+  for (let i = 0; i <= m; i++) set(i, 0, i);
+  for (let j = 0; j <= n; j++) set(0, j, j);
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      dp[i]![j] =
-        a[i - 1] === b[j - 1] ? dp[i - 1]![j - 1]! : 1 + Math.min(dp[i - 1]![j]!, dp[i]![j - 1]!, dp[i - 1]![j - 1]!);
+      set(i, j, a[i - 1] === b[j - 1] ? at(i - 1, j - 1) : 1 + Math.min(at(i - 1, j), at(i, j - 1), at(i - 1, j - 1)));
     }
   }
-  return dp[m]![n]!;
+  return at(m, n);
 };
 
 /** Parse the settings map from a raw config record: { pluginName: { key: value } } */
