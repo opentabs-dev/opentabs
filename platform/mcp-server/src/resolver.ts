@@ -312,9 +312,43 @@ const discoverGlobalNpmPlugins = async (): Promise<{ dirs: string[]; errors: str
   return { dirs: allDirs, errors };
 };
 
+/**
+ * Scan a directory for immediate child directories containing a valid opentabs plugin.
+ * Returns absolute paths of children that have a package.json with an `opentabs` field.
+ * Returns an empty array if the directory does not exist or cannot be read.
+ */
+const scanLocalPluginDir = async (dir: string): Promise<string[]> => {
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (e) {
+    log.warn(`Cannot scan localPluginDirs entry ${dir}: ${toErrorMessage(e)}`);
+    return [];
+  }
+  if (entries.length > 200) {
+    log.warn(`localPluginDirs entry ${dir} has ${entries.length} children — scanning may be slow`);
+  }
+  const results: string[] = [];
+  const checks = entries
+    .filter(e => e.isDirectory())
+    .map(async e => {
+      const childPath = join(dir, e.name);
+      if (await hasOpentabsField(childPath)) results.push(childPath);
+    });
+  await Promise.all(checks);
+  return results;
+};
+
 /** Reset the cached global paths (for testing). */
 const resetGlobalPathsCache = (): void => {
   setCachedGlobalPaths(null);
 };
 
-export { discoverGlobalNpmPlugins, isAllowedPluginPath, resetGlobalPathsCache, resolvePluginPath };
+export {
+  discoverGlobalNpmPlugins,
+  isAllowedPluginPath,
+  resetGlobalPathsCache,
+  resolveLocalPath,
+  resolvePluginPath,
+  scanLocalPluginDir,
+};

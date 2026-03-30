@@ -805,7 +805,7 @@ describe('reviewedVersion reset on plugin update', () => {
   });
 });
 
-describe('performConfigReload — checkForUpdates integration', () => {
+describe('performConfigReload — checkForUpdates is NOT called', () => {
   let configDir: string;
   let state: ServerState;
 
@@ -836,18 +836,15 @@ describe('performConfigReload — checkForUpdates integration', () => {
     }
   });
 
-  test('performConfigReload calls checkForUpdates', async () => {
+  test('performConfigReload does NOT call checkForUpdates', async () => {
     await performConfigReload(state, [], emptyTransports());
 
-    expect(vi.mocked(checkForUpdates)).toHaveBeenCalledWith(state);
+    expect(vi.mocked(checkForUpdates)).not.toHaveBeenCalled();
   });
 
-  test('performConfigReload succeeds when checkForUpdates throws', async () => {
-    vi.mocked(checkForUpdates).mockRejectedValue(new Error('npm registry unreachable'));
+  test('performReload does NOT call checkForUpdates', async () => {
+    await performReload(state, [], emptyTransports(), false);
 
-    const result = await performConfigReload(state, [], emptyTransports());
-
-    expect(result.plugins).toBeGreaterThanOrEqual(0);
-    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(vi.mocked(checkForUpdates)).not.toHaveBeenCalled();
   });
 });

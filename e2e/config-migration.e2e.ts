@@ -81,8 +81,8 @@ test.describe('Config migration — v1 to v2', () => {
       // Read config.json from disk — it should have been migrated
       const migratedConfig = readRawConfig(configDir);
 
-      // Version should be updated to 2
-      expect(migratedConfig.version).toBe(2);
+      // Version should be updated to current (3)
+      expect(migratedConfig.version).toBe(3);
 
       // instanceUrl should be converted from string to Record
       const settings = migratedConfig.settings as Record<string, Record<string, unknown>>;
@@ -115,7 +115,7 @@ test.describe('Config migration — v1 to v2', () => {
 
       // Config should now have a version field
       const migratedConfig = readRawConfig(configDir);
-      expect(migratedConfig.version).toBe(2);
+      expect(migratedConfig.version).toBe(3);
     } finally {
       await server?.kill();
       if (configDir) cleanupTestConfigDir(configDir);
@@ -134,8 +134,8 @@ test.describe('Config migration — current version', () => {
     try {
       const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
-      configDir = createConfigDir('v2-noop');
-      // Write a v2 config with instanceUrl already in Record format
+      configDir = createConfigDir('v3-noop');
+      // Write a v3 config with instanceUrl already in Record format
       const originalConfig = {
         localPlugins: [absPluginPath],
         permissions: {
@@ -145,7 +145,7 @@ test.describe('Config migration — current version', () => {
         settings: {
           'e2e-test': { instanceUrl: { default: 'http://localhost:9999' } },
         },
-        version: 2,
+        version: 3,
       };
       writeRawConfig(configDir, originalConfig);
 
@@ -158,7 +158,7 @@ test.describe('Config migration — current version', () => {
 
       // Config should be unchanged
       const configAfter = readRawConfig(configDir);
-      expect(configAfter.version).toBe(2);
+      expect(configAfter.version).toBe(3);
       const settings = configAfter.settings as Record<string, Record<string, unknown>>;
       expect(settings['e2e-test']?.instanceUrl).toEqual({ default: 'http://localhost:9999' });
     } finally {
@@ -242,7 +242,7 @@ test.describe('Config migration — mixed settings', () => {
       await server.waitForHealth(h => h.pluginDetails !== undefined && h.pluginDetails.length > 0);
 
       const migratedConfig = readRawConfig(configDir);
-      expect(migratedConfig.version).toBe(2);
+      expect(migratedConfig.version).toBe(3);
 
       const settings = migratedConfig.settings as Record<string, Record<string, unknown>>;
       // URL string should be wrapped in { default: ... }

@@ -11,6 +11,7 @@
  * while all reload logic lives here and is freely editable.
  */
 
+import { realpath } from 'node:fs/promises';
 import type { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { browserTools } from './browser-tools/index.js';
 import { getConfigDir, loadConfig, loadSecret, savePluginPermissions } from './config.js';
@@ -25,13 +26,14 @@ import {
   sendSyncFull,
   writeAllAdapterFiles,
 } from './extension-protocol.js';
-import { startConfigWatching, startFileWatching, stopFileWatching } from './file-watcher.js';
+import { startConfigWatching, startFileWatching, startPluginDirWatching, stopFileWatching } from './file-watcher.js';
 import { sweepStaleSessions } from './http-routes.js';
 import { pruneStaleBuffers } from './log-buffer.js';
 import { log } from './logger.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import { notifyToolListChanged, rebuildCachedBrowserTools, registerMcpHandlers } from './mcp-setup.js';
 import { buildRegistry } from './registry.js';
+import { resolveLocalPath, scanLocalPluginDir } from './resolver.js';
 import type { CachedBrowserTool, ServerState } from './state.js';
 import { isExtensionConnected } from './state.js';
 import { checkForUpdates } from './version-check.js';
@@ -258,8 +260,31 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
   try {
     const config = await loadConfig();
     const configDir = getConfigDir();
+
+    // Expand localPluginDirs into individual plugin paths
+    const expandedDirPaths: string[] = [];
+    for (const dirSpec of config.localPluginDirs ?? []) {
+      const resolved = resolveLocalPath(dirSpec, configDir);
+      const scanned = await scanLocalPluginDir(resolved);
+      expandedDirPaths.push(...scanned);
+    }
+
+    // Deduplicate: localPlugins entries take precedence (appear first)
+    const allLocalPaths = [...config.localPlugins, ...expandedDirPaths];
+    const seen = new Set<string>();
+    const dedupedPaths: string[] = [];
+    for (const p of allLocalPaths) {
+      const resolved = await realpath(resolveLocalPath(p, configDir)).catch(() => resolveLocalPath(p, configDir));
+      if (!seen.has(resolved)) {
+        seen.add(resolved);
+        dedupedPaths.push(p);
+      }
+    }
+
+    state.localPluginDirs = config.localPluginDirs ?? [];
+
     const { registry, errors } = await discoverPlugins(
-      config.localPlugins,
+      dedupedPaths,
       configDir,
       config.settings,
       config.additionalAllowedDirectories ?? [],
@@ -345,6 +370,10 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     const failedPaths = state.registry.failures.map(f => f.path);
     startFileWatching(state, callbacks, failedPaths);
     startConfigWatching(state, callbacks);
+
+    // Watch localPluginDirs parent directories for new plugin subdirectories
+    const resolvedPluginDirs = state.localPluginDirs.map(d => resolveLocalPath(d, getConfigDir()));
+    startPluginDirWatching(state, resolvedPluginDirs, callbacks);
 
     // Detect config.json writes that occurred during the async reload above.
     // stopFileWatching() cancelled any pending debounce timers, so those writes
@@ -502,21 +531,6 @@ const performReload = async (
       }
     }
 
-    // Version check: async via `npm view`, best-effort on every reload
-    try {
-      await checkForUpdates(state);
-    } catch {
-      // Update check is best-effort — failures are not actionable
-    }
-
-    if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
-      sendToExtension(state, {
-        jsonrpc: '2.0',
-        method: 'plugins.changed',
-        params: { ...buildConfigStatePayload(state) },
-      });
-    }
-
     const durationMs = Date.now() - startTs;
     return {
       lastReloadTimestamp: Date.now(),
@@ -559,25 +573,6 @@ const performConfigReload = async (
 
     await reloadCore({ state, sessionServers, transports });
 
-    // Version check: run on every config reload so newly published versions are detected.
-    // Best-effort — failures do not affect the reload result.
-    try {
-      await checkForUpdates(state);
-    } catch {
-      // Update check is best-effort — failures are not actionable
-    }
-
-    // If outdated plugins were found, push the update data to the extension.
-    // reloadCore's sync.full was sent before the version check ran, so it
-    // did not include the fresh outdated data — send a follow-up notification.
-    if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
-      sendToExtension(state, {
-        jsonrpc: '2.0',
-        method: 'plugins.changed',
-        params: { ...buildConfigStatePayload(state) },
-      });
-    }
-
     // Notify all MCP clients that tool lists changed after config reload.
     // (performReload handles its own notification after handler re-registration,
     // so reloadCore itself does not notify — each caller is responsible.)
@@ -602,5 +597,25 @@ const performConfigReload = async (
   }
 };
 
+/**
+ * Run a version check (via `npm view`) and notify the extension if outdated
+ * plugins are found. Called fire-and-forget after initial startup and on a
+ * periodic timer — NOT during reload, to keep the reload path fast.
+ */
+const runVersionCheck = async (state: ServerState): Promise<void> => {
+  try {
+    await checkForUpdates(state);
+  } catch {
+    // best-effort
+  }
+  if (state.outdatedPlugins.length > 0 && isExtensionConnected(state)) {
+    sendToExtension(state, {
+      jsonrpc: '2.0',
+      method: 'plugins.changed',
+      params: { ...buildConfigStatePayload(state) },
+    });
+  }
+};
+
 export type { ReloadResult };
-export { performConfigReload, performReload };
+export { performConfigReload, performReload, runVersionCheck };

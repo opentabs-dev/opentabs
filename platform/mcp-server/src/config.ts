@@ -43,6 +43,8 @@ const isToolPermission = (v: unknown): v is ToolPermission => typeof v === 'stri
 interface OpentabsConfig {
   /** Local plugin directory paths (resolved relative to the config directory) */
   localPlugins: string[];
+  /** Parent directories whose immediate children are auto-scanned for plugins */
+  localPluginDirs?: string[];
   /** Per-plugin permission configuration: plugin name → { permission?, tools? } */
   permissions: Record<string, PluginPermissionConfig>;
   /** Per-plugin settings: plugin name → { settingKey: value } */
@@ -156,6 +158,31 @@ const parsePluginsConfig = (raw: unknown): Record<string, PluginPermissionConfig
   return result;
 };
 
+const KNOWN_CONFIG_KEYS = new Set([
+  'version',
+  'localPlugins',
+  'localPluginDirs',
+  'permissions',
+  'settings',
+  'additionalAllowedDirectories',
+]);
+
+/** Compute Levenshtein edit distance between two strings */
+const levenshtein = (a: string, b: string): number => {
+  const m = a.length;
+  const n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)),
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i]![j] =
+        a[i - 1] === b[j - 1] ? dp[i - 1]![j - 1]! : 1 + Math.min(dp[i - 1]![j]!, dp[i]![j - 1]!, dp[i - 1]![j - 1]!);
+    }
+  }
+  return dp[m]![n]!;
+};
+
 /** Parse the settings map from a raw config record: { pluginName: { key: value } } */
 const parseSettingsConfig = (raw: unknown): Record<string, Record<string, unknown>> => {
   const result: Record<string, Record<string, unknown>> = {};
@@ -174,8 +201,28 @@ const parseSettingsConfig = (raw: unknown): Record<string, Record<string, unknow
  * Validates and normalizes field types to prevent downstream errors.
  */
 const parseConfigRecord = (record: Record<string, unknown>): OpentabsConfig => {
+  for (const key of Object.keys(record)) {
+    if (!KNOWN_CONFIG_KEYS.has(key)) {
+      let bestMatch = '';
+      let bestDistance = 4; // threshold: suggest only if distance <= 3
+      for (const known of KNOWN_CONFIG_KEYS) {
+        const d = levenshtein(key, known);
+        if (d < bestDistance) {
+          bestDistance = d;
+          bestMatch = known;
+        }
+      }
+      const suggestion = bestMatch ? ` — did you mean '${bestMatch}'?` : '';
+      log.warn(`Unknown config key "${key}" in config.json${suggestion}`);
+    }
+  }
+
   const localPlugins = Array.isArray(record.localPlugins)
     ? (record.localPlugins as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
+
+  const localPluginDirs = Array.isArray(record.localPluginDirs)
+    ? (record.localPluginDirs as unknown[]).filter((p): p is string => typeof p === 'string')
     : [];
 
   const permissions = parsePluginsConfig(record.permissions);
@@ -188,7 +235,7 @@ const parseConfigRecord = (record: Record<string, unknown>): OpentabsConfig => {
   const version =
     typeof record.version === 'number' && Number.isInteger(record.version) && record.version >= 1 ? record.version : 1;
 
-  return { localPlugins, permissions, settings, additionalAllowedDirectories, version };
+  return { localPlugins, localPluginDirs, permissions, settings, additionalAllowedDirectories, version };
 };
 
 /**
@@ -214,6 +261,7 @@ const loadConfig = async (): Promise<OpentabsConfig> => {
   ) {
     const config: OpentabsConfig = {
       localPlugins: [],
+      localPluginDirs: [],
       permissions: {},
       settings: {},
       additionalAllowedDirectories: [],
@@ -285,6 +333,7 @@ const savePluginPermissions = async (
     const current = parseConfigRecord(record);
     const updated: OpentabsConfig = {
       localPlugins: current.localPlugins,
+      localPluginDirs: current.localPluginDirs,
       permissions: plugins,
       settings: current.settings,
       additionalAllowedDirectories: current.additionalAllowedDirectories,
@@ -326,6 +375,7 @@ const savePluginSettings = async (
     const current = parseConfigRecord(record);
     const updated: OpentabsConfig = {
       localPlugins: current.localPlugins,
+      localPluginDirs: current.localPluginDirs,
       permissions: current.permissions,
       settings,
       additionalAllowedDirectories: current.additionalAllowedDirectories,
@@ -392,6 +442,8 @@ export {
   getConfigDir,
   getExtensionDir,
   getExtensionVersionFile,
+  KNOWN_CONFIG_KEYS,
+  levenshtein,
   loadConfig,
   loadSecret,
   saveConfig,

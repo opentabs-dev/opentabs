@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, test } from 'vitest';
 import { migrateConfig } from './config-migrations.js';
@@ -20,17 +20,17 @@ const writeConfig = async (name: string, config: Record<string, unknown>): Promi
 
 describe('migrateConfig — no migration needed', () => {
   test('returns config unchanged when version equals CURRENT_CONFIG_VERSION', async () => {
-    const raw = { version: 2, localPlugins: [], permissions: {}, settings: {} };
+    const raw = { version: 3, localPlugins: [], permissions: {}, settings: {} };
     const configPath = await writeConfig('no-migration.json', raw);
 
     const result = await migrateConfig(configPath, raw);
 
     expect(result).toBe(raw); // Same reference — no clone
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
   });
 
   test('does not create a backup file when no migration is needed', async () => {
-    const raw = { version: 2, localPlugins: [], permissions: {}, settings: {} };
+    const raw = { version: 3, localPlugins: [], permissions: {}, settings: {} };
     const configPath = await writeConfig('no-backup.json', raw);
 
     await migrateConfig(configPath, raw);
@@ -82,7 +82,7 @@ describe('migrateConfig — successful migration', () => {
 
     const result = await migrateConfig(configPath, raw);
 
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
   });
 
   test('persists migrated config to disk', async () => {
@@ -96,7 +96,7 @@ describe('migrateConfig — successful migration', () => {
     await migrateConfig(configPath, raw);
 
     const onDisk = JSON.parse(await readFile(configPath, 'utf-8')) as Record<string, unknown>;
-    expect(onDisk.version).toBe(2);
+    expect(onDisk.version).toBe(3);
     expect((onDisk.settings as Record<string, Record<string, unknown>>).retool?.instanceUrl).toEqual({
       default: 'https://retool.example.com',
     });
@@ -124,7 +124,7 @@ describe('migrateConfig — successful migration', () => {
 
     const result = await migrateConfig(configPath, raw);
 
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
     expect(existsSync(`${configPath}.backup`)).toBe(true);
   });
 
@@ -134,7 +134,7 @@ describe('migrateConfig — successful migration', () => {
 
     const result = await migrateConfig(configPath, raw);
 
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
   });
 });
 
@@ -151,7 +151,7 @@ describe('migrateConfig — idempotency', () => {
     const second = await migrateConfig(configPath, first);
 
     expect(second).toBe(first); // Same reference — no migration ran the second time
-    expect(second.version).toBe(2);
+    expect(second.version).toBe(3);
   });
 });
 
@@ -223,7 +223,7 @@ describe('v1→v2 migration — missing settings', () => {
 
     const result = await migrateConfig(configPath, raw);
 
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
     expect(result.settings).toBeUndefined();
   });
 
@@ -233,7 +233,7 @@ describe('v1→v2 migration — missing settings', () => {
 
     const result = await migrateConfig(configPath, raw);
 
-    expect(result.version).toBe(2);
+    expect(result.version).toBe(3);
   });
 });
 
@@ -283,5 +283,173 @@ describe('v1→v2 migration — non-url settings preserved', () => {
     expect(settings.myPlugin?.instanceUrl).toEqual({ default: 'https://example.com' });
     expect(settings.myPlugin?.apiKey).toBe('secret-key');
     expect(settings.myPlugin?.debug).toBe(false);
+  });
+});
+
+describe('v2→v3 migration — absolute paths normalized to ~/', () => {
+  const home = homedir();
+
+  test('converts absolute path under HOME to ~/ prefix', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [`${home}/projects/my-plugin`],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-absolute.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual(['~/projects/my-plugin']);
+    expect(result.version).toBe(3);
+  });
+
+  test('does not convert paths not under HOME', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: ['/tmp/some-plugin', '/opt/plugins/test'],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-not-under-home.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual(['/tmp/some-plugin', '/opt/plugins/test']);
+  });
+
+  test('does not convert relative paths starting with ./', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: ['./local-plugin', '../sibling-plugin'],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-relative.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual(['./local-plugin', '../sibling-plugin']);
+  });
+
+  test('does not double-prefix paths already starting with ~/', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: ['~/already-portable/plugin'],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-already-portable.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual(['~/already-portable/plugin']);
+  });
+
+  test('handles mixed absolute, relative, and ~/ paths', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [`${home}/workspace/plugin-a`, './local-plugin', '~/already-portable', '/tmp/other-plugin'],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-mixed.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual([
+      '~/workspace/plugin-a',
+      './local-plugin',
+      '~/already-portable',
+      '/tmp/other-plugin',
+    ]);
+  });
+
+  test('handles empty localPlugins array', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-empty.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual([]);
+  });
+
+  test('handles missing localPlugins field', async () => {
+    const raw = {
+      version: 2,
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-no-plugins.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toBeUndefined();
+  });
+
+  test('is idempotent: re-migration produces same result', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [`${home}/workspace/my-plugin`],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-idempotent.json', raw);
+
+    const first = await migrateConfig(configPath, raw);
+    expect(first.localPlugins).toEqual(['~/workspace/my-plugin']);
+
+    const second = await migrateConfig(configPath, first);
+    expect(second).toBe(first); // Same reference — no migration needed
+    expect(second.localPlugins).toEqual(['~/workspace/my-plugin']);
+  });
+
+  test('persists normalized paths to disk', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [`${home}/dev/plugin`],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-persist.json', raw);
+
+    await migrateConfig(configPath, raw);
+
+    const onDisk = JSON.parse(await readFile(configPath, 'utf-8')) as Record<string, unknown>;
+    expect(onDisk.version).toBe(3);
+    expect(onDisk.localPlugins).toEqual(['~/dev/plugin']);
+  });
+
+  test('does not mutate the original raw config object', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [`${home}/dev/plugin`],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-no-mutate.json', raw);
+
+    await migrateConfig(configPath, raw);
+
+    expect(raw.localPlugins).toEqual([`${home}/dev/plugin`]);
+  });
+
+  test('skips non-string entries in localPlugins', async () => {
+    const raw = {
+      version: 2,
+      localPlugins: [`${home}/valid-plugin`, 42, null, `${home}/another`],
+      permissions: {},
+      settings: {},
+    };
+    const configPath = await writeConfig('v2v3-non-strings.json', raw);
+
+    const result = await migrateConfig(configPath, raw);
+
+    expect(result.localPlugins).toEqual(['~/valid-plugin', 42, null, '~/another']);
   });
 });

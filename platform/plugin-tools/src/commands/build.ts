@@ -168,6 +168,18 @@ const resolvePluginPathForComparison = (storedPath: string, configDir: string): 
 };
 
 /**
+ * Convert an absolute path under HOME to a portable ~/... prefix.
+ * Paths not under HOME are returned unchanged.
+ */
+const toPortablePath = (absolutePath: string): string => {
+  const home = homedir();
+  if (absolutePath.startsWith(`${home}/`) || absolutePath.startsWith(`${home}\\`)) {
+    return `~/${absolutePath.slice(home.length + 1)}`;
+  }
+  return absolutePath;
+};
+
+/**
  * Add the plugin directory to localPlugins in ~/.opentabs/config.json.
  * Uses an absolute path for consistency with the CLI's `localPlugins.add`.
  * Uses advisory file locking to prevent concurrent builds from overwriting
@@ -221,7 +233,7 @@ const registerInConfig = async (projectDir: string): Promise<boolean> => {
     );
     if (alreadyRegistered) return false;
 
-    plugins.push(absolutePath);
+    plugins.push(toPortablePath(absolutePath));
     await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
     return true;
   } finally {
@@ -234,6 +246,8 @@ const registerInConfig = async (projectDir: string): Promise<boolean> => {
  * Fails silently — the build succeeds regardless of whether the server is running.
  */
 const notifyServer = async (): Promise<void> => {
+  if (process.env.OPENTABS_SKIP_NOTIFY === '1') return;
+
   const authJsonPath = join(getConfigDir(), 'extension', 'auth.json');
   if (
     !(await access(authJsonPath).then(
@@ -1314,6 +1328,7 @@ export {
   registerInConfig,
   resolvePluginPathForComparison,
   resolveSdkVersion,
+  toPortablePath,
   validatePackageJson,
   validatePlugin,
 };
