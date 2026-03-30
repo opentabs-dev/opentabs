@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './aws-api.js';
+import { isAuthenticated, waitForAuth, disconnectCredentialObserver } from './aws-api.js';
 import { getCurrentUser } from './tools/get-current-user.js';
 import { listRegions } from './tools/list-regions.js';
 import { listInstances } from './tools/list-instances.js';
@@ -46,6 +46,10 @@ class AwsConsolePlugin extends OpenTabsPlugin {
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
     return waitForAuth();
+  }
+
+  override teardown(): void {
+    disconnectCredentialObserver();
   }
 }
 
