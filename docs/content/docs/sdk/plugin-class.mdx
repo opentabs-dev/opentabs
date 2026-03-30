@@ -1,7 +1,7 @@
 ---
 title: Plugin Class
 description: API reference for OpenTabsPlugin — the abstract base class every plugin extends.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-03-29
 ---
 
 Every OpenTabs plugin is a subclass of `OpenTabsPlugin`. This is the one class you need to extend — it holds everything the platform needs to discover, inject, and run your plugin: identity, URL patterns, readiness probe, and tool list. All in one place.
@@ -22,6 +22,7 @@ abstract class OpenTabsPlugin {
   abstract readonly urlPatterns: string[];
   readonly excludePatterns?: string[];
   readonly homepage?: string;
+  readonly configSchema?: ConfigSchema;
   abstract readonly tools: ToolDefinition[];
 
   abstract isReady(): Promise<boolean>;
@@ -100,6 +101,11 @@ These properties are optional — override them when your plugin needs URL exclu
       <Table.Cell>`string`</Table.Cell>
       <Table.Cell>URL to open when no matching tab exists and the user triggers an "open tab" action from the side panel. Should be a concrete URL (e.g., `'https://github.com'`), not a match pattern.</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`configSchema`</Table.Cell>
+      <Table.Cell>`ConfigSchema`</Table.Cell>
+      <Table.Cell>Typed configuration schema — declares settings fields that users provide via `config.json` or the side panel. Fields of type `'url'` can derive Chrome match patterns at runtime. See [Configuration](/docs/reference/configuration) for details.</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -119,6 +125,19 @@ class MyPlugin extends OpenTabsPlugin {
 class MyPlugin extends OpenTabsPlugin {
   readonly urlPatterns = ['*://*.github.com/*'];
   readonly homepage = 'https://github.com';
+  // ...
+}
+```
+
+**Example — declaring a configSchema:**
+
+```typescript
+import type { ConfigSchema } from '@opentabs-dev/plugin-sdk';
+
+class MyPlugin extends OpenTabsPlugin {
+  readonly configSchema: ConfigSchema = {
+    instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+  };
   // ...
 }
 ```
