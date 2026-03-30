@@ -500,7 +500,7 @@ const handlePluginToolCall = async (
         input: pluginArgs,
         ...(resolvedTabId !== undefined && { tabId: resolvedTabId }),
       },
-      { label: `${pluginName}/${toolBaseName}`, progressToken, onProgress },
+      { label: `${pluginName}/${toolBaseName}`, pluginName, progressToken, onProgress },
     );
     const rawOutput = (result as Record<string, unknown>).output ?? result;
     const cleaned = sanitizeOutput(rawOutput);

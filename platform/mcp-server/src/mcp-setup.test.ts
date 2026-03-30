@@ -976,6 +976,7 @@ describe('registerMcpHandlers — generic dispatch error sanitization', () => {
         close: () => {},
       },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });

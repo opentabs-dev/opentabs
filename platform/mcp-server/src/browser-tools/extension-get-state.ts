@@ -5,32 +5,24 @@
  */
 
 import { z } from 'zod';
-import { dispatchToExtension } from '../extension-protocol.js';
+import { dispatchToAllConnections } from '../extension-protocol.js';
 import { defineBrowserTool } from './definition.js';
 
 const extensionGetState = defineBrowserTool({
   name: 'extension_get_state',
   description:
-    'Get the complete internal state of the OpenTabs Chrome extension. ' +
-    'Returns WebSocket connection status, all registered plugins with their tab states, ' +
-    'active network captures, and offscreen document status. ' +
-    'Use this tool to quickly understand the overall health of the extension without opening DevTools. ' +
-    'When multiple browser profiles are connected, use connectionId to target a specific profile.',
-  summary: 'Get extension internal state',
+    'Get the complete internal state of the OpenTabs Chrome extension across all connected browser profiles. ' +
+    'Returns a connections array with one entry per profile, each containing WebSocket connection status, ' +
+    'all registered plugins with their tab states, active network captures, and offscreen document status. ' +
+    'Use this tool to quickly understand the overall health of the extension without opening DevTools.',
+  summary: 'Get extension internal state (all profiles)',
   icon: 'settings',
   group: 'Extension',
-  input: z.object({
-    connectionId: z
-      .string()
-      .optional()
-      .describe(
-        'Target a specific browser profile by connection ID. Use browser_list_tabs to discover available connectionIds.',
-      ),
-  }),
-  handler: async (args, state) =>
-    dispatchToExtension(state, 'extension.getState', {
-      ...(args.connectionId ? { connectionId: args.connectionId } : {}),
-    }),
+  input: z.object({}),
+  handler: async (_args, state) => {
+    const results = await dispatchToAllConnections(state, 'extension.getState', {});
+    return { connections: results.map(r => ({ connectionId: r.connectionId, ...((r.result as object) ?? {}) })) };
+  },
 });
 
 export { extensionGetState };

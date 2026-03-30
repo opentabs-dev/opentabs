@@ -549,6 +549,7 @@ describe('handleConfigGetState', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -582,6 +583,7 @@ describe('handleConfigGetState', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -609,6 +611,7 @@ describe('handleConfigGetState', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -635,6 +638,7 @@ describe('handleConfigGetState', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -653,6 +657,7 @@ describe('handleConfigGetState', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -698,6 +703,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -741,6 +747,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -767,6 +774,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -804,6 +812,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -827,6 +836,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -855,6 +865,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -881,6 +892,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -909,6 +921,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -927,6 +940,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -945,6 +959,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -974,6 +989,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1001,6 +1017,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1029,6 +1046,7 @@ describe('handleConfigSetToolPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1080,6 +1098,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1110,6 +1129,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1128,6 +1148,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1154,6 +1175,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1178,6 +1200,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1203,6 +1226,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1235,6 +1259,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1253,6 +1278,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1276,6 +1302,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1294,6 +1321,7 @@ describe('handleConfigSetPluginPermission', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1314,6 +1342,7 @@ describe('handleTabSyncAll — activeNetworkCaptures cleanup', () => {
     const conn: ExtensionConnection = {
       ws: { send() {}, close() {} },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
@@ -1381,6 +1410,7 @@ describe('handleTabStateChanged — activeNetworkCaptures cleanup', () => {
     const conn: ExtensionConnection = {
       ws: { send() {}, close() {} },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
@@ -1467,6 +1497,7 @@ describe('handlePluginRemove', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1494,6 +1525,7 @@ describe('handlePluginRemove', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1521,6 +1553,7 @@ const createTrackedConnection = (id: string): { conn: ExtensionConnection; sent:
   const conn: ExtensionConnection = {
     ws: { send: (msg: string) => sent.push(msg), close() {} },
     connectionId: id,
+    profileLabel: id,
     tabMapping: new Map(),
     activeNetworkCaptures: new Set(),
   };
@@ -1560,6 +1593,7 @@ describe('multi-connection — sendToExtension broadcasts to all', () => {
         close() {},
       },
       connectionId: 'conn-b',
+      profileLabel: 'conn-b',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
@@ -1742,6 +1776,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1783,6 +1818,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1807,6 +1843,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1836,6 +1873,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1865,6 +1903,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1882,6 +1921,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1904,6 +1944,7 @@ describe('handleConfigSetPluginSettings', () => {
     state.extensionConnections.set('test-conn', {
       ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });

@@ -253,6 +253,7 @@ const createMockState = (overrides: Partial<ServerState> = {}): ServerState =>
         {
           ws: { send: vi.fn(), close: vi.fn() },
           connectionId: 'test-conn',
+          profileLabel: 'test-conn',
           tabMapping: new Map(),
           activeNetworkCaptures: new Set(),
         },

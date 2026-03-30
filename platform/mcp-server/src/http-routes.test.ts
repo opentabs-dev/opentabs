@@ -341,6 +341,7 @@ describe('/health endpoint', () => {
     const conn: ExtensionConnection = {
       ws: { send() {}, close() {} },
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
@@ -676,6 +677,7 @@ describe('wsClose handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -691,6 +693,7 @@ describe('wsClose handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -731,6 +734,7 @@ describe('wsClose handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -766,6 +770,7 @@ describe('wsClose handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: currentWs,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -800,6 +805,7 @@ describe('wsClose handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -815,6 +821,7 @@ describe('wsClose handler', () => {
     const conn: ExtensionConnection = {
       ws: ws,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     };
@@ -854,6 +861,7 @@ describe('wsOpen handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: oldWs,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -878,6 +886,7 @@ describe('wsOpen handler', () => {
     state.extensionConnections.set('test-conn', {
       ws: oldWs,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1194,6 +1203,7 @@ describe('multi-connection — wsClose scoping', () => {
     state.extensionConnections.set('conn-a', {
       ws: wsA,
       connectionId: 'conn-a',
+      profileLabel: 'conn-a',
       tabMapping: new Map([
         [
           'slack',
@@ -1205,6 +1215,7 @@ describe('multi-connection — wsClose scoping', () => {
     state.extensionConnections.set('conn-b', {
       ws: wsB,
       connectionId: 'conn-b',
+      profileLabel: 'conn-b',
       tabMapping: new Map([
         [
           'discord',
@@ -1234,12 +1245,14 @@ describe('multi-connection — wsClose scoping', () => {
     state.extensionConnections.set('conn-a', {
       ws: wsA,
       connectionId: 'conn-a',
+      profileLabel: 'conn-a',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
     state.extensionConnections.set('conn-b', {
       ws: wsB,
       connectionId: 'conn-b',
+      profileLabel: 'conn-b',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1285,6 +1298,7 @@ describe('multi-connection — wsClose scoping', () => {
     state.extensionConnections.set('conn-1', {
       ws: createMockWsHandle(),
       connectionId: 'conn-1',
+      profileLabel: 'conn-1',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -1300,12 +1314,14 @@ describe('multi-connection — wsClose scoping', () => {
     state.extensionConnections.set('conn-1', {
       ws: createMockWsHandle(),
       connectionId: 'conn-1',
+      profileLabel: 'conn-1',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
     state.extensionConnections.set('conn-2', {
       ws: createMockWsHandle(),
       connectionId: 'conn-2',
+      profileLabel: 'conn-2',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });

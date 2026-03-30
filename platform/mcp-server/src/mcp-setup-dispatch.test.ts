@@ -433,6 +433,7 @@ describe('tools/call handler — concurrency and extension connection', () => {
         message: 'internal error',
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -455,6 +456,7 @@ describe('tools/call handler — concurrency and extension connection', () => {
         output: { ok: true },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -483,6 +485,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         output: { messageId: 'msg123', text: 'hello' },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -508,6 +511,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         message: 'the tab was closed',
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -532,6 +536,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         message: 'slack not loaded',
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -557,6 +562,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         data: { code: 'RATE_LIMITED' },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -582,6 +588,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         data: { code: 'RATE_LIMITED', retryable: true, retryAfterMs: 5000, category: 'rate_limit' },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -623,6 +630,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         data: { code: 'AUTH_ERROR', category: 'auth' },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -660,6 +668,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         data: { code: 'OVERLOADED', retryable: true },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -694,6 +703,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         data: { code: 'SOME_ERROR' },
       }) as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });
@@ -725,6 +735,7 @@ describe('tools/call handler — dispatch success and error codes', () => {
         close() {},
       } as WsHandle,
       connectionId: 'test-conn',
+      profileLabel: 'test-conn',
       tabMapping: new Map(),
       activeNetworkCaptures: new Set(),
     });

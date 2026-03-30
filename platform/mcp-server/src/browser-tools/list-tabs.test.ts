@@ -18,6 +18,7 @@ const createMockConnection = (id: string): { conn: ExtensionConnection; ws: WsHa
   const conn: ExtensionConnection = {
     ws,
     connectionId: id,
+    profileLabel: id,
     tabMapping: new Map(),
     activeNetworkCaptures: new Set(),
   };

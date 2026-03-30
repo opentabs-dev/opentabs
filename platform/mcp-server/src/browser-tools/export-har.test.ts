@@ -20,6 +20,7 @@ const createConnectedState = () => {
   const conn: ExtensionConnection = {
     ws: { send() {}, close() {} },
     connectionId: 'test-conn',
+    profileLabel: 'test-conn',
     tabMapping: new Map(),
     activeNetworkCaptures: new Set(),
   };

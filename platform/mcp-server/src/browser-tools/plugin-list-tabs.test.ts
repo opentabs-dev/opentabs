@@ -16,6 +16,7 @@ const createMockWs = (): WsHandle & { sent: string[] } => ({
 const createMockConnection = (id: string): ExtensionConnection => ({
   ws: createMockWs(),
   connectionId: id,
+  profileLabel: id,
   tabMapping: new Map(),
   activeNetworkCaptures: new Set(),
 });

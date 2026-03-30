@@ -271,8 +271,8 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'extension_check_adapter',
     description:
-      "Check the adapter injection status for a specific plugin across all matching tabs. For each tab matching the plugin URL patterns, reports whether the adapter IIFE is present, its hash, whether the hash matches the expected value, isReady() result, tool count, and tool names. Use this tool to diagnose why a plugin's tools are failing — common issues include adapter not injected, stale adapter hash, or isReady() returning false.",
-    summary: 'Check plugin adapter injection status',
+      "Check the adapter injection status for a specific plugin across all matching tabs in all connected browser profiles. For each profile, reports per-tab adapter status: whether the adapter IIFE is present, its hash, whether the hash matches the expected value, isReady() result, tool count, and tool names. Use this tool to diagnose why a plugin's tools are failing — common issues include adapter not injected, stale adapter hash, or isReady() returning false.",
+    summary: 'Check plugin adapter injection status (all profiles)',
     icon: 'plug',
     group: 'Extension',
   },
@@ -287,8 +287,8 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'extension_get_logs',
     description:
-      'Retrieve internal logs from the OpenTabs Chrome extension (background script and offscreen document). Returns log entries with timestamp, level, source, and message. Use this to see error messages, WebSocket events, and plugin injection warnings without opening DevTools. When multiple browser profiles are connected, use connectionId to target a specific profile.',
-    summary: 'Get extension internal logs',
+      'Retrieve internal logs from the OpenTabs Chrome extension (background script and offscreen document) across all connected browser profiles. Returns log entries merged from all profiles, sorted newest-first, with each entry annotated with its connectionId. Use this to see error messages, WebSocket events, and plugin injection warnings without opening DevTools.',
+    summary: 'Get extension internal logs (all profiles)',
     icon: 'scroll-text',
     group: 'Extension',
   },
@@ -303,8 +303,8 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'extension_get_state',
     description:
-      'Get the complete internal state of the OpenTabs Chrome extension. Returns WebSocket connection status, all registered plugins with their tab states, active network captures, and offscreen document status. Use this tool to quickly understand the overall health of the extension without opening DevTools. When multiple browser profiles are connected, use connectionId to target a specific profile.',
-    summary: 'Get extension internal state',
+      'Get the complete internal state of the OpenTabs Chrome extension across all connected browser profiles. Returns a connections array with one entry per profile, each containing WebSocket connection status, all registered plugins with their tab states, active network captures, and offscreen document status. Use this tool to quickly understand the overall health of the extension without opening DevTools.',
+    summary: 'Get extension internal state (all profiles)',
     icon: 'settings',
     group: 'Extension',
   },
