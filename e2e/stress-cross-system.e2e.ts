@@ -146,6 +146,103 @@ test.describe('Cross-system stress tests', () => {
     }
   });
 
+  test('CLI config change during active MCP dispatch', async () => {
+    test.slow();
+
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cross-config-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: {
+        'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+        browser: { permission: 'auto' },
+      },
+    });
+
+    const server = await startMcpServer(configDir);
+    const mcpClient = createMcpClient(server.port, server.secret);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    /** POST /reload with Bearer auth. */
+    const postReload = async (): Promise<Response> => {
+      const secret = server.secret ?? '';
+      return fetch(`http://localhost:${String(server.port)}/reload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}` },
+      });
+    };
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+      await mcpClient.initialize();
+
+      // Open test app tab and wait for adapter injection
+      await openTestAppTab(context, testServer.url, server, testServer);
+
+      // Wait until the e2e-test tools are callable
+      await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 15_000);
+
+      // Start 3 slow tool calls (5s each) — do NOT await
+      const slowCalls = Array.from({ length: 3 }, () =>
+        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 5000 }),
+      );
+
+      // After 500ms, remove the plugin from config (simulating CLI `opentabs plugin remove`)
+      await tick(500);
+      writeTestConfig(configDir, {
+        localPlugins: [],
+        permissions: {
+          browser: { permission: 'auto' },
+        },
+      });
+      await postReload();
+
+      // Let the slow calls settle — some/all may fail (plugin gone)
+      const slowResults = await Promise.allSettled(slowCalls);
+
+      // Each call should settle (fulfilled or rejected) — no hangs
+      for (const result of slowResults) {
+        expect(['fulfilled', 'rejected']).toContain(result.status);
+      }
+
+      // Verify server health is ok after the disruption
+      const health = await server.health();
+      expect(health).not.toBeNull();
+      expect(health?.status).toBe('ok');
+
+      // Restore config with the plugin
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: {
+          'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+          browser: { permission: 'auto' },
+        },
+      });
+      await postReload();
+
+      // Wait for the plugin to be rediscovered and adapter re-injected
+      await server.waitForHealth(h => h.plugins >= 1, 15_000);
+
+      // Reopen a test app tab so the adapter gets injected fresh
+      await openTestAppTab(context, testServer.url, server, testServer);
+
+      // Verify fresh echo call succeeds (system recovered)
+      await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'post-config-chaos' }, { isError: false }, 20_000);
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('Multiple MCP sessions calling tools concurrently', async () => {
     test.slow();
 
