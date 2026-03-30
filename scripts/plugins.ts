@@ -2,8 +2,11 @@
  * Build or check all plugins under plugins/.
  *
  * Usage:
- *   tsx scripts/plugins.ts --build    # Install deps + build each plugin
- *   tsx scripts/plugins.ts --check    # Type-check + lint + format:check each plugin
+ *   tsx scripts/plugins.ts --build                        # Install deps + build each plugin
+ *   tsx scripts/plugins.ts --check                        # Type-check + lint + format:check each plugin
+ *   tsx scripts/plugins.ts --build --filter=slack,discord  # Build only named plugins
+ *   tsx scripts/plugins.ts --build --affected              # Build only plugins with outdated SDK
+ *   tsx scripts/plugins.ts --build --filter=slack --affected # Intersection: named AND affected
  */
 
 import { spawn } from 'node:child_process';
@@ -22,7 +25,7 @@ if (!mode) {
 }
 
 // Find plugin directories containing a package.json
-const pluginDirs: string[] = [];
+let pluginDirs: string[] = [];
 for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
   if (entry.isDirectory()) {
     const pkgPath = join(pluginsDir, entry.name, 'package.json');
@@ -33,6 +36,46 @@ for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
 }
 
 pluginDirs.sort();
+
+// --filter=name1,name2: build/check only named plugins
+const filterArg = process.argv.find(a => a.startsWith('--filter='));
+if (filterArg) {
+  const names = new Set(filterArg.slice('--filter='.length).split(','));
+  const unknown = [...names].filter(n => !pluginDirs.includes(n));
+  if (unknown.length > 0) {
+    console.error(`Unknown plugin(s): ${unknown.join(', ')}`);
+    console.error(`Available: ${pluginDirs.join(', ')}`);
+    process.exit(1);
+  }
+  pluginDirs = pluginDirs.filter(d => names.has(d));
+}
+
+// --affected: only plugins whose installed SDK version differs from current
+if (process.argv.includes('--affected')) {
+  const sdkPkgPath = join(repoRoot, 'platform/plugin-sdk/package.json');
+  const currentSdkVersion = (JSON.parse(readFileSync(sdkPkgPath, 'utf-8')) as Record<string, unknown>)
+    .version as string;
+  pluginDirs = pluginDirs.filter(name => {
+    const lockPath = join(pluginsDir, name, 'package-lock.json');
+    if (!existsSync(lockPath)) return true;
+    try {
+      const lock = JSON.parse(readFileSync(lockPath, 'utf-8')) as Record<string, unknown>;
+      const packages = lock.packages as Record<string, Record<string, unknown>> | undefined;
+      const installed = packages?.['node_modules/@opentabs-dev/plugin-sdk']?.version;
+      if (installed === currentSdkVersion) {
+        console.log(`  ${name}: up to date (SDK v${currentSdkVersion})`);
+        return false;
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  });
+  if (pluginDirs.length === 0) {
+    console.log(`All plugins are up to date with SDK v${currentSdkVersion}`);
+    process.exit(0);
+  }
+}
 
 if (pluginDirs.length === 0) {
   console.log('No plugins found.');
