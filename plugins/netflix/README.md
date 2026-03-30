@@ -19,15 +19,14 @@ npm install -g @opentabs-dev/opentabs-plugin-netflix
 1. Open [netflix.com](https://www.netflix.com/browse) in Chrome and log in
 2. Open the OpenTabs side panel — the Netflix plugin should appear as **ready**
 
-## Tools (19)
+## Tools (18)
 
-### Account (3)
+### Account (2)
 
 | Tool | Description | Type |
 |---|---|---|
 | `get_current_user` | Get current Netflix user info | Read |
 | `list_profiles` | List all Netflix profiles | Read |
-| `get_notifications` | Get Netflix notifications | Read |
 
 ### Browse (9)
 

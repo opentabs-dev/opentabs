@@ -51,7 +51,7 @@ export const mapTitle = (t: RawTitle): z.infer<typeof titleSchema> => ({
   is_original: t.isOriginal ?? t.summary?.isOriginal ?? false,
   maturity_rating: t.contentAdvisory?.certificationValue ?? '',
   maturity_description: t.contentAdvisory?.maturityDescription ?? '',
-  synopsis: t.contextualSynopsis?.text ?? t.synopsis?.value ?? t.textEvidence?.[0]?.text ?? '',
+  synopsis: t.contextualSynopsis?.text ?? t.synopsis?.value ?? '',
   genres: t.textEvidence?.[0]?.text ?? '',
   watch_status: t.watchStatus ?? 'NOT_WATCHED',
   is_in_my_list: t.isInPlaylist ?? t.isInRemindMeList ?? false,

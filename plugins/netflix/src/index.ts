@@ -3,7 +3,6 @@ import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForNetflixAuth } from './netflix-api.js';
 import { addToMyList } from './tools/add-to-my-list.js';
 import { getCurrentUser } from './tools/get-current-user.js';
-import { getNotifications } from './tools/get-notifications.js';
 import { getSeasons } from './tools/get-seasons.js';
 import { getTitleDetails } from './tools/get-title-details.js';
 import { getTitle } from './tools/get-title.js';
@@ -43,7 +42,6 @@ class NetflixPlugin extends OpenTabsPlugin {
     listGenreTitles,
     rateTitle,
     listProfiles,
-    getNotifications,
     navigateToTitle,
     navigateToGenre,
     playTitle,
