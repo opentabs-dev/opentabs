@@ -272,3 +272,80 @@ test.describe('Stress: hot reload spam (5x rapid SIGUSR1)', () => {
     }
   });
 });
+
+test.describe('Stress: config corruption recovery (invalid JSON mid-write)', () => {
+  test('server survives corrupted config and recovers when valid config is restored', async () => {
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
+    try {
+      // Start with the e2e-test plugin registered
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const prefixedToolNames = readPluginToolNames();
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-stress-corrupt-'));
+      writeTestConfig(configDir, { localPlugins: [absPluginPath] });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+
+      // Wait for config watcher to be ready
+      await waitForLog(server, 'Config watcher: Watching', 10_000);
+
+      // Verify plugin tools are present initially
+      const toolsBefore = await client.listTools();
+      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_'));
+      expect(e2eToolsBefore.length).toBe(prefixedToolNames.length);
+
+      // Write truncated/corrupted JSON directly to config.json.
+      // The file watcher will fire, the server will attempt to parse it,
+      // fail with retry+backoff, and preserve the previous valid state.
+      const configPath = path.join(configDir, 'config.json');
+      fs.writeFileSync(configPath, '{ "localPlugins": [');
+
+      // Wait for the watcher to fire and retries to complete.
+      // readConfigWithRetry uses 3 retries with 100/200/400ms backoff = ~700ms,
+      // plus watcher debounce time. 3s is generous.
+      await delay(3_000);
+
+      // Server health should remain ok — it must not crash on bad config
+      const healthAfterCorrupt = await server.health();
+      expect(healthAfterCorrupt).not.toBeNull();
+      expect(healthAfterCorrupt?.status).toBe('ok');
+
+      // Server logs should contain a warning about the failed config read.
+      // readConfigWithRetry logs: "Failed to read config from ... after N attempt(s)"
+      // reloadCore logs: "Reload failed, keeping previous state"
+      const joinedLogs = server.logs.join('\n');
+      expect(joinedLogs).toContain('Reload failed, keeping previous state');
+
+      // The previous valid state should be preserved — plugin tools should still work.
+      // The server keeps its previous registry when config parsing fails.
+      const toolsAfterCorrupt = await client.listTools();
+      const e2eToolsAfterCorrupt = toolsAfterCorrupt.filter(t => t.name.startsWith('e2e-test_'));
+      expect(e2eToolsAfterCorrupt.length).toBe(prefixedToolNames.length);
+
+      // Now write valid config back and verify recovery
+      const configDirRef = configDir;
+      writeTestConfig(configDirRef, { localPlugins: [absPluginPath] });
+
+      // Wait for watcher to process the valid config
+      await delay(2_000);
+
+      // Verify server health is still ok after recovery
+      const healthAfterRecovery = await server.health();
+      expect(healthAfterRecovery).not.toBeNull();
+      expect(healthAfterRecovery?.status).toBe('ok');
+
+      // Verify plugin tools are still present after recovery
+      const toolsAfterRecovery = await client.listTools();
+      const e2eToolsAfterRecovery = toolsAfterRecovery.filter(t => t.name.startsWith('e2e-test_'));
+      expect(e2eToolsAfterRecovery.length).toBe(prefixedToolNames.length);
+    } finally {
+      await client?.close();
+      await server?.kill();
+      if (configDir) cleanupTestConfigDir(configDir);
+    }
+  });
+});
