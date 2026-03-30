@@ -5,7 +5,7 @@ import type { FetchFromPageOptions } from '@opentabs-dev/plugin-sdk';
 
 const getCsrfToken = (): string | null => getCookie('csrftoken');
 
-export const isAuthenticated = (): boolean => getCsrfToken() !== null;
+export const isAuthenticated = (): boolean => getCsrfToken() !== null && getCookie('_pinterest_sess') !== null;
 
 export const waitForAuth = async (): Promise<boolean> => {
   try {
