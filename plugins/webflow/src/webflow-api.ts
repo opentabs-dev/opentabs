@@ -67,9 +67,12 @@ export const api = async <T>(
     headers,
   };
 
+  if (init.method !== 'GET') {
+    headers['X-CSRF-Token'] = auth.csrf;
+  }
+
   if (options.body) {
     headers['Content-Type'] = 'application/json';
-    headers['X-CSRF-Token'] = auth.csrf;
     init.body = JSON.stringify(options.body);
   }
 
