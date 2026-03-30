@@ -334,6 +334,13 @@ export interface ServerState {
   browserTabOwnership: Map<number, string>;
   /** Pending connectionId for the next WsHandle open — set during upgrade, consumed in the open handler */
   _pendingConnectionId?: string;
+  /** Coalescing state for POST /reload — multiple concurrent requests share one performConfigReload call */
+  pendingReload: {
+    promise: Promise<{ plugins: number; durationMs: number }>;
+    resolve: (result: { plugins: number; durationMs: number }) => void;
+    reject: (err: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null;
 }
 
 /** Increment when changing the type of an existing ServerState field */
@@ -390,6 +397,7 @@ export const createState = (): ServerState => ({
   adaptersDirReady: false,
   reviewTokens: new Map(),
   browserTabOwnership: new Map(),
+  pendingReload: null,
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */

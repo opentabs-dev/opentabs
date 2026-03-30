@@ -520,6 +520,26 @@ const handleToolCall = async (
   return Response.json(result, { status: result.isError ? 422 : 200 });
 };
 
+/** Debounce window for coalescing concurrent POST /reload requests (ms) */
+const RELOAD_COALESCE_MS = 500;
+
+/** Execute the coalesced reload, resolving/rejecting all waiting callers */
+const executeCoalescedReload = async (
+  state: ServerState,
+  sessionServers: McpServerInstance[],
+  transports: Map<string, WebStandardStreamableHTTPServerTransport>,
+): Promise<void> => {
+  const pending = state.pendingReload;
+  if (!pending) return;
+  state.pendingReload = null;
+  try {
+    const result = await performConfigReload(state, sessionServers, transports);
+    pending.resolve(result);
+  } catch (err) {
+    pending.reject(err instanceof Error ? err : new Error(String(err)));
+  }
+};
+
 /** Config/plugin rediscovery endpoint (POST /reload) */
 const handleReload = async (
   req: Request,
@@ -527,22 +547,42 @@ const handleReload = async (
   sessionServers: McpServerInstance[],
   transports: Map<string, WebStandardStreamableHTTPServerTransport>,
 ): Promise<Response> => {
+  // Auth checked per-request BEFORE coalescing
   const authError = checkBearerAuth(req, state.wsSecret);
   if (authError) return authError;
-  if (!checkEndpointRateLimit(state, '/reload', 10)) {
-    return new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '60' } });
+
+  // If a pending coalesced reload exists, reset the debounce timer and share its promise
+  if (state.pendingReload) {
+    clearTimeout(state.pendingReload.timer);
+    state.pendingReload.timer = setTimeout(
+      () => void executeCoalescedReload(state, sessionServers, transports),
+      RELOAD_COALESCE_MS,
+    );
+    try {
+      const result = await state.pendingReload.promise;
+      return Response.json({ ok: true, plugins: result.plugins, durationMs: result.durationMs });
+    } catch (err) {
+      log.error('Config reload failed:', err);
+      return Response.json({ ok: false, error: sanitizeErrorMessage(toErrorMessage(err)) }, { status: 500 });
+    }
   }
+
+  // First request: create the coalescing entry
+  let resolve!: (r: { plugins: number; durationMs: number }) => void;
+  let reject!: (e: Error) => void;
+  const promise = new Promise<{ plugins: number; durationMs: number }>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  const timer = setTimeout(() => void executeCoalescedReload(state, sessionServers, transports), RELOAD_COALESCE_MS);
+  state.pendingReload = { promise, resolve, reject, timer };
+
   try {
-    const result = await performConfigReload(state, sessionServers, transports);
-    return Response.json({
-      ok: true,
-      plugins: result.plugins,
-      durationMs: result.durationMs,
-    });
+    const result = await promise;
+    return Response.json({ ok: true, plugins: result.plugins, durationMs: result.durationMs });
   } catch (err) {
     log.error('Config reload failed:', err);
-    const rawMsg = toErrorMessage(err);
-    return Response.json({ ok: false, error: sanitizeErrorMessage(rawMsg) }, { status: 500 });
+    return Response.json({ ok: false, error: sanitizeErrorMessage(toErrorMessage(err)) }, { status: 500 });
   }
 };
 
