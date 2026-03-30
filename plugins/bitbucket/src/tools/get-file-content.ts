@@ -13,17 +13,14 @@ export const getFileContent = defineTool({
     workspace: z.string().describe('Workspace slug or UUID'),
     repo_slug: z.string().describe('Repository slug'),
     path: z.string().describe('File path relative to repository root'),
-    ref: z
-      .string()
-      .optional()
-      .describe('Branch name, tag, or commit SHA — defaults to the default branch. If not provided, uses "main"'),
+    ref: z.string().optional().describe('Branch name, tag, or commit SHA — defaults to the repository default branch'),
   }),
   output: z.object({
     content: z.string().describe('Raw file content'),
     path: z.string().describe('File path'),
   }),
   handle: async params => {
-    const ref = params.ref ?? 'main';
+    const ref = params.ref ?? 'HEAD';
     const content = await apiRaw(`/repositories/${params.workspace}/${params.repo_slug}/src/${ref}/${params.path}`);
     return { content, path: params.path };
   },
