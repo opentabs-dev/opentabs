@@ -22,9 +22,9 @@
 
 ---
 
-**This is not another Playwright wrapper.**
+**Browser automation clicks buttons. OpenTabs calls APIs.**
 
-Every web app has internal APIs — the same endpoints its own frontend calls. OpenTabs reverse-engineered them and exposed them as [MCP tools](https://modelcontextprotocol.io/). Your AI calls the same backend the web app calls — through your browser, using your existing session.
+Playwright, Puppeteer, and Stagehand simulate a human — click, type, read the screen. OpenTabs skips all that. It calls the same internal APIs the web app's own frontend calls, through your browser, using your existing session. Exposed as [MCP tools](https://modelcontextprotocol.io/).
 
 No screenshots. No DOM scraping. No pixel-guessing.
 
