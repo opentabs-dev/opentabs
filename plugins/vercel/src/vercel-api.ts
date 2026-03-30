@@ -32,16 +32,16 @@ const getAuth = (): VercelAuth | null => {
   return auth;
 };
 
-const extractTeamSlug = (): string | null => {
+const EXCLUDED_PATHS = new Set(['account', 'login', 'signup', 'new', 'api', 'docs', 'blog', 'import', 'integrations']);
+
+const extractTeamSlugFromPath = (pathname: string): string | null => {
   // URL pattern: /[teamSlug]/[project]/...
-  const match = window.location.pathname.match(/^\/([a-z0-9][a-z0-9-]+)\//);
-  if (match?.[1]) {
-    // Exclude known non-team paths
-    const excluded = new Set(['account', 'login', 'signup', 'new', 'api', 'docs', 'blog', 'import', 'integrations']);
-    if (!excluded.has(match[1])) return match[1];
-  }
+  const match = pathname.match(/^\/([a-z0-9][a-z0-9-]+)\//);
+  if (match?.[1] && !EXCLUDED_PATHS.has(match[1])) return match[1];
   return null;
 };
+
+const extractTeamSlug = (): string | null => extractTeamSlugFromPath(window.location.pathname);
 
 // --- Public auth helpers ---
 
@@ -57,6 +57,18 @@ export const waitForVercelAuth = (): Promise<boolean> =>
 export const getTeamSlug = (): string | null => {
   const auth = getAuth();
   return auth?.teamSlug ?? extractTeamSlug();
+};
+
+/** Re-extract the team slug from the given URL and update the auth cache. No-op if not authenticated. */
+export const updateCachedTeamSlug = (url: string): void => {
+  const cached = getAuthCache<VercelAuth>('vercel');
+  if (!cached) return;
+
+  const pathname = new URL(url).pathname;
+  const teamSlug = extractTeamSlugFromPath(pathname);
+  if (teamSlug !== cached.teamSlug) {
+    setAuthCache('vercel', { ...cached, teamSlug });
+  }
 };
 
 // --- API caller ---
