@@ -107,8 +107,11 @@ test.describe('Cross-system stress tests', () => {
       // Wait for the slow call to settle
       const [slowResult] = await Promise.allSettled([slowCallPromise]);
 
-      // The slow call should resolve (either success or clean error — not a crash)
+      // The slow call is on slow_with_progress, NOT echo.
+      // Permission change on echo must NOT affect unrelated in-flight calls.
       expect(slowResult.status).toBe('fulfilled');
+      const slowValue = (slowResult as PromiseFulfilledResult<{ isError?: boolean; content: string }>).value;
+      expect(slowValue.isError).not.toBe(true);
 
       // Verify the side panel's permission select shows 'Auto'
       const e2ePluginTrigger = sp.locator('[aria-label="Permission for e2e-test plugin"]');
