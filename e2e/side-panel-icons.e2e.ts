@@ -273,3 +273,117 @@ test.describe('Icon pipeline — side panel rendering', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stress tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Count occurrences of a substring in the server logs.
+ */
+const countLogOccurrences = (server: { logs: string[] }, substring: string): number =>
+  server.logs.filter(line => line.includes(substring)).length;
+
+/**
+ * Wait until the server logs contain at least `n` occurrences of `substring`.
+ */
+const waitForLogCount = async (
+  server: { logs: string[] },
+  substring: string,
+  n: number,
+  timeoutMs = 15_000,
+): Promise<void> => {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (countLogOccurrences(server, substring) >= n) return;
+    await new Promise(r => setTimeout(r, 200));
+  }
+  throw new Error(
+    `waitForLogCount timed out after ${timeoutMs}ms waiting for ${n} occurrences of "${substring}". ` +
+      `Found ${countLogOccurrences(server, substring)}.\nLogs:\n${server.logs.join('\n')}`,
+  );
+};
+
+test.describe('stress', () => {
+  test('rapid tab open/close cycling keeps icon state correct', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const prefixedToolNames = readPluginToolNames();
+    const tools: Record<string, boolean> = {};
+    for (const t of prefixedToolNames) {
+      tools[t] = true;
+    }
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-icon-stress-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let testServer: Awaited<ReturnType<typeof startTestServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
+
+    const pageErrors: Error[] = [];
+
+    try {
+      server = await startMcpServer(configDir, true);
+      testServer = await startTestServer();
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      const sidePanelPage = await openSidePanel(context);
+      sidePanelPage.on('pageerror', error => pageErrors.push(error));
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Locate the icon container with the ghost border indicator
+      const e2ePluginButton = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      const ghostBorder = e2ePluginButton.locator('xpath=..').locator('[class*="border-border/30"]');
+
+      // Initially inactive (no matching tab) — ghost border visible
+      await expect(ghostBorder).toBeVisible({ timeout: 5_000 });
+
+      const cycles = 5;
+
+      for (let i = 0; i < cycles; i++) {
+        // Open a matching tab
+        const appTab = await context.newPage();
+        await appTab.goto(testServer.url, { waitUntil: 'load' });
+        await waitForLogCount(server, 'tab.stateChanged: e2e-test → ready', i + 1, 15_000);
+
+        // Active state: ghost border should disappear
+        await expect(ghostBorder).toBeHidden({ timeout: 10_000 });
+
+        // Wait before closing so animations can settle
+        await new Promise(r => setTimeout(r, 500));
+
+        // Close the matching tab
+        await appTab.close();
+        await waitForLogCount(server, 'tab.stateChanged: e2e-test → closed', i + 1, 15_000);
+
+        // Inactive state: ghost border should reappear
+        await expect(ghostBorder).toBeVisible({ timeout: 10_000 });
+
+        // Wait before next cycle so animations can settle
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      // After 5 cycles (last action was close), ghost border should be visible
+      await expect(ghostBorder).toBeVisible({ timeout: 5_000 });
+
+      // Assert zero pageerror events
+      expect(pageErrors).toHaveLength(0);
+
+      await sidePanelPage.close();
+    } finally {
+      await context?.close().catch(() => {});
+      await server?.kill();
+      await testServer?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
