@@ -1,7 +1,7 @@
 ---
 title: Architecture
 description: How the MCP server, Chrome extension, and plugins work together to give AI agents access to web applications.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-03-29
 ---
 
 OpenTabs is three things working together: an **MCP server** that discovers plugins and dispatches tool calls, a **Chrome extension** that injects adapters into browser tabs, and **plugins** that define what your agent can actually do. All communication uses JSON-RPC 2.0. Let me walk you through how each piece works and why I made the choices I did.
@@ -34,6 +34,12 @@ The MCP server is a single localhost process — no cloud, no relay servers, not
       <Table.Cell>MCP Streamable HTTP transport. AI agents connect here.</Table.Cell>
     </Table.Row>
     <Table.Row>
+      <Table.Cell className="font-medium">`/mcp/gateway`</Table.Cell>
+      <Table.Cell>POST/GET/DELETE</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Gateway MCP endpoint — exposes 2 meta-tools (`opentabs_list_tools`, `opentabs_call`) for minimal context cost.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
       <Table.Cell className="font-medium">`/ws`</Table.Cell>
       <Table.Cell>WebSocket</Table.Cell>
       <Table.Cell>Sec-WebSocket-Protocol</Table.Cell>
@@ -64,10 +70,28 @@ The MCP server is a single localhost process — no cloud, no relay servers, not
       <Table.Cell>Trigger config and plugin rediscovery (rate limited).</Table.Cell>
     </Table.Row>
     <Table.Row>
+      <Table.Cell className="font-medium">`/plugin-settings`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>Plugin settings update — used by `opentabs plugin configure`.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
       <Table.Cell className="font-medium">`/extension/reload`</Table.Cell>
       <Table.Cell>POST</Table.Cell>
       <Table.Cell>Bearer token</Table.Cell>
       <Table.Cell>Send reload signal to the Chrome extension.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/tools`</Table.Cell>
+      <Table.Cell>GET</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>REST tool listing — used by `opentabs tool list`. Supports `?plugin=` filter.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`/tools/:name/call`</Table.Cell>
+      <Table.Cell>POST</Table.Cell>
+      <Table.Cell>Bearer token</Table.Cell>
+      <Table.Cell>REST tool invocation — used by `opentabs tool call`.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -317,6 +341,10 @@ The wire protocol is the glue between server and extension. All communication us
     <Table.Row>
       <Table.Cell className="font-medium">`ping`</Table.Cell>
       <Table.Cell>Keepalive probe</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`config.setPluginSettings`</Table.Cell>
+      <Table.Cell>Set plugin configuration values from the side panel</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
