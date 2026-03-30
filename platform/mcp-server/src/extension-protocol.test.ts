@@ -3798,3 +3798,145 @@ describe('dispatchToAllConnections', () => {
     await promise;
   });
 });
+
+describe('multi-connection — plugin-aware dispatch routing', () => {
+  test('with pluginName set, picks the connection whose tabMapping has the plugin in ready state', () => {
+    const state = createState();
+    const { conn: connA, ws: wsA } = createMockConnection('conn-a');
+    const { conn: connB, ws: wsB } = createMockConnection('conn-b');
+    connA.tabMapping.set('github', {
+      state: 'ready',
+      tabs: [{ tabId: 10, url: 'https://github.com', title: 'GitHub', ready: true }],
+    });
+    connB.tabMapping.set('slack', {
+      state: 'ready',
+      tabs: [{ tabId: 20, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+    });
+    state.extensionConnections.set('conn-a', connA);
+    state.extensionConnections.set('conn-b', connB);
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'slack', tool: 'send' },
+      { label: 'slack/send', pluginName: 'slack' },
+    );
+
+    // connB has slack in 'ready' — should receive the dispatch
+    expect(wsB.sent).toHaveLength(1);
+    expect(wsA.sent).toHaveLength(0);
+
+    const pending = [...state.pendingDispatches.values()][0];
+    pending?.resolve('ok');
+    if (pending) clearTimeout(pending.timerId);
+    return promise;
+  });
+
+  test('with pluginName set, prefers unavailable over no mapping', () => {
+    const state = createState();
+    const { conn: connA, ws: wsA } = createMockConnection('conn-a');
+    const { conn: connB, ws: wsB } = createMockConnection('conn-b');
+    connA.tabMapping.set('slack', {
+      state: 'unavailable',
+      tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: false }],
+    });
+    // connB has no slack mapping at all
+    state.extensionConnections.set('conn-a', connA);
+    state.extensionConnections.set('conn-b', connB);
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'slack', tool: 'send' },
+      { label: 'slack/send', pluginName: 'slack' },
+    );
+
+    // connA has slack in 'unavailable' — preferred over connB with no mapping
+    expect(wsA.sent).toHaveLength(1);
+    expect(wsB.sent).toHaveLength(0);
+
+    const pending = [...state.pendingDispatches.values()][0];
+    pending?.resolve('ok');
+    if (pending) clearTimeout(pending.timerId);
+    return promise;
+  });
+
+  test('with pluginName set but no connection has the plugin, falls back to getAnyConnection', () => {
+    const state = createState();
+    const { conn: connA, ws: wsA } = createMockConnection('conn-a');
+    const { conn: connB, ws: wsB } = createMockConnection('conn-b');
+    state.extensionConnections.set('conn-a', connA);
+    state.extensionConnections.set('conn-b', connB);
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'unknown', tool: 'echo' },
+      { label: 'unknown/echo', pluginName: 'unknown' },
+    );
+
+    // No connection has 'unknown' in tabMapping — falls back to getAnyConnection (first in Map)
+    const totalSent = wsA.sent.length + wsB.sent.length;
+    expect(totalSent).toBe(1);
+
+    const pending = [...state.pendingDispatches.values()][0];
+    pending?.resolve('ok');
+    if (pending) clearTimeout(pending.timerId);
+    return promise;
+  });
+
+  test('single connection — pluginName is ignored, fast path returns the only connection', () => {
+    const state = createState();
+    const { conn, ws } = createMockConnection('conn-a');
+    state.extensionConnections.set('conn-a', conn);
+
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'slack', tool: 'send' },
+      { label: 'slack/send', pluginName: 'slack' },
+    );
+
+    expect(ws.sent).toHaveLength(1);
+
+    const pending = [...state.pendingDispatches.values()][0];
+    pending?.resolve('ok');
+    if (pending) clearTimeout(pending.timerId);
+    return promise;
+  });
+
+  test('pluginName + tabId both set — tabId takes priority', () => {
+    const state = createState();
+    const { conn: connA, ws: wsA } = createMockConnection('conn-a');
+    const { conn: connB, ws: wsB } = createMockConnection('conn-b');
+    // connA owns tab 10
+    connA.tabMapping.set('slack', {
+      state: 'ready',
+      tabs: [{ tabId: 10, url: 'https://app.slack.com', title: 'Slack', ready: true }],
+    });
+    // connB has github ready
+    connB.tabMapping.set('github', {
+      state: 'ready',
+      tabs: [{ tabId: 20, url: 'https://github.com', title: 'GitHub', ready: true }],
+    });
+    state.extensionConnections.set('conn-a', connA);
+    state.extensionConnections.set('conn-b', connB);
+
+    // pluginName points to github (connB), but tabId 10 belongs to connA
+    const promise = dispatchToExtension(
+      state,
+      'tool.dispatch',
+      { plugin: 'slack', tool: 'send', tabId: 10 },
+      { label: 'slack/send', pluginName: 'github' },
+    );
+
+    // tabId routing takes priority — connA receives the dispatch
+    expect(wsA.sent).toHaveLength(1);
+    expect(wsB.sent).toHaveLength(0);
+
+    const pending = [...state.pendingDispatches.values()][0];
+    pending?.resolve('ok');
+    if (pending) clearTimeout(pending.timerId);
+    return promise;
+  });
+});
