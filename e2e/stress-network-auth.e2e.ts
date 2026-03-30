@@ -203,6 +203,64 @@ test.describe('Stress: Multi-connection isolation under concurrent dispatch', ()
   });
 });
 
+test.describe('Stress: Health endpoint under rapid polling', () => {
+  test('100 concurrent health requests all return valid JSON with consistent data', async () => {
+    const configDir = createTestConfigDir();
+    let server: McpServer | undefined;
+
+    try {
+      server = await startMcpServer(configDir, false);
+      const { port, secret } = server;
+
+      // Wait for server to be fully ready with plugins loaded
+      await server.waitForHealth(h => h.status === 'ok' && h.plugins >= 1, 15_000);
+
+      const BATCH_SIZE = 20;
+      const BATCHES = 5;
+      const allResponses: Response[] = [];
+
+      // Fire 5 batches of 20 concurrent requests (100 total)
+      for (let batch = 0; batch < BATCHES; batch++) {
+        const requests = Array.from({ length: BATCH_SIZE }, () =>
+          fetch(`http://localhost:${port}/health`, {
+            headers: { Authorization: `Bearer ${secret}` },
+            signal: AbortSignal.timeout(5_000),
+          }),
+        );
+        const batchResults = await Promise.all(requests);
+        allResponses.push(...batchResults);
+      }
+
+      expect(allResponses).toHaveLength(100);
+
+      // Parse all responses as JSON and verify validity
+      const bodies: Array<{ status: string; plugins: number; [key: string]: unknown }> = [];
+      for (const res of allResponses) {
+        expect(res.ok).toBe(true);
+        const body = await res.json();
+        expect(body).toHaveProperty('status');
+        bodies.push(body);
+      }
+
+      // Verify all have status='ok'
+      for (const body of bodies) {
+        expect(body.status).toBe('ok');
+      }
+
+      // Verify consistent plugin count across all responses
+      const pluginCounts = new Set(bodies.map(b => b.plugins));
+      expect(pluginCounts.size).toBe(1);
+      // At least the e2e-test plugin should be present
+      const firstBody = bodies[0];
+      expect(firstBody).toBeDefined();
+      expect(firstBody!.plugins).toBeGreaterThanOrEqual(1);
+    } finally {
+      if (server) await server.kill().catch(() => {});
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
 test.describe('Stress: Secret rotation during active session', () => {
   test('old client gets auth error after secret rotation, new client succeeds', async () => {
     test.slow();
