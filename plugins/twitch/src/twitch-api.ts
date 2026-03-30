@@ -1,7 +1,6 @@
 import {
   ToolError,
   fetchFromPage,
-  httpStatusToToolError,
   getCookie,
   getAuthCache,
   setAuthCache,
@@ -82,22 +81,23 @@ export const gql = async <T>(query: string, variables?: Record<string, unknown>)
 
   // gql.twitch.tv uses Access-Control-Allow-Origin: * which is incompatible with
   // credentials:'include'. Auth is via the OAuth header, not cookies.
-  const response = await fetchFromPage(GQL_URL, {
-    method: 'POST',
-    credentials: 'omit',
-    headers: {
-      'Client-Id': CLIENT_ID,
-      Authorization: `OAuth ${auth.token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
+  let response: Response;
+  try {
+    response = await fetchFromPage(GQL_URL, {
+      method: 'POST',
+      credentials: 'omit',
+      headers: {
+        'Client-Id': CLIENT_ID,
+        Authorization: `OAuth ${auth.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (error instanceof ToolError && error.category === 'auth') {
       clearAuthCache('twitch');
     }
-    throw httpStatusToToolError(response, 'Twitch GQL request failed');
+    throw error;
   }
 
   const result = (await response.json()) as GqlResponse<T>;
