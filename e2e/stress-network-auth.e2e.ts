@@ -119,6 +119,90 @@ test.describe('Stress: WebSocket reconnect with pending tool calls', () => {
   });
 });
 
+test.describe('Stress: Multi-connection isolation under concurrent dispatch', () => {
+  test('concurrent tool calls from two extensions return correct results with no cross-contamination', async () => {
+    test.slow();
+
+    const configDir = createTestConfigDir();
+    let server: McpServer | undefined;
+    let testSrv: TestServer | undefined;
+    let ext1: Awaited<ReturnType<typeof launchExtensionContext>> | undefined;
+    let ext2: Awaited<ReturnType<typeof launchExtensionContext>> | undefined;
+
+    try {
+      // Start server with hot=false for clean kill semantics
+      server = await startMcpServer(configDir, false);
+      testSrv = await startTestServer();
+
+      // Launch two separate extension contexts (two Chrome instances)
+      ext1 = await launchExtensionContext(server.port, server.secret);
+      setupAdapterSymlink(configDir, ext1.extensionDir);
+
+      ext2 = await launchExtensionContext(server.port, server.secret);
+      // setupAdapterSymlink made configDir/extension/adapters → ext1's adapters dir.
+      // ext2 needs the same adapter IIFE files. Symlink ext2's adapters dir to
+      // ext1's adapters dir so both extensions read from the same physical location.
+      const ext2AdaptersDir = path.join(ext2.extensionDir, 'adapters');
+      fs.rmSync(ext2AdaptersDir, { recursive: true, force: true });
+      fs.symlinkSync(path.join(ext1.extensionDir, 'adapters'), ext2AdaptersDir, 'dir');
+
+      // Wait for both extensions to connect
+      await server.waitForHealth(h => h.extensionConnections >= 2, 45_000);
+
+      // Open matching tabs in both extension contexts
+      const page1 = await ext1.context.newPage();
+      await page1.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
+
+      const page2 = await ext2.context.newPage();
+      await page2.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
+
+      // Create two MCP clients
+      const client1 = createMcpClient(server.port, server.secret);
+      await client1.initialize();
+
+      const client2 = createMcpClient(server.port, server.secret);
+      await client2.initialize();
+
+      // Wait for at least one plugin to be ready (both extensions report tabs)
+      await waitForToolResult(client1, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 30_000);
+
+      // Fire concurrent echo calls 5 times for confidence
+      for (let round = 0; round < 5; round++) {
+        const msg1 = `from-conn-1-round-${round}`;
+        const msg2 = `from-conn-2-round-${round}`;
+
+        const [result1, result2] = await Promise.all([
+          client1.callTool('e2e-test_echo', { message: msg1 }),
+          client2.callTool('e2e-test_echo', { message: msg2 }),
+        ]);
+
+        // Verify client1's result contains its own message
+        expect(result1.isError).toBe(false);
+        expect(result1.content).toContain(msg1);
+        // Verify no cross-contamination
+        expect(result1.content).not.toContain(msg2);
+
+        // Verify client2's result contains its own message
+        expect(result2.isError).toBe(false);
+        expect(result2.content).toContain(msg2);
+        // Verify no cross-contamination
+        expect(result2.content).not.toContain(msg1);
+      }
+
+      await client1.close();
+      await client2.close();
+    } finally {
+      if (ext1) await ext1.context.close().catch(() => {});
+      if (ext2) await ext2.context.close().catch(() => {});
+      if (testSrv) await testSrv.kill().catch(() => {});
+      if (server) await server.kill().catch(() => {});
+      if (ext1?.cleanupDir) fs.rmSync(ext1.cleanupDir, { recursive: true, force: true });
+      if (ext2?.cleanupDir) fs.rmSync(ext2.cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
 test.describe('Stress: Secret rotation during active session', () => {
   test('old client gets auth error after secret rotation, new client succeeds', async () => {
     test.slow();
