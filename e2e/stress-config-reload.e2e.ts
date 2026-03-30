@@ -70,10 +70,11 @@ test.describe('Stress: config watcher + POST /reload simultaneous race', () => {
 
       const headers = authHeaders(server.secret);
 
+      const configDirRef = configDir;
       await Promise.all([
         // Write config adding the plugin (triggers file watcher)
         Promise.resolve().then(() => {
-          writeTestConfig(configDir!, { localPlugins: [absPluginPath] });
+          writeTestConfig(configDirRef, { localPlugins: [absPluginPath] });
         }),
         // POST /reload simultaneously
         postReload(server.port, headers),
@@ -109,8 +110,8 @@ test.describe('Stress: config watcher + POST /reload simultaneous race', () => {
       // Health endpoint should show correct plugin count
       const health = await server.health();
       expect(health).not.toBeNull();
-      expect(health!.status).toBe('ok');
-      expect(health!.plugins).toBe(1);
+      expect(health?.status).toBe('ok');
+      expect(health?.plugins).toBe(1);
     } finally {
       await client?.close();
       await server?.kill();
