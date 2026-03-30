@@ -30,17 +30,19 @@ export const evaluateFormula = defineTool({
       body: { formulas: [[params.formula]] },
     });
 
-    // Read result
-    const result = await workbookApi<{
-      values?: unknown[][];
-      text?: string[][];
-    }>(`/worksheets('${ws}')/range(address='${tempCell}')`);
-
-    // Clear
-    await workbookApi(`/worksheets('${ws}')/range(address='${tempCell}')/clear`, {
-      method: 'POST',
-      body: { applyTo: 'All' },
-    });
+    // Read result, then clear regardless of whether read succeeds
+    let result: { values?: unknown[][]; text?: string[][] };
+    try {
+      result = await workbookApi<{
+        values?: unknown[][];
+        text?: string[][];
+      }>(`/worksheets('${ws}')/range(address='${tempCell}')`);
+    } finally {
+      await workbookApi(`/worksheets('${ws}')/range(address='${tempCell}')/clear`, {
+        method: 'POST',
+        body: { applyTo: 'All' },
+      }).catch(() => {});
+    }
 
     const value = result.values?.[0]?.[0];
     const isError = typeof value === 'string' && value.startsWith('#');
