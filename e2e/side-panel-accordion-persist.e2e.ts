@@ -8,6 +8,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import {
   cleanupTestConfigDir,
   E2E_TEST_PLUGIN_DIR,
@@ -91,6 +92,94 @@ test.describe('Side panel accordion state persistence', () => {
       await expect(browserCard3).toHaveAttribute('aria-expanded', 'true', { timeout: 10_000 });
 
       await sidePanelPage3.close();
+    } finally {
+      await context.close().catch(() => {});
+      await server.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+test.describe('Side panel accordion stress', () => {
+  const tick = (ms = 100) => new Promise(r => setTimeout(r, ms));
+  const collectPageErrors = (page: Page): string[] => {
+    const errors: string[] = [];
+    page.on('pageerror', (err: Error) => errors.push(err.message));
+    return errors;
+  };
+
+  test('rapid accordion toggling does not break card state', async () => {
+    test.slow();
+
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const prefixedToolNames = readPluginToolNames();
+    const tools: Record<string, boolean> = {};
+    for (const t of prefixedToolNames) {
+      tools[t] = true;
+    }
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-accordion-stress-'));
+    writeTestConfig(configDir, { localPlugins: [absPluginPath], tools });
+
+    const server = await startMcpServer(configDir, true);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      const sidePanelPage = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sidePanelPage);
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      const e2eCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      const browserCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Browser' });
+
+      // Rapid toggle e2e card 20x
+      for (let i = 0; i < 20; i++) {
+        await e2eCard.click();
+        await tick(30);
+      }
+
+      // Rapid toggle browser card 20x
+      for (let i = 0; i < 20; i++) {
+        await browserCard.click();
+        await tick(30);
+      }
+
+      // Interleave: alternate e2e and browser cards 10x
+      for (let i = 0; i < 10; i++) {
+        await e2eCard.click();
+        await browserCard.click();
+        await tick(30);
+      }
+
+      // After the storm, ensure both cards are still functional.
+      // Check aria-expanded and expand if needed.
+      const e2eExpanded = await e2eCard.getAttribute('aria-expanded');
+      if (e2eExpanded !== 'true') {
+        await e2eCard.click();
+      }
+      await expect(e2eCard).toHaveAttribute('aria-expanded', 'true');
+
+      const browserExpanded = await browserCard.getAttribute('aria-expanded');
+      if (browserExpanded !== 'true') {
+        await browserCard.click();
+      }
+      await expect(browserCard).toHaveAttribute('aria-expanded', 'true');
+
+      // Verify Echo tool visible in expanded e2e card
+      await expect(sidePanelPage.getByText('Echo', { exact: true })).toBeVisible({ timeout: 5_000 });
+
+      // Verify browser_list_tabs permission select visible in expanded browser card
+      await expect(sidePanelPage.getByText('browser_list_tabs')).toBeVisible({ timeout: 5_000 });
+
+      expect(pageErrors).toEqual([]);
+
+      await sidePanelPage.close();
     } finally {
       await context.close().catch(() => {});
       await server.kill();
