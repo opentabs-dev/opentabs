@@ -331,6 +331,185 @@ test.describe('Cross-system stress tests', () => {
     }
   });
 
+  test('Full system stress: 3 MCP clients + side panel + config changes simultaneously', async () => {
+    test.slow();
+
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cross-full-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: {
+        'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+        browser: { permission: 'auto' },
+      },
+    });
+
+    // Disable skipPermissions so side panel permission selects are interactive
+    const server = await startMcpServer(configDir, false, undefined, {
+      OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '',
+    });
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    const client1 = createMcpClient(server.port, server.secret);
+    const client2 = createMcpClient(server.port, server.secret);
+    const client3 = createMcpClient(server.port, server.secret);
+
+    /** POST /reload with Bearer auth. */
+    const postReload = async (): Promise<Response> => {
+      const secret = server.secret ?? '';
+      return fetch(`http://localhost:${String(server.port)}/reload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}` },
+      });
+    };
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // Open test app tab and wait for adapter injection
+      await openTestAppTab(context, testServer.url, server, testServer);
+
+      // Initialize all 3 MCP clients
+      await client1.initialize();
+      await client2.initialize();
+      await client3.initialize();
+
+      // Warm up: verify echo tool is callable
+      await waitForToolResult(client1, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 15_000);
+
+      // Open side panel and collect page errors
+      const sp = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sp);
+
+      // Wait for plugin card to appear
+      await expect(sp.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Expand e2e-test plugin card
+      const e2eCard = sp.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await e2eCard.click();
+      await tick(200);
+
+      // Find the theme toggle button
+      const themeToggle = sp.locator('button[aria-label="Toggle theme"]');
+
+      // --- Run all chaos streams concurrently for ~5 seconds ---
+
+      // Stream 1-3: 3 MCP clients each making 10 echo calls with 500ms spacing
+      const clientLoop = async (client: ReturnType<typeof createMcpClient>, prefix: string) => {
+        const results: Array<{ content: string; isError: boolean }> = [];
+        for (let i = 0; i < 10; i++) {
+          try {
+            const r = await client.callTool('e2e-test_echo', { message: `${prefix}${i}` });
+            results.push(r);
+          } catch {
+            // Tool call may fail during config removal — expected
+          }
+          await tick(500);
+        }
+        return results;
+      };
+
+      // Stream 4: Side panel interactions — toggle theme + expand/collapse cards
+      const sidePanelLoop = async () => {
+        for (let i = 0; i < 5; i++) {
+          // Toggle theme
+          if (await themeToggle.isVisible()) {
+            await themeToggle.click().catch(() => {});
+          }
+          await tick(400);
+
+          // Collapse and re-expand the e2e-test card
+          const card = sp.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+          if (await card.isVisible().catch(() => false)) {
+            await card.click().catch(() => {});
+            await tick(200);
+            await card.click().catch(() => {});
+          }
+          await tick(400);
+        }
+      };
+
+      // Stream 5: Config mutation — remove plugin, reload, wait, restore, reload
+      const configLoop = async () => {
+        await tick(1000); // let clients get some calls in first
+
+        // Remove the plugin
+        writeTestConfig(configDir, {
+          localPlugins: [],
+          permissions: {
+            browser: { permission: 'auto' },
+          },
+        });
+        await postReload();
+
+        await tick(1000); // let the removal propagate
+
+        // Restore the plugin
+        writeTestConfig(configDir, {
+          localPlugins: [absPluginPath],
+          permissions: {
+            'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+            browser: { permission: 'auto' },
+          },
+        });
+        await postReload();
+      };
+
+      // Launch all 5 streams concurrently
+      await Promise.allSettled([
+        clientLoop(client1, 'c1-'),
+        clientLoop(client2, 'c2-'),
+        clientLoop(client3, 'c3-'),
+        sidePanelLoop(),
+        configLoop(),
+      ]);
+
+      // --- Verify system survived the chaos ---
+
+      // 1. Server health is ok
+      const health = await server.health();
+      expect(health).not.toBeNull();
+      expect(health?.status).toBe('ok');
+
+      // 2. Wait for plugin to be rediscovered (config was restored)
+      await server.waitForHealth(h => h.plugins >= 1, 15_000);
+
+      // 3. Open a fresh tab for adapter re-injection (existing tab may have lost adapter)
+      await openTestAppTab(context, testServer.url, server, testServer);
+
+      // 4. At least one MCP client can make a successful echo call (system recovered)
+      const recoveryResults = await Promise.allSettled([
+        waitForToolResult(client1, 'e2e-test_echo', { message: 'recovery-1' }, { isError: false }, 20_000),
+        waitForToolResult(client2, 'e2e-test_echo', { message: 'recovery-2' }, { isError: false }, 20_000),
+        waitForToolResult(client3, 'e2e-test_echo', { message: 'recovery-3' }, { isError: false }, 20_000),
+      ]);
+      const recoveredCount = recoveryResults.filter(r => r.status === 'fulfilled').length;
+      expect(recoveredCount).toBeGreaterThanOrEqual(1);
+
+      // 5. Side panel shows the e2e-test plugin (config was restored)
+      await expect(sp.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // 6. Zero JS errors on side panel
+      expect(pageErrors).toEqual([]);
+
+      await sp.close();
+    } finally {
+      await client1.close().catch(() => {});
+      await client2.close().catch(() => {});
+      await client3.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('Multiple MCP sessions calling tools concurrently', async () => {
     test.slow();
 
