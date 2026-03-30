@@ -47,7 +47,7 @@ describe('loadConfig / saveConfig round-trip', () => {
 
     expect(config.localPlugins).toEqual([]);
     expect(config.permissions).toEqual({});
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
 
     // File was created on disk
     expect(existsSync(configPath)).toBe(true);
@@ -70,7 +70,7 @@ describe('loadConfig / saveConfig round-trip', () => {
       settings: {
         sqlpad: { instanceUrl: 'https://sqlpad.example.com' },
       },
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(custom);
 
@@ -128,7 +128,7 @@ describe('loadConfig / saveConfig round-trip', () => {
     const config = await loadConfig();
     expect(config.localPlugins).toEqual(['/some/plugin']);
     expect(config.permissions).toEqual({});
-    expect(config.version).toBe(2);
+    expect(config.version).toBe(3);
   });
 
   test('default config has empty permissions map', async () => {
@@ -203,7 +203,7 @@ describe('savePluginPermissions round-trip', () => {
       localPlugins: ['/my/plugin'],
       permissions: {},
       settings: {},
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -228,7 +228,7 @@ describe('savePluginPermissions round-trip', () => {
       localPlugins: [],
       permissions: { slack: { permission: 'auto' } },
       settings: {},
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -251,7 +251,7 @@ describe('savePluginPermissions round-trip', () => {
       settings: {
         sqlpad: { instanceUrl: 'https://sqlpad.example.com' },
       },
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -277,7 +277,7 @@ describe('savePluginSettings round-trip', () => {
       localPlugins: ['/my/plugin'],
       permissions: { slack: { permission: 'auto' } },
       settings: {},
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -299,7 +299,7 @@ describe('savePluginSettings round-trip', () => {
       localPlugins: [],
       permissions: {},
       settings: { old_plugin: { key: 'old-value' } },
-      version: 2,
+      version: 3,
     };
     await saveConfigWrapped(initial);
 
@@ -340,7 +340,7 @@ describe('saveConfig error propagation', () => {
       localPlugins: [],
       permissions: {},
       settings: {},
-      version: 2,
+      version: 3,
     };
 
     await expect(saveConfig(state, config)).rejects.toThrow();
@@ -358,7 +358,7 @@ describe('saveConfig error propagation', () => {
       localPlugins: ['/test/path'],
       permissions: {},
       settings: {},
-      version: 2,
+      version: 3,
     };
 
     // First write fails

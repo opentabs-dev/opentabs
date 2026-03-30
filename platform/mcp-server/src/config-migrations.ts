@@ -13,10 +13,11 @@
  */
 
 import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { atomicWrite } from '@opentabs-dev/shared';
 import { log } from './logger.js';
 
-const CURRENT_CONFIG_VERSION = 2;
+const CURRENT_CONFIG_VERSION = 3;
 
 type MigrationFn = (config: Record<string, unknown>) => Record<string, unknown>;
 
@@ -38,6 +39,22 @@ migrations.set(2, config => {
     }
   }
 
+  return config;
+});
+
+// v2 → v3: normalize absolute paths under HOME to ~/ prefix in localPlugins
+migrations.set(3, config => {
+  const home = homedir();
+  const localPlugins = config.localPlugins;
+  if (Array.isArray(localPlugins)) {
+    config.localPlugins = localPlugins.map(p => {
+      if (typeof p !== 'string') return p;
+      if (p.startsWith(`${home}/`) || p.startsWith(`${home}\\`)) {
+        return `~/${p.slice(home.length + 1)}`;
+      }
+      return p;
+    });
+  }
   return config;
 });
 

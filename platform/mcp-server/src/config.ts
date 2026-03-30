@@ -43,6 +43,8 @@ const isToolPermission = (v: unknown): v is ToolPermission => typeof v === 'stri
 interface OpentabsConfig {
   /** Local plugin directory paths (resolved relative to the config directory) */
   localPlugins: string[];
+  /** Parent directories whose immediate children are auto-scanned for plugins */
+  localPluginDirs?: string[];
   /** Per-plugin permission configuration: plugin name → { permission?, tools? } */
   permissions: Record<string, PluginPermissionConfig>;
   /** Per-plugin settings: plugin name → { settingKey: value } */
@@ -178,6 +180,10 @@ const parseConfigRecord = (record: Record<string, unknown>): OpentabsConfig => {
     ? (record.localPlugins as unknown[]).filter((p): p is string => typeof p === 'string')
     : [];
 
+  const localPluginDirs = Array.isArray(record.localPluginDirs)
+    ? (record.localPluginDirs as unknown[]).filter((p): p is string => typeof p === 'string')
+    : [];
+
   const permissions = parsePluginsConfig(record.permissions);
   const settings = parseSettingsConfig(record.settings);
 
@@ -188,7 +194,7 @@ const parseConfigRecord = (record: Record<string, unknown>): OpentabsConfig => {
   const version =
     typeof record.version === 'number' && Number.isInteger(record.version) && record.version >= 1 ? record.version : 1;
 
-  return { localPlugins, permissions, settings, additionalAllowedDirectories, version };
+  return { localPlugins, localPluginDirs, permissions, settings, additionalAllowedDirectories, version };
 };
 
 /**
@@ -214,6 +220,7 @@ const loadConfig = async (): Promise<OpentabsConfig> => {
   ) {
     const config: OpentabsConfig = {
       localPlugins: [],
+      localPluginDirs: [],
       permissions: {},
       settings: {},
       additionalAllowedDirectories: [],
@@ -285,6 +292,7 @@ const savePluginPermissions = async (
     const current = parseConfigRecord(record);
     const updated: OpentabsConfig = {
       localPlugins: current.localPlugins,
+      localPluginDirs: current.localPluginDirs,
       permissions: plugins,
       settings: current.settings,
       additionalAllowedDirectories: current.additionalAllowedDirectories,
@@ -326,6 +334,7 @@ const savePluginSettings = async (
     const current = parseConfigRecord(record);
     const updated: OpentabsConfig = {
       localPlugins: current.localPlugins,
+      localPluginDirs: current.localPluginDirs,
       permissions: current.permissions,
       settings,
       additionalAllowedDirectories: current.additionalAllowedDirectories,

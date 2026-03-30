@@ -284,6 +284,8 @@ export interface ServerState {
   extensionConnections: Map<string, ExtensionConnection>;
   /** Local plugin paths from config */
   pluginPaths: string[];
+  /** Parent directories for auto-scanning plugins */
+  localPluginDirs: string[];
   /** Pending tool dispatches keyed by JSON-RPC id */
   pendingDispatches: Map<string | number, PendingDispatch>;
   /** Outdated npm plugins detected on startup */
@@ -354,6 +356,7 @@ export const createState = (): ServerState => ({
   registry: EMPTY_REGISTRY,
   extensionConnections: new Map(),
   pluginPaths: [],
+  localPluginDirs: [],
   pendingDispatches: new Map(),
   outdatedPlugins: [],
   browserTools: [],
