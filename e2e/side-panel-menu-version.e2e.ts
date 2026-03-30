@@ -42,6 +42,72 @@ const getPluginPackageInfo = (): { name: string; version: string } => {
   return { name: pkg.name, version: pkg.version };
 };
 
+test.describe('stress', () => {
+  test('rapid menu open/close 10x keeps version text correct', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const { version } = getPluginPackageInfo();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-menu-stress-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: { 'e2e-test': { permission: 'auto' } },
+    });
+
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let testServer: Awaited<ReturnType<typeof startTestServer>> | undefined;
+    let context: Awaited<ReturnType<typeof launchExtensionContext>>['context'] | undefined;
+    let cleanupDir: string | undefined;
+
+    const pageErrors: Error[] = [];
+
+    try {
+      server = await startMcpServer(configDir, true);
+      testServer = await startTestServer();
+      const ext = await launchExtensionContext(server.port, server.secret);
+      context = ext.context;
+      cleanupDir = ext.cleanupDir;
+      setupAdapterSymlink(configDir, ext.extensionDir);
+
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      await openTestAppTab(context, testServer.url, server, testServer);
+      const sidePanelPage = await openSidePanel(context);
+      sidePanelPage.on('pageerror', error => pageErrors.push(error));
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      const menuButton = sidePanelPage.locator('[aria-label="Plugin options"]');
+      await expect(menuButton).toBeVisible();
+
+      const cycles = 10;
+
+      for (let i = 0; i < cycles; i++) {
+        await menuButton.click();
+        await new Promise(r => setTimeout(r, 50));
+        await sidePanelPage.keyboard.press('Escape');
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      // Open the menu one final time and verify version text is correct
+      await menuButton.click();
+      const versionItem = sidePanelPage.locator('[role="menuitem"]', { hasText: `v${version}` });
+      await expect(versionItem).toBeVisible({ timeout: 5_000 });
+
+      // Assert zero pageerror events
+      expect(pageErrors).toHaveLength(0);
+
+      await sidePanelPage.close();
+    } finally {
+      await context?.close().catch(() => {});
+      await server?.kill();
+      await testServer?.kill();
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
 test.describe('Side panel — menu version items', () => {
   test('local plugin version item shows FolderOpen icon, correct version, and Remove with border', async () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
