@@ -525,6 +525,54 @@ describe('removeLocalStorage', () => {
 });
 
 // ---------------------------------------------------------------------------
+// iframe fallback round-trip
+// ---------------------------------------------------------------------------
+
+describe('iframe fallback round-trip', () => {
+  test('setLocalStorage via iframe followed by getLocalStorage via iframe returns the written value', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    const store: Record<string, string> = {};
+    const mockIframe = {
+      style: {} as CSSStyleDeclaration,
+      contentWindow: {
+        localStorage: {
+          getItem: (k: string) => store[k] ?? null,
+          setItem: (k: string, v: string) => {
+            store[k] = v;
+          },
+        },
+      },
+    };
+    const createElementSpy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+    const appendChildSpy = vi
+      .spyOn(document.body, 'appendChild')
+      .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+    const removeChildSpy = vi
+      .spyOn(document.body, 'removeChild')
+      .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+    try {
+      setLocalStorage('round-trip-key', 'round-trip-value');
+      expect(getLocalStorage('round-trip-key')).toBe('round-trip-value');
+    } finally {
+      createElementSpy.mockRestore();
+      appendChildSpy.mockRestore();
+      removeChildSpy.mockRestore();
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: win.localStorage as unknown as Storage,
+        configurable: true,
+        writable: true,
+      });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getSessionStorage
 // ---------------------------------------------------------------------------
 
