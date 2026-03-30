@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { slackApi, slackEnterpriseApi } from '../slack-enterprise-api.js';
 import { mapStarredItem, starredItemSchema } from './schemas.js';
@@ -33,7 +33,10 @@ export const listStars = defineTool({
         items: (data.items ?? []).map(mapStarredItem),
         has_more: !!data.response_metadata?.next_cursor,
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof ToolError && (error.category === 'auth' || error.category === 'rate_limit')) {
+        throw error;
+      }
       // Fall back to stars.list (workspace API)
     }
 
