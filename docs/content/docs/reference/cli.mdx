@@ -1,7 +1,7 @@
 ---
 title: CLI Commands
 description: Complete reference for the opentabs CLI — start the server, manage plugins, view logs, run diagnostics, and configure settings.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-03-29
 ---
 
 The `opentabs` CLI is the single entry point for everything platform-side: starting the server, managing plugins, checking status, viewing logs, and rotating secrets. I wanted one command that handles all of it, so you never have to remember which tool does what. Install it globally:
@@ -351,7 +351,7 @@ opentabs logs --plugin slack
 
 ## opentabs plugin
 
-Manage plugins. Has five subcommands: `search`, `list`, `install`, `remove`, and `create`.
+Manage plugins. Has six subcommands: `search`, `list`, `install`, `remove`, `create`, and `configure`.
 
 ### opentabs plugin search
 
@@ -437,6 +437,37 @@ The standalone `@opentabs-dev/create-plugin` package provides the same functiona
 
 ```bash
 npx @opentabs-dev/create-plugin my-plugin --domain .example.com --display "My App"
+```
+
+### opentabs plugin configure
+
+Interactively configure settings for a plugin that declares a `configSchema`.
+
+```bash
+opentabs plugin configure <name>
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Argument</Table.Head>
+      <Table.Head>Required</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`<name>`</Table.Cell>
+      <Table.Cell>Yes</Table.Cell>
+      <Table.Cell>Plugin short name (e.g., `jira`).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+Prompts for each field defined in the plugin's `configSchema`. Shows the current value as the default. Validates URL fields, select fields, boolean fields, and number fields. Saves the completed values to `config.json` under `settings.<pluginShortName>` and notifies the running server.
+
+```bash
+opentabs plugin configure jira
 ```
 
 ### opentabs plugin list
@@ -650,6 +681,11 @@ opentabs config set <key> [value]
       <Table.Cell className="font-medium">`localPlugins.remove`</Table.Cell>
       <Table.Cell>path</Table.Cell>
       <Table.Cell>Remove a local plugin path from the `localPlugins` array.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`setting.<plugin>.<key>`</Table.Cell>
+      <Table.Cell>any</Table.Cell>
+      <Table.Cell>Set a plugin setting value. Pass an empty string to remove the key.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -1008,4 +1044,42 @@ opentabs-plugin inspect
 
 # Output raw JSON
 opentabs-plugin inspect --json
+```
+
+### opentabs-plugin readme
+
+Generate a user-facing `README.md` from the built manifest (`dist/tools.json`) and `package.json`. Requires `opentabs-plugin build` to have been run first.
+
+```bash
+opentabs-plugin readme [options]
+```
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Option</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--dry-run`</Table.Cell>
+      <Table.Cell>Print the generated README to stdout instead of writing to disk.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--check`</Table.Cell>
+      <Table.Cell>Exit with code 1 if `README.md` is out of date (useful in CI).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+```bash
+# Generate README.md
+opentabs-plugin readme
+
+# Preview without writing
+opentabs-plugin readme --dry-run
+
+# Check if README is up to date (for CI)
+opentabs-plugin readme --check
 ```
