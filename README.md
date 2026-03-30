@@ -29,8 +29,8 @@ Playwright, Puppeteer, and Stagehand simulate a human — click, type, read the 
 No screenshots. No DOM scraping. No pixel-guessing.
 
 <figure>
-  <img src="assets/demo-hero.gif" alt="Demo: AI checks stocks, orders food, and sends a Discord message — all through the browser" />
-  <figcaption><p align="center"><sub>AI checking Robinhood, ordering DoorDash, and messaging on Discord — all through open browser tabs</sub></p></figcaption>
+  <img src="assets/demo-hero.gif" alt="Demo: AI checks stocks, orders Panda Express, and sends a Discord message — all through the browser" />
+  <figcaption><p align="center"><sub>AI checking Robinhood, ordering Panda Express, and messaging on Discord — all through open browser tabs</sub></p></figcaption>
 </figure>
 
 ---
@@ -57,7 +57,7 @@ Five minutes, start to finish. See the [Quick Start guide](https://opentabs.dev/
 
 `discord_send_message` hits Discord's real backend — fast, deterministic, cheap on tokens.
 
-Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, Robinhood, DoorDash, Airbnb, and [a lot more](plugins/). Plus built-in browser tools (screenshots, clicking, typing, network capture) that work on any tab without a plugin.
+Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, Robinhood, Panda Express, Airbnb, and [a lot more](plugins/). Plus built-in browser tools (screenshots, clicking, typing, network capture) that work on any tab without a plugin.
 
 ## Build a Plugin
 
