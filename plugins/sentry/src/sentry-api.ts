@@ -40,11 +40,21 @@ const getAuth = (): SentryAuth | null => {
 
 const extractOrgSlug = (): string | null => {
   const hostname = window.location.hostname;
-  // Pattern: <org-slug>.sentry.io
-  const match = hostname.match(/^([a-z0-9-]+)\.sentry\.io$/);
-  if (match?.[1] && match[1] !== 'sentry' && match[1] !== 'docs' && match[1] !== 'blog') {
-    return match[1];
+  // Pattern: <org-slug>.sentry.io (SaaS)
+  const subdomainMatch = hostname.match(/^([a-z0-9-]+)\.sentry\.io$/);
+  if (
+    subdomainMatch?.[1] &&
+    subdomainMatch[1] !== 'sentry' &&
+    subdomainMatch[1] !== 'docs' &&
+    subdomainMatch[1] !== 'blog'
+  ) {
+    return subdomainMatch[1];
   }
+
+  // Self-hosted and sentry.io path-based: /organizations/<org-slug>/
+  const pathMatch = window.location.pathname.match(/^\/organizations\/([a-z0-9_-]+)\//);
+  if (pathMatch?.[1]) return pathMatch[1];
+
   return null;
 };
 
@@ -55,9 +65,10 @@ const detectAuthentication = (): boolean => {
   // Secondary: check for the sentry-sc CSRF cookie (non-HttpOnly, present when session is active)
   if (getCookie('sentry-sc') !== null) return true;
 
-  // Fallback: if we're on an org subdomain and not on a login page
+  // Fallback: if we're on a sentry.io org subdomain and not on a login page
   const isLoginPage = window.location.pathname.includes('/auth/login');
-  if (!isLoginPage && extractOrgSlug()) return true;
+  const isSentryIoOrg = /^[a-z0-9-]+\.sentry\.io$/.test(window.location.hostname);
+  if (!isLoginPage && isSentryIoOrg) return true;
 
   return false;
 };
