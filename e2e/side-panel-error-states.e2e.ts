@@ -20,6 +20,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import type { Page } from '@playwright/test';
 import {
   cleanupTestConfigDir,
   createMcpClient,
@@ -323,6 +324,114 @@ test.describe('Side panel — connection loss state behavior', () => {
       await server.kill();
       fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-004: Stress tests — rapid permission changes during error state
+// ---------------------------------------------------------------------------
+
+const tick = (ms = 100) => new Promise(r => setTimeout(r, ms));
+const collectPageErrors = (page: Page): string[] => {
+  const errors: string[] = [];
+  page.on('pageerror', (err: Error) => errors.push(err.message));
+  return errors;
+};
+
+test.describe('stress', () => {
+  test('rapid permission changes while error card is visible', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-stress-err-'));
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-config-'));
+
+    // Create a broken plugin (no dist/) — will produce a FailedPluginCard
+    const brokenDir = path.join(tmpDir, 'broken-plugin');
+    fs.mkdirSync(brokenDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(brokenDir, 'package.json'),
+      JSON.stringify({
+        name: 'opentabs-plugin-broken',
+        version: '1.0.0',
+        opentabs: { name: 'broken' },
+      }),
+    );
+    const brokenPath = path.resolve(brokenDir);
+
+    // Use the e2e-test plugin as the working plugin
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+
+    // Start both plugins: e2e-test at 'off', broken at 'auto'.
+    // skipPermissions disabled so permission selects are interactive.
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath, brokenPath],
+      permissions: {
+        'e2e-test': { permission: 'off' },
+        broken: { permission: 'auto' },
+      },
+    });
+
+    const server = await startMcpServer(configDir, true, undefined, {
+      OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '',
+    });
+    const mcpClient = createMcpClient(server.port, server.secret);
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await mcpClient.initialize();
+
+      const sidePanelPage = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sidePanelPage);
+
+      // Verify both cards are visible: error card and working plugin card
+      await expect(sidePanelPage.getByText('Failed to load')).toBeVisible({ timeout: 15_000 });
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 15_000 });
+
+      // Expand the e2e-test plugin card to reveal permission select
+      const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
+      await pluginCard.click();
+      const pluginSelect = sidePanelPage.locator('[aria-label="Permission for e2e-test plugin"]');
+      await expect(pluginSelect).toBeVisible({ timeout: 5_000 });
+      await expect(pluginSelect).toContainText('Off', { timeout: 5_000 });
+
+      // Rapidly toggle permission 5x: Off → Auto → Off → Auto → Off
+      const sequence: Array<'Off' | 'Auto'> = ['Off', 'Auto', 'Off', 'Auto', 'Off'];
+      for (const value of sequence) {
+        await selectPermission(sidePanelPage, 'Permission for e2e-test plugin', value);
+        await tick(100);
+      }
+
+      // Verify the final value ('Off') is shown in the UI
+      await expect(pluginSelect).toContainText('Off', { timeout: 10_000 });
+
+      // Verify config.json persisted the final permission value
+      await expect
+        .poll(
+          () => {
+            const config = readTestConfig(configDir);
+            return config.permissions?.['e2e-test']?.permission;
+          },
+          {
+            timeout: 15_000,
+            message: 'config.json should reflect final permission value of off',
+          },
+        )
+        .toBe('off');
+
+      // Verify the broken plugin error card remained visible throughout
+      await expect(sidePanelPage.getByText('Failed to load')).toBeVisible();
+
+      expect(pageErrors).toEqual([]);
+
+      await sidePanelPage.close();
+    } finally {
+      await mcpClient.close().catch(() => {});
+      await context.close().catch(() => {});
+      await server.kill();
+      cleanupTestConfigDir(configDir);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
     }
   });
 });
