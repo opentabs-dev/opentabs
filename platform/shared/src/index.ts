@@ -48,6 +48,7 @@ export {
   getExtensionDir,
   getLogFilePath,
   getPidFilePath,
+  getTelemetryIdPath,
   normalizePluginName,
   PLATFORM_PACKAGES,
   PLUGIN_PREFIX,

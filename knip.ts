@@ -15,7 +15,7 @@ const config: KnipConfig = {
       entry: ['src/**/*.test.ts'],
     },
     'platform/mcp-server': {
-      entry: ['src/**/*.test.ts', 'src/dev-proxy.ts'],
+      entry: ['src/**/*.test.ts', 'src/dev-proxy.ts', 'src/telemetry.ts'],
     },
     'platform/plugin-sdk': {},
     'platform/cli': {

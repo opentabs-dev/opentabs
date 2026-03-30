@@ -52,6 +52,9 @@ export const getLogFilePath = (): string => join(getConfigDir(), 'server.log');
 /** Returns the path to the server PID file (~/.opentabs/server.pid). */
 export const getPidFilePath = (): string => join(getConfigDir(), 'server.pid');
 
+/** Returns the path to the anonymous telemetry ID file (~/.opentabs/telemetry-id). */
+export const getTelemetryIdPath = (): string => join(getConfigDir(), 'telemetry-id');
+
 // ---------------------------------------------------------------------------
 // Plugin naming conventions
 // ---------------------------------------------------------------------------

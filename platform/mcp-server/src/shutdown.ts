@@ -20,6 +20,7 @@ import { rejectAllPendingConfirmations } from './extension-handlers.js';
 import { stopFileWatching } from './file-watcher.js';
 import { log } from './logger.js';
 import type { ServerState } from './state.js';
+import { shutdownTelemetry } from './telemetry.js';
 
 const SHUTDOWN_INSTALLED_KEY = '__opentabs_shutdown_installed__' as const;
 
@@ -76,6 +77,9 @@ const installShutdownHandlers = (getState: () => ServerState): void => {
       }
       state.extensionConnections.delete(id);
     }
+
+    // 6. Flush pending telemetry events (fire-and-forget, has its own 2s timeout)
+    void shutdownTelemetry();
 
     log.info('Shutdown complete');
     setTimeout(() => process.exit(0), 150);

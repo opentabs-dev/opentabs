@@ -21,7 +21,15 @@ import { fileURLToPath } from 'node:url';
 import { DEFAULT_PORT, isWindows, sanitizeEnv, toErrorMessage } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
-import { ensureAuthSecret, getConfigDir, getLogFilePath, getPidFilePath } from '../config.js';
+import {
+  atomicWriteConfig,
+  ensureAuthSecret,
+  getConfigDir,
+  getConfigPath,
+  getLogFilePath,
+  getPidFilePath,
+  readConfig,
+} from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
 import { installExtension } from './setup.js';
 
@@ -411,6 +419,32 @@ const handleStart = async (options: StartOptions): Promise<void> => {
     }
   };
 
+  const showTelemetryNoticeIfNeeded = async (): Promise<void> => {
+    try {
+      const configPath = getConfigPath();
+      const result = await readConfig(configPath);
+      const config = result.config ?? {};
+
+      if (config.telemetryNoticeShown === true) return;
+
+      if (process.env.OPENTABS_TELEMETRY_DISABLED === '1') return;
+      if (process.env.DO_NOT_TRACK === '1') return;
+      if (config.telemetry === false) return;
+
+      console.log(pc.dim('  OpenTabs collects completely anonymous telemetry data about general usage.'));
+      console.log(pc.dim('  This helps us understand how OpenTabs is used and where to focus improvements.'));
+      console.log('');
+      console.log(pc.dim(`  You can opt out at any time by running: ${pc.bold('opentabs telemetry disable')}`));
+      console.log(pc.dim('  Learn more: https://docs.opentabs.dev/telemetry'));
+      console.log('');
+
+      config.telemetryNoticeShown = true;
+      await atomicWriteConfig(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    } catch {
+      // Non-fatal — telemetry notice display is best-effort
+    }
+  };
+
   if (options.background) {
     const logStream = createWriteStream(logFilePath, { flags: 'a', mode: 0o600 });
     await new Promise<void>((resolve, reject) => {
@@ -474,6 +508,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
     printStartupHeader();
     printSetupHints();
+    await showTelemetryNoticeIfNeeded();
 
     console.log(`Server started in background (PID: ${String(pid)})`);
     console.log(pc.dim(`Logs: ${logFilePath}`));
@@ -484,6 +519,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   printStartupHeader();
   printSetupHints();
+  await showTelemetryNoticeIfNeeded();
 
   console.log(pc.dim('  Press Ctrl+C to stop'));
   console.log('');
