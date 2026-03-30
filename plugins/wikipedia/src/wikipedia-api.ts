@@ -67,19 +67,32 @@ export const api = async <T>(
     formatversion: 2,
   };
 
+  let data: unknown;
+
   if (method === 'GET') {
     const qs = buildQueryString(allParams);
-    const data = await fetchJSON<T>(`${API_PATH}?${qs}`);
-    return data as T;
+    data = await fetchJSON<Record<string, unknown>>(`${API_PATH}?${qs}`);
+  } else {
+    // POST requests: send params as form-encoded body
+    const formBody = buildQueryString(allParams);
+    const init: FetchFromPageOptions = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formBody,
+    };
+    data = await fetchJSON<Record<string, unknown>>(API_PATH, init);
   }
 
-  // POST requests: send params as form-encoded body
-  const formBody = buildQueryString(allParams);
-  const init: FetchFromPageOptions = {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: formBody,
-  };
-  const data = await fetchJSON<T>(API_PATH, init);
+  // MediaWiki returns application-level errors with HTTP 200
+  if (data && typeof data === 'object' && 'error' in data) {
+    const err = (data as { error: { code?: string; info?: string } }).error;
+    const code = err.code ?? 'unknown';
+    const info = err.info ?? 'Unknown MediaWiki error';
+    if (code === 'badtoken' || code === 'assertuserfailed') throw ToolError.auth(info);
+    if (code === 'missingtitle' || code === 'nosuchpageid') throw ToolError.notFound(info);
+    if (code === 'ratelimited') throw ToolError.rateLimited(info);
+    throw ToolError.internal(`MediaWiki error [${code}]: ${info}`);
+  }
+
   return data as T;
 };
