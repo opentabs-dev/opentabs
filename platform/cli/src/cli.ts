@@ -33,8 +33,11 @@ const program = new Command('opentabs')
   .addHelpText(
     'after',
     `\nEnvironment:
-  OPENTABS_PORT         MCP server port (overridden by --port)
-  OPENTABS_CONFIG_DIR   Config directory (default: ~/.opentabs)`,
+  OPENTABS_PORT                MCP server port (overridden by --port)
+  OPENTABS_CONFIG_DIR          Config directory (default: ~/.opentabs)
+  OPENTABS_TELEMETRY_DISABLED  Disable anonymous telemetry (set to 1)
+  OPENTABS_TELEMETRY_DEBUG     Print telemetry events to stderr (set to 1)
+  DO_NOT_TRACK                 Disable telemetry (community standard)`,
   )
   .action((_options, command: Command) => {
     if (command.args.length > 0) {
