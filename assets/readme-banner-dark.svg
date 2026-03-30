@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200">
-  <!-- Icon (scaled down from 512 to fit ~140px height, offset to left) -->
-  <g transform="translate(220, 16) scale(0.33)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 180" width="800" height="180">
+  <!-- Icon (scaled to ~80px, positioned left of center) -->
+  <g transform="translate(248, 20) scale(0.16)">
     <path fill="#FFDB33" fill-rule="evenodd" d="
       M 358.4 26 c 53.765 0 80.6476 0 101.1831 10.4634 a 96 96 0 0 1 41.9535 41.9535 c 10.4634 20.5355 10.4634 47.418 10.4634 101.1831 L 512 332.4 c 0 53.765 0 80.6476 -10.4634 101.1831 a 96 96 0 0 1 -41.9535 41.9535 c -20.5355 10.4634 -47.418 10.4634 -101.1831 10.4634 L 153.6 486 c -53.765 0 -80.6476 0 -101.1831 -10.4634 a 96 96 0 0 1 -41.9535 -41.9535 c -10.4634 -20.5355 -10.4634 -47.418 -10.4634 -101.1831 L 0 179.6 c 0 -53.765 0 -80.6476 10.4634 -101.1831 a 96 96 0 0 1 41.9535 -41.9535 c 20.5355 -10.4634 47.418 -10.4634 101.1831 -10.4634 Z
       M 350.8 231 c 31.923 0 47.8845 0 60.0775 6.2126 a 57 57 0 0 1 24.9099 24.9099 c 6.2126 12.193 6.2126 28.1545 6.2126 60.0775 L 442 333.8 c 0 31.923 0 47.8845 -6.2126 60.0775 a 57 57 0 0 1 -24.9099 24.9099 c -12.193 6.2126 -28.1545 6.2126 -60.0775 6.2126 L 318.2 425 c -31.923 0 -47.8845 0 -60.0775 -6.2126 a 57 57 0 0 1 -24.9099 -24.9099 c -6.2126 -12.193 -6.2126 -28.1545 -6.2126 -60.0775 L 227 322.2 c 0 -31.923 0 -47.8845 6.2126 -60.0775 a 57 57 0 0 1 24.9099 -24.9099 c 12.193 -6.2126 28.1545 -6.2126 60.0775 -6.2126 Z
     "/>
   </g>
-  <!-- Wordmark -->
-  <text x="410" y="105" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="56" font-weight="900" fill="#f5f5f5" letter-spacing="-1">OpenTabs</text>
-  <!-- Tagline -->
-  <text x="360" y="148" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="17" fill="#a0a0a0" letter-spacing="0.2">Your browser is already logged in. Let your AI use it.</text>
+  <!-- Wordmark (positioned right of icon) -->
+  <text x="345" y="90" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="56" font-weight="900" fill="#f5f5f5" letter-spacing="-1">OpenTabs</text>
+  <!-- Tagline (centered) -->
+  <text x="400" y="140" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="18" fill="#a0a0a0" text-anchor="middle">Your browser is already logged in. Let your AI use it.</text>
 </svg>
