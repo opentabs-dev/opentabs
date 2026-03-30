@@ -243,6 +243,94 @@ test.describe('Cross-system stress tests', () => {
     }
   });
 
+  test('Side panel search while MCP client installs plugin', async () => {
+    test.slow();
+
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const pluginVersion = getPluginVersion();
+
+    // Start with NO plugins — only browser tools will be visible
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cross-search-'));
+    writeTestConfig(configDir, {
+      localPlugins: [],
+      permissions: {
+        browser: { permission: 'auto' },
+      },
+    });
+
+    const server = await startMcpServer(configDir);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    /** POST /reload with Bearer auth. */
+    const postReload = async (): Promise<Response> => {
+      const secret = server.secret ?? '';
+      return fetch(`http://localhost:${String(server.port)}/reload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secret}` },
+      });
+    };
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
+
+      // Open side panel
+      const sp = await openSidePanel(context);
+      const pageErrors = collectPageErrors(sp);
+
+      // Verify connected state — browser tools card should be visible (always present)
+      await expect(sp.getByText('Browser')).toBeVisible({ timeout: 30_000 });
+
+      // Verify e2e-test plugin is NOT visible (no plugins installed)
+      await expect(sp.getByText('E2E Test')).not.toBeVisible();
+
+      // Type 'test' in the search input while no plugins are installed
+      const searchInput = sp.locator('input[placeholder="Search plugins and tools..."]');
+      await searchInput.fill('test');
+      await tick(300);
+
+      // While search is active, add the e2e-test plugin via config + POST /reload
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: {
+          'e2e-test': { permission: 'auto', reviewedVersion: pluginVersion },
+          browser: { permission: 'auto' },
+        },
+      });
+      await postReload();
+
+      // Wait for the server to rediscover the plugin
+      await server.waitForHealth(h => h.plugins >= 1, 15_000);
+
+      // The side panel should receive a plugins.changed notification and refresh.
+      // Since 'test' matches 'E2E Test', the search results should show the plugin.
+      await expect(sp.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      // Clear search by clicking the clear button
+      const clearButton = sp.locator('button[aria-label="Clear search"]');
+      await clearButton.click();
+
+      // Verify search input is empty
+      await expect(searchInput).toHaveValue('');
+
+      // Verify E2E Test plugin card is visible in the full (unfiltered) list
+      await expect(sp.getByText('E2E Test')).toBeVisible({ timeout: 10_000 });
+
+      // Assert zero page errors
+      expect(pageErrors).toEqual([]);
+
+      await sp.close();
+    } finally {
+      await context.close().catch(() => {});
+      await server.kill();
+      await testServer.kill();
+      fs.rmSync(cleanupDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('Multiple MCP sessions calling tools concurrently', async () => {
     test.slow();
 
