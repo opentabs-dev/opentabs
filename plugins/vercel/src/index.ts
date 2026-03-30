@@ -8,7 +8,7 @@ import { listDomains } from './tools/list-domains.js';
 import { listEnvVars } from './tools/list-env-vars.js';
 import { listProjects } from './tools/list-projects.js';
 import { listTeams } from './tools/list-teams.js';
-import { isVercelAuthenticated, waitForVercelAuth } from './vercel-api.js';
+import { isVercelAuthenticated, updateCachedTeamSlug, waitForVercelAuth } from './vercel-api.js';
 
 class VercelPlugin extends OpenTabsPlugin {
   readonly name = 'vercel';
@@ -31,6 +31,10 @@ class VercelPlugin extends OpenTabsPlugin {
     getUser,
     listTeams,
   ];
+
+  override onNavigate(url: string): void {
+    updateCachedTeamSlug(url);
+  }
 
   async isReady(): Promise<boolean> {
     if (isVercelAuthenticated()) return true;
