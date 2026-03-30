@@ -85,6 +85,8 @@ export interface FileWatchingState {
   mtimePollDetections: number;
   /** Timestamps (ms since epoch) of recent mtime poll detections — used for stale watcher warning */
   mtimePollDetectionTimestamps: number[];
+  /** FSWatchers for localPluginDirs parent directories — triggers rediscovery when children appear/disappear */
+  pluginDirWatchers: FSWatcher[];
 }
 
 /** How a plugin was discovered: auto-discovered from global node_modules or explicitly listed in localPlugins */
@@ -379,6 +381,7 @@ export const createState = (): ServerState => ({
     mtimeLastPollAt: null,
     mtimePollDetections: 0,
     mtimePollDetectionTimestamps: [],
+    pluginDirWatchers: [],
   },
   wsSecret: null,
   cachedBrowserTools: [],

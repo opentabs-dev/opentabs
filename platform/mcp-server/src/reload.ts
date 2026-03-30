@@ -26,7 +26,7 @@ import {
   sendSyncFull,
   writeAllAdapterFiles,
 } from './extension-protocol.js';
-import { startConfigWatching, startFileWatching, stopFileWatching } from './file-watcher.js';
+import { startConfigWatching, startFileWatching, startPluginDirWatching, stopFileWatching } from './file-watcher.js';
 import { sweepStaleSessions } from './http-routes.js';
 import { pruneStaleBuffers } from './log-buffer.js';
 import { log } from './logger.js';
@@ -370,6 +370,10 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     const failedPaths = state.registry.failures.map(f => f.path);
     startFileWatching(state, callbacks, failedPaths);
     startConfigWatching(state, callbacks);
+
+    // Watch localPluginDirs parent directories for new plugin subdirectories
+    const resolvedPluginDirs = state.localPluginDirs.map(d => resolveLocalPath(d, getConfigDir()));
+    startPluginDirWatching(state, resolvedPluginDirs, callbacks);
 
     // Detect config.json writes that occurred during the async reload above.
     // stopFileWatching() cancelled any pending debounce timers, so those writes
