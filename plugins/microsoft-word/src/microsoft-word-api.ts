@@ -5,6 +5,7 @@ import {
   findLocalStorageEntry,
   getAuthCache,
   getLocalStorage,
+  parseRetryAfterMs,
   setAuthCache,
   waitUntil,
 } from '@opentabs-dev/plugin-sdk';
@@ -144,7 +145,7 @@ export const api = async <T>(
 
   if (response.status === 429) {
     const retryAfter = response.headers.get('Retry-After');
-    const retryMs = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : undefined;
+    const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
     throw ToolError.rateLimited('Microsoft Graph API rate limit exceeded.', retryMs);
   }
 
