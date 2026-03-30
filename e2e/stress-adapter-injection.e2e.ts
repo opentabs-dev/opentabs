@@ -15,6 +15,7 @@ import {
   replaceIifeClosing,
   setupIsolatedIifeTest,
   waitFor,
+  waitForLog,
   waitForToolResult,
   writeAndWaitForWatcher,
 } from './helpers.js';
@@ -258,6 +259,120 @@ test.describe('Stress — multiple tabs opening simultaneously', () => {
       for (const page of pages) {
         await page.close();
       }
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-004: Adapter file missing during injection (corruption recovery)
+// ---------------------------------------------------------------------------
+
+test.describe('Stress — adapter file missing (corruption recovery)', () => {
+  test('deleting adapter IIFE does not crash extension, restoring it recovers injection', async () => {
+    const ctx = await setupIsolatedIifeTest('stress-corruption');
+
+    try {
+      // Open a tab and wait for adapter injection + ready state
+      const page = await openTestAppTab(ctx.context, ctx.testServer.url, ctx.server, ctx.testServer);
+      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+      // Baseline: tool works
+      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+        message: 'before-corruption',
+      });
+      expect(baseline.message).toBe('before-corruption');
+
+      // Find the adapter IIFE file in the adapters directory
+      const adaptersDir = path.join(ctx.configDir, 'extension', 'adapters');
+      const adapterFiles = fs.readdirSync(adaptersDir).filter(f => f.startsWith('e2e-test') && f.endsWith('.js'));
+      expect(adapterFiles.length).toBeGreaterThan(0);
+
+      const adapterFileName = adapterFiles[0];
+      if (!adapterFileName) throw new Error('Expected at least one adapter file in adapters directory');
+      const adapterFilePath = path.join(adaptersDir, adapterFileName);
+
+      // Save the adapter content for later restoration
+      const savedContent = fs.readFileSync(adapterFilePath, 'utf-8');
+
+      // Delete the adapter IIFE file
+      fs.unlinkSync(adapterFilePath);
+
+      // Open a new tab — injection should fail since the adapter file is missing
+      const newPage = await ctx.context.newPage();
+      await newPage.goto(ctx.testServer.url, { waitUntil: 'load' });
+
+      // Wait a moment for the extension to attempt injection on the new tab
+      await new Promise(r => setTimeout(r, 3_000));
+
+      // Verify the adapter is NOT injected on the new tab
+      const injectedOnNew = await newPage.evaluate(() => {
+        const ot = (globalThis as Record<string, unknown>).__openTabs as
+          | { adapters?: Record<string, unknown> }
+          | undefined;
+        return ot?.adapters?.['e2e-test'] !== undefined;
+      });
+      expect(injectedOnNew).toBe(false);
+
+      // Verify server health is still ok
+      const health = await ctx.server.health();
+      expect(health).not.toBeNull();
+      expect(health?.status).toBe('ok');
+
+      // Check extension logs for a warning or error about the missing adapter
+      const logsResult = await ctx.client.callTool('extension_get_logs');
+      expect(logsResult.isError).toBe(false);
+      const logsData = parseToolResult(logsResult.content);
+      const entries = logsData.entries as Array<{ level: string; message: string }>;
+      // There should be some log related to adapter/injection issues (warn or error level)
+      // but the extension itself should not have crashed
+      const crashEntries = entries.filter(
+        e =>
+          e.level === 'error' &&
+          !e.message.includes('adapter') &&
+          !e.message.includes('inject') &&
+          !e.message.includes('IIFE') &&
+          !e.message.includes('No tab found') &&
+          !e.message.includes('navigation') &&
+          !e.message.includes('script'),
+      );
+      expect(crashEntries).toEqual([]);
+
+      // Restore the adapter file with the saved content
+      fs.writeFileSync(adapterFilePath, savedContent, 'utf-8');
+
+      // Trigger hot reload so the server re-discovers the plugin and sends update
+      ctx.server.triggerHotReload();
+      await waitForLog(ctx.server, 'Hot reload complete', 20_000);
+
+      // Wait for the new tab to get the adapter injected after restoration
+      await waitFor(
+        async () => {
+          const present = await newPage.evaluate(() => {
+            const ot = (globalThis as Record<string, unknown>).__openTabs as
+              | { adapters?: Record<string, unknown> }
+              | undefined;
+            return ot?.adapters?.['e2e-test'] !== undefined;
+          });
+          return present;
+        },
+        20_000,
+        500,
+        'e2e-test adapter to be re-injected on new tab after file restoration',
+      );
+
+      // Wait for the new tab to reach ready state
+      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+      // Verify tool calls work on the new tab after recovery
+      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+        message: 'after-recovery',
+      });
+      expect(afterResult.message).toBe('after-recovery');
+
+      await newPage.close();
+      await page.close();
     } finally {
       await ctx.cleanup();
     }
