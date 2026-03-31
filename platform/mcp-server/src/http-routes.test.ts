@@ -1,5 +1,5 @@
 import type { WsHandle } from '@opentabs-dev/shared';
-import { describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import type { HotHandlers } from './http-routes.js';
 import {
@@ -14,6 +14,21 @@ import { buildRegistry } from './registry.js';
 import type { CachedBrowserTool, ExtensionConnection, PendingDispatch } from './state.js';
 import { createState, getAnyConnection, getMergedTabMapping, STATE_SCHEMA_VERSION } from './state.js';
 import { version } from './version.js';
+
+// Suppress console output to prevent Vitest's onUserConsoleLog RPC from racing
+// with worker teardown. The wsOpen handler fires `sendSyncFull` as a
+// fire-and-forget promise that logs via console.warn after the test completes.
+// On macOS, the pending RPC message causes EnvironmentTeardownError.
+beforeAll(() => {
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'debug').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
+});
 
 /** Create a minimal mock McpServerInstance */
 const createMockSession = (): McpServerInstance => ({
