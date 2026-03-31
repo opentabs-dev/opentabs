@@ -947,6 +947,91 @@ test.describe('Multi-connection WebSocket support', () => {
     }
   });
 
+  test('disconnecting one connection mid-dispatch returns error within 5s, other stays functional', async ({
+    mcpServer,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    let wsAlpha: WebSocket | undefined;
+    let wsBeta: WebSocket | undefined;
+    try {
+      wsAlpha = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-dispatch-alpha');
+      wsBeta = await createRawWsConnection(mcpServer.port, mcpServer.secret, 'conn-dispatch-beta');
+      await mcpServer.waitForHealth(h => h.extensionConnections >= 2, 10_000);
+
+      // Register tabs from each connection so dispatches can be routed
+      sendJsonRpc(wsAlpha, 'tab.syncAll', {
+        tabs: {
+          'e2e-test': {
+            state: 'ready',
+            tabs: [{ tabId: 6001, url: 'http://localhost/dispatch-alpha', title: 'Dispatch Alpha', ready: true }],
+          },
+        },
+      });
+      await waitForLog(mcpServer, 'tab.syncAll received', 5_000);
+
+      mcpServer.logs.length = 0;
+      sendJsonRpc(wsBeta, 'tab.syncAll', {
+        tabs: {
+          'e2e-test': {
+            state: 'ready',
+            tabs: [{ tabId: 6002, url: 'http://localhost/dispatch-beta', title: 'Dispatch Beta', ready: true }],
+          },
+        },
+      });
+      await waitForLog(mcpServer, 'tab.syncAll received', 5_000);
+
+      // Set up Beta to respond to tool.dispatch messages with a successful echo
+      wsBeta.addEventListener('message', (event: MessageEvent) => {
+        try {
+          const msg = JSON.parse(String(event.data)) as Record<string, unknown>;
+          if (msg.method === 'tool.dispatch' && msg.id !== undefined) {
+            const params = msg.params as Record<string, unknown> | undefined;
+            const input = (params?.input as Record<string, unknown>) ?? {};
+            wsBeta?.send(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: msg.id,
+                result: { message: input.message ?? 'beta-response' },
+              }),
+            );
+          }
+        } catch {
+          // Ignore non-JSON
+        }
+      });
+
+      // Alpha intentionally does NOT handle tool.dispatch — leaving dispatches pending.
+
+      // Fire a tool dispatch targeting Alpha's tab (6001) — don't await yet
+      const dispatchStart = Date.now();
+      const alphaDispatch = mcpClient.callTool('e2e-test_echo', { message: 'alpha-test', tabId: 6001 });
+
+      // Wait 500ms for the dispatch to be sent to Alpha, then disconnect Alpha
+      await new Promise(r => setTimeout(r, 500));
+      wsAlpha.close();
+      wsAlpha = undefined;
+
+      // The dispatch must resolve with an error within 5s of disconnect
+      const result = await alphaDispatch;
+      const elapsed = Date.now() - dispatchStart;
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toMatch(/disconnect|Extension disconnected/i);
+      // 5s bound: dispatch should resolve quickly after disconnect, not wait 30s timeout
+      expect(elapsed).toBeLessThan(6_000);
+
+      // Verify Beta is still functional by dispatching a tool call targeting Beta's tab
+      const betaResult = await mcpClient.callTool('e2e-test_echo', { message: 'beta-alive', tabId: 6002 });
+      expect(betaResult.isError).toBe(false);
+      expect(betaResult.content).toContain('beta-alive');
+    } finally {
+      wsAlpha?.close();
+      wsBeta?.close();
+    }
+  });
+
   test('health endpoint shows extensionConnections count accurately', async ({ mcpServer }) => {
     // Initially no connections
     const h0 = await mcpServer.health();
