@@ -307,11 +307,14 @@ test.describe('Stress: Audit log under rapid tool calls', () => {
       // Wait for the plugin to become ready
       await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 30_000);
 
-      // Fire 50 echo calls sequentially (tests ordering, not throughput)
+      // Fire 50 echo calls sequentially (tests ordering, not throughput).
+      // Pace calls with a small delay to stay under the extension's
+      // tool.dispatch rate limit (30 requests per 1s window).
       const CALL_COUNT = 50;
       for (let i = 0; i < CALL_COUNT; i++) {
         const result = await mcpClient.callTool('e2e-test_echo', { message: `audit-seq-${i}` });
         expect(result.isError).toBe(false);
+        if (i < CALL_COUNT - 1) await new Promise(r => setTimeout(r, 40));
       }
 
       // Fetch audit log with limit high enough to capture all entries
@@ -376,24 +379,44 @@ test.describe('Stress: Secret rotation during active session', () => {
 
     const configDir = createTestConfigDir();
     let server: McpServer | undefined;
+    let testSrv: TestServer | undefined;
+    let ext1: Awaited<ReturnType<typeof launchExtensionContext>> | undefined;
+    let ext2: Awaited<ReturnType<typeof launchExtensionContext>> | undefined;
 
     try {
       // Start server with hot=false for clean kill/restart
       server = await startMcpServer(configDir, false);
+      testSrv = await startTestServer();
       const savedPort = server.port;
       const originalSecret = server.secret;
 
-      // Create MCP client with original secret and verify it works
+      // Launch extension so e2e-test plugin can dispatch tool calls
+      ext1 = await launchExtensionContext(savedPort, originalSecret);
+      setupAdapterSymlink(configDir, ext1.extensionDir);
+
+      // Create MCP client with original secret
       const oldClient = createMcpClient(savedPort, originalSecret);
       await oldClient.initialize();
 
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received');
+
+      // Open a matching tab so e2e-test plugin has a ready tab
+      const page = await ext1.context.newPage();
+      await page.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
+
+      // Wait for the plugin to become ready
+      await waitForToolResult(oldClient, 'e2e-test_get_status', {}, { isError: false }, 30_000);
+
+      // Verify echo works before rotation
       const echoResult = await oldClient.callTool('e2e-test_echo', { message: 'before-rotation' });
       expect(echoResult.isError).toBe(false);
       expect(echoResult.content).toContain('before-rotation');
 
-      // Kill the server
+      // Kill the server and close the old extension (it has the old secret)
       await server.kill();
       server = undefined;
+      await ext1.context.close().catch(() => {});
 
       // Rotate the secret by writing a new auth.json
       const newSecret = rotateSecret(configDir);
@@ -408,9 +431,26 @@ test.describe('Stress: Secret rotation during active session', () => {
         oldClient.callTool('e2e-test_echo', { message: 'stale-secret' }, { timeout: 10_000 }),
       ).rejects.toThrow(/401/);
 
+      // Launch a new extension with the new secret for post-rotation dispatch
+      ext2 = await launchExtensionContext(savedPort, newSecret);
+      // Symlink ext2's adapters dir to ext1's adapters (where the IIFE files live)
+      const ext2AdaptersDir = path.join(ext2.extensionDir, 'adapters');
+      fs.rmSync(ext2AdaptersDir, { recursive: true, force: true });
+      fs.symlinkSync(path.join(ext1.extensionDir, 'adapters'), ext2AdaptersDir, 'dir');
+
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received');
+
+      // Open a matching tab in the new extension context
+      const page2 = await ext2.context.newPage();
+      await page2.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
+
       // New client with new secret should succeed
       const newClient = createMcpClient(savedPort, newSecret);
       await newClient.initialize();
+
+      // Wait for the plugin to become ready on the new extension
+      await waitForToolResult(newClient, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 30_000);
 
       const newEchoResult = await newClient.callTool('e2e-test_echo', { message: 'after-rotation' });
       expect(newEchoResult.isError).toBe(false);
@@ -419,7 +459,12 @@ test.describe('Stress: Secret rotation during active session', () => {
       await newClient.close();
       await oldClient.close().catch(() => {});
     } finally {
+      if (ext1) await ext1.context.close().catch(() => {});
+      if (ext2) await ext2.context.close().catch(() => {});
+      if (testSrv) await testSrv.kill().catch(() => {});
       if (server) await server.kill().catch(() => {});
+      if (ext1?.cleanupDir) fs.rmSync(ext1.cleanupDir, { recursive: true, force: true });
+      if (ext2?.cleanupDir) fs.rmSync(ext2.cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
   });

@@ -1143,10 +1143,12 @@ test.describe('Permission change mid-flight — in-flight completes, next call d
       { timeout: 30_000 },
     );
 
-    // Give the call time to reach the extension and start executing before
-    // changing permissions (dispatch is near-instant over WebSocket).
+    // Wait for the dispatch to reach the extension. Dispatch is near-instant
+    // over WebSocket, but we wait 1s to ensure the slow call is genuinely
+    // in-flight before changing permissions.
     await new Promise(r => setTimeout(r, 1_000));
 
+    // Change e2e-test permission to 'off' via config reload.
     // Use POST /reload (config reload) instead of triggerHotReload (SIGUSR1)
     // because hot reload kills the worker process, which would interrupt the
     // in-flight slow call. Config reload re-reads config.json and updates

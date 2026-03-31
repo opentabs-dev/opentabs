@@ -451,17 +451,16 @@ test.describe('Tab state sync — 5-tab churn', () => {
     await waitForLog(mcpServer, 'plugin(s) mapped');
     await testServer.reset();
 
-    // Open 5 tabs in a tight loop — no waiting for ready state between opens.
-    // This stresses the pluginLocks serialization and checkTabStateChanges
-    // debouncing. Race conditions between onCreated/onRemoved events could
-    // produce phantom tabs.
-    const [tab0, tab1, tab2, tab3, tab4] = await Promise.all(
-      Array.from({ length: 5 }, async () => {
-        const page = await extensionContext.newPage();
-        void page.goto(testServer.url, { waitUntil: 'load' });
-        return page;
-      }),
-    );
+    // Open 5 tabs sequentially. Opening in parallel via Promise.all can
+    // race with browser context limits, causing "Target page has been closed"
+    // errors on page.goto.
+    const tabs: Awaited<ReturnType<typeof extensionContext.newPage>>[] = [];
+    for (let i = 0; i < 5; i++) {
+      const page = await extensionContext.newPage();
+      void page.goto(testServer.url, { waitUntil: 'load' });
+      tabs.push(page);
+    }
+    const [tab0, tab1, tab2, tab3, tab4] = tabs;
     if (!tab0 || !tab1 || !tab2 || !tab3 || !tab4) throw new Error('Expected 5 pages');
 
     // Close tabs at indices 0, 2, 4 (the 1st, 3rd, 5th) immediately —

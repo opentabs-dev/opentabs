@@ -11,7 +11,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from './fixtures.js';
-import { callToolExpectSuccess, setupToolTest, waitFor, waitForLog, waitForToolResult } from './helpers.js';
+import {
+  callToolExpectSuccess,
+  setupToolTest,
+  unwrapSingleConnection,
+  waitFor,
+  waitForLog,
+  waitForToolResult,
+} from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Hash-based skip on reconnect
@@ -133,9 +140,10 @@ test.describe('Adapter hash', () => {
     await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Call extension_check_adapter for the e2e-test plugin
-    const result = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
+    const resultRaw = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
       plugin: 'e2e-test',
     });
+    const result = unwrapSingleConnection(resultRaw);
 
     // Top-level fields
     expect(result.plugin).toBe('e2e-test');
@@ -183,9 +191,10 @@ test.describe('Adapter hash', () => {
     await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
 
     // Verify checkAdapter still reports correct state after the skipped reconnect
-    const result = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
+    const resultRaw = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
       plugin: 'e2e-test',
     });
+    const result = unwrapSingleConnection(resultRaw);
 
     const tabs = result.matchingTabs as Array<{
       adapterPresent: boolean;
@@ -225,9 +234,10 @@ test.describe('Adapter hash', () => {
     await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
 
     // Get the hash reported by extension_check_adapter
-    const result = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
+    const resultRaw = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
       plugin: 'e2e-test',
     });
+    const result = unwrapSingleConnection(resultRaw);
 
     const tabs = result.matchingTabs as Array<{
       adapterPresent: boolean;

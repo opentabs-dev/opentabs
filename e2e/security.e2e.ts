@@ -27,6 +27,7 @@ import {
   parseToolResult,
   setupAdapterSymlink,
   setupToolTest,
+  unwrapSingleConnection,
   waitFor,
   waitForExtensionConnected,
   waitForExtensionDisconnected,
@@ -222,11 +223,11 @@ test.describe('CORS protection — Origin header validation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// US-003: Per-plugin concurrency limit rejects 6th concurrent dispatch
+// US-003: Per-plugin concurrency limit rejects 26th concurrent dispatch
 // ---------------------------------------------------------------------------
 
 test.describe('Per-plugin concurrency limit', () => {
-  test('rejects 6th concurrent dispatch with concurrency error', async ({
+  test('rejects concurrent dispatch beyond limit with concurrency error', async ({
     mcpServer,
     testServer,
     extensionContext,
@@ -237,10 +238,11 @@ test.describe('Per-plugin concurrency limit', () => {
 
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    // Fire 6 concurrent slow_with_progress calls (limit is 5 per plugin).
+    // Fire 26 concurrent slow_with_progress calls (limit is 25 per plugin).
     // Each call sleeps for 10s with 2 progress steps — long enough to keep
-    // all 5 dispatch slots occupied while the 6th is checked.
-    const promises = Array.from({ length: 6 }, () =>
+    // all 25 dispatch slots occupied while the 26th is checked.
+    const count = 26;
+    const promises = Array.from({ length: count }, () =>
       mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
     );
     const results = await Promise.all(promises);
@@ -248,12 +250,12 @@ test.describe('Per-plugin concurrency limit', () => {
     const successes = results.filter(r => !r.isError);
     const failures = results.filter(r => r.isError);
 
-    // Exactly 5 should succeed and 1 should fail with the concurrency limit error
-    expect(successes).toHaveLength(5);
+    // Exactly 25 should succeed and 1 should fail with the concurrency limit error
+    expect(successes).toHaveLength(count - 1);
     expect(failures).toHaveLength(1);
     expect(failures[0]?.content).toContain('Too many concurrent dispatches');
     expect(failures[0]?.content).toContain('e2e-test');
-    expect(failures[0]?.content).toContain('limit: 5');
+    expect(failures[0]?.content).toContain('limit: 25');
 
     await page.close();
   });
@@ -268,12 +270,12 @@ test.describe('Per-plugin concurrency limit', () => {
 
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    // Fill all 5 slots with short-lived calls (2s each)
-    const fillPromises = Array.from({ length: 5 }, () =>
+    // Fill all 25 slots with short-lived calls (2s each)
+    const fillPromises = Array.from({ length: 25 }, () =>
       mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 2000, steps: 2 }, { timeout: 30_000 }),
     );
 
-    // Wait for all 5 to complete — all slots are now free
+    // Wait for all 25 to complete — all slots are now free
     const fillResults = await Promise.all(fillPromises);
     for (const r of fillResults) {
       expect(r.isError).toBe(false);
@@ -294,46 +296,46 @@ test.describe('Per-plugin concurrency limit', () => {
     await page.close();
   });
 
-  test('5th concurrent dispatch succeeds, 6th is rejected immediately, and slots are freed after completion', async ({
+  test('25th concurrent dispatch succeeds, 26th is rejected immediately, and slots are freed after completion', async ({
     mcpServer,
     testServer,
     extensionContext,
     mcpClient,
   }) => {
-    // This test occupies 5 slots for 10s each — mark as slow for extended timeout
+    // This test occupies 25 slots for 10s each — mark as slow for extended timeout
     test.slow();
 
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    // --- Phase 1: Fire 5 slow calls, then fire the 6th while they're in-flight ---
+    // --- Phase 1: Fire 25 slow calls, then fire the 26th while they're in-flight ---
 
-    // Start 5 slow calls (10s each) — these occupy all dispatch slots
-    const batch1Promises = Array.from({ length: 5 }, () =>
+    // Start 25 slow calls (10s each) — these occupy all dispatch slots
+    const batch1Promises = Array.from({ length: 25 }, () =>
       mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
     );
 
-    // Give the 5 calls time to be dispatched and registered in activeDispatches
-    await new Promise(r => setTimeout(r, 1_000));
+    // Give the 25 calls time to be dispatched and registered in activeDispatches
+    await new Promise(r => setTimeout(r, 2_000));
 
-    // Fire the 6th call — should be rejected immediately (not after 10s)
-    const sixthStart = Date.now();
-    const sixthResult = await mcpClient.callTool(
+    // Fire the 26th call — should be rejected immediately (not after 10s)
+    const overflowStart = Date.now();
+    const overflowResult = await mcpClient.callTool(
       'e2e-test_slow_with_progress',
       { durationMs: 10_000, steps: 2 },
       { timeout: 30_000 },
     );
-    const sixthElapsed = Date.now() - sixthStart;
+    const overflowElapsed = Date.now() - overflowStart;
 
-    // The 6th call must be rejected with the specific concurrency error
-    expect(sixthResult.isError).toBe(true);
-    expect(sixthResult.content).toContain('Too many concurrent dispatches');
-    expect(sixthResult.content).toContain('e2e-test');
-    expect(sixthResult.content).toContain('limit: 5');
+    // The 26th call must be rejected with the specific concurrency error
+    expect(overflowResult.isError).toBe(true);
+    expect(overflowResult.content).toContain('Too many concurrent dispatches');
+    expect(overflowResult.content).toContain('e2e-test');
+    expect(overflowResult.content).toContain('limit: 25');
 
     // The rejection must be immediate — well under the 10s duration of the in-flight calls
-    expect(sixthElapsed).toBeLessThan(5_000);
+    expect(overflowElapsed).toBeLessThan(5_000);
 
-    // Wait for all 5 in-flight calls to complete
+    // Wait for all 25 in-flight calls to complete
     const batch1Results = await Promise.all(batch1Promises);
     for (const r of batch1Results) {
       expect(r.isError).toBe(false);
@@ -341,10 +343,10 @@ test.describe('Per-plugin concurrency limit', () => {
       expect(output.completed).toBe(true);
     }
 
-    // --- Phase 2: Fire 5 new calls — all must succeed (proves slots were freed) ---
+    // --- Phase 2: Fire 25 new calls — all must succeed (proves slots were freed) ---
 
     const batch2Results = await Promise.all(
-      Array.from({ length: 5 }, () =>
+      Array.from({ length: 25 }, () =>
         mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 2_000, steps: 1 }, { timeout: 30_000 }),
       ),
     );
@@ -597,7 +599,7 @@ test.describe('Network capture cleanup when tab closes', () => {
     // 3. Verify capture is active via extension_get_state
     const stateResult1 = await mcpClient.callTool('extension_get_state');
     expect(stateResult1.isError).toBe(false);
-    const state1 = parseToolResult(stateResult1.content);
+    const state1 = unwrapSingleConnection(parseToolResult(stateResult1.content));
     const captures1 = state1.networkCaptures as Array<{ tabId: number; isCapturing: boolean }>;
     const activeCapture = captures1.find(c => c.tabId === tabId);
     expect(activeCapture).toBeDefined();
@@ -612,7 +614,7 @@ test.describe('Network capture cleanup when tab closes', () => {
       async () => {
         const stateResult = await mcpClient.callTool('extension_get_state');
         if (stateResult.isError) return false;
-        const state = parseToolResult(stateResult.content);
+        const state = unwrapSingleConnection(parseToolResult(stateResult.content));
         const captures = state.networkCaptures as Array<{ tabId: number }>;
         return !captures.some(c => c.tabId === tabId);
       },

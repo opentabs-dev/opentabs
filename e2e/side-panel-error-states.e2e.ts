@@ -34,7 +34,13 @@ import {
   test,
   writeTestConfig,
 } from './fixtures.js';
-import { openSidePanel, selectPermission, setupAdapterSymlink, waitForExtensionConnected } from './helpers.js';
+import {
+  openSidePanel,
+  selectPermission,
+  setupAdapterSymlink,
+  waitForExtensionConnected,
+  waitForLog,
+} from './helpers.js';
 
 test.describe('Side panel — permission change alongside error states', () => {
   test('permission change succeeds and persists to config.json alongside a broken plugin', async () => {
@@ -332,6 +338,11 @@ test.describe('Side panel — connection loss state behavior', () => {
 // US-004: Stress tests — rapid permission changes during error state
 // ---------------------------------------------------------------------------
 
+/** Read the e2e-test plugin version from its package.json for reviewedVersion matching. */
+const e2eTestPluginVersion = (
+  JSON.parse(fs.readFileSync(path.join(E2E_TEST_PLUGIN_DIR, 'package.json'), 'utf-8')) as { version: string }
+).version;
+
 const tick = (ms = 100) => new Promise(r => setTimeout(r, ms));
 const collectPageErrors = (page: Page): string[] => {
   const errors: string[] = [];
@@ -362,10 +373,12 @@ test.describe('stress', () => {
 
     // Start both plugins: e2e-test at 'off', broken at 'auto'.
     // skipPermissions disabled so permission selects are interactive.
+    // reviewedVersion set to prevent the unreviewed plugin confirmation dialog
+    // from blocking rapid permission toggling.
     writeTestConfig(configDir, {
       localPlugins: [absPluginPath, brokenPath],
       permissions: {
-        'e2e-test': { permission: 'off' },
+        'e2e-test': { permission: 'off', reviewedVersion: e2eTestPluginVersion },
         broken: { permission: 'auto' },
       },
     });
@@ -379,6 +392,7 @@ test.describe('stress', () => {
 
     try {
       await waitForExtensionConnected(server);
+      await waitForLog(server, 'tab.syncAll received', 15_000);
       await mcpClient.initialize();
 
       const sidePanelPage = await openSidePanel(context);

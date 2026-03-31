@@ -174,8 +174,8 @@ test.describe('Side panel accordion stress', () => {
       // Verify Echo tool visible in expanded e2e card
       await expect(sidePanelPage.getByText('Echo', { exact: true })).toBeVisible({ timeout: 5_000 });
 
-      // Verify browser_list_tabs permission select visible in expanded browser card
-      await expect(sidePanelPage.getByText('browser_list_tabs')).toBeVisible({ timeout: 5_000 });
+      // Verify a browser tool display name visible in expanded browser card
+      await expect(sidePanelPage.getByText('List Tabs', { exact: true })).toBeVisible({ timeout: 5_000 });
 
       expect(pageErrors).toEqual([]);
 

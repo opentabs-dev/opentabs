@@ -32,7 +32,7 @@ import {
 } from './state.js';
 
 /** Maximum concurrent tool dispatches per plugin to prevent tab performance degradation */
-const MAX_CONCURRENT_DISPATCHES_PER_PLUGIN = 5;
+const MAX_CONCURRENT_DISPATCHES_PER_PLUGIN = 25;
 
 /**
  * Extract the hostname from a Chrome match pattern (e.g., `*://hostname/*` → `hostname`).

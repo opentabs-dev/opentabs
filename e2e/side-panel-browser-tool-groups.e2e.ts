@@ -241,10 +241,14 @@ test.describe('stress', () => {
       await expect(browserCardAfter).toBeVisible({ timeout: 5_000 });
 
       // Expand and verify tool groups still render
-      await browserCardAfter.click();
+      const isExpanded = await browserCardAfter.getAttribute('aria-expanded');
+      if (isExpanded !== 'true') {
+        await browserCardAfter.click();
+      }
+      await expect(browserCardAfter).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
       const browserItemAfter = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'Browser' });
       const groupHeaders = browserItemAfter.locator('span.uppercase.tracking-wider');
-      await expect(groupHeaders.first()).toBeVisible({ timeout: 5_000 });
+      await expect(groupHeaders.first()).toBeVisible({ timeout: 10_000 });
 
       const headerCount = await groupHeaders.count();
       expect(headerCount).toBeGreaterThanOrEqual(3);

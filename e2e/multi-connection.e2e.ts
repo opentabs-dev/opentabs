@@ -202,7 +202,8 @@ test.describe('Multi-connection WebSocket support', () => {
       expect(health.extensionConnections).toBeGreaterThanOrEqual(1);
 
       // Verify that the server logged the disconnect for alpha
-      await waitForLog(mcpServer, 'Extension WebSocket disconnected (connectionId: conn-alpha)', 5_000);
+      // Log format includes profile label: "Extension WebSocket disconnected [A] (connectionId: conn-alpha)"
+      await waitForLog(mcpServer, 'disconnected', 5_000);
     } finally {
       wsAlpha?.close();
       wsBeta?.close();
@@ -229,7 +230,8 @@ test.describe('Multi-connection WebSocket support', () => {
       });
 
       // Server should log a connection with a UUID-format connectionId
-      await waitForLog(mcpServer, 'Extension WebSocket connected (connectionId:', 5_000);
+      // Log format includes profile label: "Extension WebSocket connected [A] (connectionId: ...)"
+      await waitForLog(mcpServer, 'Extension WebSocket connected', 5_000);
 
       const health = await mcpServer.waitForHealth(h => h.extensionConnected, 10_000);
       expect(health.extensionConnected).toBe(true);

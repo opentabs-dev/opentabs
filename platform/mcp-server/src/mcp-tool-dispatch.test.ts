@@ -889,7 +889,7 @@ describe('handlePluginToolCall', () => {
   test('concurrency limit exceeded returns error', async () => {
     vi.mocked(getToolPermission).mockReturnValue('auto');
     const state = createMockState();
-    state.activeDispatches.set('testplugin', 5);
+    state.activeDispatches.set('testplugin', 25);
     const lookup = createMockLookup();
     const extra = createMockExtra();
     const callbacks = createMockCallbacks();

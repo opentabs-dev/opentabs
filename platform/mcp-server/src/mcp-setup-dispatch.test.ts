@@ -389,7 +389,7 @@ describe('tools/call handler — concurrency and extension connection', () => {
     const state = createState();
     state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
     state.pluginPermissions = { slack: { tools: { send_message: 'auto' } } };
-    state.activeDispatches.set('slack', 5);
+    state.activeDispatches.set('slack', 25);
 
     const { server, getCallHandler } = createMockServer();
     registerMcpHandlers(server, state);

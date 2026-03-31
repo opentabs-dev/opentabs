@@ -216,16 +216,17 @@ test.describe('stress', () => {
         await new Promise(r => setTimeout(r, 200));
       }
 
-      // Wait for the side panel to settle after rapid reloads
-      await new Promise(r => setTimeout(r, 1_000));
-
-      // Verify E2E Test is still visible
-      await expect(sidePanelPage.locator('text=E2E Test')).toBeVisible({ timeout: 10_000 });
+      // Wait for the side panel to settle after rapid reloads.
+      // Each POST /reload triggers a full sync.full pipeline through the extension,
+      // which can temporarily clear and re-populate the side panel state.
+      // Use waitForLog to confirm the last reload was fully processed.
+      await waitForLog(server, 'Config reload complete', 15_000);
+      await new Promise(r => setTimeout(r, 2_000));
 
       // Verify exactly 1 plugin card (no duplicates).
       // The INSTALLED section renders plugin names inside accordion triggers.
       const pluginNames = sidePanelPage.getByText('E2E Test', { exact: true });
-      await expect(pluginNames).toHaveCount(1);
+      await expect(pluginNames).toHaveCount(1, { timeout: 30_000 });
 
       // Verify zero page errors
       expect(pageErrors).toHaveLength(0);

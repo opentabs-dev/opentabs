@@ -202,6 +202,19 @@ export const waitForToolList = async (
 export const parseToolResult = (content: string): Record<string, unknown> =>
   JSON.parse(content) as Record<string, unknown>;
 
+/**
+ * Unwrap a multi-connection response (from extension_get_state, extension_check_adapter, etc.)
+ * into the first connection's data. These tools return `{ connections: [{ connectionId, ...data }] }`
+ * but single-connection tests expect the flat data format.
+ */
+export const unwrapSingleConnection = (data: Record<string, unknown>): Record<string, unknown> => {
+  const connections = data.connections as Array<Record<string, unknown>> | undefined;
+  if (!connections || connections.length === 0) {
+    throw new Error('Expected at least one connection in multi-connection response');
+  }
+  return connections[0] as Record<string, unknown>;
+};
+
 /** Extract the machine-readable JSON block from a structured error response. */
 export const parseErrorJson = (content: string): Record<string, unknown> => {
   const match = content.match(/```json\n(.+?)\n```/s);
@@ -536,10 +549,17 @@ export const replaceIifeClosing = (iife: string, injection: string): string => {
 // Side panel permission helpers
 // ---------------------------------------------------------------------------
 
-/** Click a Radix Select trigger (by aria-label) and choose an option by display text. */
+/**
+ * Click a Radix Select trigger (by aria-label) and choose an option by display text.
+ * Waits for the popover to fully open before clicking the option, and waits for
+ * it to close after selection — prevents animation race conditions during rapid toggling.
+ */
 export const selectPermission = async (page: Page, ariaLabel: string, optionText: string): Promise<void> => {
   await page.locator(`[aria-label="${ariaLabel}"]`).click();
+  const listbox = page.locator('[role="listbox"]');
+  await listbox.waitFor({ state: 'visible', timeout: 5_000 });
   await page.locator('[role="option"]', { hasText: optionText }).click();
+  await listbox.waitFor({ state: 'hidden', timeout: 5_000 });
 };
 
 /**

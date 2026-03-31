@@ -34,6 +34,11 @@ import {
   waitForLog,
 } from './helpers.js';
 
+/** Read the e2e-test plugin version from its package.json for reviewedVersion matching. */
+const e2eTestPluginVersion = (
+  JSON.parse(fs.readFileSync(path.join(E2E_TEST_PLUGIN_DIR, 'package.json'), 'utf-8')) as { version: string }
+).version;
+
 // ---------------------------------------------------------------------------
 // Real-time state propagation tests
 // ---------------------------------------------------------------------------
@@ -401,9 +406,11 @@ test.describe('stress', () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-realtime-stress-'));
+    // reviewedVersion set to prevent the unreviewed plugin confirmation dialog
+    // from blocking rapid permission toggling.
     writeTestConfig(configDir, {
       localPlugins: [absPluginPath],
-      permissions: { 'e2e-test': { permission: 'auto' } },
+      permissions: { 'e2e-test': { permission: 'auto', reviewedVersion: e2eTestPluginVersion } },
     });
 
     const server = await startMcpServer(configDir, true, undefined, { OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '' });

@@ -270,7 +270,7 @@ const handleTabSyncAll = (params: Record<string, unknown> | undefined, senderCon
   }
 
   log.info(
-    `tab.syncAll [${senderConn.profileLabel}]: ${senderConn.tabMapping.size} plugin(s) mapped (connection: ${senderConn.connectionId})`,
+    `tab.syncAll received [${senderConn.profileLabel}]: ${senderConn.tabMapping.size} plugin(s) mapped (connection: ${senderConn.connectionId})`,
   );
 };
 
@@ -334,7 +334,7 @@ const handleTabStateChanged = (
     }
   }
 
-  log.info(`tab.stateChanged [${senderConn.profileLabel}]: ${plugin} → ${params.state}`);
+  log.info(`tab.stateChanged: ${plugin} → ${params.state} [${senderConn.profileLabel}]`);
 };
 
 // --- Config handlers ---

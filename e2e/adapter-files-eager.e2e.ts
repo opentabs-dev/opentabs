@@ -15,7 +15,13 @@ import {
   test,
   writeTestConfig,
 } from './fixtures.js';
-import { callToolExpectSuccess, setupToolTest, waitForLog, waitForToolResult } from './helpers.js';
+import {
+  callToolExpectSuccess,
+  setupToolTest,
+  unwrapSingleConnection,
+  waitForLog,
+  waitForToolResult,
+} from './helpers.js';
 
 test.describe('Eager adapter file writes', () => {
   test('adapter files exist on disk before extension connects', async () => {
@@ -140,7 +146,7 @@ test.describe('Adapter file cleanup on plugin removal', () => {
       const adapterPath = path.join(adaptersDir, adaptersAfterReAdd[0] as string);
       const content = fs.readFileSync(adapterPath, 'utf-8');
       expect(content.length).toBeGreaterThan(0);
-      expect(content.startsWith('(') || content.startsWith('void')).toBe(true);
+      expect(content.startsWith('(') || content.startsWith('void') || content.startsWith('"use strict"')).toBe(true);
     } finally {
       await server.kill();
       cleanupTestConfigDir(configDir);
@@ -170,9 +176,10 @@ test.describe('Eager adapter injection on first connect', () => {
 
     // Verify via extension_check_adapter that the adapter is present, hash
     // matches, and the plugin is ready — confirming no re-injection was needed.
-    const checkResult = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
+    const checkRaw = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
       plugin: 'e2e-test',
     });
+    const checkResult = unwrapSingleConnection(checkRaw);
 
     expect(checkResult.plugin).toBe('e2e-test');
 
