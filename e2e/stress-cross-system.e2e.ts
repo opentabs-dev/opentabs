@@ -415,15 +415,19 @@ test.describe('Cross-system stress tests', () => {
       // Stream 1-3: 3 MCP clients each making 10 echo calls with 500ms spacing
       const clientLoop = async (client: ReturnType<typeof createMcpClient>, prefix: string) => {
         const results: Array<{ content: string; isError: boolean }> = [];
+        let errorCount = 0;
         for (let i = 0; i < 10; i++) {
           try {
             const r = await client.callTool('e2e-test_echo', { message: `${prefix}${i}` });
             results.push(r);
-          } catch {
-            // Tool call may fail during config removal — expected
+            if (r.isError) errorCount++;
+          } catch (err) {
+            errorCount++;
+            console.log(`${prefix}: call ${i} error: ${String(err).slice(0, 80)}`);
           }
           await tick(500);
         }
+        console.log(`${prefix}: ${errorCount} errors during chaos`);
         return results;
       };
 
@@ -495,14 +499,15 @@ test.describe('Cross-system stress tests', () => {
       // 3. Open a fresh tab for adapter re-injection (existing tab may have lost adapter)
       await openTestAppTab(context, testServer.url, server, testServer);
 
-      // 4. At least one MCP client can make a successful echo call (system recovered)
+      // 4. ALL 3 MCP clients must recover after chaos — not just 1
       const recoveryResults = await Promise.allSettled([
         waitForToolResult(client1, 'e2e-test_echo', { message: 'recovery-1' }, { isError: false }, 20_000),
         waitForToolResult(client2, 'e2e-test_echo', { message: 'recovery-2' }, { isError: false }, 20_000),
         waitForToolResult(client3, 'e2e-test_echo', { message: 'recovery-3' }, { isError: false }, 20_000),
       ]);
-      const recoveredCount = recoveryResults.filter(r => r.status === 'fulfilled').length;
-      expect(recoveredCount).toBeGreaterThanOrEqual(1);
+      for (const [i, result] of recoveryResults.entries()) {
+        expect(result.status, `client ${i + 1} failed to recover after chaos`).toBe('fulfilled');
+      }
 
       // 5. Side panel shows the e2e-test plugin (config was restored)
       await expect(sp.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
