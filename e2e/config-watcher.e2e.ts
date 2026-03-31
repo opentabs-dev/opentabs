@@ -219,6 +219,100 @@ test.describe('Config watcher — auto-discovery', () => {
     }
   });
 
+  test('10 rapid config writes converge to last write within 5s', async () => {
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
+    let tmpDir: string | undefined;
+    try {
+      // Create 3 minimal plugins with known tool counts
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-rapid-'));
+      const alphaDir = createMinimalPlugin(tmpDir, 'alpha', [
+        { name: 'a1', description: 'Alpha tool 1' },
+        { name: 'a2', description: 'Alpha tool 2' },
+      ]);
+      const betaDir = createMinimalPlugin(tmpDir, 'beta', [{ name: 'b1', description: 'Beta tool 1' }]);
+      const gammaDir = createMinimalPlugin(tmpDir, 'gamma', [
+        { name: 'g1', description: 'Gamma tool 1' },
+        { name: 'g2', description: 'Gamma tool 2' },
+        { name: 'g3', description: 'Gamma tool 3' },
+      ]);
+
+      // Start with empty config (no plugins)
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cw-rapid-cfg-'));
+      writeTestConfig(configDir, { localPlugins: [] });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+
+      // Wait for config watcher to be set up
+      await waitForLog(server, 'Config watcher: Watching', 10_000);
+
+      // 10 rapid config writes at ~200ms intervals with varying plugin combinations.
+      // The last write (index 9) configures alpha, beta, gamma.
+      const configs: string[][] = [
+        [alphaDir], // 0: alpha only
+        [betaDir], // 1: beta only
+        [alphaDir, betaDir], // 2: alpha + beta
+        [], // 3: empty
+        [gammaDir], // 4: gamma only
+        [alphaDir, gammaDir], // 5: alpha + gamma
+        [betaDir, gammaDir], // 6: beta + gamma
+        [alphaDir], // 7: alpha only
+        [betaDir, gammaDir], // 8: beta + gamma
+        [alphaDir, betaDir, gammaDir], // 9: all three (final)
+      ];
+
+      for (let i = 0; i < configs.length; i++) {
+        const plugins = configs[i] ?? [];
+        writeTestConfig(configDir, { localPlugins: plugins });
+        if (i < configs.length - 1) {
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+
+      // The expected final tools from alpha, beta, gamma
+      const expectedTools = ['alpha_a1', 'alpha_a2', 'beta_b1', 'gamma_g1', 'gamma_g2', 'gamma_g3'];
+      const expectedToolSet = new Set(expectedTools);
+
+      // Wait until tools/list converges to exactly the last-written config within 5s
+      const builtInToolSet = new Set([
+        ...BROWSER_TOOL_NAMES,
+        'plugin_inspect',
+        'plugin_mark_reviewed',
+        'plugin_get_workflow',
+      ]);
+
+      const toolsAfter = await waitForToolList(
+        client,
+        list => {
+          const pluginTools = list.filter(t => !builtInToolSet.has(t.name));
+          if (pluginTools.length !== expectedTools.length) return false;
+          return pluginTools.every(t => expectedToolSet.has(t.name));
+        },
+        5_000,
+        300,
+        'tools/list to converge to alpha + beta + gamma (6 tools)',
+      );
+
+      // Verify exact tool set — no duplicates, no tools from intermediate configs
+      const pluginTools = toolsAfter.filter(t => !builtInToolSet.has(t.name));
+      expect(pluginTools.length).toBe(expectedTools.length);
+      const actualToolNames = new Set(pluginTools.map(t => t.name));
+      for (const expected of expectedTools) {
+        expect(actualToolNames.has(expected)).toBe(true);
+      }
+      // No duplicate tool names
+      expect(pluginTools.length).toBe(actualToolNames.size);
+    } finally {
+      await client?.close();
+      await server?.kill();
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+      if (configDir) cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('config watcher still works after hot reload', async () => {
     let configDir: string | undefined;
     let server: McpServer | undefined;
