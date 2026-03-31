@@ -144,6 +144,57 @@ test.describe('POST /reload coalescing', () => {
     }
   });
 
+  test('3 reloads within 500ms produce exactly 1 discovery cycle, 4th after gap produces a 2nd', async () => {
+    const server = await startMcpServer(configDir, true);
+    try {
+      await server.waitForHealth(h => h.status === 'ok');
+      const headers = authHeaders(server.secret);
+
+      // Record baseline count of 'Plugin discovery complete' log lines
+      const countDiscovery = () => server.logs.filter(line => line.includes('Plugin discovery complete')).length;
+      const baseline = countDiscovery();
+
+      // Fire 3 POST /reload at 0ms, 200ms, 400ms (all within the 500ms coalescing window)
+      const promises: Promise<Response>[] = [];
+      promises.push(postReload(server.port, headers));
+      await new Promise(r => setTimeout(r, 200));
+      promises.push(postReload(server.port, headers));
+      await new Promise(r => setTimeout(r, 200));
+      promises.push(postReload(server.port, headers));
+
+      // All 3 must return 200 with ok:true
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        expect(res.status).toBe(200);
+        const body = (await res.json()) as { ok: boolean };
+        expect(body.ok).toBe(true);
+      }
+
+      // Wait for coalesced discovery to finish (give it a moment to settle)
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Exactly 1 discovery cycle from the 3 coalesced reloads
+      expect(countDiscovery()).toBe(baseline + 1);
+
+      // Wait 700ms after the 3rd reload to exit the coalescing window
+      await new Promise(r => setTimeout(r, 700));
+
+      // Fire a 4th reload — must trigger a separate discovery cycle
+      const res4 = await postReload(server.port, headers);
+      expect(res4.status).toBe(200);
+      const body4 = (await res4.json()) as { ok: boolean };
+      expect(body4.ok).toBe(true);
+
+      // Wait for the 4th reload's discovery to complete
+      await new Promise(r => setTimeout(r, 1500));
+
+      // Final count: baseline + 2 (one from the coalesced batch, one from the 4th)
+      expect(countDiscovery()).toBe(baseline + 2);
+    } finally {
+      await server.kill();
+    }
+  });
+
   test('POST /reload no longer returns 429 even under heavy load', async () => {
     const server = await startMcpServer(configDir, true);
     try {
