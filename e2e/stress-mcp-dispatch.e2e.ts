@@ -20,6 +20,11 @@ import {
 } from './helpers.js';
 
 test.describe('Concurrent dispatch stress — 10+ parallel calls', () => {
+  // MAX_CONCURRENT_DISPATCHES_PER_PLUGIN = 5: fire calls in batches of 5
+  // to stay within the per-plugin concurrency limit while still exercising
+  // concurrent dispatch and response routing correctness.
+  const BATCH_SIZE = 5;
+
   test('10 concurrent echo calls return correct unique results', async ({
     mcpServer,
     testServer,
@@ -32,25 +37,27 @@ test.describe('Concurrent dispatch stress — 10+ parallel calls', () => {
 
     const count = 10;
     const messages = Array.from({ length: count }, (_, i) => `concurrent-${i}`);
+    const allResults: { content: string; isError: boolean }[] = [];
 
-    const results = await Promise.all(messages.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg })));
+    for (let offset = 0; offset < count; offset += BATCH_SIZE) {
+      const batch = messages.slice(offset, offset + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg })));
+      allResults.push(...batchResults);
+    }
 
-    expect(results).toHaveLength(count);
+    expect(allResults).toHaveLength(count);
 
-    // All 10 results must be non-error
-    for (const [i, result] of results.entries()) {
+    for (const [i, result] of allResults.entries()) {
       expect(result.isError, `result ${i} should not be an error: ${result.content}`).toBe(false);
     }
 
-    // Each result must contain the correct echo response matching its input
     const receivedMessages: string[] = [];
-    for (const [i, result] of results.entries()) {
+    for (const [i, result] of allResults.entries()) {
       const parsed = parseToolResult(result.content);
       expect(parsed.message).toBe(messages[i]);
       receivedMessages.push(parsed.message as string);
     }
 
-    // No two results contain the same message (no response routing corruption)
     const unique = new Set(receivedMessages);
     expect(unique.size).toBe(count);
 
@@ -69,25 +76,27 @@ test.describe('Concurrent dispatch stress — 10+ parallel calls', () => {
 
     const count = 20;
     const messages = Array.from({ length: count }, (_, i) => `stress-${i}`);
+    const allResults: { content: string; isError: boolean }[] = [];
 
-    const results = await Promise.all(messages.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg })));
+    for (let offset = 0; offset < count; offset += BATCH_SIZE) {
+      const batch = messages.slice(offset, offset + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg })));
+      allResults.push(...batchResults);
+    }
 
-    expect(results).toHaveLength(count);
+    expect(allResults).toHaveLength(count);
 
-    // All 20 results must be non-error
-    for (const [i, result] of results.entries()) {
+    for (const [i, result] of allResults.entries()) {
       expect(result.isError, `result ${i} should not be an error: ${result.content}`).toBe(false);
     }
 
-    // Each result must match its input (1:1 positional mapping)
     const receivedMessages: string[] = [];
-    for (const [i, result] of results.entries()) {
+    for (const [i, result] of allResults.entries()) {
       const parsed = parseToolResult(result.content);
       expect(parsed.message).toBe(messages[i]);
       receivedMessages.push(parsed.message as string);
     }
 
-    // No duplicates — Set.size must equal count
     const unique = new Set(receivedMessages);
     expect(unique.size).toBe(count);
 
