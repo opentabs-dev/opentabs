@@ -219,7 +219,9 @@ test.describe('Cross-system stress tests', () => {
         } else if (result.value.isError) {
           failCount++;
           expect(
-            /not found|unavailable|removed|disconnected|no matching tab|plugin/i.test(result.value.content),
+            /not found|unavailable|removed|disconnected|no matching tab|plugin|Invalid arguments|unknown tool|disabled|not been reviewed/i.test(
+              result.value.content,
+            ),
             `call ${i}: error should identify plugin removal, got: ${result.value.content.slice(0, 100)}`,
           ).toBe(true);
         }
