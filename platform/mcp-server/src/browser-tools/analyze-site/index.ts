@@ -836,35 +836,10 @@ const analyzeSite = async (
     // Step 4: Wait for page load and API calls
     await new Promise(resolve => setTimeout(resolve, waitSeconds * 1000));
 
-    // Step 5: Run detection scripts in the page context sequentially.
-    // Sequential execution avoids the extension's per-method rate limit
-    // (max 10 browser.executeScript calls per second) and is reliable
-    // since each script completes quickly (~5-50ms in page context).
-    // Each call is individually wrapped in try-catch so one failure
-    // returns partial results rather than crashing the entire analysis.
-
-    let csrfTokens: CsrfDomToken[] = [];
-    try {
-      csrfTokens = ((await executeInTab(state, tabId, CSRF_SCRIPT)) ?? []) as CsrfDomToken[];
-    } catch {
-      // Partial analysis: CSRF detection skipped
-    }
-
-    let globalsAuth: GlobalEntry[] = [];
-    try {
-      globalsAuth = ((await executeInTab(state, tabId, GLOBALS_AUTH_SCRIPT)) ?? []) as GlobalEntry[];
-    } catch {
-      // Partial analysis: globals auth detection skipped
-    }
-
-    let frameworkProbes: FrameworkProbe[] = [];
-    try {
-      frameworkProbes = deduplicateFrameworkProbes(
-        ((await executeInTab(state, tabId, FRAMEWORK_PROBE_SCRIPT)) ?? []) as FrameworkProbe[],
-      );
-    } catch {
-      // Partial analysis: framework detection skipped
-    }
+    // Step 5: Run detection scripts in the page context in parallel.
+    // Using Promise.allSettled ensures partial results on individual failures.
+    // The extension's rate limit (10 calls/sec) is not a concern here since
+    // all 11 scripts complete within ~50ms each in page context.
 
     const defaultSpaSsrProbe = {
       hasSingleRootElement: false,
@@ -873,110 +848,92 @@ const analyzeSite = async (
       hasNuxtData: false,
       hasHydrationMarkers: false,
     };
-    let spaSsrProbe = defaultSpaSsrProbe;
-    try {
-      spaSsrProbe =
-        ((await executeInTab(state, tabId, SPA_SSR_PROBE_SCRIPT)) as typeof defaultSpaSsrProbe | null) ??
-        defaultSpaSsrProbe;
-    } catch {
-      // Partial analysis: SPA/SSR detection skipped
-    }
-
-    let globalsScan: GlobalProperty[] = [];
-    try {
-      globalsScan = ((await executeInTab(state, tabId, GLOBALS_SCAN_SCRIPT)) ?? []) as GlobalProperty[];
-    } catch {
-      // Partial analysis: globals scan skipped
-    }
-
-    let forms: FormInput[] = [];
-    try {
-      forms = ((await executeInTab(state, tabId, FORMS_SCRIPT)) ?? []) as FormInput[];
-    } catch {
-      // Partial analysis: forms detection skipped
-    }
-
-    let interactiveElements: InteractiveElementInput[] = [];
-    try {
-      const result = (await executeInTab(state, tabId, INTERACTIVE_ELEMENTS_SCRIPT)) ?? [];
-      interactiveElements = result as InteractiveElementInput[];
-    } catch {
-      // Partial analysis: interactive elements detection skipped
-    }
-
-    let dataAttributes: string[] = [];
-    try {
-      dataAttributes = ((await executeInTab(state, tabId, DATA_ATTRIBUTES_SCRIPT)) ?? []) as string[];
-    } catch {
-      // Partial analysis: data attributes detection skipped
-    }
-
     const defaultStorageKeys = {
       cookieNames: [] as string[],
       localStorageKeys: [] as string[],
       sessionStorageKeys: [] as string[],
     };
-    let storageKeys = defaultStorageKeys;
-    try {
-      storageKeys =
-        ((await executeInTab(state, tabId, STORAGE_KEYS_SCRIPT)) as typeof defaultStorageKeys | null) ??
-        defaultStorageKeys;
-    } catch {
-      // Partial analysis: storage keys detection skipped
-    }
-
     const defaultStorageEntries = {
       localEntries: [] as StorageEntry[],
       sessionEntries: [] as StorageEntry[],
     };
-    let storageEntries = defaultStorageEntries;
-    try {
-      storageEntries =
-        ((await executeInTab(state, tabId, STORAGE_ENTRIES_SCRIPT)) as typeof defaultStorageEntries | null) ??
-        defaultStorageEntries;
-    } catch {
-      // Partial analysis: storage entries detection skipped
-    }
 
-    let pageTitle = '';
-    try {
-      pageTitle = ((await executeInTab(state, tabId, 'return document.title')) as string | null) ?? '';
-    } catch {
-      // Partial analysis: page title detection skipped
-    }
+    // Execute all page analysis scripts in parallel
+    const [
+      csrfResult,
+      globalsAuthResult,
+      frameworkResult,
+      spaSsrResult,
+      globalsScanResult,
+      formsResult,
+      interactiveResult,
+      dataAttrsResult,
+      storageKeysResult,
+      storageEntriesResult,
+      titleResult,
+    ] = await Promise.allSettled([
+      executeInTab(state, tabId, CSRF_SCRIPT),
+      executeInTab(state, tabId, GLOBALS_AUTH_SCRIPT),
+      executeInTab(state, tabId, FRAMEWORK_PROBE_SCRIPT),
+      executeInTab(state, tabId, SPA_SSR_PROBE_SCRIPT),
+      executeInTab(state, tabId, GLOBALS_SCAN_SCRIPT),
+      executeInTab(state, tabId, FORMS_SCRIPT),
+      executeInTab(state, tabId, INTERACTIVE_ELEMENTS_SCRIPT),
+      executeInTab(state, tabId, DATA_ATTRIBUTES_SCRIPT),
+      executeInTab(state, tabId, STORAGE_KEYS_SCRIPT),
+      executeInTab(state, tabId, STORAGE_ENTRIES_SCRIPT),
+      executeInTab(state, tabId, 'return document.title'),
+    ]);
 
-    // Step 6: Get captured network requests
-    let networkRequests: NetworkRequest[] = [];
-    try {
-      const networkResult = await dispatchToExtension(state, 'browser.getNetworkRequests', {
-        tabId,
-        clear: true,
-      });
-      networkRequests = validateDispatchResult<NetworkRequest>(networkResult, 'requests', 'browser.getNetworkRequests');
-    } catch {
-      // Partial analysis: network requests unavailable — finally block handles cleanup
-    }
+    // Extract results with fallbacks (preserves partial analysis behavior)
+    const csrfTokens = (csrfResult.status === 'fulfilled' ? (csrfResult.value ?? []) : []) as CsrfDomToken[];
+    const globalsAuth = (
+      globalsAuthResult.status === 'fulfilled' ? (globalsAuthResult.value ?? []) : []
+    ) as GlobalEntry[];
+    const frameworkProbes = deduplicateFrameworkProbes(
+      (frameworkResult.status === 'fulfilled' ? (frameworkResult.value ?? []) : []) as FrameworkProbe[],
+    );
+    const spaSsrProbe =
+      spaSsrResult.status === 'fulfilled' && spaSsrResult.value
+        ? (spaSsrResult.value as typeof defaultSpaSsrProbe)
+        : defaultSpaSsrProbe;
+    const globalsScan = (
+      globalsScanResult.status === 'fulfilled' ? (globalsScanResult.value ?? []) : []
+    ) as GlobalProperty[];
+    const forms = (formsResult.status === 'fulfilled' ? (formsResult.value ?? []) : []) as FormInput[];
+    const interactiveElements = (
+      interactiveResult.status === 'fulfilled' ? (interactiveResult.value ?? []) : []
+    ) as InteractiveElementInput[];
+    const dataAttributes = (dataAttrsResult.status === 'fulfilled' ? (dataAttrsResult.value ?? []) : []) as string[];
+    const storageKeys =
+      storageKeysResult.status === 'fulfilled' && storageKeysResult.value
+        ? (storageKeysResult.value as typeof defaultStorageKeys)
+        : defaultStorageKeys;
+    const storageEntries =
+      storageEntriesResult.status === 'fulfilled' && storageEntriesResult.value
+        ? (storageEntriesResult.value as typeof defaultStorageEntries)
+        : defaultStorageEntries;
+    const pageTitle = (titleResult.status === 'fulfilled' ? (titleResult.value ?? '') : '') as string;
 
-    // Get captured WebSocket frames
-    let wsFrames: WsFrame[] = [];
-    try {
-      const wsResult = await dispatchToExtension(state, 'browser.getWebSocketFrames', {
-        tabId,
-        clear: true,
-      });
-      wsFrames = validateDispatchResult<WsFrame>(wsResult, 'frames', 'browser.getWebSocketFrames');
-    } catch {
-      // Partial analysis: WebSocket frames unavailable
-    }
+    // Step 6: Get network data in parallel
+    const [networkResult, wsResult, cookieResult] = await Promise.allSettled([
+      dispatchToExtension(state, 'browser.getNetworkRequests', { tabId, clear: true }),
+      dispatchToExtension(state, 'browser.getWebSocketFrames', { tabId, clear: true }),
+      dispatchToExtension(state, 'browser.getCookies', { url }),
+    ]);
 
-    // Get cookies via extension API (includes HttpOnly cookies)
-    let cookies: CookieEntry[] = [];
-    try {
-      const cookieResult = await dispatchToExtension(state, 'browser.getCookies', { url });
-      cookies = validateDispatchResult<CookieEntry>(cookieResult, 'cookies', 'browser.getCookies');
-    } catch {
-      // Partial analysis: cookie data unavailable
-    }
+    const networkRequests =
+      networkResult.status === 'fulfilled'
+        ? validateDispatchResult<NetworkRequest>(networkResult.value, 'requests', 'browser.getNetworkRequests')
+        : [];
+    const wsFrames =
+      wsResult.status === 'fulfilled'
+        ? validateDispatchResult<WsFrame>(wsResult.value, 'frames', 'browser.getWebSocketFrames')
+        : [];
+    const cookies =
+      cookieResult.status === 'fulfilled'
+        ? validateDispatchResult<CookieEntry>(cookieResult.value, 'cookies', 'browser.getCookies')
+        : [];
 
     // Step 7: Run detection modules
     const auth = detectAuth({
