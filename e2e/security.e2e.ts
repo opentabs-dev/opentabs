@@ -293,6 +293,70 @@ test.describe('Per-plugin concurrency limit', () => {
 
     await page.close();
   });
+
+  test('5th concurrent dispatch succeeds, 6th is rejected immediately, and slots are freed after completion', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    // This test occupies 5 slots for 10s each — mark as slow for extended timeout
+    test.slow();
+
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // --- Phase 1: Fire 5 slow calls, then fire the 6th while they're in-flight ---
+
+    // Start 5 slow calls (10s each) — these occupy all dispatch slots
+    const batch1Promises = Array.from({ length: 5 }, () =>
+      mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
+    );
+
+    // Give the 5 calls time to be dispatched and registered in activeDispatches
+    await new Promise(r => setTimeout(r, 1_000));
+
+    // Fire the 6th call — should be rejected immediately (not after 10s)
+    const sixthStart = Date.now();
+    const sixthResult = await mcpClient.callTool(
+      'e2e-test_slow_with_progress',
+      { durationMs: 10_000, steps: 2 },
+      { timeout: 30_000 },
+    );
+    const sixthElapsed = Date.now() - sixthStart;
+
+    // The 6th call must be rejected with the specific concurrency error
+    expect(sixthResult.isError).toBe(true);
+    expect(sixthResult.content).toContain('Too many concurrent dispatches');
+    expect(sixthResult.content).toContain('e2e-test');
+    expect(sixthResult.content).toContain('limit: 5');
+
+    // The rejection must be immediate — well under the 10s duration of the in-flight calls
+    expect(sixthElapsed).toBeLessThan(5_000);
+
+    // Wait for all 5 in-flight calls to complete
+    const batch1Results = await Promise.all(batch1Promises);
+    for (const r of batch1Results) {
+      expect(r.isError).toBe(false);
+      const output = parseToolResult(r.content);
+      expect(output.completed).toBe(true);
+    }
+
+    // --- Phase 2: Fire 5 new calls — all must succeed (proves slots were freed) ---
+
+    const batch2Results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 2_000, steps: 1 }, { timeout: 30_000 }),
+      ),
+    );
+
+    for (const r of batch2Results) {
+      expect(r.isError).toBe(false);
+      const output = parseToolResult(r.content);
+      expect(output.completed).toBe(true);
+    }
+
+    await page.close();
+  });
 });
 
 // ---------------------------------------------------------------------------
