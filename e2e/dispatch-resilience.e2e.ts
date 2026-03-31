@@ -907,3 +907,72 @@ test.describe('MCP session invalidation after close', () => {
     await clientB.close();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stress — rapid concurrent calls interleaved with tab navigation
+// ---------------------------------------------------------------------------
+
+test.describe('stress', () => {
+  test('10 concurrent echo calls interleaved with tab navigation all settle correctly within 20s', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Fire 10 concurrent echo calls with distinct messages
+    const messages = Array.from({ length: 10 }, (_, i) => `rapid-${i}`);
+    const start = Date.now();
+    const promises = messages.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg }));
+
+    // Immediately navigate the tab to a non-matching URL
+    await page.goto(`${testServer.url.replace('localhost', '127.0.0.1')}/non-matching`, {
+      waitUntil: 'load',
+      timeout: 15_000,
+    });
+
+    // Wait for all 10 promises to settle
+    const results = await Promise.allSettled(promises);
+    const elapsed = Date.now() - start;
+
+    // All 10 must settle within 20s wall-clock (no 30s dispatch timeout hang)
+    expect(elapsed).toBeLessThan(20_000);
+
+    // All promises must fulfill (MCP protocol returns errors as fulfilled results with isError=true)
+    for (const result of results) {
+      expect(result.status).toBe('fulfilled');
+    }
+
+    // Validate each result: either correct echo or valid error
+    const successMessages: string[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      if (result?.status !== 'fulfilled') throw new Error(`Unexpected rejected promise at index ${i}`);
+      const val = result.value;
+
+      if (val.isError) {
+        // Failed calls must have errors matching the expected pattern
+        expect(val.content).toMatch(/unavailable|not ready|closed|no matching tab/i);
+      } else {
+        // Successful calls must have the correct positional message
+        const parsed = parseToolResult(val.content);
+        expect(parsed.message).toBe(messages[i]);
+        successMessages.push(parsed.message as string);
+      }
+    }
+
+    // No two successful results contain the same message
+    const uniqueSuccesses = new Set(successMessages);
+    expect(uniqueSuccesses.size).toBe(successMessages.length);
+
+    // After test, server health returns status='ok'
+    const health = await mcpServer.health();
+    expect(health).not.toBeNull();
+    expect(health?.status).toBe('ok');
+
+    await page.close();
+  });
+});
