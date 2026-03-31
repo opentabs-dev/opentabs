@@ -22,6 +22,7 @@ import {
   test,
   writeTestConfig,
 } from './fixtures.js';
+import { BROWSER_TOOL_NAMES } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -441,6 +442,195 @@ test.describe('Discovery edge cases — broken plugins', () => {
       // Verify the tool is now visible in tools/list
       const tools = await client.listTools();
       expect(tools.some(t => t.name === 'fixable_hello')).toBe(true);
+    } finally {
+      await client?.close();
+      await server?.kill();
+      if (configDir) cleanupTestConfigDir(configDir);
+      if (tmpDir) fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test('3 broken + 2 valid plugins — valid MUST load with exact tool counts, broken in failedPlugins', async () => {
+    let tmpDir: string | undefined;
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
+    try {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-stress-'));
+
+      // --- 3 broken plugins with distinct failure modes ---
+
+      // (a) Missing dist/tools.json
+      const brokenNoToolsDir = path.join(tmpDir, 'broken-no-tools');
+      fs.mkdirSync(path.join(brokenNoToolsDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(brokenNoToolsDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-no-tools',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Broken No Tools',
+            description: 'Missing tools.json',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(brokenNoToolsDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+
+      // (b) Corrupt adapter IIFE (syntax error in tools.json)
+      const brokenCorruptDir = path.join(tmpDir, 'broken-corrupt');
+      fs.mkdirSync(path.join(brokenCorruptDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(brokenCorruptDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-corrupt',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+          opentabs: {
+            displayName: 'Broken Corrupt',
+            description: 'Corrupt tools.json',
+            urlPatterns: ['http://localhost/*'],
+          },
+        }),
+      );
+      fs.writeFileSync(path.join(brokenCorruptDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+      fs.writeFileSync(path.join(brokenCorruptDir, 'dist', 'tools.json'), '{ INVALID JSON !!!');
+
+      // (c) Missing opentabs field in package.json
+      const brokenNoOpentabsDir = path.join(tmpDir, 'broken-no-opentabs');
+      fs.mkdirSync(path.join(brokenNoOpentabsDir, 'dist'), { recursive: true });
+      fs.writeFileSync(
+        path.join(brokenNoOpentabsDir, 'package.json'),
+        JSON.stringify({
+          name: 'opentabs-plugin-broken-no-opentabs',
+          version: '0.0.1',
+          type: 'module',
+          main: 'dist/adapter.iife.js',
+        }),
+      );
+      fs.writeFileSync(
+        path.join(brokenNoOpentabsDir, 'dist', 'tools.json'),
+        JSON.stringify({
+          tools: [
+            {
+              name: 'ghost',
+              displayName: 'Ghost',
+              description: 'Should not load',
+              icon: 'wrench',
+              input_schema: { type: 'object', properties: {}, additionalProperties: false },
+              output_schema: {
+                type: 'object',
+                properties: { ok: { type: 'boolean' } },
+                required: ['ok'],
+                additionalProperties: false,
+              },
+            },
+          ],
+        }),
+      );
+      fs.writeFileSync(path.join(brokenNoOpentabsDir, 'dist', 'adapter.iife.js'), '(function(){})();');
+
+      // --- 2 valid plugins with known tool counts ---
+
+      // valid-alpha: 2 tools
+      const validAlphaDir = createMinimalPlugin(tmpDir, 'valid-alpha', [
+        { name: 'ping', description: 'Alpha ping' },
+        { name: 'pong', description: 'Alpha pong' },
+      ]);
+
+      // valid-beta: 3 tools
+      const validBetaDir = createMinimalPlugin(tmpDir, 'valid-beta', [
+        { name: 'read', description: 'Beta read' },
+        { name: 'write', description: 'Beta write' },
+        { name: 'delete', description: 'Beta delete' },
+      ]);
+
+      // --- Configure all 5 broken/valid plugins plus e2e-test ---
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const e2eToolNames = readPluginToolNames();
+      const tools: Record<string, boolean> = {};
+      for (const t of e2eToolNames) {
+        tools[t] = true;
+      }
+      tools['valid-alpha_ping'] = true;
+      tools['valid-alpha_pong'] = true;
+      tools['valid-beta_read'] = true;
+      tools['valid-beta_write'] = true;
+      tools['valid-beta_delete'] = true;
+
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-stress-cfg-'));
+      writeTestConfig(configDir, {
+        localPlugins: [
+          absPluginPath,
+          path.resolve(brokenNoToolsDir),
+          path.resolve(brokenCorruptDir),
+          path.resolve(brokenNoOpentabsDir),
+          validAlphaDir,
+          validBetaDir,
+        ],
+        tools,
+      });
+
+      server = await startMcpServer(configDir, true);
+      client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+      const health = await server.waitForHealth(h => h.status === 'ok');
+
+      // --- Verify broken plugins are in failedPlugins ---
+      const raw = await fetch(`http://localhost:${String(server.port)}/health`, {
+        headers: server.secret ? { Authorization: `Bearer ${server.secret}` } : {},
+        signal: AbortSignal.timeout(5_000),
+      });
+      const body = (await raw.json()) as {
+        failedPlugins: Array<{ path: string; error: string }>;
+        pluginDetails?: Array<{ name: string; toolCount: number }>;
+      };
+
+      expect(body.failedPlugins.length).toBeGreaterThanOrEqual(3);
+      expect(body.failedPlugins.find(f => f.path.includes('broken-no-tools'))).toBeDefined();
+      expect(body.failedPlugins.find(f => f.path.includes('broken-corrupt'))).toBeDefined();
+      expect(body.failedPlugins.find(f => f.path.includes('broken-no-opentabs'))).toBeDefined();
+
+      // --- Verify valid plugins loaded with exact tool counts ---
+      expect(health.pluginDetails).toBeDefined();
+      const alphaPlugin = health.pluginDetails?.find(p => p.name === 'valid-alpha');
+      expect(alphaPlugin).toBeDefined();
+      expect(alphaPlugin?.toolCount).toBe(2);
+
+      const betaPlugin = health.pluginDetails?.find(p => p.name === 'valid-beta');
+      expect(betaPlugin).toBeDefined();
+      expect(betaPlugin?.toolCount).toBe(3);
+
+      // --- Verify tools/list contains exactly the expected plugin tools ---
+      const allTools = await client.listTools();
+      const builtInToolSet = new Set([
+        ...BROWSER_TOOL_NAMES,
+        'plugin_inspect',
+        'plugin_mark_reviewed',
+        'plugin_get_workflow',
+      ]);
+      const pluginTools = allTools.filter(t => !builtInToolSet.has(t.name));
+
+      // Expected: e2e-test tools + valid-alpha (2) + valid-beta (3)
+      const expectedPluginToolCount = e2eToolNames.length + 2 + 3;
+      expect(pluginTools.length).toBe(expectedPluginToolCount);
+
+      // No duplicate tools
+      const toolNames = pluginTools.map(t => t.name);
+      expect(new Set(toolNames).size).toBe(toolNames.length);
+
+      // No tools from broken plugins
+      expect(toolNames.every(n => !n.startsWith('broken-'))).toBe(true);
+
+      // Valid plugin tools are present
+      expect(toolNames).toContain('valid-alpha_ping');
+      expect(toolNames).toContain('valid-alpha_pong');
+      expect(toolNames).toContain('valid-beta_read');
+      expect(toolNames).toContain('valid-beta_write');
+      expect(toolNames).toContain('valid-beta_delete');
     } finally {
       await client?.close();
       await server?.kill();
