@@ -412,7 +412,80 @@ test.describe('Multi-instance — tool schema injection', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test 6: Dispatch with instance when that tab is not open returns error
+// Test 6: Concurrent dispatch to alpha and beta — no cross-routing
+// ---------------------------------------------------------------------------
+
+test.describe('Multi-instance — concurrent dispatch no cross-routing', () => {
+  test('concurrent echo calls route to correct instances with no cross-contamination', async () => {
+    test.slow();
+    let ctx: MultiInstanceTestContext | undefined;
+    try {
+      ctx = await setupMultiInstanceTest();
+
+      // Open alpha tab (localhost)
+      const alphaPage = await openTestAppTab(ctx.context, ctx.alphaServer.url, ctx.server, ctx.alphaServer);
+
+      // Open beta tab (127.0.0.1)
+      const betaUrl = ctx.betaServer.url.replace('localhost', '127.0.0.1');
+      const betaPage = await ctx.context.newPage();
+      await betaPage.goto(betaUrl, { waitUntil: 'load' });
+      await betaPage.waitForFunction(
+        () => {
+          const ot = (globalThis as Record<string, unknown>).__openTabs as
+            | { adapters?: Record<string, unknown> }
+            | undefined;
+          return ot?.adapters?.['e2e-test'] !== undefined;
+        },
+        { timeout: 15_000 },
+      );
+
+      // Wait for both tabs to be ready
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Reset invocation counters before the concurrent calls
+      await ctx.alphaServer.reset();
+      await ctx.betaServer.reset();
+
+      // Fire concurrent echo calls — one to alpha, one to beta via Promise.all
+      const [alphaResult, betaResult] = await Promise.all([
+        ctx.client.callTool('e2e-test_echo', {
+          message: 'from-alpha',
+          instance: 'alpha',
+        }),
+        ctx.client.callTool('e2e-test_echo', {
+          message: 'from-beta',
+          instance: 'beta',
+        }),
+      ]);
+
+      // Both calls succeed
+      expect(alphaResult.isError).toBe(false);
+      expect(betaResult.isError).toBe(false);
+
+      // Verify alpha server received exactly 1 echo with the correct message
+      const alphaInvocations = await ctx.alphaServer.invocations();
+      const alphaEchoes = alphaInvocations.filter(i => i.path === '/api/echo');
+      expect(alphaEchoes.length).toBe(1);
+      const alphaBody = alphaEchoes[0]?.body as { message?: string } | undefined;
+      expect(alphaBody?.message).toBe('from-alpha');
+
+      // Verify beta server received exactly 1 echo with the correct message
+      const betaInvocations = await ctx.betaServer.invocations();
+      const betaEchoes = betaInvocations.filter(i => i.path === '/api/echo');
+      expect(betaEchoes.length).toBe(1);
+      const betaBody = betaEchoes[0]?.body as { message?: string } | undefined;
+      expect(betaBody?.message).toBe('from-beta');
+
+      await alphaPage.close();
+      await betaPage.close();
+    } finally {
+      if (ctx) await cleanupMultiInstanceTest(ctx);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 7: Dispatch with instance when that tab is not open returns error
 // ---------------------------------------------------------------------------
 
 test.describe('Multi-instance — missing instance tab', () => {

@@ -6,7 +6,15 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { cleanupTestConfigDir, createTestConfigDir, expect, startMcpServer, test } from './fixtures.js';
+import {
+  cleanupTestConfigDir,
+  createTestConfigDir,
+  expect,
+  readTestConfig,
+  startMcpServer,
+  test,
+  writeTestConfig,
+} from './fixtures.js';
 import { callToolExpectSuccess, setupToolTest, waitForLog, waitForToolResult } from './helpers.js';
 
 test.describe('Eager adapter file writes', () => {
@@ -72,6 +80,67 @@ test.describe('Eager adapter file writes', () => {
       const adapterPath = path.join(adaptersDir, adaptersAfter[0] as string);
       const stat = fs.statSync(adapterPath);
       expect(stat.size).toBeGreaterThan(0);
+    } finally {
+      await server.kill();
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+test.describe('Adapter file cleanup on plugin removal', () => {
+  test('removing plugin clears adapter files, re-adding recreates them', async () => {
+    const configDir = createTestConfigDir();
+    const server = await startMcpServer(configDir, true);
+
+    try {
+      const adaptersDir = path.join(configDir, 'extension', 'adapters');
+
+      // Step 1: Verify adapter files exist after startup
+      const filesInitial = fs.readdirSync(adaptersDir);
+      const adaptersInitial = filesInitial.filter(f => f.startsWith('e2e-test-') && f.endsWith('.js'));
+      expect(adaptersInitial.length).toBe(1);
+
+      // Step 2: Remove the plugin from config and trigger hot reload
+      const config = readTestConfig(configDir);
+      const originalLocalPlugins = [...config.localPlugins];
+      const originalPermissions = config.permissions ? { ...config.permissions } : undefined;
+
+      writeTestConfig(configDir, {
+        ...config,
+        localPlugins: [],
+        permissions: { browser: { permission: 'auto' } },
+      });
+
+      server.logs.length = 0;
+      server.triggerHotReload();
+      await waitForLog(server, 'Hot reload complete', 20_000);
+
+      // Verify 0 adapter files for e2e-test exist after removal
+      const filesAfterRemoval = fs.readdirSync(adaptersDir);
+      const adaptersAfterRemoval = filesAfterRemoval.filter(f => f.startsWith('e2e-test-') && f.endsWith('.js'));
+      expect(adaptersAfterRemoval.length).toBe(0);
+
+      // Step 3: Re-add the plugin and trigger hot reload
+      writeTestConfig(configDir, {
+        ...config,
+        localPlugins: originalLocalPlugins,
+        permissions: originalPermissions,
+      });
+
+      server.logs.length = 0;
+      server.triggerHotReload();
+      await waitForLog(server, 'Hot reload complete', 20_000);
+
+      // Verify exactly 1 adapter file exists after re-adding
+      const filesAfterReAdd = fs.readdirSync(adaptersDir);
+      const adaptersAfterReAdd = filesAfterReAdd.filter(f => f.startsWith('e2e-test-') && f.endsWith('.js'));
+      expect(adaptersAfterReAdd.length).toBe(1);
+
+      // Verify the re-created file is non-empty and contains valid IIFE structure
+      const adapterPath = path.join(adaptersDir, adaptersAfterReAdd[0] as string);
+      const content = fs.readFileSync(adapterPath, 'utf-8');
+      expect(content.length).toBeGreaterThan(0);
+      expect(content.startsWith('(') || content.startsWith('void')).toBe(true);
     } finally {
       await server.kill();
       cleanupTestConfigDir(configDir);
