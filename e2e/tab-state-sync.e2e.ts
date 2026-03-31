@@ -25,12 +25,22 @@ import {
 } from './fixtures.js';
 import {
   openTestAppTab,
+  parseToolResult,
   setupAdapterSymlink,
   setupToolTest,
+  waitFor,
   waitForExtensionConnected,
   waitForLog,
   waitForToolResult,
 } from './helpers.js';
+
+/** Shape of plugin_list_tabs response entries. */
+interface PluginTabsEntry {
+  plugin: string;
+  displayName: string;
+  state: string;
+  tabs: Array<{ tabId: number; url: string; title: string; ready: boolean }>;
+}
 
 // ---------------------------------------------------------------------------
 // US-003: Navigate away → closed transition
@@ -420,5 +430,87 @@ test.describe('Tab state sync — server restart reconnect', () => {
       fs.rmSync(cleanupDir, { recursive: true, force: true });
       cleanupTestConfigDir(configDir);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-007: 5-tab churn — open 5, close 3, verify exact final count
+// ---------------------------------------------------------------------------
+
+test.describe('Tab state sync — 5-tab churn', () => {
+  test('opening 5 tabs and closing 3 immediately produces exactly 2 ready tabs', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    // Wait for extension to connect and initial sync
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+    await testServer.reset();
+
+    // Open 5 tabs in a tight loop — no waiting for ready state between opens.
+    // This stresses the pluginLocks serialization and checkTabStateChanges
+    // debouncing. Race conditions between onCreated/onRemoved events could
+    // produce phantom tabs.
+    const [tab0, tab1, tab2, tab3, tab4] = await Promise.all(
+      Array.from({ length: 5 }, async () => {
+        const page = await extensionContext.newPage();
+        void page.goto(testServer.url, { waitUntil: 'load' });
+        return page;
+      }),
+    );
+    if (!tab0 || !tab1 || !tab2 || !tab3 || !tab4) throw new Error('Expected 5 pages');
+
+    // Close tabs at indices 0, 2, 4 (the 1st, 3rd, 5th) immediately —
+    // no await for ready state between closes.
+    await tab0.close();
+    await tab2.close();
+    await tab4.close();
+
+    // Poll plugin_list_tabs until exactly 2 tabs with ready=true.
+    // The exact count (2) is the key assertion — not >= 2.
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const entry = data[0];
+        if (!entry) return false;
+        return entry.tabs.length === 2 && entry.tabs.every(t => t.ready);
+      },
+      30_000,
+      500,
+      'plugin_list_tabs to report exactly 2 tabs, both ready=true',
+    );
+
+    // Verify the final state
+    const finalResult = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+    expect(finalResult.isError).toBe(false);
+    const finalPlugins = JSON.parse(finalResult.content) as PluginTabsEntry[];
+    const finalEntry = finalPlugins[0];
+    if (!finalEntry) throw new Error('Expected plugin entry in plugin_list_tabs response');
+
+    // Exactly 2 tabs
+    expect(finalEntry.tabs.length).toBe(2);
+
+    // Both ready
+    expect(finalEntry.tabs.every(t => t.ready)).toBe(true);
+
+    // Distinct tabIds
+    const tabIds = finalEntry.tabs.map(t => t.tabId);
+    expect(new Set(tabIds).size).toBe(2);
+
+    // Tool dispatch succeeds on one of the remaining tabs
+    const echoResult = await mcpClient.callTool('e2e-test_echo', { message: 'churn-survivor' });
+    expect(echoResult.isError).toBe(false);
+    const parsed = parseToolResult(echoResult.content);
+    expect(parsed.message).toBe('churn-survivor');
+
+    // Clean up remaining tabs
+    await tab1.close();
+    await tab3.close();
   });
 });
