@@ -723,6 +723,59 @@ test.describe('Adapter injection', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('stress', () => {
+  test('auth toggle mid-execution — in-flight call completes, next call fails', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Make tool responses take 3s
+    await testServer.setSlow(3_000);
+
+    // Fire slow echo call (don't await) — auth is checked ONCE at dispatch entry
+    const inFlightPromise = mcpClient.callTool('e2e-test_echo', { message: 'in-flight' });
+
+    // Wait 500ms, then toggle auth off while the call is in-flight
+    await new Promise(r => setTimeout(r, 500));
+    await testServer.setAuth(false);
+
+    // The in-flight call MUST succeed — auth was already checked before the slow fetch began
+    const inFlightResult = await inFlightPromise;
+    expect(inFlightResult.isError).toBe(false);
+    const inFlightOutput = parseToolResult(inFlightResult.content);
+    expect(inFlightOutput.message).toBe('in-flight');
+
+    // Reset slow mode so subsequent calls respond immediately
+    await testServer.setSlow(0);
+
+    // Next call MUST fail — auth is off, isReady() returns false
+    const failResult = await waitForToolResult(
+      mcpClient,
+      'e2e-test_echo',
+      { message: 'should-fail' },
+      { isError: true },
+    );
+    expect(failResult.content.toLowerCase()).toMatch(/unavailable|not ready/);
+
+    // Restore auth — tool should recover
+    await testServer.setAuth(true);
+
+    const recoveredResult = await waitForToolResult(
+      mcpClient,
+      'e2e-test_echo',
+      { message: 'recovered' },
+      { isError: false },
+    );
+    const recoveredOutput = parseToolResult(recoveredResult.content);
+    expect(recoveredOutput.message).toBe('recovered');
+
+    await page.close();
+  });
+
   test('tab churn 5 cycles — tool dispatch always recovers', async ({
     mcpServer,
     testServer,
