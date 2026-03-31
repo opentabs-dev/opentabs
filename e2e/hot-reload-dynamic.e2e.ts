@@ -29,15 +29,20 @@ import {
   createMinimalPlugin,
   E2E_TEST_PLUGIN_DIR,
   expect,
+  launchExtensionContext,
   readPluginToolNames,
   readTestConfig,
   startMcpServer,
+  startTestServer,
+  symlinkCrossPlatform,
   test,
   writeTestConfig,
 } from './fixtures.js';
 import {
   BROWSER_TOOL_NAMES,
+  openTestAppTab,
   parseToolResult,
+  setupAdapterSymlink,
   setupToolTest,
   waitFor,
   waitForExtensionConnected,
@@ -1451,6 +1456,120 @@ test.describe
         await client.close();
         await server.kill();
         fs.rmSync(tmpDir, { recursive: true, force: true });
+        cleanupTestConfigDir(configDir);
+      }
+    });
+  });
+
+// ---------------------------------------------------------------------------
+// Stress test — file watcher manifest change during active tool dispatch
+// ---------------------------------------------------------------------------
+
+test.describe
+  .serial('File watcher — manifest change during active tool dispatch', () => {
+    test('in-flight slow call completes and new tool appears after manifest change', async () => {
+      test.slow();
+
+      // Copy the E2E test plugin so we can modify dist/tools.json safely
+      const { pluginDir, tmpDir } = copyE2eTestPlugin();
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-dispatch-'));
+
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
+
+      const server = await startMcpServer(configDir, true);
+      const testServer = await startTestServer();
+      const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+
+      // Set up adapter + auth symlinks so the extension shares adapter IIFEs with the server
+      setupAdapterSymlink(configDir, extensionDir);
+      const serverAuthJson = path.join(configDir, 'extension', 'auth.json');
+      const extensionAuthJson = path.join(extensionDir, 'auth.json');
+      fs.rmSync(extensionAuthJson, { force: true });
+      symlinkCrossPlatform(serverAuthJson, extensionAuthJson, 'file');
+
+      const client = createMcpClient(server.port, server.secret);
+
+      try {
+        await client.initialize();
+
+        // Wait for the extension to connect and open a test tab
+        await waitForExtensionConnected(server);
+        await waitForLog(server, 'tab.syncAll received');
+        await testServer.reset();
+        const page = await openTestAppTab(context, testServer.url, server, testServer);
+
+        // Wait until the e2e-test plugin tools are callable
+        await waitForToolResult(client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+        // Verify the dynamic tool does NOT exist yet
+        const toolsBefore = await client.listTools();
+        expect(toolsBefore.map(t => t.name)).not.toContain('e2e-test_dynamic_tool');
+
+        // Start a slow tool call (3s duration) — this dispatches through the extension
+        const slowCallPromise = client.callTool(
+          'e2e-test_slow_with_progress',
+          { durationMs: 3000, steps: 2 },
+          { timeout: 30_000 },
+        );
+
+        // Wait until the slow call is actually in-flight (progress started)
+        await waitFor(
+          () => server.logs.some(l => l.includes('slow_with_progress') && l.includes('progress')),
+          10_000,
+          200,
+          'slow_with_progress to start reporting progress',
+        );
+
+        // While the slow call is in-flight, add a new tool to dist/tools.json
+        const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
+        const tools = readToolsFromManifest(toolsJsonPath);
+        tools.push({
+          name: 'dynamic_tool',
+          displayName: 'Dynamic Tool',
+          description: 'Dynamically added during active dispatch',
+          icon: 'wrench',
+          input_schema: { type: 'object', properties: {}, additionalProperties: false },
+          output_schema: {
+            type: 'object',
+            properties: { ok: { type: 'boolean' } },
+            required: ['ok'],
+            additionalProperties: false,
+          },
+        });
+        await writeAndWaitForWatcher(
+          server,
+          () => writeToolsToManifest(toolsJsonPath, tools),
+          'tools.json updated for',
+        );
+
+        // The in-flight slow call MUST complete successfully
+        const slowResult = await slowCallPromise;
+        expect(slowResult.isError).toBe(false);
+
+        // The new dynamic tool must appear in tools/list within 15s
+        const toolsAfter = await waitForToolList(
+          client,
+          tl => tl.some(t => t.name === 'e2e-test_dynamic_tool'),
+          15_000,
+          300,
+          'e2e-test_dynamic_tool to appear',
+        );
+        expect(toolsAfter.map(t => t.name)).toContain('e2e-test_dynamic_tool');
+
+        // Existing tools must remain callable after the manifest change
+        const echoResult = await client.callTool('e2e-test_echo', { message: 'post-manifest-change' });
+        expect(echoResult.isError).toBe(false);
+        const echoOutput = parseToolResult(echoResult.content);
+        expect(echoOutput.message).toBe('post-manifest-change');
+
+        await page.close();
+      } finally {
+        await client.close();
+        await context.close();
+        await server.kill();
+        await testServer.kill();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        fs.rmSync(cleanupDir, { recursive: true, force: true });
         cleanupTestConfigDir(configDir);
       }
     });
