@@ -3245,3 +3245,49 @@ test.describe('Extension debugging tools', () => {
     expect(Array.isArray(tabs)).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stress tests
+// ---------------------------------------------------------------------------
+
+test.describe('stress', () => {
+  test('5 concurrent browser_execute_script calls on same tab return distinct results', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openTestServerTab(mcpClient, testServer);
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, (_, i) =>
+        mcpClient.callTool('browser_execute_script', {
+          tabId,
+          code: `return 'result-${i}'`,
+        }),
+      ),
+    );
+
+    // All 5 must succeed
+    for (const result of results) {
+      expect(result.isError).toBe(false);
+    }
+
+    // Extract values and verify positional matching
+    const values = results.map(result => {
+      const data = parseToolResult(result.content);
+      return (data.value as Record<string, unknown>).value as string;
+    });
+
+    for (let i = 0; i < 5; i++) {
+      expect(values[i]).toBe(`result-${i}`);
+    }
+
+    // No duplicates — proves no exec file namespace collision
+    const uniqueValues = new Set(values);
+    expect(uniqueValues.size).toBe(5);
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+});
