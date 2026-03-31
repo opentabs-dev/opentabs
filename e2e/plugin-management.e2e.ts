@@ -761,6 +761,107 @@ test.describe('WebSocket authentication', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Stress: install + immediate remove race
+// ---------------------------------------------------------------------------
+
+test.describe('install + remove race', () => {
+  test('concurrent install and remove settle to uninstalled state', async () => {
+    const configDir = createTestConfigDir();
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-race-'));
+
+    let server: Awaited<ReturnType<typeof startMcpServer>> | undefined;
+    let client:
+      | {
+          sendRequest: (m: string, p?: Record<string, unknown>, t?: number) => Promise<JsonRpcResponse>;
+          close: () => void;
+        }
+      | undefined;
+    let mcpClient: ReturnType<typeof createMcpClient> | undefined;
+
+    try {
+      // Create a local minimal plugin to use in the race
+      const raceableDir = createMinimalPlugin(tmpDir, 'raceable', [
+        { name: 'ping', description: 'ping tool' },
+        { name: 'pong', description: 'pong tool' },
+      ]);
+
+      // Add the raceable plugin to config
+      const config = readTestConfig(configDir);
+      config.localPlugins.push(raceableDir);
+      config.permissions = {
+        ...config.permissions,
+        raceable: { permission: 'auto' },
+      };
+      writeTestConfig(configDir, config);
+
+      // Start server and wait for the raceable plugin to be discovered
+      server = await startMcpServer(configDir);
+      await server.waitForHealth(h => {
+        const raceable = h.pluginDetails?.find(p => p.name === 'raceable');
+        return raceable !== undefined;
+      }, 15_000);
+
+      // Connect WebSocket and MCP clients
+      client = await connectWs(server.port, server.secret);
+      mcpClient = createMcpClient(server.port, server.secret);
+      await mcpClient.initialize();
+
+      // Verify baseline: raceable tools exist
+      const baselineTools = await mcpClient.listTools();
+      const raceableTools = baselineTools.filter(t => t.name.startsWith('raceable_'));
+      expect(raceableTools.length).toBe(2);
+
+      // Fire install and remove concurrently within 10ms via Promise.allSettled.
+      // install will fail (no npm package "opentabs-plugin-raceable" exists) — that's fine.
+      // remove will succeed (removes local plugin from config + rediscovers).
+      const [installResult, removeResult] = await Promise.allSettled([
+        client.sendRequest('plugin.install', { name: 'raceable' }, 60_000),
+        client.sendRequest('plugin.remove', { name: 'raceable' }, 60_000),
+      ]);
+
+      // Both must settle (not hang)
+      expect(installResult.status).toBe('fulfilled');
+      expect(removeResult.status).toBe('fulfilled');
+
+      // Both responses must be valid JSON-RPC (either success or known error)
+      if (installResult.status === 'fulfilled') {
+        const resp = installResult.value;
+        expect(resp.result !== undefined || resp.error !== undefined).toBe(true);
+      }
+      if (removeResult.status === 'fulfilled') {
+        const resp = removeResult.value;
+        expect(resp.result !== undefined || resp.error !== undefined).toBe(true);
+      }
+
+      // Wait for the server to stabilize after concurrent operations
+      await server.waitForHealth(h => h.status === 'ok', 15_000);
+
+      // Verify final state: plugin MUST NOT be in pluginDetails
+      const finalHealth = await server.health();
+      expect(finalHealth).not.toBeNull();
+      const raceablePlugin = finalHealth?.pluginDetails?.find(p => p.name === 'raceable');
+      expect(raceablePlugin).toBeUndefined();
+
+      // Verify final state: zero tools with the raceable_ prefix
+      const finalTools = await mcpClient.listTools();
+      const raceableToolsAfter = finalTools.filter(t => t.name.startsWith('raceable_'));
+      expect(raceableToolsAfter).toHaveLength(0);
+
+      // Verify final state: config.json localPlugins does NOT contain the plugin's path
+      const finalConfig = readTestConfig(configDir);
+      const hasRaceable = finalConfig.localPlugins.some(p => p.includes('raceable'));
+      expect(hasRaceable).toBe(false);
+    } finally {
+      await mcpClient?.close();
+      client?.close();
+      if (server) await server.kill();
+      cleanupTestConfigDir(configDir);
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // plugin.install + plugin.remove happy path (real npm registry, isolated prefix)
 // ---------------------------------------------------------------------------
 
