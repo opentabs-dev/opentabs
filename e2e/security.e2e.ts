@@ -643,7 +643,7 @@ test.describe('Network capture cleanup when tab closes', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Config mutex serializes concurrent permission writes', () => {
-  test('5 concurrent setToolPermission calls all persist without data loss', async () => {
+  test('10 concurrent setToolPermission calls all persist without data loss', async () => {
     const configDir = createTestConfigDir();
     const config = readTestConfig(configDir);
     config.permissions = { 'e2e-test': { permission: 'off' } };
@@ -707,60 +707,61 @@ test.describe('Config mutex serializes concurrent permission writes', () => {
         });
       };
 
-      // 5 different e2e-test tools with 5 different permission values
+      // 10 different e2e-test tools — enough contention to expose read-modify-write races
       const toolPermissions: Array<{ tool: string; permission: string }> = [
         { tool: 'echo', permission: 'auto' },
         { tool: 'greet', permission: 'ask' },
         { tool: 'list_items', permission: 'auto' },
         { tool: 'create_item', permission: 'ask' },
         { tool: 'slow_with_progress', permission: 'auto' },
+        { tool: 'failing_tool', permission: 'ask' },
+        { tool: 'get_status', permission: 'auto' },
+        { tool: 'error_auth', permission: 'ask' },
+        { tool: 'error_timeout', permission: 'auto' },
+        { tool: 'log_levels', permission: 'ask' },
       ];
 
-      // Fire all 5 concurrently
+      // Fire all 10 concurrently
       const results = await Promise.all(
         toolPermissions.map(({ tool, permission }) =>
           sendRequest('config.setToolPermission', { plugin: 'e2e-test', tool, permission }),
         ),
       );
 
-      // All should succeed
+      // All 10 must return ok:true
       for (const r of results) {
         expect(r.error).toBeUndefined();
         expect((r.result as { ok: boolean }).ok).toBe(true);
       }
 
       // Persistence is async (fire-and-forget via configWriteMutex).
-      // Poll config.json until all 5 tool overrides appear.
+      // Poll config.json until all 10 tool overrides appear.
       await waitFor(
         () => {
           const savedConfig = readTestConfig(configDir);
           const tools = savedConfig.permissions?.['e2e-test']?.tools;
           if (!tools) return false;
-          return (
-            tools.echo === 'auto' &&
-            tools.greet === 'ask' &&
-            tools.list_items === 'auto' &&
-            tools.create_item === 'ask' &&
-            tools.slow_with_progress === 'auto'
-          );
+          return toolPermissions.every(({ tool, permission }) => tools[tool] === permission);
         },
         10_000,
         200,
-        'all 5 tool permissions persisted to config.json',
+        'all 10 tool permissions persisted to config.json',
       );
 
       // Final verification: read once more and assert each value explicitly
       const finalConfig = readTestConfig(configDir);
       const finalTools = finalConfig.permissions?.['e2e-test']?.tools;
       expect(finalTools).toBeDefined();
-      expect(finalTools?.echo).toBe('auto');
-      expect(finalTools?.greet).toBe('ask');
-      expect(finalTools?.list_items).toBe('auto');
-      expect(finalTools?.create_item).toBe('ask');
-      expect(finalTools?.slow_with_progress).toBe('auto');
+      for (const { tool, permission } of toolPermissions) {
+        expect(finalTools?.[tool], `tool '${tool}' should be '${permission}'`).toBe(permission);
+      }
 
-      // Base plugin permission should still be 'off'
+      // Base plugin permission should still be 'off' (concurrent tool writes must not clobber it)
       expect(finalConfig.permissions?.['e2e-test']?.permission).toBe('off');
+
+      // No JSON parse errors in server logs
+      const jsonParseErrors = server.logs.filter(l => l.includes('JSON') && l.includes('parse'));
+      expect(jsonParseErrors, 'no JSON parse errors in server logs').toHaveLength(0);
 
       ws.close();
     } finally {
