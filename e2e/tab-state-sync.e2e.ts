@@ -514,3 +514,98 @@ test.describe('Tab state sync — 5-tab churn', () => {
     await tab3.close();
   });
 });
+
+// ---------------------------------------------------------------------------
+// US-008: Navigate away and back — exactly 1 tab, no duplicates
+// ---------------------------------------------------------------------------
+
+test.describe('Tab state sync — navigate away and back', () => {
+  test('navigating away and back produces exactly 1 tab entry, no duplicates', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    // 1. Open a matching tab and wait for ready state
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // 2. Verify plugin_list_tabs shows exactly 1 ready tab
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const entry = data[0];
+        if (!entry) return false;
+        return entry.tabs.length === 1 && entry.tabs[0]?.ready === true;
+      },
+      15_000,
+      500,
+      'plugin_list_tabs to report exactly 1 ready tab before navigation',
+    );
+
+    // 3. Navigate to a non-matching URL — about:blank does not match the
+    // e2e-test plugin's http://localhost/* pattern, causing the extension
+    // to detect no matching tabs.
+    await page.goto('about:blank', { waitUntil: 'load' });
+
+    // 4. Wait for the tab to be removed from plugin state
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const entry = data[0];
+        if (!entry) return false;
+        return entry.tabs.length === 0;
+      },
+      30_000,
+      500,
+      'plugin_list_tabs to report 0 tabs after navigating away',
+    );
+
+    // 5. Navigate back to matching URL
+    await page.goto(testServer.url, { waitUntil: 'load' });
+
+    // 6. Wait for exactly 1 tab with ready=true — the key assertion is that
+    // navigating back does NOT create a duplicate entry. The extension's
+    // onUpdated handler must update the existing entry for the same tabId,
+    // not create a new one.
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const entry = data[0];
+        if (!entry) return false;
+        return entry.tabs.length === 1 && entry.tabs[0]?.ready === true;
+      },
+      30_000,
+      500,
+      'plugin_list_tabs to report exactly 1 ready tab after navigating back',
+    );
+
+    // 7. Verify final state explicitly
+    const finalResult = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+    expect(finalResult.isError).toBe(false);
+    const finalPlugins = JSON.parse(finalResult.content) as PluginTabsEntry[];
+    const finalEntry = finalPlugins[0];
+    if (!finalEntry) throw new Error('Expected plugin entry in plugin_list_tabs response');
+
+    // Exactly 1 tab — not 2 from duplicate registration
+    expect(finalEntry.tabs.length).toBe(1);
+
+    // The tab is ready
+    const tab = finalEntry.tabs[0];
+    if (!tab) throw new Error('Expected 1 tab entry');
+    expect(tab.ready).toBe(true);
+
+    // 8. Tool dispatch succeeds
+    const echoResult = await mcpClient.callTool('e2e-test_echo', { message: 'navigated-back' });
+    expect(echoResult.isError).toBe(false);
+    const parsed = parseToolResult(echoResult.content);
+    expect(parsed.message).toBe('navigated-back');
+
+    await page.close();
+  });
+});
