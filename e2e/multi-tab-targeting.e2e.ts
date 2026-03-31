@@ -731,6 +731,109 @@ test.describe('Multi-tab targeting — real-time tab tracking', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Test 12: Targeted dispatch to closed tab returns error, other tab unaffected
+// ---------------------------------------------------------------------------
+
+test.describe('Multi-tab targeting — targeted dispatch to closed tab', () => {
+  test('dispatch with tabId of a closed tab returns error; the other tab is not used as fallback', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    // Open first tab and wait for ready
+    const page1 = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Open second tab
+    const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
+
+    // Wait for both tabs to be tracked and ready
+    const plugins = await waitForTabCount(mcpClient.callTool.bind(mcpClient), 2);
+
+    const entry = plugins[0];
+    if (!entry) throw new Error('Expected plugin entry in plugin_list_tabs response');
+    expect(entry.tabs.length).toBe(2);
+
+    const tabA = entry.tabs[0];
+    const tabB = entry.tabs[1];
+    if (!tabA || !tabB) throw new Error('Expected two tab entries');
+
+    // Record tabIds
+    const tabAId = tabA.tabId;
+    const tabBId = tabB.tabId;
+    expect(tabAId).toBeGreaterThan(0);
+    expect(tabBId).toBeGreaterThan(0);
+    expect(tabAId).not.toBe(tabBId);
+
+    // Identify which page corresponds to tabA by reading the page URL from
+    // browser_execute_script. The first tab opened is page1, but plugin_list_tabs
+    // ordering may differ. Use page markers to map.
+    await page1.evaluate(() => {
+      (globalThis as Record<string, unknown>).__closeTestMarker = 'page1';
+    });
+    await page2.evaluate(() => {
+      (globalThis as Record<string, unknown>).__closeTestMarker = 'page2';
+    });
+
+    const markerResult = await mcpClient.callTool('browser_execute_script', {
+      tabId: tabAId,
+      code: 'return globalThis.__closeTestMarker',
+    });
+    expect(markerResult.isError).toBe(false);
+    const markerData = parseToolResult(markerResult.content);
+    const markerNested = markerData.value as Record<string, unknown>;
+    const markerValue = markerNested.value as string;
+
+    // Close the page that corresponds to tabA
+    if (markerValue === 'page1') {
+      await page1.close();
+    } else {
+      await page2.close();
+    }
+
+    // Wait until plugin_list_tabs shows only 1 tab (tabA removed)
+    await waitFor(
+      async () => {
+        const result = await mcpClient.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+        if (result.isError) return false;
+        const data = JSON.parse(result.content) as PluginTabsEntry[];
+        const e = data[0];
+        return e !== undefined && e.tabs.length === 1;
+      },
+      15_000,
+      500,
+      'plugin_list_tabs to report 1 tab after closing tab A',
+    );
+
+    // Dispatch with tabId=tabA — MUST return isError=true
+    const closedResult = await mcpClient.callTool('e2e-test_echo', {
+      message: 'should-fail-closed',
+      tabId: tabAId,
+    });
+    expect(closedResult.isError).toBe(true);
+    expect(closedResult.content.toLowerCase()).toMatch(/not found|no usable|closed/i);
+
+    // Dispatch with tabId=tabB — MUST succeed with correct message
+    const liveResult = await mcpClient.callTool('e2e-test_echo', {
+      message: 'tab-b-works',
+      tabId: tabBId,
+    });
+    expect(liveResult.isError).toBe(false);
+    const liveParsed = parseToolResult(liveResult.content);
+    expect(liveParsed.message).toBe('tab-b-works');
+
+    // Clean up remaining page
+    if (markerValue === 'page1') {
+      await page2.close();
+    } else {
+      await page1.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Test 9: Targeted dispatch to tab that closes mid-execution
 // ---------------------------------------------------------------------------
 

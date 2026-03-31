@@ -8,6 +8,8 @@
  * Chrome extension background → content script injection (or skip).
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { expect, test } from './fixtures.js';
 import { callToolExpectSuccess, setupToolTest, waitFor, waitForLog, waitForToolResult } from './helpers.js';
 
@@ -198,5 +200,73 @@ test.describe('Adapter hash', () => {
     expect(tab.adapterPresent).toBe(true);
     expect(tab.hashMatch).toBe(true);
     expect(tab.isReady).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Disk hash ground truth after reconnects
+  // ---------------------------------------------------------------------------
+
+  test('adapter hash matches disk file after 3 consecutive reconnects', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Trigger 3 consecutive hot reloads
+    for (let i = 0; i < 3; i++) {
+      mcpServer.logs.length = 0;
+      mcpServer.triggerHotReload();
+      await waitForLog(mcpServer, 'tab.syncAll received', 20_000);
+    }
+
+    // Wait for tool dispatch to be operational after the reconnects
+    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+    // Get the hash reported by extension_check_adapter
+    const result = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
+      plugin: 'e2e-test',
+    });
+
+    const tabs = result.matchingTabs as Array<{
+      adapterPresent: boolean;
+      adapterHash: string | null;
+      hashMatch: boolean;
+      isReady: boolean;
+    }>;
+    expect(tabs.length).toBeGreaterThanOrEqual(1);
+
+    const tab = tabs[0];
+    if (!tab) throw new Error('Expected at least one matching tab');
+    expect(tab.hashMatch).toBe(true);
+    expect(tab.adapterHash).toEqual(expect.any(String));
+
+    const reportedHash = result.expectedHash as string;
+    expect(reportedHash.length).toBe(64);
+
+    // Read the adapter file from disk and extract the embedded hash
+    const adaptersDir = path.join(mcpServer.configDir, 'extension', 'adapters');
+    const entries = fs.readdirSync(adaptersDir);
+    const adapterFiles = entries.filter(f => /^e2e-test-[0-9a-f]{8}\.js$/.test(f));
+    expect(adapterFiles.length).toBe(1);
+
+    const adapterFile = adapterFiles[0];
+    if (!adapterFile) throw new Error('Expected exactly one e2e-test adapter file');
+    const content = fs.readFileSync(path.join(adaptersDir, adapterFile), 'utf-8');
+
+    // Extract the embedded __adapterHash from the IIFE content
+    const hashMatch = content.match(/\.__adapterHash="([0-9a-f]{64})"/);
+    expect(hashMatch).not.toBeNull();
+    const diskHash = hashMatch?.[1];
+
+    // The embedded hash in the disk file must equal the server's expectedHash
+    expect(diskHash).toBe(reportedHash);
+
+    // The per-tab hash must also match
+    expect(tab.adapterHash).toBe(reportedHash);
+
+    // Tool dispatch still works after the reconnects
+    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'after-hash-verify' }, { isError: false }, 15_000);
   });
 });
