@@ -167,6 +167,52 @@ test.describe('Lifecycle hooks', () => {
     expect(urls).toEqual(expect.arrayContaining([expect.stringContaining(originalUrl)]));
   });
 
+  test('20 rapid pushState calls — all 20 onNavigate hooks fire in order', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Clear any URLs recorded during setup
+    await page.evaluate(() => {
+      (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls = [];
+    });
+
+    // Execute 20 pushState calls synchronously in a tight loop.
+    // The adapter monkey-patches pushState to fire onNavigate synchronously,
+    // so all 20 should be recorded without drops or reordering.
+    await page.evaluate(() => {
+      for (let i = 0; i < 20; i++) {
+        history.pushState({}, '', `/burst-${i}`);
+      }
+    });
+
+    // Wait for all 20 URLs to be recorded
+    await waitFor(
+      async () => {
+        const urls = await page.evaluate(() => (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls);
+        return Array.isArray(urls) && urls.length === 20;
+      },
+      10_000,
+      200,
+      '__opentabs_onNavigate_urls.length === 20',
+    );
+
+    const urls = await page.evaluate(
+      () => (globalThis as Record<string, unknown>).__opentabs_onNavigate_urls as string[],
+    );
+
+    // Exactly 20 entries — no duplicates, no drops
+    expect(urls).toHaveLength(20);
+
+    // Each URL ends with /burst-${i} in order
+    for (let i = 0; i < 20; i++) {
+      expect(urls[i]).toContain(`/burst-${i}`);
+    }
+  });
+
   test('onToolInvocationStart and onToolInvocationEnd fire around tool calls', async ({
     mcpServer,
     testServer,
