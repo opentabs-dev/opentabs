@@ -733,24 +733,24 @@ test.describe('stress', () => {
 
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    // Make tool responses take 3s
-    await testServer.setSlow(3_000);
-
-    // Fire slow echo call (don't await) — auth is checked ONCE at dispatch entry
-    const inFlightPromise = mcpClient.callTool('e2e-test_echo', { message: 'in-flight' });
+    // Use slow_with_progress (sleeps on the adapter side) instead of echo
+    // with setSlow (delays on the test server before checking auth). This
+    // ensures the in-flight call is genuinely independent of auth changes
+    // because slow_with_progress doesn't call the test server during execution.
+    const inFlightPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+      durationMs: 3000,
+      steps: 2,
+    });
 
     // Wait 500ms, then toggle auth off while the call is in-flight
     await new Promise(r => setTimeout(r, 500));
     await testServer.setAuth(false);
 
-    // The in-flight call MUST succeed — auth was already checked before the slow fetch began
+    // The in-flight call MUST succeed — auth (isReady) was checked at dispatch
+    // entry, and slow_with_progress only sleeps on the adapter side without
+    // making further requests to the test server.
     const inFlightResult = await inFlightPromise;
     expect(inFlightResult.isError).toBe(false);
-    const inFlightOutput = parseToolResult(inFlightResult.content);
-    expect(inFlightOutput.message).toBe('in-flight');
-
-    // Reset slow mode so subsequent calls respond immediately
-    await testServer.setSlow(0);
 
     // Next call MUST fail — auth is off, isReady() returns false
     const failResult = await waitForToolResult(

@@ -1147,14 +1147,22 @@ test.describe('Permission change mid-flight — in-flight completes, next call d
     // changing permissions (dispatch is near-instant over WebSocket).
     await new Promise(r => setTimeout(r, 1_000));
 
+    // Use POST /reload (config reload) instead of triggerHotReload (SIGUSR1)
+    // because hot reload kills the worker process, which would interrupt the
+    // in-flight slow call. Config reload re-reads config.json and updates
+    // permissions in-place without restarting the worker.
     const config = readTestConfig(mcpServer.configDir);
     config.permissions = { ...config.permissions, 'e2e-test': { permission: 'off' } };
     writeTestConfig(mcpServer.configDir, config);
 
     mcpServer.logs.length = 0;
-    mcpServer.triggerHotReload();
-    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
-    await waitForExtensionConnected(mcpServer, 30_000);
+    const reloadRes = await fetch(`http://localhost:${mcpServer.port}/reload`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${mcpServer.secret}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    expect(reloadRes.ok, `POST /reload failed: ${reloadRes.status}`).toBe(true);
+    await waitForLog(mcpServer, 'Config reload complete', 15_000);
 
     // The in-flight call already passed the permission check before dispatch.
     // It MUST complete successfully — permission changes only affect NEW calls.
