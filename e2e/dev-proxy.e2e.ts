@@ -773,6 +773,79 @@ test.describe('Dev proxy WebSocket upgrade during worker restart', () => {
   });
 });
 
+test.describe('Dev proxy stress: 10 concurrent HTTP requests during restart', () => {
+  test('all 10 requests resolve within 15s — either 200 (buffered) or 503 (timeout)', async () => {
+    const configDir = createTestConfigDir();
+    const server = await startMcpServer(configDir, true);
+
+    try {
+      // Verify server is healthy before triggering hot reload
+      const initialHealth = await server.health();
+      expect(initialHealth).not.toBeNull();
+      if (!initialHealth) throw new Error('health returned null');
+      expect(initialHealth.status).toBe('ok');
+
+      // Clear logs to isolate hot-reload output
+      server.logs.length = 0;
+
+      const headers: Record<string, string> = {};
+      if (server.secret) headers.Authorization = `Bearer ${server.secret}`;
+
+      // Trigger hot reload — the proxy kills the old worker and forks a new one.
+      // During the restart window, incoming HTTP requests are buffered in pending[].
+      server.triggerHotReload();
+
+      // Immediately fire 10 concurrent fetch requests to /health. Each request
+      // uses AbortSignal.timeout(15_000) to guarantee it settles within 15s.
+      // The proxy's whenReady() buffers these requests and forwards them once
+      // the new worker reports ready, or times out with 503 after READY_TIMEOUT_MS.
+      const requests = Array.from({ length: 10 }, (_, i) =>
+        fetch(`http://localhost:${server.port}/health`, {
+          headers,
+          signal: AbortSignal.timeout(15_000),
+        }).then(
+          res => ({ index: i, status: res.status, body: res.json() }),
+          err => ({ index: i, status: 0, error: err }),
+        ),
+      );
+
+      // All 10 must resolve — no hangs
+      const results = await Promise.all(requests);
+
+      for (const result of results) {
+        if ('error' in result) {
+          // A fetch-level failure (e.g. abort) means the request didn't resolve
+          // to an HTTP response. This is a test failure — all requests must get
+          // an HTTP response (200 or 503), not a connection-level error.
+          throw new Error(`Request ${result.index} failed at fetch level: ${result.error}`);
+        }
+        // Each response must be either 200 (buffered and forwarded) or 503 (timeout)
+        expect([200, 503]).toContain(result.status);
+      }
+
+      // Verify 200 responses have body.status === 'ok'
+      for (const result of results) {
+        if (!('error' in result) && result.status === 200) {
+          const body = (await result.body) as { status: string };
+          expect(body.status).toBe('ok');
+        }
+      }
+
+      // Verify the hot reload completed
+      await waitForLog(server, 'Hot reload complete', 20_000);
+
+      // A fresh /health request must succeed after the reload
+      const freshHealth = await server.health();
+      expect(freshHealth).not.toBeNull();
+      if (!freshHealth) throw new Error('health returned null after reload');
+      expect(freshHealth.status).toBe('ok');
+    } finally {
+      await server.kill();
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
 test.describe
   .serial('Dev proxy multi-client tool dispatch after hot reload', () => {
     test('both MCP clients dispatch tools end-to-end after hot reload', async ({

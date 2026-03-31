@@ -714,6 +714,79 @@ test.describe('extension_reload', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Stress: hot reload during active tool dispatch — verifies that an in-flight
+// slow_with_progress call settles cleanly after hot reload (no hang), and that
+// post-reload recovery works (extension reconnects, fresh echo call succeeds).
+// ---------------------------------------------------------------------------
+
+test.describe('Stress: hot reload during active tool dispatch', () => {
+  test('in-flight slow_with_progress settles after hot reload, fresh echo succeeds after recovery', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    // Start a 5-second slow tool call (in-flight during reload)
+    const slowCallPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+      durationMs: 5000,
+      steps: 5,
+      message: 'in-flight-during-reload',
+    });
+
+    // Wait 500ms to ensure the call is in-flight, then trigger hot reload
+    await new Promise(r => setTimeout(r, 500));
+    mcpServer.logs.length = 0;
+    mcpServer.triggerHotReload();
+
+    // The in-flight call MUST settle within 30s (success or structured error,
+    // no raw rejection hang). Use Promise.allSettled to prevent transport
+    // rejections from short-circuiting.
+    const settled = await Promise.allSettled([slowCallPromise]);
+    const outcome = settled[0];
+
+    if (outcome.status === 'fulfilled') {
+      const result = outcome.value;
+      if (result.isError) {
+        // Error must identify an understandable cause
+        expect(
+          /disconnected|timed out|dispatch/i.test(result.content),
+          `error message must identify the failure cause, got: ${result.content.slice(0, 200)}`,
+        ).toBe(true);
+      }
+      // Success with valid content is also acceptable
+    }
+    // Rejected (transport error) is acceptable during hot reload — the call settled
+
+    // Wait for hot reload to complete within 20s
+    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+
+    // Extension reconnects (health shows extensionConnected=true)
+    await waitForExtensionConnected(mcpServer, 30_000);
+    const health = await mcpServer.health();
+    expect(health).not.toBeNull();
+    if (!health) throw new Error('health returned null');
+    expect(health.extensionConnected).toBe(true);
+
+    // Fresh echo call succeeds within 20s
+    const recoveredResult = await waitForToolResult(
+      mcpClient,
+      'e2e-test_echo',
+      { message: 'after-reload-stress' },
+      { isError: false },
+      20_000,
+    );
+    const recoveredOutput = JSON.parse(recoveredResult.content) as Record<string, unknown>;
+    expect(recoveredOutput.message).toBe('after-reload-stress');
+
+    await page.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // URL change reconnection — verifies that changing the MCP server URL in
 // chrome.storage.local while disconnected triggers reconnection to the new server.
 // This exercises the US-002 fix: the ws:setUrl handler's third branch where
