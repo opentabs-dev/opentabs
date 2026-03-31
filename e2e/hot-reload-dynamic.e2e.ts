@@ -29,15 +29,20 @@ import {
   createMinimalPlugin,
   E2E_TEST_PLUGIN_DIR,
   expect,
+  launchExtensionContext,
   readPluginToolNames,
   readTestConfig,
   startMcpServer,
+  startTestServer,
+  symlinkCrossPlatform,
   test,
   writeTestConfig,
 } from './fixtures.js';
 import {
   BROWSER_TOOL_NAMES,
+  openTestAppTab,
   parseToolResult,
+  setupAdapterSymlink,
   setupToolTest,
   waitFor,
   waitForExtensionConnected,
@@ -1271,6 +1276,134 @@ test.describe
   });
 
 // ---------------------------------------------------------------------------
+// Stress test — rapid config-changing hot reloads converge to final state
+// ---------------------------------------------------------------------------
+
+test.describe('Hot reload — rapid config changes converge to final state', () => {
+  test('5 rapid hot reloads: final tools/list matches last-written config exactly', async () => {
+    test.slow();
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-rapid-reload-'));
+    const pluginA = createMinimalPlugin(tmpDir, 'rapid-a', [{ name: 'do_a', description: 'Plugin A tool' }]);
+    const pluginB = createMinimalPlugin(tmpDir, 'rapid-b', [{ name: 'do_b', description: 'Plugin B tool' }]);
+    const pluginC = createMinimalPlugin(tmpDir, 'rapid-c', [
+      { name: 'do_c', description: 'Plugin C tool' },
+      { name: 'do_c2', description: 'Plugin C second tool' },
+    ]);
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-rapid-reload-cfg-'));
+
+    // Start with plugin A; disable skipPermissions so [Disabled] prefix appears
+    writeTestConfig(configDir, {
+      localPlugins: [pluginA],
+      permissions: { 'rapid-a': { permission: 'auto' } },
+    });
+
+    const server = await startMcpServer(configDir, true, undefined, {
+      OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '',
+    });
+    const client = createMcpClient(server.port, server.secret);
+
+    try {
+      await client.initialize();
+
+      // Baseline: plugin A tools present
+      const toolsBefore = await client.listTools();
+      expect(toolsBefore.map(t => t.name)).toContain('rapid-a_do_a');
+
+      // Count existing 'Hot reload complete' occurrences before the burst
+      const reloadCountBefore = server.logs.filter(l => l.includes('Hot reload complete')).length;
+
+      // Fire 5 config writes + hot reloads without awaiting between them.
+      // Config 1: [A]     (already the current state — reload is a no-op but exercises the path)
+      // Config 2: [A, B]
+      // Config 3: [B]
+      // Config 4: [B, C]
+      // Config 5: [B, C] with C's do_c2 tool set to 'off'
+      const configs: Array<{
+        localPlugins: string[];
+        permissions: Record<string, { permission: 'auto'; tools?: Record<string, 'off'> }>;
+      }> = [
+        {
+          localPlugins: [pluginA],
+          permissions: { 'rapid-a': { permission: 'auto' } },
+        },
+        {
+          localPlugins: [pluginA, pluginB],
+          permissions: { 'rapid-a': { permission: 'auto' }, 'rapid-b': { permission: 'auto' } },
+        },
+        {
+          localPlugins: [pluginB],
+          permissions: { 'rapid-b': { permission: 'auto' } },
+        },
+        {
+          localPlugins: [pluginB, pluginC],
+          permissions: { 'rapid-b': { permission: 'auto' }, 'rapid-c': { permission: 'auto' } },
+        },
+        {
+          localPlugins: [pluginB, pluginC],
+          permissions: {
+            'rapid-b': { permission: 'auto' },
+            'rapid-c': { permission: 'auto', tools: { do_c2: 'off' } },
+          },
+        },
+      ];
+
+      for (const cfg of configs) {
+        writeTestConfig(configDir, cfg);
+        server.triggerHotReload();
+      }
+
+      // Wait for the LAST hot reload to complete (5 total new ones)
+      await waitFor(
+        () => {
+          const reloadCount = server.logs.filter(l => l.includes('Hot reload complete')).length;
+          return reloadCount >= reloadCountBefore + 5;
+        },
+        60_000,
+        500,
+        '5 hot reload completions',
+      );
+
+      // Verify final state matches config 5: plugins B and C, with C's do_c2 disabled
+      const toolsAfter = await client.listTools();
+      const toolNames = toolsAfter.map(t => t.name);
+
+      // Plugin A tools must NOT be present (removed in config 3)
+      expect(toolNames).not.toContain('rapid-a_do_a');
+
+      // Plugin B tools must be present
+      expect(toolNames).toContain('rapid-b_do_b');
+
+      // Plugin C tools must be present
+      expect(toolNames).toContain('rapid-c_do_c');
+      expect(toolNames).toContain('rapid-c_do_c2');
+
+      // C's do_c2 must have [Disabled] prefix
+      const doC2 = toolsAfter.find(t => t.name === 'rapid-c_do_c2');
+      if (!doC2) throw new Error('Expected rapid-c_do_c2 to be in tools/list');
+      expect(doC2.description).toMatch(/^\[Disabled\]/);
+
+      // C's do_c must NOT have [Disabled] prefix
+      const doC = toolsAfter.find(t => t.name === 'rapid-c_do_c');
+      if (!doC) throw new Error('Expected rapid-c_do_c to be in tools/list');
+      expect(doC.description).not.toMatch(/^\[Disabled\]/);
+
+      // Health should show correct plugin count (B + C = 2)
+      const health = await server.health();
+      expect(health).not.toBeNull();
+      if (!health) throw new Error('health returned null');
+      expect(health.plugins).toBe(2);
+    } finally {
+      await client.close();
+      await server.kill();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      cleanupTestConfigDir(configDir);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // File watcher — version change propagation
 // ---------------------------------------------------------------------------
 
@@ -1323,6 +1456,120 @@ test.describe
         await client.close();
         await server.kill();
         fs.rmSync(tmpDir, { recursive: true, force: true });
+        cleanupTestConfigDir(configDir);
+      }
+    });
+  });
+
+// ---------------------------------------------------------------------------
+// Stress test — file watcher manifest change during active tool dispatch
+// ---------------------------------------------------------------------------
+
+test.describe
+  .serial('File watcher — manifest change during active tool dispatch', () => {
+    test('in-flight slow call completes and new tool appears after manifest change', async () => {
+      test.slow();
+
+      // Copy the E2E test plugin so we can modify dist/tools.json safely
+      const { pluginDir, tmpDir } = copyE2eTestPlugin();
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-dispatch-'));
+
+      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
+
+      const server = await startMcpServer(configDir, true);
+      const testServer = await startTestServer();
+      const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+
+      // Set up adapter + auth symlinks so the extension shares adapter IIFEs with the server
+      setupAdapterSymlink(configDir, extensionDir);
+      const serverAuthJson = path.join(configDir, 'extension', 'auth.json');
+      const extensionAuthJson = path.join(extensionDir, 'auth.json');
+      fs.rmSync(extensionAuthJson, { force: true });
+      symlinkCrossPlatform(serverAuthJson, extensionAuthJson, 'file');
+
+      const client = createMcpClient(server.port, server.secret);
+
+      try {
+        await client.initialize();
+
+        // Wait for the extension to connect and open a test tab
+        await waitForExtensionConnected(server);
+        await waitForLog(server, 'tab.syncAll received');
+        await testServer.reset();
+        const page = await openTestAppTab(context, testServer.url, server, testServer);
+
+        // Wait until the e2e-test plugin tools are callable
+        await waitForToolResult(client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+        // Verify the dynamic tool does NOT exist yet
+        const toolsBefore = await client.listTools();
+        expect(toolsBefore.map(t => t.name)).not.toContain('e2e-test_dynamic_tool');
+
+        // Start a slow tool call (3s duration) — this dispatches through the extension
+        const slowCallPromise = client.callTool(
+          'e2e-test_slow_with_progress',
+          { durationMs: 3000, steps: 2 },
+          { timeout: 30_000 },
+        );
+
+        // Wait until the slow call is actually in-flight (progress started)
+        await waitFor(
+          () => server.logs.some(l => l.includes('slow_with_progress') && l.includes('progress')),
+          10_000,
+          200,
+          'slow_with_progress to start reporting progress',
+        );
+
+        // While the slow call is in-flight, add a new tool to dist/tools.json
+        const toolsJsonPath = path.join(pluginDir, 'dist', 'tools.json');
+        const tools = readToolsFromManifest(toolsJsonPath);
+        tools.push({
+          name: 'dynamic_tool',
+          displayName: 'Dynamic Tool',
+          description: 'Dynamically added during active dispatch',
+          icon: 'wrench',
+          input_schema: { type: 'object', properties: {}, additionalProperties: false },
+          output_schema: {
+            type: 'object',
+            properties: { ok: { type: 'boolean' } },
+            required: ['ok'],
+            additionalProperties: false,
+          },
+        });
+        await writeAndWaitForWatcher(
+          server,
+          () => writeToolsToManifest(toolsJsonPath, tools),
+          'tools.json updated for',
+        );
+
+        // The in-flight slow call MUST complete successfully
+        const slowResult = await slowCallPromise;
+        expect(slowResult.isError).toBe(false);
+
+        // The new dynamic tool must appear in tools/list within 15s
+        const toolsAfter = await waitForToolList(
+          client,
+          tl => tl.some(t => t.name === 'e2e-test_dynamic_tool'),
+          15_000,
+          300,
+          'e2e-test_dynamic_tool to appear',
+        );
+        expect(toolsAfter.map(t => t.name)).toContain('e2e-test_dynamic_tool');
+
+        // Existing tools must remain callable after the manifest change
+        const echoResult = await client.callTool('e2e-test_echo', { message: 'post-manifest-change' });
+        expect(echoResult.isError).toBe(false);
+        const echoOutput = parseToolResult(echoResult.content);
+        expect(echoOutput.message).toBe('post-manifest-change');
+
+        await page.close();
+      } finally {
+        await client.close();
+        await context.close();
+        await server.kill();
+        await testServer.kill();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        fs.rmSync(cleanupDir, { recursive: true, force: true });
         cleanupTestConfigDir(configDir);
       }
     });
