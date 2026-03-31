@@ -1478,7 +1478,10 @@ test.describe
       const { pluginDir, tmpDir } = copyE2eTestPlugin();
       const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-fw-dispatch-'));
 
-      writeTestConfig(configDir, { localPlugins: [pluginDir], permissions: {} });
+      writeTestConfig(configDir, {
+        localPlugins: [pluginDir],
+        permissions: { 'e2e-test': { permission: 'auto' } },
+      });
 
       const server = await startMcpServer(configDir, true);
       const testServer = await startTestServer();
