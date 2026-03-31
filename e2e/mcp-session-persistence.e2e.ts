@@ -391,6 +391,61 @@ test.describe('MCP session persistence across hot reload', () => {
     }
   });
 
+  test('session ID survives 5 rapid hot reloads without re-initialization', async () => {
+    test.slow();
+
+    const configDir = createTestConfigDir();
+    const server = await startMcpServer(configDir, true);
+
+    try {
+      const client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+
+      const originalSessionId = client.sessionId;
+      expect(originalSessionId).toBeTruthy();
+
+      // Verify baseline tool access
+      const expectedToolNames = readPluginToolNames();
+      const toolsBefore = await client.listTools();
+      for (const name of expectedToolNames) {
+        expect(toolsBefore.some(t => t.name === name)).toBe(true);
+      }
+
+      // Clear logs and fire 5 rapid hot reloads with 500ms spacing
+      server.logs.length = 0;
+      for (let i = 0; i < 5; i++) {
+        server.triggerHotReload();
+        if (i < 4) {
+          await new Promise(r => setTimeout(r, 500));
+        }
+      }
+
+      // Wait for all 5 reloads to complete — poll until we see 5 occurrences
+      const deadline = Date.now() + 60_000;
+      while (Date.now() < deadline) {
+        const count = server.logs.filter(l => l.includes('Hot reload complete')).length;
+        if (count >= 5) break;
+        await new Promise(r => setTimeout(r, 200));
+      }
+      const reloadCount = server.logs.filter(l => l.includes('Hot reload complete')).length;
+      expect(reloadCount).toBeGreaterThanOrEqual(5);
+
+      // Session ID must be identical — the proxy maintains a stable ID
+      expect(client.sessionId).toBe(originalSessionId);
+
+      // listTools must work without re-initialization
+      const toolsAfter = await client.listTools();
+      for (const name of expectedToolNames) {
+        expect(toolsAfter.some(t => t.name === name)).toBe(true);
+      }
+
+      await client.close();
+    } finally {
+      await server.kill();
+      cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('multiple MCP clients each retain tool access after hot reload', async () => {
     const configDir = createTestConfigDir();
     const server = await startMcpServer(configDir, true);

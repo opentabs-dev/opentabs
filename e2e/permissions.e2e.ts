@@ -1113,3 +1113,69 @@ test.describe('Tool description prefixes', () => {
     expect(openTab.description).not.toMatch(/^\[/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Stress: Permission auto→off during in-flight call
+// ---------------------------------------------------------------------------
+
+test.describe('Permission change mid-flight — in-flight completes, next call disabled', () => {
+  test('in-flight call completes after permission changed to off, next call returns disabled', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    test.slow();
+
+    // e2e-test starts with permission 'auto' (from createTestConfigDir defaults).
+    // Set up the test tab so plugin tools are callable.
+    await waitForExtensionConnected(mcpServer);
+    await waitForLog(mcpServer, 'tab.syncAll received');
+    await testServer.reset();
+
+    const page = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
+    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+    // Fire a slow tool call (5s duration) — it passes the permission check at dispatch entry
+    const slowCallPromise = mcpClient.callTool(
+      'e2e-test_slow_with_progress',
+      { durationMs: 5000, steps: 2 },
+      { timeout: 30_000 },
+    );
+
+    // Wait until the dispatch is in-flight (server sent it to the extension)
+    await waitFor(
+      () => mcpServer.logs.some(line => line.includes('tool.dispatch') && line.includes('slow_with_progress')),
+      5_000,
+      100,
+      'slow_with_progress dispatch to reach extension',
+    );
+
+    // After 500ms, change e2e-test permission to 'off' and trigger hot reload
+    await new Promise(r => setTimeout(r, 500));
+
+    const config = readTestConfig(mcpServer.configDir);
+    config.permissions = { ...config.permissions, 'e2e-test': { permission: 'off' } };
+    writeTestConfig(mcpServer.configDir, config);
+
+    mcpServer.logs.length = 0;
+    mcpServer.triggerHotReload();
+    await waitForLog(mcpServer, 'Hot reload complete', 20_000);
+    await waitForExtensionConnected(mcpServer, 30_000);
+
+    // The in-flight call already passed the permission check before dispatch.
+    // It MUST complete successfully — permission changes only affect NEW calls.
+    const slowResult = await slowCallPromise;
+    expect(slowResult.isError).not.toBe(true);
+
+    // A subsequent call should be rejected with a 'disabled' or 'not been reviewed' message
+    const rejectedResult = await mcpClient.callTool('e2e-test_echo', { message: 'should-fail' });
+    expect(rejectedResult.isError).toBe(true);
+    expect(
+      rejectedResult.content.includes('currently disabled') || rejectedResult.content.includes('not been reviewed'),
+      `expected 'currently disabled' or 'not been reviewed', got: ${rejectedResult.content}`,
+    ).toBe(true);
+
+    await page.close();
+  });
+});

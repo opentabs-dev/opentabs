@@ -180,4 +180,92 @@ test.describe('Secret rotation via POST /reload', () => {
       await server.kill();
     }
   });
+
+  test('double rotation (A→B→C): only final secret C is valid, A and B both rejected', async () => {
+    const server = await startMcpServer(configDir, true);
+    try {
+      await server.waitForHealth(h => h.status === 'ok');
+
+      const secretA = server.secret;
+      if (!secretA) throw new Error('Expected server to have a secret');
+
+      // Verify secret A works
+      const auditA = await fetch(`http://localhost:${server.port}/audit`, {
+        headers: { Authorization: `Bearer ${secretA}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditA.status).toBe(200);
+
+      // --- First rotation: A → B ---
+      const secretB = `rotated-b-${crypto.randomUUID()}`;
+      const authPath = path.join(configDir, 'extension', 'auth.json');
+      fs.writeFileSync(authPath, `${JSON.stringify({ secret: secretB })}\n`, 'utf-8');
+
+      server.logs.length = 0;
+      const reloadAtoB = await fetch(`http://localhost:${server.port}/reload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secretA}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      expect(reloadAtoB.ok).toBe(true);
+      await waitForLog(server, 'Config reload complete', 10_000);
+
+      // After first rotation: A rejected, B works
+      const auditAAfterFirst = await fetch(`http://localhost:${server.port}/audit`, {
+        headers: { Authorization: `Bearer ${secretA}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditAAfterFirst.status).toBe(401);
+
+      const auditBAfterFirst = await fetch(`http://localhost:${server.port}/audit`, {
+        headers: { Authorization: `Bearer ${secretB}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditBAfterFirst.status).toBe(200);
+
+      // --- Second rotation: B → C ---
+      const secretC = `rotated-c-${crypto.randomUUID()}`;
+      fs.writeFileSync(authPath, `${JSON.stringify({ secret: secretC })}\n`, 'utf-8');
+
+      server.logs.length = 0;
+      const reloadBtoC = await fetch(`http://localhost:${server.port}/reload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${secretB}` },
+        signal: AbortSignal.timeout(10_000),
+      });
+      expect(reloadBtoC.ok).toBe(true);
+      await waitForLog(server, 'Config reload complete', 10_000);
+
+      // After second rotation: A rejected, B rejected, C works
+      const auditAFinal = await fetch(`http://localhost:${server.port}/audit`, {
+        headers: { Authorization: `Bearer ${secretA}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditAFinal.status).toBe(401);
+
+      const auditBFinal = await fetch(`http://localhost:${server.port}/audit`, {
+        headers: { Authorization: `Bearer ${secretB}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditBFinal.status).toBe(401);
+
+      const auditCFinal = await fetch(`http://localhost:${server.port}/audit`, {
+        headers: { Authorization: `Bearer ${secretC}` },
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(auditCFinal.status).toBe(200);
+
+      // MCP client with final secret C initializes successfully
+      const clientC = createMcpClient(server.port, secretC);
+      await clientC.initialize();
+      try {
+        const tools = await clientC.listTools();
+        expect(tools.length).toBeGreaterThan(0);
+      } finally {
+        await clientC.close();
+      }
+    } finally {
+      await server.kill();
+    }
+  });
 });
