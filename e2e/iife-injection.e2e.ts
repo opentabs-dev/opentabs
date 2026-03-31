@@ -1323,6 +1323,90 @@ fixtureTest.describe('IIFE injection — multiple tabs matching same plugin', ()
 // IIFE gracefully (no extension crash, clean recovery when valid IIFE restored).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// IIFE re-injection during active slow_with_progress dispatch — verifies an
+// in-flight 5s tool call completes (or fails with an identifiable error, not
+// hang) when the adapter IIFE file is modified 1s into execution, triggering
+// re-injection. After settling, the new adapter's global marker is present
+// and subsequent tool calls succeed.
+// ---------------------------------------------------------------------------
+
+test.describe('IIFE injection — re-injection during active slow_with_progress dispatch', () => {
+  test('in-flight slow_with_progress resolves after IIFE re-injection, new adapter marker present', async () => {
+    const ctx = await setupIsolatedIifeTest('iife-slow-reinject');
+
+    try {
+      const page = await openTestAppTab(ctx.context, ctx.testServer.url, ctx.server, ctx.testServer);
+      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+
+      // Baseline: tool works normally
+      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+        message: 'baseline-slow-reinject',
+      });
+      expect(baseline.message).toBe('baseline-slow-reinject');
+
+      // Start a 5s slow_with_progress call — do NOT await
+      const slowCallPromise = ctx.client.callTool(
+        'e2e-test_slow_with_progress',
+        { durationMs: 5000, steps: 5 },
+        { timeout: 60_000 },
+      );
+
+      // Wait 1s for the call to be in-flight
+      await new Promise(r => setTimeout(r, 1_000));
+
+      // Modify the IIFE to add a global marker + comment (changes hash)
+      const iifePath = path.join(ctx.pluginDir, 'dist', 'adapter.iife.js');
+      const originalIife = fs.readFileSync(iifePath, 'utf-8');
+      const markerCode = [
+        '',
+        '// Injected by E2E stress test: IIFE re-injection during slow_with_progress',
+        'globalThis.__e2eSlowReinjectMarker = true;',
+      ].join('\n');
+      const modifiedIife = replaceIifeClosing(originalIife, markerCode);
+      await writeAndWaitForWatcher(
+        ctx.server,
+        () => fs.writeFileSync(iifePath, modifiedIife, 'utf-8'),
+        'IIFE updated for',
+      );
+
+      // The in-flight call MUST resolve within 60s (not hang). It may succeed
+      // (old adapter finished before teardown) or fail (re-injection interrupted
+      // execution) — either outcome is acceptable as long as it settles.
+      const slowResult = await slowCallPromise;
+      expect(slowResult).toBeDefined();
+
+      // Wait for the global marker from the new IIFE to appear in the page
+      await waitFor(
+        async () => {
+          const marker = await page.evaluate(
+            () => (globalThis as Record<string, unknown>).__e2eSlowReinjectMarker === true,
+          );
+          return marker;
+        },
+        15_000,
+        500,
+        '__e2eSlowReinjectMarker to be true after re-injection during slow dispatch',
+      );
+
+      // Subsequent tool calls MUST succeed with the new adapter
+      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+        message: 'after-slow-reinject',
+      });
+      expect(afterResult.message).toBe('after-slow-reinject');
+
+      await page.close();
+    } finally {
+      await ctx.cleanup();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Corrupted adapter IIFE — verifies the system handles a syntactically invalid
+// IIFE gracefully (no extension crash, clean recovery when valid IIFE restored).
+// ---------------------------------------------------------------------------
+
 test.describe('IIFE injection — corrupted adapter IIFE', () => {
   test('invalid IIFE does not crash extension, recovery works after valid IIFE restored', async () => {
     const ctx = await setupIsolatedIifeTest('iife-corrupt');
