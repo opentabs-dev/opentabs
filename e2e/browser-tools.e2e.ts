@@ -861,7 +861,7 @@ test.describe('browser_execute_script', () => {
 
     const result = await mcpClient.callTool('browser_execute_script', {
       tabId,
-      code: 'const r = await fetch(window.location.href); return r.status',
+      code: 'const r = await fetch("/control/health"); return r.status',
     });
     expect(result.isError).toBe(false);
 
