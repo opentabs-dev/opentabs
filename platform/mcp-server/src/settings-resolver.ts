@@ -24,12 +24,15 @@ interface ResolvedSettings {
 
 /**
  * Derive a Chrome match pattern from a URL string.
- * Returns `*://hostname/*` for valid URLs, or null for invalid ones.
+ * Returns `*://host/*` for valid URLs (including port for non-standard ports),
+ * or null for invalid ones.
  */
 const deriveMatchPattern = (urlString: string): string | null => {
   try {
     const url = new URL(urlString);
-    return `*://${url.hostname}/*`;
+    // url.host includes port when non-default; url.hostname does not.
+    // For standard ports (80/443), url.host === url.hostname (port is stripped).
+    return `*://${url.host}/*`;
   } catch {
     return null;
   }

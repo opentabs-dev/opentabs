@@ -306,6 +306,102 @@ describe('resolvePluginSettings', () => {
     expect(result.instanceMap).toEqual({});
   });
 
+  test('derives port-aware match pattern for non-standard port', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { local: 'http://localhost:3000/app' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://localhost:3000/*']);
+    expect(result.instanceMap).toEqual({ local: '*://localhost:3000/*' });
+  });
+
+  test('derives port-aware match pattern for IP address with port', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { local: 'http://127.0.0.1:8080' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://127.0.0.1:8080/*']);
+    expect(result.instanceMap).toEqual({ local: '*://127.0.0.1:8080/*' });
+  });
+
+  test('strips explicit standard HTTP port 80 from match pattern', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { local: 'http://localhost:80' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://localhost/*']);
+    expect(result.instanceMap).toEqual({ local: '*://localhost/*' });
+  });
+
+  test('strips explicit standard HTTPS port 443 from match pattern', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { prod: 'https://example.com:443' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://example.com/*']);
+    expect(result.instanceMap).toEqual({ prod: '*://example.com/*' });
+  });
+
+  test('preserves non-standard port in match pattern for HTTPS', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { custom: 'http://example.com:8443/path' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://example.com:8443/*']);
+    expect(result.instanceMap).toEqual({ custom: '*://example.com:8443/*' });
+  });
+
+  test('distinguishes two localhost instances on different ports', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = {
+      instanceUrl: {
+        alpha: 'http://localhost:3000',
+        beta: 'http://localhost:3001',
+      },
+    };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://localhost:3000/*', '*://localhost:3001/*']);
+    expect(result.instanceMap).toEqual({
+      alpha: '*://localhost:3000/*',
+      beta: '*://localhost:3001/*',
+    });
+  });
+
+  test('omits port for standard HTTPS URL (no explicit port)', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { prod: 'https://grafana.example.com/dashboard' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://grafana.example.com/*']);
+    expect(result.instanceMap).toEqual({ prod: '*://grafana.example.com/*' });
+  });
+
+  test('omits port for standard HTTP URL (no explicit port)', () => {
+    const schema: ConfigSchema = {
+      instanceUrl: { type: 'url', label: 'Instance URL', required: true },
+    };
+    const settings = { instanceUrl: { main: 'http://grafana.example.com' } };
+    const result = resolvePluginSettings('test', [], undefined, schema, settings);
+
+    expect(result.effectiveUrlPatterns).toEqual(['*://grafana.example.com/*']);
+    expect(result.instanceMap).toEqual({ main: '*://grafana.example.com/*' });
+  });
+
   test('homepage is derived from the first valid URL in the map', () => {
     const schema: ConfigSchema = {
       instanceUrl: { type: 'url', label: 'Instance URL', required: true },
