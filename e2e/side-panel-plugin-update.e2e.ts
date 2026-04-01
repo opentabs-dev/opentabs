@@ -629,4 +629,84 @@ test.describe('Side panel — plugin update flow', () => {
       if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
     }
   });
+
+  test('simulate-update updates version text in menu and clears update indicator', async () => {
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const { name: pkgName, version: currentVersion } = getPluginPackageInfo();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-update-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: { 'e2e-test': { permission: 'auto' } },
+    });
+
+    const server = await startMcpServer(configDir, true);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'plugin(s) mapped', 15_000);
+
+      await openTestAppTab(context, testServer.url, server, testServer);
+      const sidePanelPage = await openSidePanel(context);
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      const secret = server.secret;
+      expect(secret).toBeTruthy();
+      if (!secret) throw new Error('Server secret is required');
+
+      const menuButton = sidePanelPage.locator('[aria-label="Plugin options"]');
+      const updateDot = menuButton.locator('div.rounded-full');
+
+      // Open menu and verify the current version is displayed
+      await menuButton.click();
+      const versionMenuItem = sidePanelPage.locator('[role="menuitem"]', { hasText: `v${currentVersion}` });
+      await expect(versionMenuItem).toBeVisible({ timeout: 5_000 });
+      await sidePanelPage.keyboard.press('Escape');
+
+      // Inject fake outdated data
+      const fakeLatestVersion = '99.0.0';
+      await setOutdatedPlugins(server.port, secret, [
+        {
+          name: pkgName,
+          currentVersion,
+          latestVersion: fakeLatestVersion,
+          updateCommand: `npm update -g ${pkgName}`,
+        },
+      ]);
+
+      // Wait for update dot to appear
+      await expect(updateDot).toBeVisible({ timeout: 10_000 });
+
+      // Open menu and verify both version and Update item are shown
+      await menuButton.click();
+      const updateMenuItem = sidePanelPage.locator('[role="menuitem"]', { hasText: /^Update to v/ });
+      await expect(versionMenuItem).toBeVisible({ timeout: 5_000 });
+      await expect(updateMenuItem).toBeVisible({ timeout: 5_000 });
+      await expect(updateMenuItem).toContainText(`Update to v${fakeLatestVersion}`);
+      await sidePanelPage.keyboard.press('Escape');
+
+      // Simulate a successful update — changes version to 99.0.0
+      await simulateUpdate(server.port, secret, 'e2e-test', fakeLatestVersion);
+
+      // Verify: update dot disappears
+      await expect(updateDot).not.toBeVisible({ timeout: 10_000 });
+
+      // Open menu and verify version now shows the new version
+      await menuButton.click();
+      const newVersionMenuItem = sidePanelPage.locator('[role="menuitem"]', { hasText: `v${fakeLatestVersion}` });
+      await expect(newVersionMenuItem).toBeVisible({ timeout: 5_000 });
+      // Verify no Update menu item exists
+      await expect(updateMenuItem).not.toBeVisible();
+      await sidePanelPage.keyboard.press('Escape');
+    } finally {
+      await context.close();
+      await server.kill();
+      await testServer.kill();
+      cleanupTestConfigDir(configDir);
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
+    }
+  });
 });
