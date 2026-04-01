@@ -239,7 +239,9 @@ const PluginCard = ({
             />
           </div>
         )}
-        <AccordionPrimitive.Trigger className="focus-ring flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-2 pr-0 pl-2 [&[data-state=open]>svg]:rotate-180">
+        <AccordionPrimitive.Trigger
+          disabled={isUnconfigured}
+          className={`focus-ring flex min-w-0 flex-1 items-center gap-2 py-2 pr-0 pl-2 [&[data-state=open]>svg]:rotate-180 ${isUnconfigured ? 'cursor-default' : 'cursor-pointer'}`}>
           <div
             className={`flex min-w-0 flex-1 items-center gap-1.5 truncate font-head text-sm ${inactive ? 'text-muted-foreground' : 'text-foreground'}`}>
             {plugin.displayName}
@@ -256,23 +258,12 @@ const PluginCard = ({
                 <Tooltip.Content>This plugin version has not been reviewed</Tooltip.Content>
               </Tooltip>
             )}
-            {isUnconfigured && (
-              <Tooltip>
-                <Tooltip.Trigger asChild>
-                  <span className="inline-flex items-center gap-0.5 align-middle">
-                    <Settings className="inline-block h-3.5 w-3.5 text-muted-foreground" />
-                    <Badge variant="outline" size="sm" className="text-muted-foreground">
-                      Needs Setup
-                    </Badge>
-                  </span>
-                </Tooltip.Trigger>
-                <Tooltip.Content>This plugin has required settings that are not configured</Tooltip.Content>
-              </Tooltip>
-            )}
           </div>
-          <ChevronDown
-            className={`h-4 w-4 shrink-0 transition-transform duration-200 ${inactive ? 'text-muted-foreground' : ''}`}
-          />
+          {!isUnconfigured && (
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 transition-transform duration-200 ${inactive ? 'text-muted-foreground' : ''}`}
+            />
+          )}
         </AccordionPrimitive.Trigger>
         <PluginMenu
           plugin={plugin}
