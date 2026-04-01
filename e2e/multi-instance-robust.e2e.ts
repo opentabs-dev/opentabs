@@ -500,6 +500,87 @@ test.describe('Multi-instance robust — hot-reload instance addition', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Cross-host test infrastructure (localhost vs 127.0.0.1)
+// ---------------------------------------------------------------------------
+
+interface CrossHostTestContext {
+  configDir: string;
+  server: McpServer;
+  alphaServer: TestServer;
+  betaServer: TestServer;
+  context: Awaited<ReturnType<typeof launchExtensionContext>>['context'];
+  cleanupDir: string;
+  client: McpClient;
+  alphaUrl: string;
+  betaUrl: string;
+}
+
+/**
+ * Set up a cross-host multi-instance test environment:
+ * alpha on localhost, beta on 127.0.0.1 (same server, different hostnames).
+ */
+const setupCrossHostTest = async (): Promise<CrossHostTestContext> => {
+  const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+  const prefixedToolNames = readPluginToolNames();
+  const tools: Record<string, boolean> = {};
+  for (const t of prefixedToolNames) {
+    tools[t] = true;
+  }
+
+  const alphaServer = await startTestServer();
+  const betaServer = await startTestServer();
+
+  const alphaUrl = alphaServer.url; // http://localhost:<portA>
+  const betaUrl = betaServer.url.replace('localhost', '127.0.0.1'); // http://127.0.0.1:<portB>
+
+  const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-crosshost-'));
+  writeTestConfig(configDir, {
+    localPlugins: [absPluginPath],
+    tools,
+    settings: {
+      'e2e-test': {
+        instanceUrl: {
+          alpha: alphaUrl,
+          beta: betaUrl,
+        },
+      },
+    },
+  });
+
+  const server = await startMcpServer(configDir, true);
+  const ext = await launchExtensionContext(server.port, server.secret);
+  setupAdapterSymlink(configDir, ext.extensionDir);
+
+  const client = createMcpClient(server.port, server.secret);
+  await client.initialize();
+
+  await waitForExtensionConnected(server);
+  await waitForLog(server, 'plugin(s) mapped');
+
+  return {
+    configDir,
+    server,
+    alphaServer,
+    betaServer,
+    context: ext.context,
+    cleanupDir: ext.cleanupDir,
+    client,
+    alphaUrl,
+    betaUrl,
+  };
+};
+
+const cleanupCrossHostTest = async (ctx: CrossHostTestContext): Promise<void> => {
+  await ctx.client.close();
+  await ctx.context.close().catch(() => {});
+  await ctx.alphaServer.kill();
+  await ctx.betaServer.kill();
+  await ctx.server.kill();
+  fs.rmSync(ctx.cleanupDir, { recursive: true, force: true });
+  cleanupTestConfigDir(ctx.configDir);
+};
+
 test.describe('Multi-instance robust — hot-reload instance removal', () => {
   test('removing an instance via config + POST /reload returns Unknown instance error', async () => {
     test.slow();
@@ -575,6 +656,67 @@ test.describe('Multi-instance robust — hot-reload instance removal', () => {
       await betaPage.close();
     } finally {
       if (ctx) await cleanupSameHostTest(ctx);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-009: tabId + instance conflict precedence
+// ---------------------------------------------------------------------------
+
+test.describe('Multi-instance robust — tabId + instance conflict precedence', () => {
+  test('tabId takes precedence over instance when both are provided and disagree', async () => {
+    test.slow();
+    let ctx: CrossHostTestContext | undefined;
+    try {
+      ctx = await setupCrossHostTest();
+
+      // Open alpha tab (localhost)
+      const alphaPage = await openTabAndWaitForAdapter(ctx.context, ctx.alphaUrl, ctx.server, ctx.alphaServer);
+
+      // Open beta tab (127.0.0.1)
+      const betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+
+      // Wait for both tabs to be ready
+      const plugins = await waitForReadyTabs(ctx.client, 2);
+      const entry = plugins[0];
+      if (!entry) throw new Error('Expected plugin entry in plugin_list_tabs response');
+
+      // Get beta tab's tabId
+      const betaTab = entry.tabs.find(t => t.instance === 'beta');
+      expect(betaTab).toBeDefined();
+      const betaTabId = betaTab?.tabId;
+      expect(betaTabId).toBeDefined();
+
+      // Reset invocation counters before the test call
+      await ctx.alphaServer.reset();
+      await ctx.betaServer.reset();
+
+      // Dispatch with instance='alpha' AND tabId=<beta_tab_id>
+      // tabId should take precedence — the call should hit beta's server
+      const result = await ctx.client.callTool('e2e-test_echo', {
+        message: 'tabid-wins',
+        instance: 'alpha',
+        tabId: betaTabId,
+      });
+      expect(result.isError).toBe(false);
+      const parsed = JSON.parse(result.content) as { message: string };
+      expect(parsed.message).toBe('tabid-wins');
+
+      // Beta server should have received the call (tabId won)
+      const betaInvocations = await ctx.betaServer.invocations();
+      const betaEchoes = betaInvocations.filter(i => i.path === '/api/echo');
+      expect(betaEchoes.length).toBe(1);
+
+      // Alpha server should NOT have received any call
+      const alphaInvocations = await ctx.alphaServer.invocations();
+      const alphaEchoes = alphaInvocations.filter(i => i.path === '/api/echo');
+      expect(alphaEchoes.length).toBe(0);
+
+      await alphaPage.close();
+      await betaPage.close();
+    } finally {
+      if (ctx) await cleanupCrossHostTest(ctx);
     }
   });
 });
