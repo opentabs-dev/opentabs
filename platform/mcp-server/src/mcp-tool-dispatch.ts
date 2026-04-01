@@ -441,11 +441,14 @@ const handlePluginToolCall = async (
       };
     }
 
-    // Resolve instance name to a specific tab ID. When instance is provided,
-    // it takes precedence over tabId — match the tab whose URL corresponds
-    // to the instance's derived match pattern.
+    // Resolve instance name to a specific tab ID. When both are provided,
+    // tabId takes precedence (more specific).
     let resolvedTabId = tabId;
-    if (instance !== undefined) {
+    if (instance !== undefined && tabId !== undefined) {
+      log.warn(
+        `Both tabId (${tabId}) and instance ("${instance}") provided for tool "${toolName}" — using tabId, ignoring instance`,
+      );
+    } else if (instance !== undefined) {
       const plugin = state.registry.plugins.get(pluginName);
       const pattern = plugin?.instanceMap?.[instance];
       if (!pattern) {

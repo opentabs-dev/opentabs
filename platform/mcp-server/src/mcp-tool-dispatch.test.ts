@@ -9,6 +9,7 @@ import {
   sendInvocationEnd,
   sendInvocationStart,
 } from './extension-protocol.js';
+import { log } from './logger.js';
 import type { DispatchCallbacks, RequestHandlerExtra } from './mcp-tool-dispatch.js';
 import {
   formatStructuredError,
@@ -2197,7 +2198,7 @@ describe('handlePluginToolCall — instance parameter', () => {
     expect(result.content[0]?.text).toContain('staging');
   });
 
-  test('instance takes precedence over tabId', async () => {
+  test('tabId takes precedence over instance', async () => {
     vi.mocked(getToolPermission).mockReturnValue('auto');
     vi.mocked(dispatchToExtension).mockResolvedValue({ output: {} });
 
@@ -2236,8 +2237,9 @@ describe('handlePluginToolCall — instance parameter', () => {
     const lookup = createMockLookup();
     const extra = createMockExtra();
     const callbacks = createMockCallbacks();
+    const warnSpy = vi.spyOn(log, 'warn').mockImplementation(() => {});
 
-    // Provide both tabId=999 and instance='staging' — instance should win
+    // Provide both tabId=999 and instance='staging' — tabId should win
     await handlePluginToolCall(
       state,
       'testplugin_test_action',
@@ -2249,15 +2251,20 @@ describe('handlePluginToolCall — instance parameter', () => {
       callbacks,
     );
 
-    // Dispatch should use the staging tab (202), not the provided tabId (999)
+    // Dispatch should use the provided tabId (999), not the staging tab (202)
     expect(dispatchToExtension).toHaveBeenCalledWith(
       state,
       'tool.dispatch',
       expect.objectContaining({
-        tabId: 202,
+        tabId: 999,
       }) as Record<string, unknown>,
       expect.any(Object) as Record<string, unknown>,
     );
+
+    // A warning should be logged about the conflict
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Both tabId (999) and instance ("staging")'));
+
+    warnSpy.mockRestore();
   });
 
   test('no instance on multi-instance plugin uses auto-select (no tabId override)', async () => {
