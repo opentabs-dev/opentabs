@@ -720,3 +720,70 @@ test.describe('Multi-instance robust — tabId + instance conflict precedence', 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// US-010: Rapid sequential dispatch across instances
+// ---------------------------------------------------------------------------
+
+test.describe('Multi-instance robust — rapid sequential dispatch', () => {
+  test('20 sequential calls alternate between alpha and beta with zero cross-routing', async () => {
+    test.slow();
+    let ctx: CrossHostTestContext | undefined;
+    try {
+      ctx = await setupCrossHostTest();
+
+      // Open alpha tab (localhost)
+      const alphaPage = await openTabAndWaitForAdapter(ctx.context, ctx.alphaUrl, ctx.server, ctx.alphaServer);
+
+      // Open beta tab (127.0.0.1)
+      const betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+
+      // Wait for both tabs to be ready
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Reset invocation counters before the stress test
+      await ctx.alphaServer.reset();
+      await ctx.betaServer.reset();
+
+      const totalCalls = 20;
+      const results: Array<{ index: number; instance: string; message: string; response: string }> = [];
+
+      // Fire 20 sequential echo calls: even indices → alpha, odd → beta
+      for (let i = 0; i < totalCalls; i++) {
+        const instance = i % 2 === 0 ? 'alpha' : 'beta';
+        const message = `call-${String(i)}-${instance}`;
+
+        const result = await ctx.client.callTool('e2e-test_echo', {
+          message,
+          instance,
+        });
+
+        expect(result.isError).toBe(false);
+        const parsed = JSON.parse(result.content) as { message: string };
+        expect(parsed.message).toBe(message);
+
+        results.push({ index: i, instance, message, response: parsed.message });
+      }
+
+      // Verify all 20 calls returned correct responses
+      expect(results.length).toBe(totalCalls);
+      for (const r of results) {
+        expect(r.response).toBe(r.message);
+      }
+
+      // Check invocation counts: alpha=10, beta=10
+      const alphaInvocations = await ctx.alphaServer.invocations();
+      const alphaEchoes = alphaInvocations.filter(i => i.path === '/api/echo');
+      expect(alphaEchoes.length).toBe(10);
+
+      const betaInvocations = await ctx.betaServer.invocations();
+      const betaEchoes = betaInvocations.filter(i => i.path === '/api/echo');
+      expect(betaEchoes.length).toBe(10);
+
+      await alphaPage.close();
+      await betaPage.close();
+    } finally {
+      if (ctx) await cleanupCrossHostTest(ctx);
+    }
+  });
+});
