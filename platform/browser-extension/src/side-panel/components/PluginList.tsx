@@ -10,6 +10,7 @@ import {
   getTransitionClass,
   groupPlugins,
 } from '../group-transitions.js';
+import { needsSetup } from './ConfigDialog.js';
 import { FailedPluginCard } from './FailedPluginCard.js';
 import { PluginCard } from './PluginCard.js';
 import { Accordion } from './retro/Accordion.js';
@@ -158,6 +159,23 @@ const PluginList = ({
     ? { ready: [], notReady: [] }
     : groupPlugins(visiblePlugins);
 
+  // Plugins that need setup are forced open and cannot be collapsed.
+  const unconfiguredReady = new Set(
+    readyPlugins.filter(p => needsSetup(p.configSchema, p.resolvedSettings)).map(p => p.name),
+  );
+  const unconfiguredNotReady = new Set(
+    notReadyPlugins.filter(p => needsSetup(p.configSchema, p.resolvedSettings)).map(p => p.name),
+  );
+
+  // Merge forced-open names into the controlled value arrays.
+  const effectiveOpenReady = [...new Set([...openReady, ...unconfiguredReady])];
+  const effectiveOpenNotReady = [...new Set([...openNotReady, ...unconfiguredNotReady])];
+
+  // Wrap onValueChange to re-add forced-open names (Radix removes them when toggle fires).
+  const handleOpenReadyChange = (next: string[]) => setOpenReady([...new Set([...next, ...unconfiguredReady])]);
+  const handleOpenNotReadyChange = (next: string[]) =>
+    setOpenNotReady([...new Set([...next, ...unconfiguredNotReady])]);
+
   const hasNotReady = notReadyPlugins.length > 0;
 
   // Track whether the not-ready section was previously visible for label animation
@@ -250,7 +268,11 @@ const PluginList = ({
       ) : (
         <>
           {readyPlugins.length > 0 && (
-            <Accordion type="multiple" value={openReady} onValueChange={setOpenReady} className="space-y-2">
+            <Accordion
+              type="multiple"
+              value={effectiveOpenReady}
+              onValueChange={handleOpenReadyChange}
+              className="space-y-2">
               {readyPlugins.map(p => renderCard(p, true))}
             </Accordion>
           )}
@@ -261,7 +283,11 @@ const PluginList = ({
             </div>
           )}
           {notReadyPlugins.length > 0 && (
-            <Accordion type="multiple" value={openNotReady} onValueChange={setOpenNotReady} className="space-y-2">
+            <Accordion
+              type="multiple"
+              value={effectiveOpenNotReady}
+              onValueChange={handleOpenNotReadyChange}
+              className="space-y-2">
               {notReadyPlugins.map(p => renderCard(p, false))}
             </Accordion>
           )}
