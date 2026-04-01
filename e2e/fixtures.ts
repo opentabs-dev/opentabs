@@ -541,6 +541,7 @@ const startMcpServer = (
         OPENTABS_SKIP_NPM_DISCOVERY: '1',
         OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '1',
         OPENTABS_SKIP_SANITIZATION: '1',
+        OPENTABS_TELEMETRY_DISABLED: '1',
         // Use a short mtime polling interval so the fallback catches missed
         // fs.watch events quickly. Under high parallelism (16+ Playwright
         // workers), Linux's inotify instance limit (max_user_instances=128)
