@@ -19,12 +19,20 @@ import {
   expect,
   launchExtensionContext,
   readPluginToolNames,
+  readTestConfig,
   startMcpServer,
   startTestServer,
   test,
   writeTestConfig,
 } from './fixtures.js';
-import { openTestAppTab, setupAdapterSymlink, waitFor, waitForExtensionConnected, waitForLog } from './helpers.js';
+import {
+  openTestAppTab,
+  setupAdapterSymlink,
+  waitFor,
+  waitForExtensionConnected,
+  waitForLog,
+  waitForToolList,
+} from './helpers.js';
 
 /** Shape of plugin_list_tabs response entries. */
 interface PluginTabsEntry {
@@ -378,6 +386,195 @@ test.describe('Multi-instance robust — single instance seamless', () => {
       await page.close();
     } finally {
       if (ctx) await cleanupSingleInstanceTest(ctx);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// US-008: Hot-reload instance addition and removal
+// ---------------------------------------------------------------------------
+
+/** POST /reload with Bearer auth. */
+const triggerReload = async (port: number, secret: string | undefined): Promise<Response> => {
+  const headers: Record<string, string> = {};
+  if (secret) headers.Authorization = `Bearer ${secret}`;
+  return fetch(`http://localhost:${String(port)}/reload`, {
+    method: 'POST',
+    headers,
+    signal: AbortSignal.timeout(10_000),
+  });
+};
+
+test.describe('Multi-instance robust — hot-reload instance addition', () => {
+  test('adding a third instance via config + POST /reload makes it dispatchable', async () => {
+    test.slow();
+    let ctx: SameHostTestContext | undefined;
+    let gammaServer: TestServer | undefined;
+    try {
+      ctx = await setupSameHostTest();
+
+      // Open alpha and beta tabs
+      const alphaPage = await openTabAndWaitForAdapter(ctx.context, ctx.alphaUrl, ctx.server, ctx.alphaServer);
+      const betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Verify initial tool schema has instance enum with alpha + beta
+      const toolsBefore = await ctx.client.listTools();
+      const echoToolBefore = toolsBefore.find(t => t.name === 'e2e-test_echo');
+      expect(echoToolBefore).toBeDefined();
+      const schemaBefore = echoToolBefore?.inputSchema as {
+        properties?: Record<string, { enum?: string[] }>;
+      };
+      const instanceEnumBefore = schemaBefore.properties?.instance?.enum ?? [];
+      expect(instanceEnumBefore).toContain('alpha');
+      expect(instanceEnumBefore).toContain('beta');
+      expect(instanceEnumBefore).not.toContain('gamma');
+
+      // Start a third test server (gamma)
+      gammaServer = await startTestServer();
+      const gammaUrl = gammaServer.url;
+
+      // Rewrite config.json adding gamma instance
+      const config = readTestConfig(ctx.configDir);
+      const settings = config.settings?.['e2e-test'] as Record<string, unknown>;
+      const instanceUrlMap = settings.instanceUrl as Record<string, string>;
+      instanceUrlMap.gamma = gammaUrl;
+      writeTestConfig(ctx.configDir, config);
+
+      // POST /reload to trigger config rediscovery
+      const reloadRes = await triggerReload(ctx.server.port, ctx.server.secret);
+      expect(reloadRes.ok).toBe(true);
+
+      // Wait for tool list to reflect the gamma instance in the enum
+      const toolsAfter = await waitForToolList(
+        ctx.client,
+        tools => {
+          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          if (!echo) return false;
+          const schema = echo.inputSchema as {
+            properties?: Record<string, { enum?: string[] }>;
+          };
+          const instanceEnum = schema.properties?.instance?.enum ?? [];
+          return instanceEnum.includes('gamma');
+        },
+        15_000,
+        500,
+        'instance enum to include gamma after reload',
+      );
+
+      // Verify all three instances are in the enum
+      const echoToolAfter = toolsAfter.find(t => t.name === 'e2e-test_echo');
+      const schemaAfter = echoToolAfter?.inputSchema as {
+        properties?: Record<string, { enum?: string[] }>;
+      };
+      const instanceEnumAfter = schemaAfter.properties?.instance?.enum ?? [];
+      expect(instanceEnumAfter).toContain('alpha');
+      expect(instanceEnumAfter).toContain('beta');
+      expect(instanceEnumAfter).toContain('gamma');
+
+      // Open gamma tab
+      const gammaPage = await openTabAndWaitForAdapter(ctx.context, gammaUrl, ctx.server, gammaServer);
+      await waitForReadyTabs(ctx.client, 3);
+
+      // Dispatch to gamma — verify it hits the gamma server
+      await gammaServer.reset();
+      const gammaResult = await ctx.client.callTool('e2e-test_echo', {
+        message: 'hello-gamma',
+        instance: 'gamma',
+      });
+      expect(gammaResult.isError).toBe(false);
+      const gammaParsed = JSON.parse(gammaResult.content) as { message: string };
+      expect(gammaParsed.message).toBe('hello-gamma');
+
+      const gammaInvocations = await gammaServer.invocations();
+      const gammaEchoes = gammaInvocations.filter(i => i.path === '/api/echo');
+      expect(gammaEchoes.length).toBe(1);
+
+      await alphaPage.close();
+      await betaPage.close();
+      await gammaPage.close();
+    } finally {
+      if (gammaServer) await gammaServer.kill();
+      if (ctx) await cleanupSameHostTest(ctx);
+    }
+  });
+});
+
+test.describe('Multi-instance robust — hot-reload instance removal', () => {
+  test('removing an instance via config + POST /reload returns Unknown instance error', async () => {
+    test.slow();
+    let ctx: SameHostTestContext | undefined;
+    try {
+      ctx = await setupSameHostTest();
+
+      // Open alpha and beta tabs
+      const alphaPage = await openTabAndWaitForAdapter(ctx.context, ctx.alphaUrl, ctx.server, ctx.alphaServer);
+      const betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Verify initial tool schema has instance enum with alpha + beta
+      const toolsBefore = await ctx.client.listTools();
+      const echoToolBefore = toolsBefore.find(t => t.name === 'e2e-test_echo');
+      expect(echoToolBefore).toBeDefined();
+      const schemaBefore = echoToolBefore?.inputSchema as {
+        properties?: Record<string, { enum?: string[] }>;
+      };
+      const instanceEnumBefore = schemaBefore.properties?.instance?.enum ?? [];
+      expect(instanceEnumBefore).toContain('alpha');
+      expect(instanceEnumBefore).toContain('beta');
+
+      // Rewrite config.json removing beta instance
+      const config = readTestConfig(ctx.configDir);
+      const settings = config.settings?.['e2e-test'] as Record<string, unknown>;
+      const instanceUrlMap = settings.instanceUrl as Record<string, string>;
+      delete instanceUrlMap.beta;
+      writeTestConfig(ctx.configDir, config);
+
+      // POST /reload to trigger config rediscovery
+      const reloadRes = await triggerReload(ctx.server.port, ctx.server.secret);
+      expect(reloadRes.ok).toBe(true);
+
+      // Wait for tool list to reflect only alpha (no instance enum at all,
+      // since a single instance means no instance parameter)
+      await waitForToolList(
+        ctx.client,
+        tools => {
+          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          if (!echo) return false;
+          const schema = echo.inputSchema as {
+            properties?: Record<string, { enum?: string[] }>;
+          };
+          // Single instance: no instance property in schema
+          return schema.properties?.instance === undefined;
+        },
+        15_000,
+        500,
+        'instance parameter to be removed after reload (single instance)',
+      );
+
+      // Dispatch to beta — should return an Unknown instance error
+      const betaResult = await ctx.client.callTool('e2e-test_echo', {
+        message: 'should-fail',
+        instance: 'beta',
+      });
+      expect(betaResult.isError).toBe(true);
+      expect(betaResult.content).toContain('Unknown instance');
+      expect(betaResult.content).toContain('beta');
+
+      // Dispatch to alpha should still work (without instance param, since
+      // it's now the only instance)
+      await ctx.alphaServer.reset();
+      const alphaResult = await ctx.client.callTool('e2e-test_echo', {
+        message: 'hello-alpha-after-removal',
+      });
+      expect(alphaResult.isError).toBe(false);
+      const alphaParsed = JSON.parse(alphaResult.content) as { message: string };
+      expect(alphaParsed.message).toBe('hello-alpha-after-removal');
+
+      await alphaPage.close();
+      await betaPage.close();
+    } finally {
+      if (ctx) await cleanupSameHostTest(ctx);
     }
   });
 });
