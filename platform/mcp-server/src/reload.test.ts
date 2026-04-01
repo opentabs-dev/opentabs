@@ -346,6 +346,47 @@ describe('performReload', () => {
     expect(state.outdatedPlugins).toHaveLength(0);
   });
 
+  test('prunes outdatedPlugins entry when installed version matches latestVersion', async () => {
+    const pluginDir = createPluginDir(configDir, 'my-plugin');
+    writeConfig(configDir, [pluginDir]);
+
+    // Pre-populate an outdated entry whose latestVersion matches the installed plugin version (1.0.0)
+    state.outdatedPlugins = [
+      {
+        name: 'opentabs-plugin-my-plugin',
+        currentVersion: '0.9.0',
+        latestVersion: '1.0.0',
+        updateCommand: 'npm update -g opentabs-plugin-my-plugin',
+      },
+    ];
+
+    await performReload(state, [], emptyTransports(), false);
+
+    // The installed version (1.0.0) matches latestVersion — entry should be pruned
+    expect(state.outdatedPlugins).toHaveLength(0);
+  });
+
+  test('retains outdatedPlugins entry when installed version is still older than latestVersion', async () => {
+    const pluginDir = createPluginDir(configDir, 'my-plugin');
+    writeConfig(configDir, [pluginDir]);
+
+    // Pre-populate an outdated entry whose latestVersion is higher than the installed version (1.0.0)
+    state.outdatedPlugins = [
+      {
+        name: 'opentabs-plugin-my-plugin',
+        currentVersion: '1.0.0',
+        latestVersion: '2.0.0',
+        updateCommand: 'npm update -g opentabs-plugin-my-plugin',
+      },
+    ];
+
+    await performReload(state, [], emptyTransports(), false);
+
+    // The installed version (1.0.0) does not match latestVersion (2.0.0) — entry should be retained
+    expect(state.outdatedPlugins).toHaveLength(1);
+    expect(state.outdatedPlugins[0]?.latestVersion).toBe('2.0.0');
+  });
+
   test('notifies MCP sessions of tool list changes on hot reload', async () => {
     let toolNotifyCalled = 0;
     const srv = {

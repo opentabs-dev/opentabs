@@ -125,13 +125,17 @@ const pruneStaleState = (state: ServerState): void => {
   // Prune stale log buffers for removed plugins
   pruneStaleBuffers(new Set(state.registry.plugins.keys()));
 
-  // Keep only outdatedPlugins entries for still-present plugins
-  const npmPkgNames = new Set(
+  // Keep only outdatedPlugins entries for plugins that still exist AND are still outdated.
+  // An entry is pruned when: (a) the npm package is no longer in the registry, or
+  // (b) the installed version now matches latestVersion (i.e., the update succeeded).
+  const npmPkgVersions = new Map(
     Array.from(state.registry.plugins.values())
-      .map(p => p.npmPackageName)
-      .filter((n): n is string => n !== undefined),
+      .filter((p): p is typeof p & { npmPackageName: string } => p.npmPackageName !== undefined)
+      .map(p => [p.npmPackageName, p.version]),
   );
-  state.outdatedPlugins = state.outdatedPlugins.filter(o => npmPkgNames.has(o.name));
+  state.outdatedPlugins = state.outdatedPlugins.filter(
+    o => npmPkgVersions.has(o.name) && npmPkgVersions.get(o.name) !== o.latestVersion,
+  );
 
   // Prune activeNetworkCaptures for tab IDs no longer present in tabMappings
   for (const conn of state.extensionConnections.values()) {
