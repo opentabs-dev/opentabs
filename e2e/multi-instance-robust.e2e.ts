@@ -1080,3 +1080,56 @@ test.describe('Multi-instance robust — URL path variations in pattern derivati
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// US-015: Per-tab getConfig isolation under concurrent load
+// ---------------------------------------------------------------------------
+
+test.describe('Multi-instance robust — per-tab getConfig isolation under concurrent load', () => {
+  test('10 concurrent getConfig calls (5 alpha, 5 beta) return correct URLs with no cross-contamination', async () => {
+    test.slow();
+    let ctx: CrossHostTestContext | undefined;
+    try {
+      ctx = await setupCrossHostTest();
+
+      // Open alpha tab (localhost) and beta tab (127.0.0.1)
+      const alphaPage = await openTabAndWaitForAdapter(ctx.context, ctx.alphaUrl, ctx.server, ctx.alphaServer);
+      const betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+
+      // Wait for both tabs to be ready
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Build 10 concurrent getConfig calls: indices 0-4 → alpha, indices 5-9 → beta
+      const { client, alphaUrl, betaUrl } = ctx;
+      const promises = Array.from({ length: 10 }, (_, i) => {
+        const instance = i < 5 ? 'alpha' : 'beta';
+        return client
+          .callTool('e2e-test_sdk_get_config', { key: 'instanceUrl', instance })
+          .then(result => ({ index: i, instance, result }));
+      });
+
+      const results = await Promise.all(promises);
+
+      // Verify all alpha calls return the alpha URL
+      for (const { result } of results.filter(r => r.instance === 'alpha')) {
+        expect(result.isError).toBe(false);
+        const parsed = JSON.parse(result.content) as { key: string; value: string | null };
+        expect(parsed.key).toBe('instanceUrl');
+        expect(parsed.value).toBe(alphaUrl);
+      }
+
+      // Verify all beta calls return the beta URL
+      for (const { result } of results.filter(r => r.instance === 'beta')) {
+        expect(result.isError).toBe(false);
+        const parsed = JSON.parse(result.content) as { key: string; value: string | null };
+        expect(parsed.key).toBe('instanceUrl');
+        expect(parsed.value).toBe(betaUrl);
+      }
+
+      await alphaPage.close();
+      await betaPage.close();
+    } finally {
+      if (ctx) await cleanupCrossHostTest(ctx);
+    }
+  });
+});
