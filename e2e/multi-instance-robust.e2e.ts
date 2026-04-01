@@ -847,3 +847,106 @@ test.describe('Multi-instance robust — concurrent burst dispatch', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// US-012: Instance tab close and reopen recovery
+// ---------------------------------------------------------------------------
+
+/**
+ * Poll plugin_list_tabs until the e2e-test plugin reports exactly `count` tabs
+ * (regardless of readiness). Returns the plugin entry list.
+ */
+const waitForTabCount = async (client: McpClient, count: number, timeoutMs = 20_000): Promise<PluginTabsEntry[]> => {
+  let last: PluginTabsEntry[] = [];
+  await waitFor(
+    async () => {
+      const result = await client.callTool('plugin_list_tabs', { plugin: 'e2e-test' });
+      if (result.isError) return false;
+      last = JSON.parse(result.content) as PluginTabsEntry[];
+      const entry = last[0];
+      if (!entry) return count === 0;
+      return entry.tabs.length === count;
+    },
+    timeoutMs,
+    500,
+    `plugin_list_tabs to report exactly ${String(count)} tab(s)`,
+  );
+  return last;
+};
+
+test.describe('Multi-instance robust — tab close and reopen recovery', () => {
+  test('closing beta tab causes dispatch error, reopening restores dispatch', async () => {
+    test.slow();
+    let ctx: CrossHostTestContext | undefined;
+    try {
+      ctx = await setupCrossHostTest();
+
+      // Open alpha tab (localhost) and beta tab (127.0.0.1)
+      const alphaPage = await openTabAndWaitForAdapter(ctx.context, ctx.alphaUrl, ctx.server, ctx.alphaServer);
+      let betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+
+      // Wait for both tabs to be ready
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Verify dispatch to both instances works
+      await ctx.alphaServer.reset();
+      await ctx.betaServer.reset();
+
+      const alphaResult1 = await ctx.client.callTool('e2e-test_echo', {
+        message: 'before-close-alpha',
+        instance: 'alpha',
+      });
+      expect(alphaResult1.isError).toBe(false);
+
+      const betaResult1 = await ctx.client.callTool('e2e-test_echo', {
+        message: 'before-close-beta',
+        instance: 'beta',
+      });
+      expect(betaResult1.isError).toBe(false);
+
+      // Close beta tab
+      await betaPage.close();
+
+      // Wait for tab mapping to reflect only 1 tab (alpha)
+      await waitForTabCount(ctx.client, 1);
+
+      // Dispatch to beta — should fail with "No open tab" or similar error
+      const betaFailResult = await ctx.client.callTool('e2e-test_echo', {
+        message: 'should-fail-beta',
+        instance: 'beta',
+      });
+      expect(betaFailResult.isError).toBe(true);
+
+      // Dispatch to alpha — should still work (isolated from beta closure)
+      await ctx.alphaServer.reset();
+      const alphaResult2 = await ctx.client.callTool('e2e-test_echo', {
+        message: 'after-close-alpha',
+        instance: 'alpha',
+      });
+      expect(alphaResult2.isError).toBe(false);
+      const alphaParsed2 = JSON.parse(alphaResult2.content) as { message: string };
+      expect(alphaParsed2.message).toBe('after-close-alpha');
+
+      // Reopen beta tab
+      betaPage = await openTabAndWaitForAdapter(ctx.context, ctx.betaUrl, ctx.server, ctx.betaServer);
+
+      // Wait for both tabs to be ready again
+      await waitForReadyTabs(ctx.client, 2);
+
+      // Dispatch to beta — should work again
+      await ctx.betaServer.reset();
+      const betaResult2 = await ctx.client.callTool('e2e-test_echo', {
+        message: 'after-reopen-beta',
+        instance: 'beta',
+      });
+      expect(betaResult2.isError).toBe(false);
+      const betaParsed2 = JSON.parse(betaResult2.content) as { message: string };
+      expect(betaParsed2.message).toBe('after-reopen-beta');
+
+      await alphaPage.close();
+      await betaPage.close();
+    } finally {
+      if (ctx) await cleanupCrossHostTest(ctx);
+    }
+  });
+});
