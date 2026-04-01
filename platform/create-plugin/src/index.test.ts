@@ -263,38 +263,38 @@ describe('create-opentabs-plugin CLI', () => {
       // real ~/.opentabs/config.json or notify a running MCP server.
       const buildEnv = { ...process.env, OPENTABS_CONFIG_DIR: configDir };
 
+      // shell: true is required on Windows where npm is a .cmd script
+      const spawnOpts = { cwd: projectDir, env: buildEnv, shell: true } as const;
+
       // npm install
-      const install = spawnSync('npm', ['install'], {
-        cwd: projectDir,
-        env: buildEnv,
-      });
+      const install = spawnSync('npm', ['install'], spawnOpts);
       if ((install.status ?? 1) !== 0) {
-        console.error('install stdout:', install.stdout.toString());
-        console.error('install stderr:', install.stderr.toString());
+        console.error('install stdout:', String(install.stdout ?? ''));
+        console.error('install stderr:', String(install.stderr ?? ''));
       }
       expect(install.status ?? 1).toBe(0);
 
       // npm run build (tsc && opentabs-plugin build)
-      const build = spawnSync('npm', ['run', 'build'], { cwd: projectDir, env: buildEnv });
+      const build = spawnSync('npm', ['run', 'build'], spawnOpts);
       if ((build.status ?? 1) !== 0) {
-        console.error('build stdout:', build.stdout.toString());
-        console.error('build stderr:', build.stderr.toString());
+        console.error('build stdout:', String(build.stdout ?? ''));
+        console.error('build stderr:', String(build.stderr ?? ''));
       }
       expect(build.status ?? 1).toBe(0);
 
       // npm run lint — scaffolded code must pass lint with zero errors out of the box
-      const lint = spawnSync('npm', ['run', 'lint'], { cwd: projectDir, env: buildEnv });
+      const lint = spawnSync('npm', ['run', 'lint'], spawnOpts);
       if ((lint.status ?? 1) !== 0) {
-        console.error('lint stdout:', lint.stdout.toString());
-        console.error('lint stderr:', lint.stderr.toString());
+        console.error('lint stdout:', String(lint.stdout ?? ''));
+        console.error('lint stderr:', String(lint.stderr ?? ''));
       }
       expect(lint.status ?? 1).toBe(0);
 
       // npm run format:check — scaffolded code must match biome format config out of the box
-      const formatCheck = spawnSync('npm', ['run', 'format:check'], { cwd: projectDir, env: buildEnv });
+      const formatCheck = spawnSync('npm', ['run', 'format:check'], spawnOpts);
       if ((formatCheck.status ?? 1) !== 0) {
-        console.error('format:check stdout:', formatCheck.stdout.toString());
-        console.error('format:check stderr:', formatCheck.stderr.toString());
+        console.error('format:check stdout:', String(formatCheck.stdout ?? ''));
+        console.error('format:check stderr:', String(formatCheck.stderr ?? ''));
       }
       expect(formatCheck.status ?? 1).toBe(0);
 
