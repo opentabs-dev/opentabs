@@ -407,6 +407,87 @@ test.describe('stress', () => {
   });
 });
 
+test.describe('stress — rapid reload spam with update notification', () => {
+  test('rapid POST /reload spam does not corrupt update notification state', async () => {
+    test.slow();
+
+    const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+    const { name: pkgName, version: currentVersion } = getPluginPackageInfo();
+
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-update-'));
+    writeTestConfig(configDir, {
+      localPlugins: [absPluginPath],
+      permissions: { 'e2e-test': { permission: 'auto' } },
+    });
+
+    const server = await startMcpServer(configDir, true);
+    const testServer = await startTestServer();
+    const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+    setupAdapterSymlink(configDir, extensionDir);
+
+    const pageErrors: Error[] = [];
+
+    try {
+      await waitForExtensionConnected(server);
+      await waitForLog(server, 'plugin(s) mapped', 15_000);
+
+      await openTestAppTab(context, testServer.url, server, testServer);
+      const sidePanelPage = await openSidePanel(context);
+
+      sidePanelPage.on('pageerror', err => pageErrors.push(err));
+
+      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+      const secret = server.secret;
+      expect(secret).toBeTruthy();
+      if (!secret) throw new Error('Server secret is required');
+
+      // Inject outdated data with a version the plugin can never match
+      await setOutdatedPlugins(server.port, secret, [
+        {
+          name: pkgName,
+          currentVersion,
+          latestVersion: '99.0.0',
+          updateCommand: `npm update -g ${pkgName}`,
+        },
+      ]);
+
+      const menuButton = sidePanelPage.locator('[aria-label="Plugin options"]');
+      const updateDot = menuButton.locator('div.rounded-full');
+      await expect(updateDot).toBeVisible({ timeout: 10_000 });
+
+      // Fire 5 sequential POST /reload requests with 200ms between each
+      for (let i = 0; i < 5; i++) {
+        const res = await fetch(`http://localhost:${server.port}/reload`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        expect(res.ok).toBe(true);
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      // Wait for everything to settle
+      await new Promise(r => setTimeout(r, 3_000));
+
+      // Update dot should still be visible (plugin is still outdated)
+      await expect(updateDot).toBeVisible({ timeout: 10_000 });
+
+      // Verify exactly one plugin card (no duplicates)
+      const pluginTriggers = sidePanelPage.locator('button[data-radix-collection-item]', { hasText: 'E2E Test' });
+      await expect(pluginTriggers).toHaveCount(1, { timeout: 5_000 });
+
+      // Zero page errors
+      expect(pageErrors).toHaveLength(0);
+    } finally {
+      await context.close();
+      await server.kill();
+      await testServer.kill();
+      cleanupTestConfigDir(configDir);
+      if (cleanupDir) fs.rmSync(cleanupDir, { recursive: true, force: true });
+    }
+  });
+});
+
 test.describe('Side panel — plugin update flow', () => {
   test('clicking Update on a local plugin shows error alert on failure', async () => {
     const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
