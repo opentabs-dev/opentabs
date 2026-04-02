@@ -31,8 +31,11 @@ RUN npm ci --omit=dev --ignore-scripts && \
 RUN npm install -g $(curl -s "https://registry.npmjs.org/-/v1/search?text=keywords:opentabs-plugin&size=250" \
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{const o=JSON.parse(d);console.log(o.objects.map(x=>x.package.name).filter(n=>n.includes('opentabs-plugin-')&&!n.includes('plugin-sdk')&&!n.includes('plugin-tools')).join(' '))})")
 
+COPY glama.json ./
+
 ENV HOST=0.0.0.0
 ENV PORT=9515
 EXPOSE 9515
 
-CMD ["opentabs", "start"]
+ENTRYPOINT ["opentabs"]
+CMD ["start", "--stdio"]

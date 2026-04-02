@@ -1,0 +1,11 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "name": "opentabs",
+  "description": "Turns browser tabs into MCP tools. A Chrome extension + MCP server with a plugin-based architecture that gives AI agents access to web applications through the user's authenticated browser session.",
+  "repository": "https://github.com/opentabs-dev/opentabs",
+  "homepage": "https://opentabs.dev",
+  "license": "MIT",
+  "runtime": "node",
+  "transport": ["http", "stdio"],
+  "maintainers": ["opentabs-dev"]
+}
