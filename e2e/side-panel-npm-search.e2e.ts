@@ -49,8 +49,26 @@ const npmSearchFindsPlugins = (): boolean => {
   }
 };
 
+/**
+ * Check if the slack plugin on npm has iconSvg in its opentabs metadata.
+ * Returns true when the published version includes embedded icons.
+ */
+const npmPluginHasIcons = (): boolean => {
+  try {
+    const result = execSync('npm view @opentabs-dev/opentabs-plugin-slack opentabs.iconSvg --json', {
+      encoding: 'utf8',
+      timeout: 15_000,
+    });
+    const value = JSON.parse(result.trim()) as string | null;
+    return typeof value === 'string' && value.length > 0;
+  } catch {
+    return false;
+  }
+};
+
 const searchAvailable = npmSearchFindsPlugins();
 const slackArtifactsAvailable = npmSlackPluginHasArtifacts();
+const iconsAvailable = npmPluginHasIcons();
 
 test.describe('Side panel npm search', () => {
   // These two tests require npm search to return opentabs plugin results.
@@ -89,6 +107,168 @@ test.describe('Side panel npm search', () => {
 
         await searchInput.fill('');
         await expect(sidePanelPage.getByText('Available')).toBeHidden({ timeout: 5_000 });
+
+        await sidePanelPage.close();
+      } finally {
+        await context.close().catch(() => {});
+        await server.kill();
+        fs.rmSync(cleanupDir, { recursive: true, force: true });
+        cleanupTestConfigDir(configDir);
+      }
+    });
+
+    test('search results display SVG icons from npm registry', async () => {
+      test.skip(!iconsAvailable, 'published @opentabs-dev plugins do not have icons yet');
+      test.slow();
+
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-search-icons-'));
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: {
+          'e2e-test': { permission: 'auto' },
+          browser: { permission: 'auto' },
+        },
+      });
+
+      const server = await startMcpServer(configDir, false);
+      const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+      setupAdapterSymlink(configDir, extensionDir);
+
+      try {
+        await waitForExtensionConnected(server);
+
+        const sidePanelPage = await openSidePanel(context);
+        await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+        const searchInput = sidePanelPage.getByPlaceholder('Search plugins and tools...');
+        await searchInput.fill('slack');
+
+        await expect(sidePanelPage.getByText('Available')).toBeVisible({ timeout: 15_000 });
+        await expect(sidePanelPage.getByRole('button', { name: 'Install' }).first()).toBeVisible();
+
+        // The first NpmPluginCard should have an SVG icon rendered by PluginIcon.
+        // PluginIcon renders SVG via dangerouslySetInnerHTML inside an overflow-hidden div.
+        const firstInstallButton = sidePanelPage.getByRole('button', { name: 'Install' }).first();
+        const firstCard = firstInstallButton.locator('xpath=ancestor::div[contains(@class,"border-2")][1]');
+        const svgIcon = firstCard.locator('svg').first();
+        await expect(svgIcon).toBeVisible({ timeout: 5_000 });
+
+        await sidePanelPage.close();
+      } finally {
+        await context.close().catch(() => {});
+        await server.kill();
+        fs.rmSync(cleanupDir, { recursive: true, force: true });
+        cleanupTestConfigDir(configDir);
+      }
+    });
+
+    test('search result icons change between light and dark mode', async () => {
+      test.skip(!iconsAvailable, 'published @opentabs-dev plugins do not have icons yet');
+      test.slow();
+
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-search-icons-dark-'));
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: {
+          'e2e-test': { permission: 'auto' },
+          browser: { permission: 'auto' },
+        },
+      });
+
+      const server = await startMcpServer(configDir, false);
+      const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+      setupAdapterSymlink(configDir, extensionDir);
+
+      try {
+        await waitForExtensionConnected(server);
+
+        const sidePanelPage = await openSidePanel(context);
+        await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+        const searchInput = sidePanelPage.getByPlaceholder('Search plugins and tools...');
+        await searchInput.fill('slack');
+
+        await expect(sidePanelPage.getByText('Available')).toBeVisible({ timeout: 15_000 });
+        await expect(sidePanelPage.getByRole('button', { name: 'Install' }).first()).toBeVisible();
+
+        // Capture the icon SVG content in light mode
+        const firstInstallButton = sidePanelPage.getByRole('button', { name: 'Install' }).first();
+        const firstCard = firstInstallButton.locator('xpath=ancestor::div[contains(@class,"border-2")][1]');
+        const svgIcon = firstCard.locator('svg').first();
+        await expect(svgIcon).toBeVisible({ timeout: 5_000 });
+        const lightSvgHtml = await svgIcon.innerHTML();
+
+        // Toggle to dark mode
+        const darkToggle = sidePanelPage.getByLabel('Switch to dark mode');
+        await darkToggle.click();
+        await expect(sidePanelPage.locator('html')).toHaveClass(/dark/);
+
+        // Wait for the icon to re-render with dark variant
+        await sidePanelPage.waitForTimeout(500);
+
+        // Capture the icon SVG content in dark mode
+        const darkSvgHtml = await svgIcon.innerHTML();
+
+        // The light and dark SVGs should differ (different color values)
+        expect(lightSvgHtml).not.toBe(darkSvgHtml);
+
+        await sidePanelPage.close();
+      } finally {
+        await context.close().catch(() => {});
+        await server.kill();
+        fs.rmSync(cleanupDir, { recursive: true, force: true });
+        cleanupTestConfigDir(configDir);
+      }
+    });
+
+    test('search results without icons render letter-avatar fallback', async () => {
+      test.slow();
+
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-sp-search-fallback-'));
+      writeTestConfig(configDir, {
+        localPlugins: [absPluginPath],
+        permissions: {
+          'e2e-test': { permission: 'auto' },
+          browser: { permission: 'auto' },
+        },
+      });
+
+      const server = await startMcpServer(configDir, false);
+      const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
+      setupAdapterSymlink(configDir, extensionDir);
+
+      try {
+        await waitForExtensionConnected(server);
+
+        const sidePanelPage = await openSidePanel(context);
+        await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+
+        const searchInput = sidePanelPage.getByPlaceholder('Search plugins and tools...');
+        await searchInput.fill('opentabs');
+
+        await expect(sidePanelPage.getByText('Available')).toBeVisible({ timeout: 15_000 });
+        await expect(sidePanelPage.getByRole('button', { name: 'Install' }).first()).toBeVisible();
+
+        // When plugins have no icons, PluginIcon renders a letter avatar —
+        // a <span> with a single uppercase letter and a colored background.
+        const firstInstallButton = sidePanelPage.getByRole('button', { name: 'Install' }).first();
+        const firstCard = firstInstallButton.locator('xpath=ancestor::div[contains(@class,"border-2")][1]');
+        // The icon container is the first child div of the card's header row
+        const iconContainer = firstCard.locator('div').first();
+
+        if (iconsAvailable) {
+          // If plugins have icons, verify SVG is rendered
+          await expect(iconContainer.locator('svg').first()).toBeVisible({ timeout: 5_000 });
+        } else {
+          // If plugins lack icons, verify the letter avatar span exists
+          const letterSpan = iconContainer.locator('span').first();
+          await expect(letterSpan).toBeVisible({ timeout: 5_000 });
+          const letter = await letterSpan.textContent();
+          expect(letter).toMatch(/^[A-Z]$/);
+        }
 
         await sidePanelPage.close();
       } finally {

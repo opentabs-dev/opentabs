@@ -25,7 +25,9 @@ const NpmPluginCard = ({ plugin, installing, error, onInstall }: NpmPluginCardPr
           tabState="closed"
           size={28}
           iconSvg={plugin.iconSvg || undefined}
+          iconInactiveSvg={plugin.iconSvg || undefined}
           iconDarkSvg={plugin.iconDarkSvg || undefined}
+          iconDarkInactiveSvg={plugin.iconDarkSvg || undefined}
         />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex flex-wrap items-center gap-1">
