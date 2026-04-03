@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://digital.fidelity.com/*"
     ],
-    "homepage": "https://digital.fidelity.com/ftgw/digital/portfolio/summary"
+    "homepage": "https://digital.fidelity.com/ftgw/digital/portfolio/summary",
+    "iconSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M12 0L14.4 8.4L12 6L9.6 8.4L12 0ZM24 12L15.6 14.4L18 12L15.6 9.6L24 12ZM12 24L9.6 15.6L12 18L14.4 15.6L12 24ZM0 12L8.4 9.6L6 12L8.4 14.4L0 12ZM20.49 3.51L14.1 11.1L16.2 9L14.1 6.9L20.49 3.51ZM20.49 20.49L12.9 14.1L15 16.2L17.1 14.1L20.49 20.49ZM3.51 20.49L9.9 12.9L7.8 15L9.9 17.1L3.51 20.49ZM3.51 3.51L11.1 9.9L9 7.8L6.9 9.9L3.51 3.51Z\" fill=\"#498A31\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M12 0L14.4 8.4L12 6L9.6 8.4L12 0ZM24 12L15.6 14.4L18 12L15.6 9.6L24 12ZM12 24L9.6 15.6L12 18L14.4 15.6L12 24ZM0 12L8.4 9.6L6 12L8.4 14.4L0 12ZM20.49 3.51L14.1 11.1L16.2 9L14.1 6.9L20.49 3.51ZM20.49 20.49L12.9 14.1L15 16.2L17.1 14.1L20.49 20.49ZM3.51 20.49L9.9 12.9L7.8 15L9.9 17.1L3.51 20.49ZM3.51 3.51L11.1 9.9L9 7.8L6.9 9.9L3.51 3.51Z\" fill=\"#498A31\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -48,10 +50,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "@biomejs/biome": "2.4.6",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

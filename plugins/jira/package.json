@@ -33,7 +33,9 @@
         "required": false,
         "placeholder": "https://jira.example.com"
       }
-    }
+    },
+    "iconSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\"> <defs> <linearGradient x1=\"98.031%\" y1=\"0.161%\" x2=\"58.888%\" y2=\"40.766%\" id=\"@opentabs-dev/opentabs-plugin-jira-a\"> <stop stop-color=\"#0052CC\" offset=\"18%\"/> <stop stop-color=\"#2684FF\" offset=\"100%\"/> </linearGradient> <linearGradient x1=\"100.665%\" y1=\"0.455%\" x2=\"55.402%\" y2=\"44.727%\" id=\"@opentabs-dev/opentabs-plugin-jira-b\"> <stop stop-color=\"#0052CC\" offset=\"18%\"/> <stop stop-color=\"#2684FF\" offset=\"100%\"/> </linearGradient> </defs> <g> <path d=\"M244.658 0H121.707c0 14.72 5.847 28.837 16.256 39.246 10.409 10.409 24.526 16.256 39.246 16.256h22.649v21.867c.02 30.625 24.841 55.447 55.467 55.466V10.667C255.324 4.776 250.549 0 244.658 0z\" fill=\"#2684FF\"/> <path d=\"M183.822 61.262H60.871c.02 30.625 24.841 55.447 55.467 55.467h22.649v21.938c.039 30.625 24.877 55.431 55.502 55.431V71.929c0-5.891-4.776-10.667-10.667-10.667z\" fill=\"url(#@opentabs-dev/opentabs-plugin-jira-a)\"/> <path d=\"M122.951 122.489H0c0 30.653 24.849 55.502 55.502 55.502h22.72v21.867c.02 30.597 24.798 55.408 55.396 55.466V133.156c0-5.891-4.776-10.667-10.667-10.667z\" fill=\"url(#@opentabs-dev/opentabs-plugin-jira-b)\"/> </g> </svg>",
+    "iconDarkSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\"> <defs> <linearGradient x1=\"98.031%\" y1=\"0.161%\" x2=\"58.888%\" y2=\"40.766%\" id=\"@opentabs-dev/opentabs-plugin-jira-a\"> <stop stop-color=\"#3385ff\" offset=\"18%\"/> <stop stop-color=\"#2684FF\" offset=\"100%\"/> </linearGradient> <linearGradient x1=\"100.665%\" y1=\"0.455%\" x2=\"55.402%\" y2=\"44.727%\" id=\"@opentabs-dev/opentabs-plugin-jira-b\"> <stop stop-color=\"#3385ff\" offset=\"18%\"/> <stop stop-color=\"#2684FF\" offset=\"100%\"/> </linearGradient> </defs> <g> <path d=\"M244.658 0H121.707c0 14.72 5.847 28.837 16.256 39.246 10.409 10.409 24.526 16.256 39.246 16.256h22.649v21.867c.02 30.625 24.841 55.447 55.467 55.466V10.667C255.324 4.776 250.549 0 244.658 0z\" fill=\"#2684FF\"/> <path d=\"M183.822 61.262H60.871c.02 30.625 24.841 55.447 55.467 55.467h22.649v21.938c.039 30.625 24.877 55.431 55.502 55.431V71.929c0-5.891-4.776-10.667-10.667-10.667z\" fill=\"url(#@opentabs-dev/opentabs-plugin-jira-a)\"/> <path d=\"M122.951 122.489H0c0 30.653 24.849 55.502 55.502 55.502h22.72v21.867c.02 30.597 24.798 55.408 55.396 55.466V133.156c0-5.891-4.776-10.667-10.667-10.667z\" fill=\"url(#@opentabs-dev/opentabs-plugin-jira-b)\"/> </g> </svg>"
   },
   "exports": {
     ".": {
@@ -59,10 +61,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "@biomejs/biome": "2.4.6",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

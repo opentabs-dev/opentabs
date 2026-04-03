@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://vercel.com/*"
     ],
-    "homepage": "https://vercel.com/dashboard"
+    "homepage": "https://vercel.com/dashboard",
+    "iconSvg": "<svg viewBox=\"0 0 74 74\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M37.5896 5.25L74.5396 69.25H0.639648L37.5896 5.25Z\" fill=\"black\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 74 74\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M37.5896 5.25L74.5396 69.25H0.639648L37.5896 5.25Z\" fill=\"#ffffff\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -48,10 +50,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "@biomejs/biome": "2.4.6",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

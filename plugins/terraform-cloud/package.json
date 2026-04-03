@@ -19,7 +19,9 @@
     "urlPatterns": [
       "*://app.terraform.io/*"
     ],
-    "homepage": "https://app.terraform.io"
+    "homepage": "https://app.terraform.io",
+    "iconSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M1.44 0v7.575l6.561 3.79V3.787zm21.12 4.227l-6.561 3.791v7.574l6.56-3.787zM8.72 4.23v7.575l6.561 3.787V8.018zm0 8.405v7.575L15.28 24v-7.578z\" fill=\"black\"/></svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M1.44 0v7.575l6.561 3.79V3.787zm21.12 4.227l-6.561 3.791v7.574l6.56-3.787zM8.72 4.23v7.575l6.561 3.787V8.018zm0 8.405v7.575L15.28 24v-7.578z\" fill=\"#ffffff\"/></svg>"
   },
   "publishConfig": {
     "access": "public"
@@ -48,11 +50,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.0.0"

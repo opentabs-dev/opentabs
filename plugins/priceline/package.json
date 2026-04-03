@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://*.priceline.com/*"
     ],
-    "homepage": "https://www.priceline.com"
+    "homepage": "https://www.priceline.com",
+    "iconSvg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M6 3h7a5 5 0 0 1 0 10H9v8H6V3zm3 3v4h4a2 2 0 0 0 0-4H9z\" fill=\"#0068EF\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M6 3h7a5 5 0 0 1 0 10H9v8H6V3zm3 3v4h4a2 2 0 0 0 0-4H9z\" fill=\"#0068EF\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -48,11 +50,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.0.0"

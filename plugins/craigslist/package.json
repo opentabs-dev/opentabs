@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://*.craigslist.org/*"
     ],
-    "homepage": "https://accounts.craigslist.org/"
+    "homepage": "https://accounts.craigslist.org/",
+    "iconSvg": "<svg viewBox=\"0 0 48 48\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"24\" cy=\"24\" r=\"21.5\" fill=\"none\" stroke=\"black\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"24\" y1=\"2.5\" x2=\"24\" y2=\"45.492\" fill=\"none\" stroke=\"black\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"24\" y1=\"24\" x2=\"8.7979\" y2=\"39.2021\" fill=\"none\" stroke=\"black\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"24\" y1=\"24\" x2=\"39.2018\" y2=\"39.2018\" fill=\"none\" stroke=\"black\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 48 48\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"24\" cy=\"24\" r=\"21.5\" fill=\"none\" stroke=\"#ffffff\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"24\" y1=\"2.5\" x2=\"24\" y2=\"45.492\" fill=\"none\" stroke=\"#ffffff\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"24\" y1=\"24\" x2=\"8.7979\" y2=\"39.2021\" fill=\"none\" stroke=\"#ffffff\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><line x1=\"24\" y1=\"24\" x2=\"39.2018\" y2=\"39.2018\" fill=\"none\" stroke=\"#ffffff\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>"
   },
   "exports": {
     ".": {
@@ -48,10 +50,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "@biomejs/biome": "2.4.5",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://docs.google.com/document/*"
     ],
-    "homepage": "https://docs.google.com/document/"
+    "homepage": "https://docs.google.com/document/",
+    "iconSvg": "<svg viewBox=\"0 0 65 65\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <g transform=\"translate(9, 0)\"> <path d=\"M29.375 0L4.406 0C1.983 0 0 1.994 0 4.432L0 60.568C0 63.006 1.983 65 4.406 65L42.594 65C45.017 65 47 63.006 47 60.568L47 17.727L29.375 0Z\" fill=\"#4285F4\"/> <path d=\"M29.375 0L29.375 13.295C29.375 15.744 31.347 17.727 33.781 17.727L47 17.727L29.375 0Z\" fill=\"#A1C2FA\"/> <path d=\"M11.75 32.5L35.25 32.5L35.25 29.545L11.75 29.545L11.75 32.5ZM11.75 38.409L29.375 38.409L29.375 35.455L11.75 35.455L11.75 38.409ZM11.75 17.727L11.75 20.682L35.25 20.682L35.25 17.727L11.75 17.727ZM11.75 26.591L35.25 26.591L35.25 23.636L11.75 23.636L11.75 26.591Z\" fill=\"#F1F1F1\"/> </g> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 65 65\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <g transform=\"translate(9, 0)\"> <path d=\"M29.375 0L4.406 0C1.983 0 0 1.994 0 4.432L0 60.568C0 63.006 1.983 65 4.406 65L42.594 65C45.017 65 47 63.006 47 60.568L47 17.727L29.375 0Z\" fill=\"#4285F4\"/> <path d=\"M29.375 0L29.375 13.295C29.375 15.744 31.347 17.727 33.781 17.727L47 17.727L29.375 0Z\" fill=\"#A1C2FA\"/> <path d=\"M11.75 32.5L35.25 32.5L35.25 29.545L11.75 29.545L11.75 32.5ZM11.75 38.409L29.375 38.409L29.375 35.455L11.75 35.455L11.75 38.409ZM11.75 17.727L11.75 20.682L35.25 20.682L35.25 17.727L11.75 17.727ZM11.75 26.591L35.25 26.591L35.25 23.636L11.75 23.636L11.75 26.591Z\" fill=\"#F1F1F1\"/> </g> </svg>"
   },
   "exports": {
     ".": {
@@ -48,11 +50,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"

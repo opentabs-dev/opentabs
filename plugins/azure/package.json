@@ -19,7 +19,9 @@
     "urlPatterns": [
       "*://portal.azure.com/*"
     ],
-    "homepage": "https://portal.azure.com"
+    "homepage": "https://portal.azure.com",
+    "iconSvg": "<svg viewBox=\"0 0 96 96\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M33.338 6.544h26.038l-27.03 80.912H4.151zm37.861 0H96L63.166 87.456H37.278z\" fill=\"#0078D4\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 96 96\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M33.338 6.544h26.038l-27.03 80.912H4.151zm37.861 0H96L63.166 87.456H37.278z\" fill=\"#0078D4\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -48,11 +50,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.3.6"

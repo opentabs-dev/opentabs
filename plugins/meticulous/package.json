@@ -20,7 +20,9 @@
     "urlPatterns": [
       "*://app.meticulous.ai/*"
     ],
-    "homepage": "https://app.meticulous.ai"
+    "homepage": "https://app.meticulous.ai",
+    "iconSvg": "<svg viewBox=\"0 0 18 18\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <g transform=\"translate(1, 0)\"> <path d=\"M2.34131 0H0V17.3123H1.65712V2.45609L4.4692 8.65928L5.3417 6.61884L2.34131 0ZM14.2048 6.80147V17.3123H16V2.60093L14.2048 6.80147Z\" fill=\"black\"/> <path d=\"M13.6131 0L8.2023 11.9781H7.77547L6.35687 8.86081L5.48438 10.9012L6.73349 13.6596H9.09991L12.659 5.78755L12.7092 5.67419L15.1321 0H13.6131Z\" fill=\"#6E64BD\"/> </g> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 18 18\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <g transform=\"translate(1, 0)\"> <path d=\"M2.34131 0H0V17.3123H1.65712V2.45609L4.4692 8.65928L5.3417 6.61884L2.34131 0ZM14.2048 6.80147V17.3123H16V2.60093L14.2048 6.80147Z\" fill=\"#ffffff\"/> <path d=\"M13.6131 0L8.2023 11.9781H7.77547L6.35687 8.86081L5.48438 10.9012L6.73349 13.6596H9.09991L12.659 5.78755L12.7092 5.67419L15.1321 0H13.6131Z\" fill=\"#6E64BD\"/> </g> </svg>"
   },
   "exports": {
     ".": {
@@ -46,11 +48,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.0.0"

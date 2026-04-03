@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://excel.cloud.microsoft/*"
     ],
-    "homepage": "https://excel.cloud.microsoft/"
+    "homepage": "https://excel.cloud.microsoft/",
+    "iconSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <rect x=\"1\" y=\"3\" width=\"22\" height=\"18\" rx=\"2\" fill=\"#217346\"/> <path d=\"M7.5 8L12 16M12 8L7.5 16\" stroke=\"white\" stroke-width=\"2\" stroke-linecap=\"round\"/> <rect x=\"15\" y=\"8\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"11\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"14\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <rect x=\"1\" y=\"3\" width=\"22\" height=\"18\" rx=\"2\" fill=\"#8cdeb1\"/> <path d=\"M7.5 8L12 16M12 8L7.5 16\" stroke=\"white\" stroke-width=\"2\" stroke-linecap=\"round\"/> <rect x=\"15\" y=\"8\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"11\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"14\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -48,10 +50,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "@biomejs/biome": "2.4.6",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

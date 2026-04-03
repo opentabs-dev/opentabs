@@ -22,7 +22,9 @@
     "urlPatterns": [
       "*://onenote.cloud.microsoft/*"
     ],
-    "homepage": "https://onenote.cloud.microsoft/"
+    "homepage": "https://onenote.cloud.microsoft/",
+    "iconSvg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M3 4.5C3 3.672 3.672 3 4.5 3H13.5V21H4.5C3.672 21 3 20.328 3 19.5V4.5Z\" fill=\"#7719AA\"/> <path d=\"M13.5 3H19.5C20.328 3 21 3.672 21 4.5V19.5C21 20.328 20.328 21 19.5 21H13.5V3Z\" fill=\"#9B2DB8\"/> <path d=\"M7.2 7.5V16.5L9.6 11.1L12 16.5V7.5H10.5V12.3L9.6 10.2L8.7 12.3V7.5H7.2Z\" fill=\"white\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M3 4.5C3 3.672 3.672 3 4.5 3H13.5V21H4.5C3.672 21 3 20.328 3 19.5V4.5Z\" fill=\"#b355e6\"/> <path d=\"M13.5 3H19.5C20.328 3 21 3.672 21 4.5V19.5C21 20.328 20.328 21 19.5 21H13.5V3Z\" fill=\"#b547d2\"/> <path d=\"M7.2 7.5V16.5L9.6 11.1L12 16.5V7.5H10.5V12.3L9.6 10.2L8.7 12.3V7.5H7.2Z\" fill=\"white\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -48,10 +50,10 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "@biomejs/biome": "2.4.6",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",

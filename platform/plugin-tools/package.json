@@ -11,7 +11,7 @@
     "plugin-tools",
     "opentabs-plugin"
   ],
-  "version": "0.0.85",
+  "version": "0.0.86",
   "license": "MIT",
   "engines": {
     "node": ">= 22.0.0"

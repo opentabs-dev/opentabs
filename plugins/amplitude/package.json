@@ -20,7 +20,9 @@
       "*://app.amplitude.com/*",
       "*://analytics.amplitude.com/*"
     ],
-    "homepage": "https://app.amplitude.com"
+    "homepage": "https://app.amplitude.com",
+    "iconSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M2 16.5C2 16.5 4.5 8 6.5 8C8.5 8 9.5 13 11 13C12.5 13 13 5 15 5C17 5 17.5 11 19 11C20.5 11 22 7.5 22 7.5\" stroke=\"black\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <path d=\"M2 16.5C2 16.5 4.5 8 6.5 8C8.5 8 9.5 13 11 13C12.5 13 13 5 15 5C17 5 17.5 11 19 11C20.5 11 22 7.5 22 7.5\" stroke=\"#ffffff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" fill=\"none\"/> </svg>"
   },
   "exports": {
     ".": {
@@ -49,11 +51,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.85"
+    "@opentabs-dev/plugin-sdk": "^0.0.86"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.85",
+    "@opentabs-dev/plugin-tools": "^0.0.86",
     "jiti": "^2.6.1",
     "typescript": "^5.9.3",
     "zod": "^4.0.0"
