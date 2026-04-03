@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.0.83",
+  "version": "0.0.84",
   "type": "module",
   "main": "dist/adapter.iife.js",
   "keywords": [
