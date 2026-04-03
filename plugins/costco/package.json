@@ -59,5 +59,10 @@
     "typescript": "^5.9.3",
     "zod": "^4.3.6"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opentabs-dev/opentabs.git",
+    "directory": "plugins/costco"
+  }
 }
