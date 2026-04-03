@@ -8,6 +8,7 @@
 
 import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared';
 import { analyzeSiteTool } from './analyze-site.js';
+import { batchGetTabContent } from './batch-get-tab-content.js';
 import { clearConsoleLogs } from './clear-console-logs.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
@@ -60,6 +61,7 @@ const browserTools: BrowserToolDefinition[] = [
   executeScript,
   screenshotTab,
   getTabContent,
+  batchGetTabContent,
   getPageHtml,
   getStorage,
   clickElement,
