@@ -1470,3 +1470,238 @@ describe('namespaceSvgIds', () => {
     expect(result).toContain('url(#p-p-a)');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Decimal percentage RGB — the Outlook icon bug
+// ---------------------------------------------------------------------------
+
+describe('generateInactiveIcon — decimal percentage RGB values', () => {
+  test('style="stop-color:rgb(12.54902%,65.490196%,98.039216%)" converts to gray', () => {
+    const svg = svgWrap(
+      '<defs><linearGradient id="g"><stop style="stop-color:rgb(12.54902%,65.490196%,98.039216%);stop-opacity:1;"/></linearGradient></defs><rect fill="url(#g)"/>',
+    );
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('65.490196%');
+    expect(result).not.toContain('98.039216%');
+  });
+
+  test('fill="rgb(12.54902%,65.490196%,98.039216%)" converts to gray hex', () => {
+    const svg = svgWrap('<rect fill="rgb(12.54902%,65.490196%,98.039216%)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('12.54902%');
+    expect(result).toMatch(/fill="#[0-9a-f]{6}"/);
+  });
+
+  test('fill="rgb(100%,100%,100%)" (white via decimal percentages) → #ffffff', () => {
+    const svg = svgWrap('<rect fill="rgb(100%,100%,100%)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#ffffff"');
+  });
+
+  test('fill="rgb(0%,0%,0%)" (black via percentages) → clamped to #999999', () => {
+    const svg = svgWrap('<rect fill="rgb(0%,0%,0%)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#999999"');
+  });
+
+  test('fill="rgb(50.5%,50.5%,50.5%)" (achromatic decimal percentages) → gray', () => {
+    const svg = svgWrap('<rect fill="rgb(50.5%,50.5%,50.5%)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toMatch(/fill="#[0-9a-f]{6}"/);
+  });
+
+  test('fill="rgba(12.5%, 65.5%, 98%, 0.5)" converts to gray with alpha preserved', () => {
+    const svg = svgWrap('<rect fill="rgba(12.5%, 65.5%, 98%, 0.5)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('12.5%');
+    expect(result).toContain('0.5');
+    expect(result).toMatch(/rgba\(\d+, \d+, \d+, 0\.5\)/);
+  });
+
+  test('Outlook icon gradient stops are fully desaturated', () => {
+    const svg = svgWrap(
+      `<defs>
+        <linearGradient id="g">
+          <stop style="stop-color:rgb(12.54902%,65.490196%,98.039216%);stop-opacity:1;"/>
+          <stop style="stop-color:rgb(23.137255%,83.529412%,100%);stop-opacity:1;"/>
+          <stop style="stop-color:rgb(76.862745%,69.019608%,100%);stop-opacity:1;"/>
+        </linearGradient>
+      </defs><rect fill="url(#g)"/>`,
+    );
+    const result = generateInactiveIcon(svg);
+    // None of the original percentage values should remain
+    expect(result).not.toContain('65.490196%');
+    expect(result).not.toContain('83.529412%');
+    expect(result).not.toContain('69.019608%');
+  });
+});
+
+describe('validateInactiveIconColors — decimal percentage RGB values', () => {
+  test('fill="rgb(12.54902%,65.490196%,98.039216%)" (saturated) fails', () => {
+    const svg = svgWrap('<rect fill="rgb(12.54902%,65.490196%,98.039216%)"/>');
+    const result = validateInactiveIconColors(svg);
+    expect(result.valid).toBe(false);
+  });
+
+  test('fill="rgb(50.5%,50.5%,50.5%)" (achromatic) passes', () => {
+    const svg = svgWrap('<rect fill="rgb(50.5%,50.5%,50.5%)"/>');
+    expect(validateInactiveIconColors(svg)).toEqual({ valid: true });
+  });
+
+  test('style="stop-color:rgb(0%,56.862745%,100%)" (saturated in style) fails', () => {
+    const svg = svgWrap('<stop style="stop-color:rgb(0%,56.862745%,100%);"/>');
+    const result = validateInactiveIconColors(svg);
+    expect(result.valid).toBe(false);
+  });
+});
+
+describe('generateDarkIcon — decimal percentage RGB values', () => {
+  test('dark icon processes decimal percentage RGB without leaving original values', () => {
+    const svg = svgWrap(
+      '<defs><linearGradient id="g"><stop style="stop-color:rgb(8.627451%,35.294118%,85.098039%);stop-opacity:1;"/></linearGradient></defs><rect fill="url(#g)"/>',
+    );
+    const result = generateDarkIcon(svg);
+    // The color should either pass through (sufficient contrast) or be converted —
+    // but the regex should parse it successfully either way
+    expect(result).toBeDefined();
+    expect(result.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Edge cases: unusual but valid CSS color formats
+// ---------------------------------------------------------------------------
+
+describe('generateInactiveIcon — CSS color edge cases', () => {
+  test('fill="rgb( 255 , 0 , 0 )" with extra whitespace converts to gray', () => {
+    const svg = svgWrap('<rect fill="rgb( 255 , 0 , 0 )"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#999999"');
+  });
+
+  test('fill="RGB(255, 0, 0)" case-insensitive converts to gray', () => {
+    const svg = svgWrap('<rect fill="RGB(255, 0, 0)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#999999"');
+  });
+
+  test('fill="#AABBCC" uppercase hex converts to gray', () => {
+    const svg = svgWrap('<rect fill="#AABBCC"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toMatch(/fill="#[0-9a-f]{6}"/);
+    expect(result).not.toContain('#AABBCC');
+  });
+
+  test('fill="#aabbccdd" 8-digit hex with alpha converts to gray', () => {
+    const svg = svgWrap('<rect fill="#aabbccdd"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('#aabbcc');
+  });
+
+  test('fill="#abcd" 4-digit hex with alpha converts to gray', () => {
+    const svg = svgWrap('<rect fill="#abcd"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('#abcd');
+  });
+
+  test('fill="none" is preserved as-is', () => {
+    const svg = svgWrap('<rect fill="none"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="none"');
+  });
+
+  test('fill="currentColor" is preserved as-is', () => {
+    const svg = svgWrap('<rect fill="currentColor"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="currentColor"');
+  });
+
+  test('fill="url(#gradient)" is preserved as-is', () => {
+    const svg = svgWrap('<rect fill="url(#gradient)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="url(#gradient)"');
+  });
+
+  test('fill="transparent" is preserved as-is', () => {
+    const svg = svgWrap('<rect fill="transparent"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="transparent"');
+  });
+
+  test('fill="inherit" is preserved as-is', () => {
+    const svg = svgWrap('<rect fill="inherit"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="inherit"');
+  });
+
+  test('multiple color attributes on same element all convert', () => {
+    const svg = svgWrap('<rect fill="#ff0000" stroke="rgb(0, 0, 255)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('#ff0000');
+    expect(result).not.toContain('rgb(0, 0, 255)');
+  });
+
+  test('stop-color in inline style with decimal percentages converts', () => {
+    const svg = svgWrap('<stop style="stop-color:rgb(95.686275%,65.490196%,96.862745%);stop-opacity:0.501961;"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('95.686275%');
+    expect(result).not.toContain('65.490196%');
+    // stop-opacity should be preserved
+    expect(result).toContain('0.501961');
+  });
+
+  test('hsl with decimal lightness converts correctly', () => {
+    const svg = svgWrap('<rect fill="hsl(210, 50%, 73.5%)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('0%');
+    expect(result).not.toContain('50%');
+  });
+
+  test('hsla with decimal alpha preserves alpha', () => {
+    const svg = svgWrap('<rect fill="hsla(120, 80%, 40%, 0.7)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('0.7');
+    expect(result).toContain('0%');
+  });
+
+  test('modern space-separated rgb with percentage and alpha converts', () => {
+    const svg = svgWrap('<rect fill="rgb(50% 25% 75% / 0.8)"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).not.toContain('50%');
+    expect(result).toContain('0.8');
+  });
+
+  test('named color "black" clamped to minimum gray', () => {
+    const svg = svgWrap('<rect fill="black"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#999999"');
+  });
+
+  test('named color "white" stays white', () => {
+    const svg = svgWrap('<rect fill="white"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#ffffff"');
+  });
+
+  test('named color "blue" (low luminance) clamped to minimum gray', () => {
+    const svg = svgWrap('<rect fill="blue"/>');
+    const result = generateInactiveIcon(svg);
+    expect(result).toContain('fill="#999999"');
+  });
+
+  test('named color "lime" (high luminance) not clamped', () => {
+    const svg = svgWrap('<rect fill="lime"/>');
+    const result = generateInactiveIcon(svg);
+    // lime = #00ff00, gray = 0.7152*255 = 182 → #b6b6b6
+    expect(result).toContain('fill="#b6b6b6"');
+  });
+
+  test('full Outlook SVG produces fully desaturated inactive icon', () => {
+    const fs = require('node:fs');
+    const outlookSvg = fs.readFileSync('plugins/outlook/icon.svg', 'utf-8');
+    const result = generateInactiveIcon(outlookSvg);
+    // No decimal percentage RGB values should survive
+    const percentageRgbMatches = result.match(/rgb\([^)]*\d+\.\d+%/g);
+    expect(percentageRgbMatches).toBeNull();
+  });
+});

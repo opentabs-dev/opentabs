@@ -293,8 +293,8 @@ const parseColor = (value: string): [number, number, number] | null => {
   if (trimmedValue.startsWith('#')) return parseHex(trimmedValue);
 
   // rgb()/rgba() — legacy comma-separated syntax: rgb(R, G, B) or rgba(R, G, B, A)
-  // Components may be integers (0-255) or percentages (0%-100%)
-  const rgbMatch = lowerValue.match(/^rgba?\(\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*(\d+%?)/);
+  // Components may be integers (0-255) or decimal percentages (0%-100%, e.g. 12.54902%)
+  const rgbMatch = lowerValue.match(/^rgba?\(\s*([\d.]+%?)\s*,\s*([\d.]+%?)\s*,\s*([\d.]+%?)/);
   if (rgbMatch) {
     return [
       parseRgbComponent(rgbMatch[1] ?? '0'),
@@ -511,9 +511,9 @@ const convertColorToGray = (value: string): string => {
     return `${fn}(${hue} 0% ${lightness}%${rest})`;
   }
 
-  // rgba() — legacy comma-separated with optional percentage components: rgba(R, G, B, A)
+  // rgba() — legacy comma-separated with optional decimal percentage components: rgba(R, G, B, A)
   // Alpha accepts numeric (0.5) or percentage (50%) values.
-  const rgbaMatch = lowerValue.match(/^rgba\(\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*([\d.]+%?)\s*\)/);
+  const rgbaMatch = lowerValue.match(/^rgba\(\s*([\d.]+%?)\s*,\s*([\d.]+%?)\s*,\s*([\d.]+%?)\s*,\s*([\d.]+%?)\s*\)/);
   if (rgbaMatch) {
     const red = parseRgbComponent(rgbaMatch[1] ?? '0');
     const green = parseRgbComponent(rgbaMatch[2] ?? '0');
@@ -523,9 +523,9 @@ const convertColorToGray = (value: string): string => {
     return `rgba(${gray}, ${gray}, ${gray}, ${alpha})`;
   }
 
-  // rgb()/rgba() — legacy comma-separated with optional percentage components: rgb(R, G, B) or rgba(R, G, B)
+  // rgb()/rgba() — legacy comma-separated with optional decimal percentage components: rgb(R, G, B) or rgba(R, G, B)
   // rgba() without an alpha parameter is treated as fully opaque and converted to hex.
-  const rgbMatch = lowerValue.match(/^rgba?\(\s*(\d+%?)\s*,\s*(\d+%?)\s*,\s*(\d+%?)\s*\)/);
+  const rgbMatch = lowerValue.match(/^rgba?\(\s*([\d.]+%?)\s*,\s*([\d.]+%?)\s*,\s*([\d.]+%?)\s*\)/);
   if (rgbMatch) {
     const red = parseRgbComponent(rgbMatch[1] ?? '0');
     const green = parseRgbComponent(rgbMatch[2] ?? '0');
