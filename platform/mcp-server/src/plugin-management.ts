@@ -34,6 +34,8 @@ interface PluginSearchResult {
   description: string;
   version: string;
   author: string;
+  iconSvg: string;
+  iconDarkSvg: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +181,8 @@ interface NpmRegistrySearchPackage {
   description?: string;
   version: string;
   publisher?: { username?: string };
+  iconSvg?: string;
+  iconDarkSvg?: string;
 }
 
 /**
@@ -223,7 +227,10 @@ const probeDirectPackage = async (query: string, signal: AbortSignal): Promise<N
         name: string;
         description?: string;
         'dist-tags'?: Record<string, string>;
-        versions?: Record<string, { _npmUser?: { name?: string } }>;
+        versions?: Record<
+          string,
+          { _npmUser?: { name?: string }; opentabs?: { iconSvg?: string; iconDarkSvg?: string } }
+        >;
       };
       const latest = data['dist-tags']?.latest;
       const versionData = latest ? data.versions?.[latest] : undefined;
@@ -232,6 +239,8 @@ const probeDirectPackage = async (query: string, signal: AbortSignal): Promise<N
         description: data.description ?? '',
         version: latest ?? '0.0.0',
         publisher: versionData?._npmUser?.name ? { username: versionData._npmUser.name } : undefined,
+        iconSvg: versionData?.opentabs?.iconSvg,
+        iconDarkSvg: versionData?.opentabs?.iconDarkSvg,
       };
     } catch {}
   }
@@ -284,6 +293,8 @@ const searchNpmPlugins = async (query?: string): Promise<PluginSearchResult[]> =
         description: probeResult.description ?? '',
         version: probeResult.version,
         author: probeResult.publisher?.username ?? 'unknown',
+        iconSvg: probeResult.iconSvg ?? '',
+        iconDarkSvg: probeResult.iconDarkSvg ?? '',
       });
     }
 
@@ -296,10 +307,33 @@ const searchNpmPlugins = async (query?: string): Promise<PluginSearchResult[]> =
         description: pkg.description ?? '',
         version: pkg.version,
         author: pkg.publisher?.username ?? 'unknown',
+        iconSvg: '',
+        iconDarkSvg: '',
       });
     }
 
-    return results;
+    // Fetch icon data from the npm registry for results that don't have icons yet.
+    // The probe result already has icons from the full packument, but keyword search
+    // results need an extra fetch to /<package>/latest for the opentabs field.
+    const withIcons = await Promise.all(
+      results.map(async result => {
+        if (result.iconSvg || result.iconDarkSvg) return result;
+        try {
+          const resp = await fetch(`${NPM_REGISTRY}/${result.name}/latest`, { signal: controller.signal });
+          if (!resp.ok) return result;
+          const data = (await resp.json()) as { opentabs?: { iconSvg?: string; iconDarkSvg?: string } };
+          return {
+            ...result,
+            iconSvg: data.opentabs?.iconSvg ?? '',
+            iconDarkSvg: data.opentabs?.iconDarkSvg ?? '',
+          };
+        } catch {
+          return result;
+        }
+      }),
+    );
+
+    return withIcons;
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {
       const error = new Error(`npm search timed out after ${NPM_SUBPROCESS_TIMEOUT_MS}ms`) as Error & { code: number };

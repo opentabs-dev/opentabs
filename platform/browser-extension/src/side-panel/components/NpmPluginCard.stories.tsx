@@ -8,6 +8,8 @@ const mockNpmPlugin = (overrides?: Partial<PluginSearchResult>): PluginSearchRes
   description: 'OpenTabs plugin for Slack — send messages, list channels, and search conversations.',
   version: '1.2.0',
   author: 'opentabs-dev',
+  iconSvg: '',
+  iconDarkSvg: '',
   ...overrides,
 });
 

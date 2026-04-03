@@ -43,6 +43,8 @@ const mockNpmResult = (overrides?: Partial<PluginSearchResult>): PluginSearchRes
   description: 'OpenTabs plugin for Notion — read and write pages, databases, and blocks.',
   version: '1.0.0',
   author: 'opentabs-dev',
+  iconSvg: '',
+  iconDarkSvg: '',
   ...overrides,
 });
 
