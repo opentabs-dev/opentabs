@@ -30,7 +30,9 @@
         "description": "A test string for config verification",
         "required": false
       }
-    }
+    },
+    "iconSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"> <rect width=\"32\" height=\"32\" rx=\"4\" fill=\"#4F46E5\"/> <circle cx=\"16\" cy=\"16\" r=\"8\" fill=\"#FFD700\"/> <circle cx=\"16\" cy=\"16\" r=\"4\" fill=\"#fff\"/> </svg>",
+    "iconDarkSvg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"> <rect width=\"32\" height=\"32\" rx=\"4\" fill=\"#5b52e7\"/> <circle cx=\"16\" cy=\"16\" r=\"8\" fill=\"#FFD700\"/> <circle cx=\"16\" cy=\"16\" r=\"4\" fill=\"#fff\"/> </svg>"
   },
   "exports": {
     ".": {

@@ -1188,6 +1188,16 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const parts = [`${toolCount} tool${toolCount === 1 ? '' : 's'}`];
   console.log(`  Written: ${pc.bold(`dist/${TOOLS_FILENAME}`)} (${parts.join(', ')})`);
 
+  // Step 7: Embed marketplace icons in package.json opentabs field
+  if (icons?.iconSvg) {
+    const rawPkg = JSON.parse(await readFile(pkgJsonPath, 'utf-8')) as Record<string, unknown>;
+    const opentabs = rawPkg.opentabs as Record<string, unknown>;
+    opentabs.iconSvg = icons.iconSvg;
+    opentabs.iconDarkSvg = icons.iconDarkSvg ?? icons.iconSvg;
+    await writeFile(pkgJsonPath, `${JSON.stringify(rawPkg, null, 2)}\n`, 'utf-8');
+    console.log(`  Embedded marketplace icons in ${pc.bold('package.json')}`);
+  }
+
   const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
   console.log('');
   const summary = `Built ${pkgJson.name} v${pkgJson.version} — ${parts.join(', ')} (${elapsed}s)`;
