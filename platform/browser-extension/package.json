@@ -19,6 +19,7 @@
   "type": "module",
   "files": [
     "manifest.json",
+    ".extension-hash",
     "dist/",
     "side-panel/",
     "offscreen/",
