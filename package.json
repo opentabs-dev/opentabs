@@ -65,7 +65,7 @@
     "@babel/core": "^7.29.0",
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
-    "@biomejs/biome": "2.4.9",
+    "@biomejs/biome": "2.4.10",
     "@opentabs-dev/shared": "*",
     "@playwright/test": "^1.58.2",
     "@resvg/resvg-js": "^2.6.2",
