@@ -327,8 +327,6 @@ export interface ServerState {
   pluginSettings: Record<string, Record<string, unknown>>;
   /** Pending confirmation requests awaiting human approval in the side panel */
   pendingConfirmations: Map<string, PendingConfirmation>;
-  /** Whether an extension reload is pending (set when extension files are updated but extension is not connected) */
-  pendingExtensionReload: boolean;
   /** Rate-limit timestamps for administrative endpoints — keyed by endpoint path, values are call timestamps (ms) */
   endpointCallTimestamps: Map<string, number[]>;
   /** Whether the extension adapters/ directory has been created (cached to avoid repeated mkdir calls) */
@@ -404,7 +402,6 @@ export const createState = (): ServerState => ({
   pluginPermissions: {},
   pluginSettings: {},
   pendingConfirmations: new Map(),
-  pendingExtensionReload: false,
   endpointCallTimestamps: new Map(),
   adaptersDirReady: false,
   reviewTokens: new Map(),

@@ -1062,23 +1062,9 @@ const createHandleWsOpen =
     state.extensionConnections.set(connectionId, conn);
     log.info(`Extension WebSocket connected [${profileLabel}] (connectionId: ${connectionId})`);
 
-    void sendSyncFull(state)
-      .then(() => {
-        if (state.pendingExtensionReload) {
-          state.pendingExtensionReload = false;
-          log.info('Sending deferred extension reload (version was updated while extension was disconnected)');
-          setTimeout(() => {
-            try {
-              sendExtensionReload(state);
-            } catch (err) {
-              log.warn('Failed to send extension reload signal:', err);
-            }
-          }, 500);
-        }
-      })
-      .catch((err: unknown) => {
-        log.warn('Failed to send sync.full to extension after WebSocket connect:', err);
-      });
+    void sendSyncFull(state).catch((err: unknown) => {
+      log.warn('Failed to send sync.full to extension after WebSocket connect:', err);
+    });
   };
 
 const createHandleWsMessage =

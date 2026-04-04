@@ -478,23 +478,7 @@ const performReload = async (
     try {
       const installResult = await ensureExtensionInstalled();
       if (installResult.versionChanged) {
-        if (isExtensionConnected(state)) {
-          // Extension is connected — send reload after a short delay to let
-          // sync.full flush first (the extension handles extension.reload by
-          // calling chrome.runtime.reload() after its own flush delay).
-          log.info('Extension version changed — sending reload signal to connected extension');
-          setTimeout(() => {
-            try {
-              sendExtensionReload(state);
-            } catch (err) {
-              log.warn('Failed to send extension reload signal:', err);
-            }
-          }, 500);
-        } else {
-          // Extension not connected — flag for reload on next connect
-          log.info('Extension version changed — reload will be sent on next extension connect');
-          state.pendingExtensionReload = true;
-        }
+        log.info('Extension files updated — side panel will detect hash change and prompt reload');
       }
     } catch (err) {
       log.warn('Extension install failed (continuing with plugin discovery):', err);
