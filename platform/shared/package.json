@@ -9,7 +9,7 @@
     "browser",
     "chrome-extension"
   ],
-  "version": "0.0.86",
+  "version": "0.0.87",
   "license": "MIT",
   "type": "module",
   "exports": {
