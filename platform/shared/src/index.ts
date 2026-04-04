@@ -383,6 +383,8 @@ export interface ConfigStateResult {
   serverSourcePath?: string;
   /** When true, all permission checks are bypassed (all tools run as auto) */
   skipPermissions?: boolean;
+  /** SHA-256 content hash of the extension bundle files, computed at build time */
+  extensionHash?: string;
 }
 
 /** config.setToolPermission request params */

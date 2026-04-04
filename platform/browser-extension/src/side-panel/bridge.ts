@@ -67,6 +67,7 @@ interface FullStateResult {
   serverVersion?: string;
   serverSourcePath?: string;
   skipPermissions?: boolean;
+  extensionHash?: string;
   pendingConfirmations?: FullStateConfirmation[];
 }
 

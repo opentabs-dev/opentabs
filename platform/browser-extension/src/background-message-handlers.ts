@@ -258,6 +258,7 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       serverVersion: serverCache.serverVersion,
       serverSourcePath: serverCache.serverSourcePath,
       skipPermissions: serverCache.skipPermissions,
+      extensionHash: serverCache.extensionHash,
       pendingConfirmations: getPendingConfirmations(),
     });
   })().catch(() => {

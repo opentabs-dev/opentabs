@@ -462,6 +462,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
     : undefined;
   const rawServerVersion = typeof params.serverVersion === 'string' ? params.serverVersion : undefined;
   const rawServerSourcePath = typeof params.serverSourcePath === 'string' ? params.serverSourcePath : undefined;
+  const rawExtensionHash = typeof params.extensionHash === 'string' ? params.extensionHash : undefined;
   const rawBrowserPermission = params.browserPermission;
   const browserPermission =
     rawBrowserPermission === 'off' || rawBrowserPermission === 'ask' || rawBrowserPermission === 'auto'
@@ -477,6 +478,7 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
     ...(rawServerVersion !== undefined ? { serverVersion: rawServerVersion } : {}),
     ...(rawServerSourcePath !== undefined ? { serverSourcePath: rawServerSourcePath } : {}),
     ...(rawSkipPermissions !== undefined ? { skipPermissions: rawSkipPermissions } : {}),
+    ...(rawExtensionHash !== undefined ? { extensionHash: rawExtensionHash } : {}),
   });
 
   // Mark caches as initialized so the bg:getFullState wake detection
@@ -734,6 +736,7 @@ const handleServerMessage = (message: Record<string, unknown>): void => {
       ...(payload.serverVersion !== undefined ? { serverVersion: payload.serverVersion } : {}),
       ...(payload.serverSourcePath !== undefined ? { serverSourcePath: payload.serverSourcePath } : {}),
       ...(payload.skipPermissions !== undefined ? { skipPermissions: payload.skipPermissions } : {}),
+      ...(payload.extensionHash !== undefined ? { extensionHash: payload.extensionHash } : {}),
     });
   }
 

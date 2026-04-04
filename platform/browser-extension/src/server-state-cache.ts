@@ -24,6 +24,7 @@ interface ServerStateCache {
   serverVersion?: string;
   serverSourcePath?: string;
   skipPermissions?: boolean;
+  extensionHash?: string;
 }
 
 const SESSION_KEY = 'serverStateCache';
@@ -37,6 +38,7 @@ const EMPTY_CACHE: ServerStateCache = {
   serverVersion: undefined,
   serverSourcePath: undefined,
   skipPermissions: undefined,
+  extensionHash: undefined,
 };
 
 let cache: ServerStateCache = { ...EMPTY_CACHE };
@@ -267,6 +269,7 @@ const loadServerStateCacheFromSession = async (): Promise<void> => {
         serverVersion: typeof stored.serverVersion === 'string' ? stored.serverVersion : undefined,
         serverSourcePath: typeof stored.serverSourcePath === 'string' ? stored.serverSourcePath : undefined,
         skipPermissions: typeof stored.skipPermissions === 'boolean' ? stored.skipPermissions : undefined,
+        extensionHash: typeof stored.extensionHash === 'string' ? stored.extensionHash : undefined,
       };
     }
     if (typeof data[CACHES_INITIALIZED_KEY] === 'boolean') {

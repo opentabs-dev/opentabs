@@ -5,7 +5,8 @@
  * handleExtensionMessage router in extension-protocol.ts.
  */
 
-import { dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
   ConfigSetPluginPermissionParams,
@@ -20,6 +21,7 @@ import type {
   ToolPermission,
 } from '@opentabs-dev/shared';
 import open from 'open';
+import { getExtensionDir } from './config.js';
 import type { PluginLogEntry } from './log-buffer.js';
 import { appendLog } from './log-buffer.js';
 import { log } from './logger.js';
@@ -382,6 +384,14 @@ const buildConfigStatePayload = (state: ServerState): ConfigStateResult => {
 
   const browserPermission = state.pluginPermissions.browser?.permission ?? 'off';
 
+  let extensionHash: string | undefined;
+  try {
+    const hashPath = join(getExtensionDir(), '.extension-hash');
+    extensionHash = readFileSync(hashPath, 'utf-8').trim() || undefined;
+  } catch {
+    // Hash file not present — skip
+  }
+
   return {
     plugins,
     failedPlugins: state.discoveryErrors.map(e => ({
@@ -393,6 +403,7 @@ const buildConfigStatePayload = (state: ServerState): ConfigStateResult => {
     serverVersion: version,
     serverSourcePath,
     skipPermissions: state.skipPermissions,
+    extensionHash,
   };
 };
 
