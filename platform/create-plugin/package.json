@@ -12,7 +12,7 @@
     "scaffolding",
     "opentabs-plugin"
   ],
-  "version": "0.0.86",
+  "version": "0.0.87",
   "license": "MIT",
   "engines": {
     "node": ">= 22.0.0"
