@@ -25,6 +25,7 @@ import { BrowserToolsCard } from './components/BrowserToolsCard.js';
 import type { ConfirmationData } from './components/ConfirmationDialog.js';
 import { ConfirmationDialog } from './components/ConfirmationDialog.js';
 import { DisconnectedState, LoadingState } from './components/EmptyStates.js';
+import { ExtensionUpdateDialog } from './components/ExtensionUpdateDialog.js';
 import { Footer } from './components/Footer.js';
 import { PluginList } from './components/PluginList.js';
 import { Accordion } from './components/retro/Accordion.js';
@@ -47,6 +48,7 @@ const App = () => {
   const [skipPermissions, setSkipPermissions] = useState(false);
   const [serverVersion, setServerVersion] = useState<string | undefined>(undefined);
   const [serverSourcePath, setServerSourcePath] = useState<string | undefined>(undefined);
+  const [extensionHash, setExtensionHash] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [activeTools, setActiveTools] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -260,6 +262,7 @@ const App = () => {
       setSkipPermissions(result.skipPermissions ?? false);
       setServerVersion(result.serverVersion);
       setServerSourcePath(result.serverSourcePath);
+      setExtensionHash(result.extensionHash);
       setActiveTools(prev => {
         const next = new Set<string>();
         for (const key of prev) {
@@ -334,6 +337,7 @@ const App = () => {
           setSkipPermissions(false);
           setServerVersion(undefined);
           setServerSourcePath(undefined);
+          setExtensionHash(undefined);
           setActiveTools(new Set());
           setPendingConfirmations([]);
           clearAllSeenIds();
@@ -390,9 +394,14 @@ const App = () => {
   const showPlugins = !loading && connected && (hasContent || !!searchQuery);
   const showSearchBar = connected && !loading;
 
+  const runningHash = (window as unknown as Record<string, unknown>).__EXTENSION_HASH__ as string | undefined;
+  const showUpdateDialog =
+    connected && extensionHash !== undefined && runningHash !== undefined && extensionHash !== runningHash;
+
   return (
     <Tooltip.Provider>
       <div className="flex h-screen flex-col overflow-hidden text-foreground">
+        <ExtensionUpdateDialog open={showUpdateDialog} />
         {connected && <ConfirmationDialog confirmations={pendingConfirmations} onRespond={handleConfirmationRespond} />}
         {skipPermissions && (
           <div className="shrink-0 border-destructive border-b-2 bg-destructive/15 px-4 py-1.5">
