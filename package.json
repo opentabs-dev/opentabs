@@ -27,8 +27,8 @@
   ],
   "scripts": {
     "dev": "tsx scripts/dev.ts",
-    "build": "tsc --build && npm run generate:browser-tools-catalog && npm run --prefix platform/browser-extension build:bundle && npm run --prefix platform/browser-extension build:side-panel && tsx scripts/generate-icons.ts && tsx scripts/install-extension.ts && npm rebuild @opentabs-dev/cli @opentabs-dev/plugin-tools && tsx scripts/make-executable.ts",
-    "build:force": "tsc --build --force && npm run generate:browser-tools-catalog && npm run --prefix platform/browser-extension build:bundle && npm run --prefix platform/browser-extension build:side-panel && tsx scripts/generate-icons.ts && tsx scripts/install-extension.ts && npm rebuild @opentabs-dev/cli @opentabs-dev/plugin-tools && tsx scripts/make-executable.ts",
+    "build": "tsc --build && npm run generate:browser-tools-catalog && npm run --prefix platform/browser-extension build:bundle && npm run --prefix platform/browser-extension build:side-panel && tsx scripts/generate-icons.ts && tsx scripts/compute-extension-hash.ts && tsx scripts/install-extension.ts && npm rebuild @opentabs-dev/cli @opentabs-dev/plugin-tools && tsx scripts/make-executable.ts",
+    "build:force": "tsc --build --force && npm run generate:browser-tools-catalog && npm run --prefix platform/browser-extension build:bundle && npm run --prefix platform/browser-extension build:side-panel && tsx scripts/generate-icons.ts && tsx scripts/compute-extension-hash.ts && tsx scripts/install-extension.ts && npm rebuild @opentabs-dev/cli @opentabs-dev/plugin-tools && tsx scripts/make-executable.ts",
     "generate:browser-tools-catalog": "tsx scripts/generate-browser-tools-catalog.ts",
     "type-check": "tsc --build",
     "type-check:e2e": "tsc --noEmit -p e2e/tsconfig.json",

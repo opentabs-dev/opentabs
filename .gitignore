@@ -24,3 +24,4 @@ opencode.json
 marketing/logs/
 marketing/state.json
 .playwright-browsers/
+.extension-hash
