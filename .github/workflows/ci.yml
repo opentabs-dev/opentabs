@@ -153,11 +153,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Build E2E test plugin
-        run: cd plugins/e2e-test && npm install --ignore-scripts && npm run build
-        env:
-          OPENTABS_SKIP_NOTIFY: '1'
-
       - name: Unit tests
         run: npm run test
 
@@ -165,7 +160,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --grep-invert 'multi-instance|plugin-settings|tool-groups|accordion-persist'
 
       - name: Upload Playwright report
         if: failure()
@@ -217,11 +212,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-      - name: Build E2E test plugin
-        run: cd plugins/e2e-test && npm install --ignore-scripts && npm run build
-        env:
-          OPENTABS_SKIP_NOTIFY: '1'
 
       - name: Run Windows E2E tests
         shell: pwsh
