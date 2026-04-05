@@ -61,13 +61,12 @@
     "vite": "$vite"
   },
   "devDependencies": {
-    "vite": "npm:rolldown-vite@^7.3.1",
     "@babel/core": "^7.29.0",
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
     "@biomejs/biome": "2.4.9",
     "@opentabs-dev/shared": "*",
-    "@playwright/test": "^1.58.2",
+    "@playwright/test": "1.58.2",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/cli": "^4.2.2",
     "@types/chrome": "^0.1.38",
@@ -84,6 +83,7 @@
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
+    "vite": "npm:rolldown-vite@^7.3.1",
     "vitest": "^4.1.2",
     "ws": "^8.20.0"
   }
