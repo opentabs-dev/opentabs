@@ -53,6 +53,7 @@ jobs:
     timeout-minutes: 30
     env:
       CI: '1'
+      PW_WORKERS: '3'
     steps:
       - uses: actions/checkout@v6
 
@@ -121,7 +122,7 @@ jobs:
   macos:
     needs: check
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       CI: '1'
     steps:

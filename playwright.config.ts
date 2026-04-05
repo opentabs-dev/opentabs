@@ -5,7 +5,7 @@ export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   forbidOnly: !!process.env.CI,
-  globalTimeout: 1_500_000,
+  globalTimeout: 2_400_000,
   timeout: 120_000, // 2 min per test — hot reload + backoff needs headroom
   expect: {
     timeout: 30_000,
