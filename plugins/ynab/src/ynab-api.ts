@@ -15,7 +15,6 @@ import {
 interface YnabAuth {
   sessionToken: string;
   deviceId: string;
-  appVersion: string;
   userId: string;
   planId: string;
 }
@@ -23,8 +22,9 @@ interface YnabAuth {
 interface CatalogResponse<T = Record<string, unknown>> {
   error: { message: string } | null;
   session_token?: string;
+  current_server_knowledge?: number;
+  changed_entities?: T;
   [key: string]: unknown;
-  data?: T;
 }
 
 // --- Auth extraction ---
@@ -54,14 +54,11 @@ const getAuth = (): YnabAuth | null => {
   const planId = extractPlanId();
   if (!planId) return null;
 
-  const appVersion = (getPageGlobal('YNAB_CLIENT_CONSTANTS.YNAB_APP_VERSION') as string | undefined) ?? '26.33.1';
-
   const deviceId = cached?.deviceId ?? generateDeviceId();
 
   const auth: YnabAuth = {
     sessionToken,
     deviceId,
-    appVersion,
     userId: user.id,
     planId,
   };
@@ -88,14 +85,20 @@ export const getPlanId = (): string => {
 const getHeaders = (): Record<string, string> => {
   const auth = getAuth();
   if (!auth) throw ToolError.auth('Not authenticated — please log in to YNAB.');
-  return {
+
+  // Read app version fresh on every request — never cache it, since YNAB enforces
+  // a minimum version via 426 and will reject stale cached values.
+  const appVersion = getPageGlobal('YNAB_CLIENT_CONSTANTS.YNAB_APP_VERSION') as string | undefined;
+
+  const headers: Record<string, string> = {
     'X-Session-Token': auth.sessionToken,
     'X-YNAB-Device-Id': auth.deviceId,
     'X-YNAB-Device-OS': 'web',
-    'X-YNAB-Device-App-Version': auth.appVersion,
     'X-Requested-With': 'XMLHttpRequest',
     Accept: 'application/json, text/javascript, */*; q=0.01',
   };
+  if (appVersion) headers['X-YNAB-Device-App-Version'] = appVersion;
+  return headers;
 };
 
 // --- Error handling ---
@@ -103,6 +106,12 @@ const getHeaders = (): Record<string, string> => {
 const handleApiError = async (response: Response, context: string): Promise<never> => {
   const errorBody = (await response.text().catch(() => '')).substring(0, 512);
 
+  if (response.status === 426) {
+    clearAuthCache('ynab');
+    throw ToolError.auth(
+      'YNAB requires an app update (426). The session has been cleared — please reload the YNAB tab and try again.',
+    );
+  }
   if (response.status === 429) {
     const retryAfter = response.headers.get('Retry-After');
     const retryMs = retryAfter !== null ? parseRetryAfterMs(retryAfter) : undefined;
@@ -156,28 +165,41 @@ export const catalog = async <T = Record<string, unknown>>(
   return data;
 };
 
-// --- Sync write helper ---
+// --- syncBudgetData helper ---
+// YNAB requires sync_type, schema_version, and schema_version_of_knowledge on all
+// syncBudgetData requests (enforced server-side via 426 if omitted).
+
+const BUDGET_SCHEMA_VERSION = 41;
+
+export const syncBudget = async <T = Record<string, unknown>>(planId: string): Promise<CatalogResponse<T>> =>
+  catalog<T>('syncBudgetData', {
+    budget_version_id: planId,
+    sync_type: 'delta',
+    starting_device_knowledge: 0,
+    ending_device_knowledge: 0,
+    device_knowledge_of_server: 0,
+    calculated_entities_included: false,
+    schema_version: BUDGET_SCHEMA_VERSION,
+    schema_version_of_knowledge: BUDGET_SCHEMA_VERSION,
+    changed_entities: {},
+  });
+
 // Write operations require the current server_knowledge to succeed.
 // This fetches it first, then sends the write in one round-trip.
 
 export const syncWrite = async (planId: string, changedEntities: Record<string, unknown>): Promise<CatalogResponse> => {
-  // Step 1: Get current server knowledge with a read sync
-  const readResult = await catalog('syncBudgetData', {
-    budget_version_id: planId,
-    starting_device_knowledge: 0,
-    ending_device_knowledge: 0,
-    device_knowledge_of_server: 0,
-  });
+  const readResult = await syncBudget(planId);
+  const serverKnowledge = readResult.current_server_knowledge ?? 0;
 
-  const serverKnowledge = (readResult as Record<string, unknown>).current_server_knowledge ?? 0;
-
-  // Step 2: Write with correct knowledge values
   return catalog('syncBudgetData', {
     budget_version_id: planId,
+    sync_type: 'delta',
     starting_device_knowledge: 0,
     ending_device_knowledge: 1,
     device_knowledge_of_server: serverKnowledge,
     calculated_entities_included: false,
+    schema_version: BUDGET_SCHEMA_VERSION,
+    schema_version_of_knowledge: BUDGET_SCHEMA_VERSION,
     changed_entities: changedEntities,
   });
 };

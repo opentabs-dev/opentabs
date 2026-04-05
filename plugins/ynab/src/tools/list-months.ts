@@ -1,6 +1,6 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { catalog, getPlanId } from '../ynab-api.js';
+import { syncBudget, getPlanId } from '../ynab-api.js';
 import type { RawMonth, RawMonthlyBudgetCalc } from './schemas.js';
 import { mapMonth, monthSchema } from './schemas.js';
 
@@ -23,14 +23,9 @@ export const listMonths = defineTool({
   }),
   handle: async () => {
     const planId = getPlanId();
-    const result = await catalog<BudgetData>('syncBudgetData', {
-      budget_version_id: planId,
-      starting_device_knowledge: 0,
-      ending_device_knowledge: 0,
-      device_knowledge_of_server: 0,
-    });
+    const result = await syncBudget<BudgetData>(planId);
 
-    const entities = (result as unknown as { changed_entities?: BudgetData }).changed_entities;
+    const entities = result.changed_entities;
     const rawMonths = entities?.be_monthly_budgets ?? [];
     const rawCalcs = entities?.be_monthly_budget_calculations ?? [];
 

@@ -1,11 +1,12 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { catalog, getPlanId } from '../ynab-api.js';
-import type { RawAccount } from './schemas.js';
+import { syncBudget, getPlanId } from '../ynab-api.js';
+import type { RawAccount, RawAccountCalculation } from './schemas.js';
 import { accountSchema, mapAccount } from './schemas.js';
 
 interface BudgetData {
   be_accounts?: RawAccount[];
+  be_account_calculations?: RawAccountCalculation[];
 }
 
 export const getAccount = defineTool({
@@ -24,20 +25,17 @@ export const getAccount = defineTool({
   }),
   handle: async params => {
     const planId = getPlanId();
-    const result = await catalog<BudgetData>('syncBudgetData', {
-      budget_version_id: planId,
-      starting_device_knowledge: 0,
-      ending_device_knowledge: 0,
-      device_knowledge_of_server: 0,
-    });
+    const result = await syncBudget<BudgetData>(planId);
 
-    const raw = (result as unknown as { changed_entities?: BudgetData }).changed_entities?.be_accounts ?? [];
+    const entities = result.changed_entities;
+    const raw = entities?.be_accounts ?? [];
+    const calcMap = new Map((entities?.be_account_calculations ?? []).map(c => [c.entities_account_id, c]));
+
     const account = raw.find(a => a.id === params.account_id && !a.is_tombstone);
-
     if (!account) {
       throw ToolError.notFound(`Account not found: ${params.account_id}`);
     }
 
-    return { account: mapAccount(account) };
+    return { account: mapAccount(account, calcMap.get(account.id)) };
   },
 });
