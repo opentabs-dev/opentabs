@@ -918,9 +918,15 @@ const analyzeSite = async (
     };
     let storageKeys = defaultStorageKeys;
     try {
-      storageKeys =
-        ((await executeInTab(state, tabId, STORAGE_KEYS_SCRIPT)) as typeof defaultStorageKeys | null) ??
-        defaultStorageKeys;
+      const rawStorageKeys = await executeInTab(state, tabId, STORAGE_KEYS_SCRIPT);
+      if (rawStorageKeys !== null && typeof rawStorageKeys === 'object' && !Array.isArray(rawStorageKeys)) {
+        const obj = rawStorageKeys as Record<string, unknown>;
+        storageKeys = {
+          cookieNames: Array.isArray(obj.cookieNames) ? (obj.cookieNames as string[]) : [],
+          localStorageKeys: Array.isArray(obj.localStorageKeys) ? (obj.localStorageKeys as string[]) : [],
+          sessionStorageKeys: Array.isArray(obj.sessionStorageKeys) ? (obj.sessionStorageKeys as string[]) : [],
+        };
+      }
     } catch {
       // Partial analysis: storage keys detection skipped
     }
@@ -931,9 +937,14 @@ const analyzeSite = async (
     };
     let storageEntries = defaultStorageEntries;
     try {
-      storageEntries =
-        ((await executeInTab(state, tabId, STORAGE_ENTRIES_SCRIPT)) as typeof defaultStorageEntries | null) ??
-        defaultStorageEntries;
+      const rawStorageEntries = await executeInTab(state, tabId, STORAGE_ENTRIES_SCRIPT);
+      if (rawStorageEntries !== null && typeof rawStorageEntries === 'object' && !Array.isArray(rawStorageEntries)) {
+        const obj = rawStorageEntries as Record<string, unknown>;
+        storageEntries = {
+          localEntries: Array.isArray(obj.localEntries) ? (obj.localEntries as StorageEntry[]) : [],
+          sessionEntries: Array.isArray(obj.sessionEntries) ? (obj.sessionEntries as StorageEntry[]) : [],
+        };
+      }
     } catch {
       // Partial analysis: storage entries detection skipped
     }
