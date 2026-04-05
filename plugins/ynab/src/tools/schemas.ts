@@ -155,16 +155,21 @@ export interface RawPlan {
 
 export interface RawAccount {
   id?: string;
-  name?: string;
-  type?: string;
+  account_name?: string;
+  account_type?: string;
   on_budget?: boolean;
-  closed?: boolean;
-  balance?: number;
-  cleared_balance?: number;
-  uncleared_balance?: number;
+  is_closed?: boolean;
   note?: string | null;
   is_tombstone?: boolean;
   transfer_payee_id?: string;
+}
+
+export interface RawAccountCalculation {
+  id?: string;
+  entities_account_id?: string;
+  cleared_balance?: number;
+  uncleared_balance?: number;
+  is_tombstone?: boolean;
 }
 
 export interface RawCategoryGroup {
@@ -316,16 +321,16 @@ export const mapPlan = (p: RawPlan) => {
   };
 };
 
-export const mapAccount = (a: RawAccount) => ({
+export const mapAccount = (a: RawAccount, calc?: RawAccountCalculation) => ({
   id: a.id ?? '',
-  name: a.name ?? '',
-  type: a.type ?? '',
+  name: a.account_name ?? '',
+  type: a.account_type ?? '',
   on_budget: a.on_budget ?? false,
-  closed: a.closed === true,
-  balance: formatMilliunits(a.balance ?? 0),
-  balance_milliunits: a.balance ?? 0,
-  cleared_balance: formatMilliunits(a.cleared_balance ?? 0),
-  uncleared_balance: formatMilliunits(a.uncleared_balance ?? 0),
+  closed: a.is_closed === true,
+  balance: formatMilliunits((calc?.cleared_balance ?? 0) + (calc?.uncleared_balance ?? 0)),
+  balance_milliunits: (calc?.cleared_balance ?? 0) + (calc?.uncleared_balance ?? 0),
+  cleared_balance: formatMilliunits(calc?.cleared_balance ?? 0),
+  uncleared_balance: formatMilliunits(calc?.uncleared_balance ?? 0),
   note: a.note ?? '',
 });
 
