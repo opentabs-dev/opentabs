@@ -850,22 +850,25 @@ const analyzeSite = async (
 
     let csrfTokens: CsrfDomToken[] = [];
     try {
-      csrfTokens = ((await executeInTab(state, tabId, CSRF_SCRIPT)) ?? []) as CsrfDomToken[];
+      const rawCsrf = await executeInTab(state, tabId, CSRF_SCRIPT);
+      csrfTokens = Array.isArray(rawCsrf) ? (rawCsrf as CsrfDomToken[]) : [];
     } catch {
       // Partial analysis: CSRF detection skipped
     }
 
     let globalsAuth: GlobalEntry[] = [];
     try {
-      globalsAuth = ((await executeInTab(state, tabId, GLOBALS_AUTH_SCRIPT)) ?? []) as GlobalEntry[];
+      const rawGlobalsAuth = await executeInTab(state, tabId, GLOBALS_AUTH_SCRIPT);
+      globalsAuth = Array.isArray(rawGlobalsAuth) ? (rawGlobalsAuth as GlobalEntry[]) : [];
     } catch {
       // Partial analysis: globals auth detection skipped
     }
 
     let frameworkProbes: FrameworkProbe[] = [];
     try {
+      const rawFramework = await executeInTab(state, tabId, FRAMEWORK_PROBE_SCRIPT);
       frameworkProbes = deduplicateFrameworkProbes(
-        ((await executeInTab(state, tabId, FRAMEWORK_PROBE_SCRIPT)) ?? []) as FrameworkProbe[],
+        Array.isArray(rawFramework) ? (rawFramework as FrameworkProbe[]) : [],
       );
     } catch {
       // Partial analysis: framework detection skipped
@@ -889,29 +892,32 @@ const analyzeSite = async (
 
     let globalsScan: GlobalProperty[] = [];
     try {
-      globalsScan = ((await executeInTab(state, tabId, GLOBALS_SCAN_SCRIPT)) ?? []) as GlobalProperty[];
+      const rawGlobalsScan = await executeInTab(state, tabId, GLOBALS_SCAN_SCRIPT);
+      globalsScan = Array.isArray(rawGlobalsScan) ? (rawGlobalsScan as GlobalProperty[]) : [];
     } catch {
       // Partial analysis: globals scan skipped
     }
 
     let forms: FormInput[] = [];
     try {
-      forms = ((await executeInTab(state, tabId, FORMS_SCRIPT)) ?? []) as FormInput[];
+      const rawForms = await executeInTab(state, tabId, FORMS_SCRIPT);
+      forms = Array.isArray(rawForms) ? (rawForms as FormInput[]) : [];
     } catch {
       // Partial analysis: forms detection skipped
     }
 
     let interactiveElements: InteractiveElementInput[] = [];
     try {
-      const result = (await executeInTab(state, tabId, INTERACTIVE_ELEMENTS_SCRIPT)) ?? [];
-      interactiveElements = result as InteractiveElementInput[];
+      const rawInteractive = await executeInTab(state, tabId, INTERACTIVE_ELEMENTS_SCRIPT);
+      interactiveElements = Array.isArray(rawInteractive) ? (rawInteractive as InteractiveElementInput[]) : [];
     } catch {
       // Partial analysis: interactive elements detection skipped
     }
 
     let dataAttributes: string[] = [];
     try {
-      dataAttributes = ((await executeInTab(state, tabId, DATA_ATTRIBUTES_SCRIPT)) ?? []) as string[];
+      const rawDataAttributes = await executeInTab(state, tabId, DATA_ATTRIBUTES_SCRIPT);
+      dataAttributes = Array.isArray(rawDataAttributes) ? (rawDataAttributes as string[]) : [];
     } catch {
       // Partial analysis: data attributes detection skipped
     }
