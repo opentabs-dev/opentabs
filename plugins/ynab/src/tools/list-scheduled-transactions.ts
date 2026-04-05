@@ -24,8 +24,7 @@ export const listScheduledTransactions = defineTool({
     const planId = getPlanId();
     const result = await syncBudget<BudgetData>(planId);
 
-    const raw =
-      result.changed_entities?.be_scheduled_transactions ?? [];
+    const raw = result.changed_entities?.be_scheduled_transactions ?? [];
 
     const scheduledTransactions = raw
       .filter(s => !s.is_tombstone)
