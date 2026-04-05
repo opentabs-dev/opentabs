@@ -75,7 +75,9 @@ jobs:
         run: npm run build
 
       - name: Build E2E test plugin
-        run: npx tsx scripts/plugins.ts --build --filter=e2e-test
+        run: cd plugins/e2e-test && npm install && npx opentabs-plugin build
+        env:
+          OPENTABS_SKIP_NOTIFY: '1'
 
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
@@ -152,7 +154,9 @@ jobs:
         run: npm run build
 
       - name: Build E2E test plugin
-        run: npx tsx scripts/plugins.ts --build --filter=e2e-test
+        run: cd plugins/e2e-test && npm install && npx opentabs-plugin build
+        env:
+          OPENTABS_SKIP_NOTIFY: '1'
 
       - name: Unit tests
         run: npm run test
@@ -215,7 +219,9 @@ jobs:
         run: npm run build
 
       - name: Build E2E test plugin
-        run: npx tsx scripts/plugins.ts --build --filter=e2e-test
+        run: cd plugins/e2e-test && npm install && npx opentabs-plugin build
+        env:
+          OPENTABS_SKIP_NOTIFY: '1'
 
       - name: Run Windows E2E tests
         shell: pwsh
