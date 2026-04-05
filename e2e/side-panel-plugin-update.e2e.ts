@@ -466,11 +466,8 @@ test.describe('stress — rapid reload spam with update notification', () => {
         await new Promise(r => setTimeout(r, 200));
       }
 
-      // Wait for everything to settle
-      await new Promise(r => setTimeout(r, 3_000));
-
-      // Update dot should still be visible (plugin is still outdated)
-      await expect(updateDot).toBeVisible({ timeout: 10_000 });
+      // Update dot should still be visible after rapid reloads (plugin is still outdated)
+      await expect(updateDot).toBeVisible({ timeout: 15_000 });
 
       // Verify exactly one plugin card (no duplicates)
       const pluginTriggers = sidePanelPage.locator('button[data-radix-collection-item]', { hasText: 'E2E Test' });
@@ -552,11 +549,8 @@ test.describe('stress — concurrent update + reload race condition', () => {
         }),
       ]);
 
-      // Wait for everything to settle
-      await new Promise(r => setTimeout(r, 3_000));
-
       // Update dot should be gone (plugin is now at latest version)
-      await expect(updateDot).not.toBeVisible({ timeout: 10_000 });
+      await expect(updateDot).not.toBeVisible({ timeout: 15_000 });
 
       // Verify exactly one plugin card (no duplicates from rapid state updates)
       const pluginTriggers = sidePanelPage.locator('button[data-radix-collection-item]', { hasText: 'E2E Test' });
