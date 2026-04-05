@@ -57,7 +57,7 @@ const extensionGetLogs = defineBrowserTool({
 
     for (const r of results) {
       const data = r.result as LogsResult;
-      if (data?.entries) {
+      if (Array.isArray(data?.entries)) {
         for (const entry of data.entries) {
           mergedEntries.push({ ...entry, connectionId: r.connectionId });
         }
