@@ -154,7 +154,7 @@ jobs:
         run: npm run build
 
       - name: Build E2E test plugin
-        run: cd plugins/e2e-test && npm install && npm run build
+        run: cd plugins/e2e-test && npm install --ignore-scripts && npm rebuild esbuild && npm run build
         env:
           OPENTABS_SKIP_NOTIFY: '1'
 
@@ -219,7 +219,7 @@ jobs:
         run: npm run build
 
       - name: Build E2E test plugin
-        run: cd plugins/e2e-test && npm install && npm run build
+        run: cd plugins/e2e-test && npm install --ignore-scripts && npm rebuild esbuild && npm run build
         env:
           OPENTABS_SKIP_NOTIFY: '1'
 
