@@ -883,9 +883,17 @@ const analyzeSite = async (
     };
     let spaSsrProbe = defaultSpaSsrProbe;
     try {
-      spaSsrProbe =
-        ((await executeInTab(state, tabId, SPA_SSR_PROBE_SCRIPT)) as typeof defaultSpaSsrProbe | null) ??
-        defaultSpaSsrProbe;
+      const rawProbe = await executeInTab(state, tabId, SPA_SSR_PROBE_SCRIPT);
+      if (rawProbe !== null && typeof rawProbe === 'object' && !Array.isArray(rawProbe)) {
+        const obj = rawProbe as Record<string, unknown>;
+        spaSsrProbe = {
+          hasSingleRootElement: obj.hasSingleRootElement === true,
+          usesPushState: obj.usesPushState === true,
+          hasNextData: obj.hasNextData === true,
+          hasNuxtData: obj.hasNuxtData === true,
+          hasHydrationMarkers: obj.hasHydrationMarkers === true,
+        };
+      }
     } catch {
       // Partial analysis: SPA/SSR detection skipped
     }
