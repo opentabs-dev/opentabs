@@ -127,7 +127,6 @@ jobs:
   macos:
     needs: check
     runs-on: macos-latest
-    continue-on-error: true
     timeout-minutes: 45
     env:
       CI: '1'

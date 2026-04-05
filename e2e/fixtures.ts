@@ -914,8 +914,8 @@ const createExtensionCopy = (
 };
 
 // Set HEADED=1 to show browser windows for debugging. By default, Chrome
-// launches in new headless mode (`--headless=new`) which supports extensions
-// while keeping the desktop clear.
+// launches in headless mode via the 'chromium' channel which supports
+// extensions natively (per Playwright's recommended approach).
 const SHOW_BROWSER = process.env.HEADED === '1';
 
 // Detect Docker container — /.dockerenv exists in all Docker containers.
@@ -946,7 +946,8 @@ const launchExtensionContext = async (
   const { extensionDir, userDataDir } = createExtensionCopy(mcpPort, secret);
 
   const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
+    headless: !SHOW_BROWSER,
+    channel: 'chromium',
     args: [
       `--disable-extensions-except=${extensionDir}`,
       `--load-extension=${extensionDir}`,
@@ -957,7 +958,6 @@ const launchExtensionContext = async (
       '--disable-default-apps',
       '--disable-features=Translate',
       '--disable-popup-blocking',
-      ...(SHOW_BROWSER ? [] : ['--headless=new']),
       // Docker container flags — Chromium needs special handling when running
       // in Linux containers (no sandbox, no GPU, /dev/shm workaround).
       ...(IN_DOCKER
