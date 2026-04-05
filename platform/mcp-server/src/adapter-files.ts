@@ -166,7 +166,7 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
   const asyncKey = `__execAsync_${execId}`;
   const startedKey = `__execStarted_${execId}`;
 
-  // Wrap user code to capture sync/async results and errors.
+  // Wrap user code to capture async results and errors.
   // The wrapper stores results at namespaced keys on globalThis.__openTabs
   // so concurrent executions do not collide. The extension reads the
   // namespaced key matching this execution's UUID and cleans it up.
@@ -176,9 +176,17 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
   // "IIFE hasn't executed yet" (keep polling) and "sync code produced no
   // result" (genuine failure).
   //
-  // User code is placed inline inside an inner function expression, avoiding
-  // eval-like constructs (new Function, eval) that strict CSP blocks. The
-  // file is injected via chrome.scripting.executeScript({ files }), which
+  // The __asyncKey flag is set synchronously before the async function is
+  // called, so the poller always sees it even if chrome.scripting.executeScript
+  // resolves before the IIFE's microtasks drain.
+  //
+  // User code is placed inline inside an async function expression so that
+  // `await` works in user code. The async function always returns a Promise,
+  // so results are always delivered via .then(). Using .then(onFulfilled,
+  // onRejected) instead of .then().catch() handles rejections in one
+  // microtask hop instead of two, tightening the timing window.
+  //
+  // The file is injected via chrome.scripting.executeScript({ files }), which
   // runs as extension-origin code and bypasses page CSP entirely.
   const wrapped = [
     '(function() {',
@@ -187,17 +195,14 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
     `  var __asyncKey = ${JSON.stringify(asyncKey)};`,
     `  var __startedKey = ${JSON.stringify(startedKey)};`,
     '  __ot[__startedKey] = true;',
+    '  __ot[__asyncKey] = true;',
     '  try {',
-    '    var __r = (async function() {',
+    '    (async function() {',
     code,
-    '    })();',
-    '    if (__r && typeof __r === "object" && typeof __r.then === "function") {',
-    '      __ot[__asyncKey] = true;',
-    '      __r.then(function(v) { __ot[__resultKey] = { value: v }; })',
-    '        .catch(function(e) { __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }; });',
-    '    } else {',
-    '      __ot[__resultKey] = { value: __r };',
-    '    }',
+    '    })().then(',
+    '      function(v) { __ot[__resultKey] = { value: v }; },',
+    '      function(e) { __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }; }',
+    '    );',
     '  } catch (e) {',
     '    __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) };',
     '  }',

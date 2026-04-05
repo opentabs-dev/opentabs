@@ -74,8 +74,8 @@ describe('writeExecFile', () => {
     // Starts with IIFE wrapper
     expect(content.startsWith('(function() {')).toBe(true);
     expect(content.endsWith('})();')).toBe(true);
-    // User code is placed inline in an inner function (no eval/new Function)
-    expect(content).toContain('var __r = (async function() {');
+    // User code is placed inline in an inner async function (no eval/new Function)
+    expect(content).toContain('(async function() {');
     expect(content).toContain('return 42');
     expect(content).not.toContain('new Function');
     // Contains the namespaced result capture mechanism
@@ -100,12 +100,13 @@ describe('writeExecFile', () => {
     const filename = await writeExecFile(state, 'async-test', code);
 
     const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
-    // The wrapper checks for thenable results
-    expect(content).toContain('typeof __r.then === "function"');
+    // The async key is set before the async function call
+    expect(content).toContain('__ot[__asyncKey] = true');
     expect(content).toContain('__execAsync_async-test');
-    // Async path: .then() and .catch()
-    expect(content).toContain('__r.then(function(v)');
-    expect(content).toContain('.catch(function(e)');
+    // Uses .then(onFulfilled, onRejected) for direct rejection handling
+    expect(content).toContain('})().then(');
+    expect(content).toContain('function(v) { __ot[__resultKey] = { value: v }; }');
+    expect(content).toContain('function(e) { __ot[__resultKey] = { error:');
   });
 
   test('user code is placed inline in the inner function body', async () => {
