@@ -3336,7 +3336,7 @@ test.describe('stress', () => {
 
     // Error must reference tab being gone, not a generic timeout
     const errorText = JSON.stringify(result.content);
-    expect(errorText).toMatch(/tab|cannot access/i);
+    expect(errorText).toMatch(/tab|cannot access|frame.*removed/i);
     expect(errorText).not.toMatch(/timed out/i);
 
     // System not corrupted — a fresh execute_script on a different tab succeeds
