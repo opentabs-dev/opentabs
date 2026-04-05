@@ -74,7 +74,7 @@ test.describe('Side panel stress test', () => {
       const pageErrors = collectPageErrors(sp);
 
       // Wait for both plugin cards to appear
-      await expect(sp.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sp.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
       await expect(sp.getByText('Browser', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 
       // Locate UI elements
@@ -157,7 +157,7 @@ test.describe('Side panel stress test', () => {
       await expect(browserTrigger).toContainText('Auto', { timeout: 10_000 });
 
       // Verify plugin cards still visible
-      await expect(sp.getByText('E2E Test')).toBeVisible();
+      await expect(sp.getByText('E2E Test').first()).toBeVisible();
       await expect(sp.getByText('Browser', { exact: true }).first()).toBeVisible();
 
       // Poll mcpClient.listTools() to verify tools are not disabled
