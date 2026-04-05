@@ -221,7 +221,6 @@ test.describe('stress', () => {
       // which can temporarily clear and re-populate the side panel state.
       // Use waitForLog to confirm the last reload was fully processed.
       await waitForLog(server, 'Config reload complete', 15_000);
-      await new Promise(r => setTimeout(r, 2_000));
 
       // Verify the plugin card is still visible after rapid reloads.
       await expect(sidePanelPage.locator('text=E2E Test')).toBeVisible({ timeout: 30_000 });
