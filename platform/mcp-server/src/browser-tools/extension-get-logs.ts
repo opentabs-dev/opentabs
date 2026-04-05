@@ -15,11 +15,6 @@ interface LogEntry {
   [key: string]: unknown;
 }
 
-interface LogsResult {
-  entries: LogEntry[];
-  stats: { totalBackground: number; totalOffscreen: number; bufferSize: number };
-}
-
 const extensionGetLogs = defineBrowserTool({
   name: 'extension_get_logs',
   description:
@@ -56,16 +51,21 @@ const extensionGetLogs = defineBrowserTool({
     let bufferSize = 0;
 
     for (const r of results) {
-      const data = r.result as LogsResult;
-      if (Array.isArray(data?.entries)) {
-        for (const entry of data.entries) {
-          mergedEntries.push({ ...entry, connectionId: r.connectionId });
+      const data = r.result;
+      if (data !== null && typeof data === 'object' && !Array.isArray(data)) {
+        const obj = data as Record<string, unknown>;
+        if (Array.isArray(obj.entries)) {
+          for (const entry of obj.entries as LogEntry[]) {
+            mergedEntries.push({ ...entry, connectionId: r.connectionId });
+          }
         }
-      }
-      if (data?.stats) {
-        totalBackground += data.stats.totalBackground;
-        totalOffscreen += data.stats.totalOffscreen;
-        bufferSize += data.stats.bufferSize;
+        const stats = obj.stats;
+        if (stats !== null && typeof stats === 'object' && !Array.isArray(stats)) {
+          const s = stats as Record<string, unknown>;
+          if (typeof s.totalBackground === 'number') totalBackground += s.totalBackground;
+          if (typeof s.totalOffscreen === 'number') totalOffscreen += s.totalOffscreen;
+          if (typeof s.bufferSize === 'number') bufferSize += s.bufferSize;
+        }
       }
     }
 

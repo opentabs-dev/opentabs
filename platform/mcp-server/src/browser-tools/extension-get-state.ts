@@ -21,7 +21,15 @@ const extensionGetState = defineBrowserTool({
   input: z.object({}),
   handler: async (_args, state) => {
     const results = await dispatchToAllConnections(state, 'extension.getState', {});
-    return { connections: results.map(r => ({ connectionId: r.connectionId, ...((r.result as object) ?? {}) })) };
+    return {
+      connections: results.map(r => {
+        const obj =
+          r.result !== null && typeof r.result === 'object' && !Array.isArray(r.result)
+            ? (r.result as Record<string, unknown>)
+            : {};
+        return { connectionId: r.connectionId, ...obj };
+      }),
+    };
   },
 });
 
