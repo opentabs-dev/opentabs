@@ -176,10 +176,6 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
   // "IIFE hasn't executed yet" (keep polling) and "sync code produced no
   // result" (genuine failure).
   //
-  // The __asyncKey flag is set synchronously before the async function is
-  // called, so the poller always sees it even if chrome.scripting.executeScript
-  // resolves before the IIFE's microtasks drain.
-  //
   // User code is placed inline inside an async function expression so that
   // `await` works in user code. The async function always returns a Promise,
   // so results are always delivered via .then(). Using .then(onFulfilled,
@@ -195,13 +191,12 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
     `  var __asyncKey = ${JSON.stringify(asyncKey)};`,
     `  var __startedKey = ${JSON.stringify(startedKey)};`,
     '  __ot[__startedKey] = true;',
-    '  __ot[__asyncKey] = true;',
     '  try {',
     '    (async function() {',
     code,
     '    })().then(',
-    '      function(v) { delete __ot[__asyncKey]; __ot[__resultKey] = { value: v }; },',
-    '      function(e) { delete __ot[__asyncKey]; __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }; }',
+    '      function(v) { __ot[__resultKey] = { value: v }; },',
+    '      function(e) { __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }; }',
     '    );',
     '  } catch (e) {',
     '    __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) };',

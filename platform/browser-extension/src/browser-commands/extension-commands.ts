@@ -421,9 +421,8 @@ export const handleBrowserExecuteScript = async (
               if (!ot) return { pending: false, result: { error: '__openTabs not found' } };
 
               const result = ot[rKey] as { value?: unknown; error?: string } | undefined;
-              const isAsync = ot[aKey] === true;
 
-              // Result available (sync or async resolved) — read and clean up
+              // Result available — read and clean up
               if (result && ('value' in result || 'error' in result)) {
                 const captured = { ...result };
                 // undefined is dropped by structured cloning — normalize to null
@@ -445,14 +444,12 @@ export const handleBrowserExecuteScript = async (
                 return { pending: false, result: captured };
               }
 
-              // Async code hasn't resolved yet — keep polling
-              if (isAsync) return { pending: true };
-
               // IIFE hasn't executed yet — keep polling
               if (ot[sKey] !== true) return { pending: true };
 
-              // Sync code produced no result (should not happen)
-              return { pending: false, result: { error: 'No result captured' } };
+              // IIFE has started but result not yet available — the async
+              // wrapper delivers results via .then() microtask. Keep polling.
+              return { pending: true };
             },
             args: [EXEC_RESULT_TRUNCATION_LIMIT, resultKey, asyncKey, startedKey],
           });
