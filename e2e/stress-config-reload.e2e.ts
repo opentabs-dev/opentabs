@@ -84,11 +84,7 @@ test.describe('Stress: config watcher + POST /reload simultaneous race', () => {
         postReload(server.port, headers),
       ]);
 
-      // Wait for both triggers to settle — the server should coalesce or sequence
-      // them, producing a consistent final state
-      await new Promise(r => setTimeout(r, 2_000));
-
-      // Poll until e2e-test tools appear
+      // The server will coalesce or sequence the triggers — poll for the result
       const toolsAfter = await waitForToolList(
         client,
         list => list.some(t => t.name.startsWith('e2e-test_')),

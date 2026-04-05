@@ -101,8 +101,8 @@ test.describe('POST /reload coalescing', () => {
       const body1 = (await res1.json()) as { ok: boolean; durationMs: number };
       expect(body1.ok).toBe(true);
 
-      // Wait longer than the coalesce window (500ms) + margin
-      await new Promise(r => setTimeout(r, 700));
+      // Wait longer than the coalesce window (500ms) + margin for CI headroom
+      await new Promise(r => setTimeout(r, 1_200));
 
       // Second reload — should be a separate reload operation
       const res2 = await postReload(server.port, headers);
@@ -170,14 +170,16 @@ test.describe('POST /reload coalescing', () => {
         expect(body.ok).toBe(true);
       }
 
-      // Wait for coalesced discovery to finish (give it a moment to settle)
-      await new Promise(r => setTimeout(r, 1500));
+      // Wait for coalesced discovery to complete
+      await expect
+        .poll(() => countDiscovery(), { timeout: 15_000, message: 'coalesced discovery should complete' })
+        .toBe(baseline + 1);
 
       // Exactly 1 discovery cycle from the 3 coalesced reloads
       expect(countDiscovery()).toBe(baseline + 1);
 
-      // Wait 700ms after the 3rd reload to exit the coalescing window
-      await new Promise(r => setTimeout(r, 700));
+      // Wait longer than the coalesce window (500ms) + margin for CI headroom
+      await new Promise(r => setTimeout(r, 1_200));
 
       // Fire a 4th reload — must trigger a separate discovery cycle
       const res4 = await postReload(server.port, headers);
@@ -186,7 +188,9 @@ test.describe('POST /reload coalescing', () => {
       expect(body4.ok).toBe(true);
 
       // Wait for the 4th reload's discovery to complete
-      await new Promise(r => setTimeout(r, 1500));
+      await expect
+        .poll(() => countDiscovery(), { timeout: 15_000, message: '4th reload discovery should complete' })
+        .toBe(baseline + 2);
 
       // Final count: baseline + 2 (one from the coalesced batch, one from the 4th)
       expect(countDiscovery()).toBe(baseline + 2);
