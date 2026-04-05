@@ -46,7 +46,7 @@ test.describe('Side panel accordion state persistence', () => {
       const sidePanelPage = await openSidePanel(context);
 
       // 3. Verify plugin card is visible and collapsed
-      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       await expect(pluginCard).toHaveAttribute('aria-expanded', 'false');
 
@@ -68,7 +68,7 @@ test.describe('Side panel accordion state persistence', () => {
       const sidePanelPage2 = await openSidePanel(context);
 
       // 9. Verify the cards are still expanded after the fresh page load
-      await expect(sidePanelPage2.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage2.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
       const pluginCard2 = sidePanelPage2.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       await expect(pluginCard2).toHaveAttribute('aria-expanded', 'true', { timeout: 10_000 });
       const browserCard2 = sidePanelPage2.locator('button[aria-expanded]').filter({ hasText: 'Browser' });
@@ -81,7 +81,7 @@ test.describe('Side panel accordion state persistence', () => {
       await sidePanelPage2.close();
 
       const sidePanelPage3 = await openSidePanel(context);
-      await expect(sidePanelPage3.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage3.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
       const pluginCard3 = sidePanelPage3.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       await expect(pluginCard3).toHaveAttribute('aria-expanded', 'false', { timeout: 10_000 });
 
@@ -131,7 +131,7 @@ test.describe('Side panel accordion stress', () => {
       const sidePanelPage = await openSidePanel(context);
       const pageErrors = collectPageErrors(sidePanelPage);
 
-      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
 
       const e2eCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
       const browserCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'Browser' });

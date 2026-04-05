@@ -732,7 +732,7 @@ const startServerProcess = (entryFile: string, label: string): Promise<TestServe
         }
         resolved = true;
         srv.port = actualPort;
-        srv.url = `http://localhost:${String(actualPort)}`;
+        srv.url = `http://127.0.0.1:${String(actualPort)}`;
         resolve(srv);
       }
     };

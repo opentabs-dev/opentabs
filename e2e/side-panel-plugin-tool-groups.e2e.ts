@@ -50,7 +50,7 @@ test.describe('Side panel — plugin tool groups', () => {
 
       // 3. Open side panel and verify plugin card is visible
       const sidePanelPage = await openSidePanel(context);
-      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
 
       // 4. Expand the E2E Test plugin accordion
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
@@ -132,7 +132,7 @@ test.describe('Side panel — plugin tool groups', () => {
       await waitForLog(server, 'plugin(s) mapped', 15_000);
 
       const sidePanelPage = await openSidePanel(context);
-      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
 
       // Expand the E2E Test plugin accordion
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });
@@ -184,7 +184,7 @@ test.describe('stress', () => {
       const sidePanelPage = await openSidePanel(context);
       sidePanelPage.on('pageerror', error => pageErrors.push(error));
 
-      await expect(sidePanelPage.getByText('E2E Test')).toBeVisible({ timeout: 30_000 });
+      await expect(sidePanelPage.getByText('E2E Test').first()).toBeVisible({ timeout: 30_000 });
 
       // Expand the E2E Test plugin accordion and verify group headers
       const pluginCard = sidePanelPage.locator('button[aria-expanded]').filter({ hasText: 'E2E Test' });

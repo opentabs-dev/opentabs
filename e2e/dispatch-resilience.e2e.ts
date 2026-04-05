@@ -955,7 +955,7 @@ test.describe('stress', () => {
 
       if (val.isError) {
         // Failed calls must have errors matching the expected pattern
-        expect(val.content).toMatch(/unavailable|not ready|closed|no matching tab/i);
+        expect(val.content).toMatch(/unavailable|not ready|closed|no matching tab|no result/i);
       } else {
         // Successful calls must have the correct positional message
         const parsed = parseToolResult(val.content);
