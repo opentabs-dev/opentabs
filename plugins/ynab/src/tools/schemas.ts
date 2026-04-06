@@ -272,9 +272,72 @@ export interface RawScheduledTransaction {
   is_tombstone?: boolean;
 }
 
+// --- YNAB wire format constants ---
+
+export const CLEARED_MAP: Record<string, string> = {
+  cleared: 'Cleared',
+  uncleared: 'Uncleared',
+  reconciled: 'Reconciled',
+};
+
+export const FLAG_MAP: Record<string, string> = {
+  red: 'Red',
+  orange: 'Orange',
+  yellow: 'Yellow',
+  green: 'Green',
+  blue: 'Blue',
+  purple: 'Purple',
+};
+
+// --- Shared budget data types ---
+
+export interface BudgetEntities {
+  be_transactions?: RawTransaction[];
+  be_subtransactions?: RawSubtransaction[];
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_account_calculations?: RawAccountCalculation[];
+  be_subcategories?: RawCategory[];
+  be_master_categories?: RawCategoryGroup[];
+  be_monthly_budgets?: RawMonth[];
+  be_monthly_budget_calculations?: RawMonthlyBudgetCalc[];
+  be_monthly_subcategory_budget_calculations?: RawMonthlySubcategoryBudgetCalc[];
+  be_scheduled_transactions?: RawScheduledTransaction[];
+}
+
+// --- Payee resolution ---
+
+export const resolvePayee = (
+  existingPayees: RawPayee[],
+  payeeName: string,
+): { payeeId: string; newPayee?: Record<string, unknown> } => {
+  const match = existingPayees.find(
+    p => !p.is_tombstone && p.name?.toLowerCase() === payeeName.toLowerCase(),
+  );
+  if (match?.id) return { payeeId: match.id };
+
+  const payeeId = crypto.randomUUID();
+  return {
+    payeeId,
+    newPayee: {
+      id: payeeId,
+      is_tombstone: false,
+      entities_account_id: null,
+      enabled: true,
+      auto_fill_subcategory_id: null,
+      auto_fill_memo: null,
+      auto_fill_amount: 0,
+      auto_fill_subcategory_enabled: true,
+      auto_fill_memo_enabled: false,
+      auto_fill_amount_enabled: false,
+      rename_on_import_enabled: true,
+      name: payeeName,
+      internal_name: null,
+    },
+  };
+};
+
 // --- Entity lookups ---
-// The sync response includes separate collections for payees, accounts, and categories.
-// Transactions only reference these by ID, so we build lookup maps to resolve names.
 
 export interface EntityLookups {
   payees: Map<string, string>;

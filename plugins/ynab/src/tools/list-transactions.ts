@@ -1,15 +1,8 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawAccount, RawCategory, RawPayee, RawTransaction } from './schemas.js';
+import type { BudgetEntities } from './schemas.js';
 import { buildLookups, mapTransaction, transactionSchema } from './schemas.js';
-
-interface BudgetData {
-  be_transactions?: RawTransaction[];
-  be_payees?: RawPayee[];
-  be_accounts?: RawAccount[];
-  be_subcategories?: RawCategory[];
-}
 
 export const listTransactions = defineTool({
   name: 'list_transactions',
@@ -35,30 +28,32 @@ export const listTransactions = defineTool({
   }),
   handle: async params => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
     const entities = result.changed_entities;
     const raw = entities?.be_transactions ?? [];
     const lookups = buildLookups(entities ?? {});
 
-    let transactions = raw.filter(t => !t.is_tombstone).map(t => mapTransaction(t, lookups));
+    // Filter on raw data before mapping to avoid unnecessary work
+    let filtered = raw.filter(t => !t.is_tombstone);
 
     if (params.account_id) {
-      transactions = transactions.filter(t => t.account_id === params.account_id);
+      filtered = filtered.filter(t => t.entities_account_id === params.account_id);
     }
 
     if (params.since_date) {
       const sinceDate = params.since_date;
-      transactions = transactions.filter(t => t.date >= sinceDate);
+      filtered = filtered.filter(t => (t.date ?? '') >= sinceDate);
     }
 
     if (params.until_date) {
       const untilDate = params.until_date;
-      transactions = transactions.filter(t => t.date <= untilDate);
+      filtered = filtered.filter(t => (t.date ?? '') <= untilDate);
     }
 
-    // Sort by date descending
-    transactions.sort((a, b) => b.date.localeCompare(a.date));
+    const transactions = filtered
+      .map(t => mapTransaction(t, lookups))
+      .sort((a, b) => b.date.localeCompare(a.date));
 
     return { transactions };
   },

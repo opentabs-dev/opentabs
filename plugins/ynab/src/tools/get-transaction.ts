@@ -1,16 +1,8 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawAccount, RawCategory, RawPayee, RawSubtransaction, RawTransaction } from './schemas.js';
+import type { BudgetEntities } from './schemas.js';
 import { buildLookups, mapSubtransaction, mapTransaction, subtransactionSchema, transactionSchema } from './schemas.js';
-
-interface BudgetData {
-  be_transactions?: RawTransaction[];
-  be_subtransactions?: RawSubtransaction[];
-  be_payees?: RawPayee[];
-  be_accounts?: RawAccount[];
-  be_subcategories?: RawCategory[];
-}
 
 export const getTransaction = defineTool({
   name: 'get_transaction',
@@ -29,7 +21,7 @@ export const getTransaction = defineTool({
   }),
   handle: async params => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
     const entities = result.changed_entities;
     const raw = entities?.be_transactions ?? [];

@@ -1,15 +1,8 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawCategory, RawMonth, RawMonthlyBudgetCalc, RawMonthlySubcategoryBudgetCalc } from './schemas.js';
+import type { BudgetEntities, RawMonthlySubcategoryBudgetCalc } from './schemas.js';
 import { categorySchema, mapCategory, mapMonth, monthSchema } from './schemas.js';
-
-interface BudgetData {
-  be_monthly_budgets?: RawMonth[];
-  be_subcategories?: RawCategory[];
-  be_monthly_budget_calculations?: RawMonthlyBudgetCalc[];
-  be_monthly_subcategory_budget_calculations?: RawMonthlySubcategoryBudgetCalc[];
-}
 
 export const getMonth = defineTool({
   name: 'get_month',
@@ -28,7 +21,7 @@ export const getMonth = defineTool({
   }),
   handle: async params => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
     const entities = result.changed_entities;
 

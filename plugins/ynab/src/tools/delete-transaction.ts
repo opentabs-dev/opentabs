@@ -1,11 +1,7 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
-import type { RawTransaction } from './schemas.js';
-
-interface BudgetData {
-  be_transactions?: RawTransaction[];
-}
+import type { BudgetEntities } from './schemas.js';
 
 export const deleteTransaction = defineTool({
   name: 'delete_transaction',
@@ -24,7 +20,7 @@ export const deleteTransaction = defineTool({
   handle: async params => {
     const planId = getPlanId();
 
-    const budget = await syncBudget<BudgetData>(planId);
+    const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
     const existing = budget.changed_entities?.be_transactions?.find(
       t => t.id === params.transaction_id && !t.is_tombstone,

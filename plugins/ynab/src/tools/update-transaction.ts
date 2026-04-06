@@ -1,19 +1,8 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
-import type { RawPayee, RawTransaction } from './schemas.js';
-import { mapTransaction, transactionSchema } from './schemas.js';
-
-interface BudgetData {
-  be_transactions?: RawTransaction[];
-  be_payees?: RawPayee[];
-}
-
-interface SaveResponse {
-  changed_entities?: {
-    be_transactions?: RawTransaction[];
-  };
-}
+import type { BudgetEntities, RawTransaction } from './schemas.js';
+import { CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
 
 export const updateTransaction = defineTool({
   name: 'update_transaction',
@@ -42,17 +31,7 @@ export const updateTransaction = defineTool({
   handle: async params => {
     const planId = getPlanId();
 
-    const clearedMap: Record<string, string> = { cleared: 'Cleared', uncleared: 'Uncleared', reconciled: 'Reconciled' };
-    const flagMap: Record<string, string> = {
-      red: 'Red',
-      orange: 'Orange',
-      yellow: 'Yellow',
-      green: 'Green',
-      blue: 'Blue',
-      purple: 'Purple',
-    };
-
-    const budget = await syncBudget<BudgetData>(planId);
+    const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
     const existing = budget.changed_entities?.be_transactions?.find(
       t => t.id === params.transaction_id && !t.is_tombstone,
@@ -63,35 +42,11 @@ export const updateTransaction = defineTool({
 
     const changedEntities: Record<string, unknown> = {};
 
-    // Resolve payee: look up existing payee by name, or create a new one
     let payeeId = params.payee_id ?? existing.entities_payee_id ?? null;
     if (params.payee_name && !params.payee_id) {
-      const existingPayees = budget.changed_entities?.be_payees ?? [];
-      const match = existingPayees.find(
-        p => !p.is_tombstone && p.name?.toLowerCase() === params.payee_name!.toLowerCase(),
-      );
-      if (match?.id) {
-        payeeId = match.id;
-      } else {
-        payeeId = crypto.randomUUID();
-        changedEntities.be_payees = [
-          {
-            id: payeeId,
-            is_tombstone: false,
-            entities_account_id: null,
-            enabled: true,
-            auto_fill_subcategory_id: null,
-            auto_fill_memo: null,
-            auto_fill_amount: 0,
-            auto_fill_subcategory_enabled: true,
-            auto_fill_memo_enabled: false,
-            auto_fill_amount_enabled: false,
-            rename_on_import_enabled: true,
-            name: params.payee_name,
-            internal_name: null,
-          },
-        ];
-      }
+      const resolved = resolvePayee(budget.changed_entities?.be_payees ?? [], params.payee_name);
+      payeeId = resolved.payeeId;
+      if (resolved.newPayee) changedEntities.be_payees = [resolved.newPayee];
     }
 
     changedEntities.be_transaction_groups = [
@@ -114,11 +69,11 @@ export const updateTransaction = defineTool({
           memo: params.memo ?? existing.memo ?? null,
           cleared:
             params.cleared !== undefined
-              ? (clearedMap[params.cleared] ?? 'Uncleared')
+              ? (CLEARED_MAP[params.cleared] ?? 'Uncleared')
               : (existing.cleared ?? 'Uncleared'),
           accepted: params.approved ?? existing.accepted ?? true,
           check_number: null,
-          flag: params.flag_color ? (flagMap[params.flag_color] ?? null) : (existing.flag ?? null),
+          flag: params.flag_color ? (FLAG_MAP[params.flag_color] ?? null) : (existing.flag ?? null),
           transfer_account_id: existing.transfer_account_id ?? null,
           transfer_transaction_id: null,
           transfer_subtransaction_id: null,
@@ -137,8 +92,8 @@ export const updateTransaction = defineTool({
 
     const result = await syncWrite(planId, changedEntities, serverKnowledge);
 
-    const saved = (result as unknown as SaveResponse).changed_entities?.be_transactions?.find(
-      t => t.id === params.transaction_id,
+    const saved = (result.changed_entities as BudgetEntities | undefined)?.be_transactions?.find(
+      (t: RawTransaction) => t.id === params.transaction_id,
     );
     if (!saved) {
       throw ToolError.internal('Transaction was updated but no data was returned');
