@@ -1,6 +1,11 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { getPlanId, syncWrite } from '../ynab-api.js';
+import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
+import type { RawTransaction } from './schemas.js';
+
+interface BudgetData {
+  be_transactions?: RawTransaction[];
+}
 
 export const deleteTransaction = defineTool({
   name: 'delete_transaction',
@@ -19,15 +24,31 @@ export const deleteTransaction = defineTool({
   handle: async params => {
     const planId = getPlanId();
 
-    await syncWrite(planId, {
-      be_transactions: [
-        {
-          id: params.transaction_id,
-          entities_account_id: params.account_id,
-          is_tombstone: true,
-        },
-      ],
-    });
+    const budget = await syncBudget<BudgetData>(planId);
+    const serverKnowledge = budget.current_server_knowledge ?? 0;
+    const existing = budget.changed_entities?.be_transactions?.find(
+      t => t.id === params.transaction_id && !t.is_tombstone,
+    );
+    if (!existing) {
+      throw ToolError.notFound(`Transaction not found: ${params.transaction_id}`);
+    }
+
+    await syncWrite(
+      planId,
+      {
+        be_transaction_groups: [
+          {
+            id: params.transaction_id,
+            be_transaction: {
+              ...existing,
+              is_tombstone: true,
+            },
+            be_subtransactions: null,
+          },
+        ],
+      },
+      serverKnowledge,
+    );
 
     return { success: true };
   },

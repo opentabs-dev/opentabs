@@ -185,11 +185,17 @@ export const syncBudget = async <T = Record<string, unknown>>(planId: string): P
   });
 
 // Write operations require the current server_knowledge to succeed.
-// This fetches it first, then sends the write in one round-trip.
+// Pass serverKnowledge from a prior syncBudget call to avoid a redundant read.
 
-export const syncWrite = async (planId: string, changedEntities: Record<string, unknown>): Promise<CatalogResponse> => {
-  const readResult = await syncBudget(planId);
-  const serverKnowledge = readResult.current_server_knowledge ?? 0;
+export const syncWrite = async (
+  planId: string,
+  changedEntities: Record<string, unknown>,
+  serverKnowledge?: number,
+): Promise<CatalogResponse> => {
+  if (serverKnowledge === undefined) {
+    const readResult = await syncBudget(planId);
+    serverKnowledge = readResult.current_server_knowledge ?? 0;
+  }
 
   return catalog('syncBudgetData', {
     budget_version_id: planId,
