@@ -22,6 +22,10 @@ export const listTransactions = defineTool({
       .string()
       .optional()
       .describe('Only return transactions on or after this date (YYYY-MM-DD). Omit for all transactions.'),
+    until_date: z
+      .string()
+      .optional()
+      .describe('Only return transactions on or before this date (YYYY-MM-DD). Combine with since_date for a date range.'),
   }),
   output: z.object({
     transactions: z.array(transactionSchema).describe('List of transactions'),
@@ -41,6 +45,11 @@ export const listTransactions = defineTool({
     if (params.since_date) {
       const sinceDate = params.since_date;
       transactions = transactions.filter(t => t.date >= sinceDate);
+    }
+
+    if (params.until_date) {
+      const untilDate = params.until_date;
+      transactions = transactions.filter(t => t.date <= untilDate);
     }
 
     // Sort by date descending
