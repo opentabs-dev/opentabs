@@ -28,6 +28,7 @@
     "storage",
     "alarms",
     "tabs",
+    "tabGroups",
     "scripting",
     "sidePanel",
     "cookies",

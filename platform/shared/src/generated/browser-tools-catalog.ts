@@ -16,6 +16,14 @@ export interface BrowserToolMeta {
 
 export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
+    name: 'browser_add_tabs_to_group',
+    description:
+      'Add one or more tabs to an existing Chrome tab group. Use browser_list_tab_groups to find group IDs and browser_list_tabs to find tab IDs.',
+    summary: 'Add tabs to a tab group',
+    icon: 'folder-input',
+    group: 'Tabs',
+  },
+  {
     name: 'browser_clear_console_logs',
     description: 'Clear the console log buffer for a browser tab without disabling capture.',
     summary: 'Clear captured console logs for a tab',
@@ -35,6 +43,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     description: 'Close a browser tab by its tab ID. Use browser_list_tabs to find tab IDs.',
     summary: 'Close a browser tab',
     icon: 'x',
+    group: 'Tabs',
+  },
+  {
+    name: 'browser_create_tab_group',
+    description:
+      'Create a new Chrome tab group from one or more tab IDs. Optionally set a title and color. Use browser_list_tabs to find tab IDs. Returns the new group ID, title, and color.',
+    summary: 'Create a new tab group',
+    icon: 'folder-plus',
     group: 'Tabs',
   },
   {
@@ -182,11 +198,27 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Page Inspection',
   },
   {
+    name: 'browser_list_tab_groups',
+    description:
+      'List all Chrome tab groups across all connected browser profiles. Returns group ID, title, color, collapsed state, window ID, and connectionId for each group. Use the returned group IDs with browser_add_tabs_to_group, browser_update_tab_group, and browser_list_tabs_in_group.',
+    summary: 'List all tab groups',
+    icon: 'layers',
+    group: 'Tabs',
+  },
+  {
     name: 'browser_list_tabs',
     description:
       'List all open browser tabs across all connected browser profiles. Returns tab ID, title, URL, active status, and connectionId for each tab. The connectionId identifies which browser profile owns the tab — use it with browser_open_tab to target a specific profile. Use the returned tab IDs with browser_close_tab, browser_navigate_tab, and browser_execute_script. Note: Returns ALL open tabs including potentially sensitive ones (banking, email, etc.). Tab URLs and titles may contain private information. Do not share tab information with plugin tools unless the user explicitly requests it.',
     summary: 'List all open browser tabs',
     icon: 'layout-list',
+    group: 'Tabs',
+  },
+  {
+    name: 'browser_list_tabs_in_group',
+    description:
+      'List all tabs in a specific Chrome tab group. Returns tab ID, title, URL, active status, and window ID for each tab. Use browser_list_tab_groups to find group IDs.',
+    summary: 'List tabs in a tab group',
+    icon: 'list',
     group: 'Tabs',
   },
   {
@@ -219,6 +251,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Query elements by CSS selector',
     icon: 'search',
     group: 'Page Inspection',
+  },
+  {
+    name: 'browser_remove_tabs_from_group',
+    description:
+      'Remove one or more tabs from their current Chrome tab group (ungroup them). Use browser_list_tabs to find tab IDs. Tabs that are not in any group are silently ignored.',
+    summary: 'Remove tabs from a tab group',
+    icon: 'folder-output',
+    group: 'Tabs',
   },
   {
     name: 'browser_screenshot_tab',
@@ -259,6 +299,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Type text into an input field',
     icon: 'keyboard',
     group: 'Page Interaction',
+  },
+  {
+    name: 'browser_update_tab_group',
+    description:
+      "Update a Chrome tab group's title, color, or collapsed state. Use browser_list_tab_groups to find group IDs.",
+    summary: 'Update a tab group',
+    icon: 'folder-pen',
+    group: 'Tabs',
   },
   {
     name: 'browser_wait_for_element',
