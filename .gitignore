@@ -25,3 +25,4 @@ marketing/logs/
 marketing/state.json
 .playwright-browsers/
 .extension-hash
+docs/superpowers/
