@@ -1,12 +1,15 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawSubtransaction, RawTransaction } from './schemas.js';
-import { mapSubtransaction, mapTransaction, subtransactionSchema, transactionSchema } from './schemas.js';
+import type { RawAccount, RawCategory, RawPayee, RawSubtransaction, RawTransaction } from './schemas.js';
+import { buildLookups, mapSubtransaction, mapTransaction, subtransactionSchema, transactionSchema } from './schemas.js';
 
 interface BudgetData {
   be_transactions?: RawTransaction[];
   be_subtransactions?: RawSubtransaction[];
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_subcategories?: RawCategory[];
 }
 
 export const getTransaction = defineTool({
@@ -36,13 +39,14 @@ export const getTransaction = defineTool({
       throw ToolError.notFound(`Transaction not found: ${params.transaction_id}`);
     }
 
+    const lookups = buildLookups(entities ?? {});
     const allSubs = entities?.be_subtransactions ?? [];
     const subtransactions = allSubs
       .filter(s => s.entities_transaction_id === params.transaction_id && !s.is_tombstone)
-      .map(mapSubtransaction);
+      .map(s => mapSubtransaction(s, lookups));
 
     return {
-      transaction: mapTransaction(tx),
+      transaction: mapTransaction(tx, lookups),
       subtransactions,
     };
   },

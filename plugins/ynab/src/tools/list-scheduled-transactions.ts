@@ -1,11 +1,14 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawScheduledTransaction } from './schemas.js';
-import { mapScheduledTransaction, scheduledTransactionSchema } from './schemas.js';
+import type { RawAccount, RawCategory, RawPayee, RawScheduledTransaction } from './schemas.js';
+import { buildLookups, mapScheduledTransaction, scheduledTransactionSchema } from './schemas.js';
 
 interface BudgetData {
   be_scheduled_transactions?: RawScheduledTransaction[];
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_subcategories?: RawCategory[];
 }
 
 export const listScheduledTransactions = defineTool({
@@ -24,11 +27,13 @@ export const listScheduledTransactions = defineTool({
     const planId = getPlanId();
     const result = await syncBudget<BudgetData>(planId);
 
-    const raw = result.changed_entities?.be_scheduled_transactions ?? [];
+    const entities = result.changed_entities;
+    const raw = entities?.be_scheduled_transactions ?? [];
+    const lookups = buildLookups(entities ?? {});
 
     const scheduledTransactions = raw
       .filter(s => !s.is_tombstone)
-      .map(mapScheduledTransaction)
+      .map(s => mapScheduledTransaction(s, lookups))
       .sort((a, b) => a.date_next.localeCompare(b.date_next));
 
     return { scheduled_transactions: scheduledTransactions };

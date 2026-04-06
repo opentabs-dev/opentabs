@@ -1,11 +1,14 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawTransaction } from './schemas.js';
-import { mapTransaction, transactionSchema } from './schemas.js';
+import type { RawAccount, RawCategory, RawPayee, RawTransaction } from './schemas.js';
+import { buildLookups, mapTransaction, transactionSchema } from './schemas.js';
 
 interface BudgetData {
   be_transactions?: RawTransaction[];
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_subcategories?: RawCategory[];
 }
 
 export const listTransactions = defineTool({
@@ -34,9 +37,11 @@ export const listTransactions = defineTool({
     const planId = getPlanId();
     const result = await syncBudget<BudgetData>(planId);
 
-    const raw = result.changed_entities?.be_transactions ?? [];
+    const entities = result.changed_entities;
+    const raw = entities?.be_transactions ?? [];
+    const lookups = buildLookups(entities ?? {});
 
-    let transactions = raw.filter(t => !t.is_tombstone).map(mapTransaction);
+    let transactions = raw.filter(t => !t.is_tombstone).map(t => mapTransaction(t, lookups));
 
     if (params.account_id) {
       transactions = transactions.filter(t => t.account_id === params.account_id);

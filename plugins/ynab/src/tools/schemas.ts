@@ -276,6 +276,30 @@ export interface RawScheduledTransaction {
   is_tombstone?: boolean;
 }
 
+// --- Entity lookups ---
+// The sync response includes separate collections for payees, accounts, and categories.
+// Transactions only reference these by ID, so we build lookup maps to resolve names.
+
+export interface EntityLookups {
+  payees: Map<string, string>;
+  accounts: Map<string, string>;
+  categories: Map<string, string>;
+}
+
+export const buildLookups = (entities: {
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_subcategories?: RawCategory[];
+}): EntityLookups => ({
+  payees: new Map((entities.be_payees ?? []).filter(p => !p.is_tombstone).map(p => [p.id ?? '', p.name ?? ''])),
+  accounts: new Map(
+    (entities.be_accounts ?? []).filter(a => !a.is_tombstone).map(a => [a.id ?? '', a.account_name ?? '']),
+  ),
+  categories: new Map(
+    (entities.be_subcategories ?? []).filter(c => !c.is_tombstone).map(c => [c.id ?? '', c.name ?? '']),
+  ),
+});
+
 // --- Defensive mappers ---
 
 export const mapUser = (u: RawUser) => ({
@@ -362,7 +386,7 @@ export const mapPayee = (p: RawPayee) => ({
   transfer_account_id: p.entities_account_id ?? '',
 });
 
-export const mapTransaction = (t: RawTransaction) => ({
+export const mapTransaction = (t: RawTransaction, lookups?: EntityLookups) => ({
   id: t.id ?? '',
   date: t.date ?? '',
   amount: formatMilliunits(t.amount ?? 0),
@@ -373,26 +397,26 @@ export const mapTransaction = (t: RawTransaction) => ({
   flag_color: t.flag_color ?? '',
   flag_name: t.flag_name ?? '',
   account_id: t.entities_account_id ?? '',
-  account_name: t.account_name ?? '',
+  account_name: lookups?.accounts.get(t.entities_account_id ?? '') ?? t.account_name ?? '',
   payee_id: t.entities_payee_id ?? '',
-  payee_name: t.payee_name ?? '',
+  payee_name: lookups?.payees.get(t.entities_payee_id ?? '') ?? t.payee_name ?? '',
   category_id: t.entities_subcategory_id ?? '',
-  category_name: t.category_name ?? '',
+  category_name: lookups?.categories.get(t.entities_subcategory_id ?? '') ?? t.category_name ?? '',
   transfer_account_id: t.transfer_account_id ?? '',
   import_id: t.import_id ?? '',
   deleted: t.is_tombstone === true,
 });
 
-export const mapSubtransaction = (s: RawSubtransaction) => ({
+export const mapSubtransaction = (s: RawSubtransaction, lookups?: EntityLookups) => ({
   id: s.id ?? '',
   transaction_id: s.entities_transaction_id ?? '',
   amount: formatMilliunits(s.amount ?? 0),
   amount_milliunits: s.amount ?? 0,
   memo: s.memo ?? '',
   payee_id: s.entities_payee_id ?? '',
-  payee_name: s.payee_name ?? '',
+  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? s.payee_name ?? '',
   category_id: s.entities_subcategory_id ?? '',
-  category_name: s.category_name ?? '',
+  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? s.category_name ?? '',
   transfer_account_id: s.transfer_account_id ?? '',
   deleted: s.is_tombstone === true,
 });
@@ -416,7 +440,7 @@ export const mapMonth = (m: RawMonth, calc?: RawMonthlyBudgetCalc) => {
   };
 };
 
-export const mapScheduledTransaction = (s: RawScheduledTransaction) => ({
+export const mapScheduledTransaction = (s: RawScheduledTransaction, lookups?: EntityLookups) => ({
   id: s.id ?? '',
   date_first: s.date_first ?? '',
   date_next: s.date_next ?? '',
@@ -426,10 +450,10 @@ export const mapScheduledTransaction = (s: RawScheduledTransaction) => ({
   memo: s.memo ?? '',
   flag_color: s.flag_color ?? '',
   account_id: s.entities_account_id ?? '',
-  account_name: s.account_name ?? '',
+  account_name: lookups?.accounts.get(s.entities_account_id ?? '') ?? s.account_name ?? '',
   payee_id: s.entities_payee_id ?? '',
-  payee_name: s.payee_name ?? '',
+  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? s.payee_name ?? '',
   category_id: s.entities_subcategory_id ?? '',
-  category_name: s.category_name ?? '',
+  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? s.category_name ?? '',
   deleted: s.is_tombstone === true,
 });
