@@ -83,7 +83,8 @@ export const transactionSchema = z.object({
   category_id: z.string().describe('Category ID'),
   category_name: z.string().describe('Category name'),
   transfer_account_id: z.string().describe('If a transfer, the destination account ID'),
-  import_id: z.string().describe('Import ID for deduplication'),
+  imported_payee: z.string().describe('Bank-imported payee name after YNAB cleansing (empty if manually entered)'),
+  original_imported_payee: z.string().describe('Raw payee string from the bank feed before any cleansing (empty if manually entered)'),
   deleted: z.boolean().describe('Whether the transaction is deleted'),
 });
 
@@ -207,17 +208,16 @@ export interface RawTransaction {
   amount?: number;
   memo?: string | null;
   cleared?: string;
-  approved?: boolean;
-  flag_color?: string | null;
-  flag_name?: string | null;
+  accepted?: boolean;
+  flag?: string | null;
   entities_account_id?: string;
-  account_name?: string;
   entities_payee_id?: string | null;
-  payee_name?: string | null;
   entities_subcategory_id?: string | null;
-  category_name?: string | null;
   transfer_account_id?: string | null;
-  import_id?: string | null;
+  imported_payee?: string | null;
+  original_imported_payee?: string | null;
+  ynab_id?: string | null;
+  source?: string | null;
   is_tombstone?: boolean;
 }
 
@@ -227,9 +227,7 @@ export interface RawSubtransaction {
   amount?: number;
   memo?: string | null;
   entities_payee_id?: string | null;
-  payee_name?: string | null;
   entities_subcategory_id?: string | null;
-  category_name?: string | null;
   transfer_account_id?: string | null;
   is_tombstone?: boolean;
 }
@@ -261,18 +259,16 @@ export interface RawMonthlySubcategoryBudgetCalc {
 
 export interface RawScheduledTransaction {
   id?: string;
-  date_first?: string;
-  date_next?: string;
+  date?: string;
   frequency?: string;
   amount?: number;
   memo?: string | null;
-  flag_color?: string | null;
+  flag?: string | null;
   entities_account_id?: string;
-  account_name?: string;
   entities_payee_id?: string | null;
-  payee_name?: string | null;
   entities_subcategory_id?: string | null;
-  category_name?: string | null;
+  transfer_account_id?: string | null;
+  upcoming_instances?: unknown[];
   is_tombstone?: boolean;
 }
 
@@ -393,17 +389,18 @@ export const mapTransaction = (t: RawTransaction, lookups?: EntityLookups) => ({
   amount_milliunits: t.amount ?? 0,
   memo: t.memo ?? '',
   cleared: t.cleared ?? 'uncleared',
-  approved: t.approved ?? false,
-  flag_color: t.flag_color ?? '',
-  flag_name: t.flag_name ?? '',
+  approved: t.accepted ?? false,
+  flag_color: t.flag ?? '',
+  flag_name: '',
   account_id: t.entities_account_id ?? '',
-  account_name: lookups?.accounts.get(t.entities_account_id ?? '') ?? t.account_name ?? '',
+  account_name: lookups?.accounts.get(t.entities_account_id ?? '') ?? '',
   payee_id: t.entities_payee_id ?? '',
-  payee_name: lookups?.payees.get(t.entities_payee_id ?? '') ?? t.payee_name ?? '',
+  payee_name: lookups?.payees.get(t.entities_payee_id ?? '') ?? '',
   category_id: t.entities_subcategory_id ?? '',
-  category_name: lookups?.categories.get(t.entities_subcategory_id ?? '') ?? t.category_name ?? '',
+  category_name: lookups?.categories.get(t.entities_subcategory_id ?? '') ?? '',
   transfer_account_id: t.transfer_account_id ?? '',
-  import_id: t.import_id ?? '',
+  imported_payee: t.imported_payee ?? '',
+  original_imported_payee: t.original_imported_payee ?? '',
   deleted: t.is_tombstone === true,
 });
 
@@ -414,9 +411,9 @@ export const mapSubtransaction = (s: RawSubtransaction, lookups?: EntityLookups)
   amount_milliunits: s.amount ?? 0,
   memo: s.memo ?? '',
   payee_id: s.entities_payee_id ?? '',
-  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? s.payee_name ?? '',
+  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? '',
   category_id: s.entities_subcategory_id ?? '',
-  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? s.category_name ?? '',
+  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? '',
   transfer_account_id: s.transfer_account_id ?? '',
   deleted: s.is_tombstone === true,
 });
@@ -442,18 +439,18 @@ export const mapMonth = (m: RawMonth, calc?: RawMonthlyBudgetCalc) => {
 
 export const mapScheduledTransaction = (s: RawScheduledTransaction, lookups?: EntityLookups) => ({
   id: s.id ?? '',
-  date_first: s.date_first ?? '',
-  date_next: s.date_next ?? '',
+  date_first: s.date ?? '',
+  date_next: (s.upcoming_instances as string[] | undefined)?.[0] ?? s.date ?? '',
   frequency: s.frequency ?? 'never',
   amount: formatMilliunits(s.amount ?? 0),
   amount_milliunits: s.amount ?? 0,
   memo: s.memo ?? '',
-  flag_color: s.flag_color ?? '',
+  flag_color: s.flag ?? '',
   account_id: s.entities_account_id ?? '',
-  account_name: lookups?.accounts.get(s.entities_account_id ?? '') ?? s.account_name ?? '',
+  account_name: lookups?.accounts.get(s.entities_account_id ?? '') ?? '',
   payee_id: s.entities_payee_id ?? '',
-  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? s.payee_name ?? '',
+  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? '',
   category_id: s.entities_subcategory_id ?? '',
-  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? s.category_name ?? '',
+  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? '',
   deleted: s.is_tombstone === true,
 });
