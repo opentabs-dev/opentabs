@@ -49,8 +49,8 @@ export const updateTransaction = defineTool({
     if (params.category_id !== undefined) transaction.entities_subcategory_id = params.category_id;
     if (params.memo !== undefined) transaction.memo = params.memo;
     if (params.cleared !== undefined) transaction.cleared = params.cleared;
-    if (params.approved !== undefined) transaction.approved = params.approved;
-    if (params.flag_color !== undefined) transaction.flag_color = params.flag_color;
+    if (params.approved !== undefined) transaction.accepted = params.approved;
+    if (params.flag_color !== undefined) transaction.flag = params.flag_color;
 
     const result = await syncWrite(planId, {
       be_transactions: [transaction],
