@@ -1,8 +1,14 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { BudgetEntities, RawMonthlySubcategoryBudgetCalc } from './schemas.js';
-import { categoryGroupSchema, categorySchema, mapCategory, mapCategoryGroup } from './schemas.js';
+import type { BudgetEntities } from './schemas.js';
+import {
+  buildSubcategoryCalcMap,
+  categoryGroupSchema,
+  categorySchema,
+  mapCategoryGroup,
+  mapCategoryWithCalc,
+} from './schemas.js';
 
 export const listCategories = defineTool({
   name: 'list_categories',
@@ -24,36 +30,12 @@ export const listCategories = defineTool({
     const result = await syncBudget<BudgetEntities>(planId);
 
     const entities = result.changed_entities;
-
     const rawGroups = (entities?.be_master_categories ?? []).filter(g => !g.is_tombstone);
     const rawCategories = (entities?.be_subcategories ?? []).filter(c => !c.is_tombstone);
-
-    // Merge monthly subcategory budget calculations into categories
-    // entity_id format: mcbc/YYYY-MM/category-id — extract category-id suffix
-    const calcs = entities?.be_monthly_subcategory_budget_calculations ?? [];
-    const calcMap = new Map<string, RawMonthlySubcategoryBudgetCalc>();
-    for (const calc of calcs) {
-      const entityId = calc.entities_monthly_subcategory_budget_id;
-      if (entityId) {
-        const parts = entityId.split('/');
-        const categoryId = parts.length >= 3 ? parts.slice(2).join('/') : entityId;
-        calcMap.set(categoryId, calc);
-      }
-    }
+    const calcMap = buildSubcategoryCalcMap(entities?.be_monthly_subcategory_budget_calculations ?? []);
 
     let groups = rawGroups.map(mapCategoryGroup);
-    let categories = rawCategories.map(c => {
-      const calc = calcMap.get(c.id ?? '');
-      return mapCategory({
-        ...c,
-        budgeted: calc?.budgeted ?? c.budgeted,
-        activity: calc?.activity ?? c.activity,
-        balance: calc?.balance ?? c.balance,
-        goal_type: calc?.goal_type ?? c.goal_type,
-        goal_target: calc?.goal_target ?? c.goal_target,
-        goal_percentage_complete: calc?.goal_percentage_complete ?? c.goal_percentage_complete,
-      });
-    });
+    let categories = rawCategories.map(c => mapCategoryWithCalc(c, calcMap));
 
     if (!params.include_hidden) {
       groups = groups.filter(g => !g.hidden);

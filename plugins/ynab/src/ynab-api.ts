@@ -126,9 +126,16 @@ const handleApiError = async (response: Response, context: string): Promise<neve
   throw ToolError.internal(`API error (${response.status}): ${context} — ${errorBody}`);
 };
 
+const handleNetworkError = (err: unknown, context: string): never => {
+  if (err instanceof DOMException && err.name === 'TimeoutError') throw ToolError.timeout(`Request timed out: ${context}`);
+  if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
+  throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
+    category: 'internal',
+    retryable: true,
+  });
+};
+
 // --- Catalog API (internal RPC endpoint) ---
-// YNAB's web app uses POST /api/v1/catalog with operation_name + request_data
-// as the primary data access mechanism for budget operations.
 
 export const catalog = async <T = Record<string, unknown>>(
   operationName: string,
@@ -147,13 +154,7 @@ export const catalog = async <T = Record<string, unknown>>(
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'TimeoutError')
-      throw ToolError.timeout(`Catalog request timed out: ${operationName}`);
-    if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
-    throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
-      category: 'internal',
-      retryable: true,
-    });
+    return handleNetworkError(err, operationName);
   }
 
   if (!response.ok) return handleApiError(response, operationName);
@@ -237,13 +238,7 @@ export const api = async <T>(
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'TimeoutError')
-      throw ToolError.timeout(`API request timed out: ${endpoint}`);
-    if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
-    throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
-      category: 'internal',
-      retryable: true,
-    });
+    return handleNetworkError(err, endpoint);
   }
 
   if (!response.ok) return handleApiError(response, endpoint);

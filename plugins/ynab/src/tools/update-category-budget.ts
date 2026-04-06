@@ -1,6 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { getPlanId, syncWrite } from '../ynab-api.js';
+import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
 import { categorySchema, mapCategory } from './schemas.js';
 
 export const updateCategoryBudget = defineTool({
@@ -22,36 +23,32 @@ export const updateCategoryBudget = defineTool({
   handle: async params => {
     const planId = getPlanId();
     const milliunits = Math.round(params.budgeted * 1000);
-
-    // Month in budget IDs uses YYYY-MM format
     const monthKey = params.month.substring(0, 7);
     const budgetId = `mcb/${monthKey}/${params.category_id}`;
     const monthlyBudgetId = `mb/${monthKey}/${planId}`;
 
-    const result = await syncWrite(planId, {
-      be_monthly_subcategory_budgets: [
-        {
-          id: budgetId,
-          entities_monthly_budget_id: monthlyBudgetId,
-          entities_subcategory_id: params.category_id,
-          budgeted: milliunits,
-          overspending_handling: 'AffectsBuffer',
-          is_tombstone: false,
-        },
-      ],
-    });
+    const budget = await syncBudget<BudgetEntities>(planId);
+    const serverKnowledge = budget.current_server_knowledge ?? 0;
 
-    // The sync write returns the updated budget entity
-    const budgets = (
-      result as Record<string, unknown> & {
-        changed_entities?: {
-          be_monthly_subcategory_budgets?: Array<{
-            budgeted?: number;
-          }>;
-        };
-      }
-    ).changed_entities?.be_monthly_subcategory_budgets;
+    const result = await syncWrite(
+      planId,
+      {
+        be_monthly_subcategory_budgets: [
+          {
+            id: budgetId,
+            entities_monthly_budget_id: monthlyBudgetId,
+            entities_subcategory_id: params.category_id,
+            budgeted: milliunits,
+            overspending_handling: 'AffectsBuffer',
+            is_tombstone: false,
+          },
+        ],
+      },
+      serverKnowledge,
+    );
 
+    const budgets = (result.changed_entities as BudgetEntities | undefined)
+      ?.be_monthly_subcategory_budget_calculations;
     const updatedBudget = budgets?.[0]?.budgeted ?? milliunits;
 
     return {

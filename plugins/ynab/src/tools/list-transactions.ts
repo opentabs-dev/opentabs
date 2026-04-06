@@ -34,7 +34,6 @@ export const listTransactions = defineTool({
     const raw = entities?.be_transactions ?? [];
     const lookups = buildLookups(entities ?? {});
 
-    // Filter on raw data before mapping to avoid unnecessary work
     let filtered = raw.filter(t => !t.is_tombstone);
 
     if (params.account_id) {

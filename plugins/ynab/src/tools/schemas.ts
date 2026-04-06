@@ -337,6 +337,36 @@ export const resolvePayee = (
   };
 };
 
+// --- Calculation map builders ---
+
+export const buildAccountCalcMap = (entities: BudgetEntities) =>
+  new Map((entities.be_account_calculations ?? []).map(c => [c.entities_account_id, c]));
+
+export const buildSubcategoryCalcMap = (calcs: RawMonthlySubcategoryBudgetCalc[]) => {
+  const map = new Map<string, RawMonthlySubcategoryBudgetCalc>();
+  for (const calc of calcs) {
+    const entityId = calc.entities_monthly_subcategory_budget_id;
+    if (entityId) {
+      const parts = entityId.split('/');
+      map.set(parts.length >= 3 ? parts.slice(2).join('/') : entityId, calc);
+    }
+  }
+  return map;
+};
+
+export const mapCategoryWithCalc = (c: RawCategory, calcMap: Map<string, RawMonthlySubcategoryBudgetCalc>) => {
+  const calc = calcMap.get(c.id ?? '');
+  return mapCategory({
+    ...c,
+    budgeted: calc?.budgeted ?? c.budgeted,
+    activity: calc?.activity ?? c.activity,
+    balance: calc?.balance ?? c.balance,
+    goal_type: calc?.goal_type ?? c.goal_type,
+    goal_target: calc?.goal_target ?? c.goal_target,
+    goal_percentage_complete: calc?.goal_percentage_complete ?? c.goal_percentage_complete,
+  });
+};
+
 // --- Entity lookups ---
 
 export interface EntityLookups {
