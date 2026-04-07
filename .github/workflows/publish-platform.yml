@@ -213,13 +213,9 @@ jobs:
 
           git commit -m "$COMMIT_MSG"
 
-          if [ "$DRY_RUN" != "true" ]; then
-            git tag "v${VERSION}"
-          fi
-
           # Push with retry (handle concurrent pushes)
           for attempt in 1 2 3; do
-            if git push && { [ "$DRY_RUN" = "true" ] || git push --tags; }; then
+            if git push; then
               echo "Push succeeded on attempt $attempt"
               break
             fi
