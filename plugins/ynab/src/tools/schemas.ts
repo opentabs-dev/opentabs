@@ -1,3 +1,4 @@
+import { log } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
 // --- Currency formatting ---
@@ -7,6 +8,10 @@ export const formatMilliunits = (milliunits: number): string => {
   const amount = milliunits / 1000;
   return amount.toFixed(2);
 };
+
+export const toMilliunits = (amount: number): number => Math.round(amount * 1000);
+
+export const notTombstone = <T extends { is_tombstone?: boolean }>(x: T): boolean => !x.is_tombstone;
 
 // --- Shared output schemas ---
 
@@ -111,7 +116,7 @@ export const monthSchema = z.object({
   budgeted_milliunits: z.number().describe('Total budgeted in milliunits'),
   activity_milliunits: z.number().describe('Total activity in milliunits'),
   to_be_budgeted_milliunits: z.number().describe('Ready to Assign in milliunits'),
-  age_of_money: z.number().describe('Age of money in days'),
+  age_of_money: z.number().nullable().describe('Age of money in days, or null if not yet computed'),
 });
 
 export const scheduledTransactionSchema = z.object({
@@ -246,12 +251,19 @@ export interface RawMonthlyBudgetCalc {
   age_of_money?: number | null;
 }
 
+export interface RawMonthlySubcategoryBudget {
+  id?: string;
+  entities_monthly_budget_id?: string;
+  entities_subcategory_id?: string;
+  budgeted?: number;
+  is_tombstone?: boolean;
+}
+
 export interface RawMonthlySubcategoryBudgetCalc {
   entities_monthly_subcategory_budget_id?: string;
-  budgeted?: number;
-  activity?: number;
   balance?: number;
-  goal_type?: string | null;
+  cash_outflows?: number;
+  credit_outflows?: number;
   goal_target?: number | null;
   goal_percentage_complete?: number | null;
 }
@@ -273,13 +285,42 @@ export interface RawScheduledTransaction {
 
 // --- YNAB wire format constants ---
 
-export const CLEARED_MAP: Record<string, string> = {
+export type ClearedStatus = 'cleared' | 'uncleared' | 'reconciled';
+export type FlagColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple';
+
+export const MONEY_MOVEMENT_SOURCE = {
+  /** RTA ↔ category (in either direction). */
+  ASSIGN: 'manual_assign',
+  /** Category-to-category transfer. */
+  MOVEMENT: 'manual_movement',
+} as const;
+
+// Entity ID prefixes used by the YNAB sync API.
+const SUBCATEGORY_BUDGET_PREFIX = 'mcb';
+const MONTHLY_BUDGET_PREFIX = 'mb';
+
+export const toMonthKey = (month: string): string => month.substring(0, 7);
+
+// Returns the user's current month as YYYY-MM in local time so it matches the
+// calendar month a user sees in the YNAB UI around midnight in negative offsets.
+export const currentMonthKey = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export const formatSubcategoryBudgetId = (monthKey: string, categoryId: string): string =>
+  `${SUBCATEGORY_BUDGET_PREFIX}/${monthKey}/${categoryId}`;
+
+export const formatMonthlyBudgetId = (monthKey: string, planId: string): string =>
+  `${MONTHLY_BUDGET_PREFIX}/${monthKey}/${planId}`;
+
+export const CLEARED_MAP: Record<ClearedStatus, string> = {
   cleared: 'Cleared',
   uncleared: 'Uncleared',
   reconciled: 'Reconciled',
 };
 
-export const FLAG_MAP: Record<string, string> = {
+export const FLAG_MAP: Record<FlagColor, string> = {
   red: 'Red',
   orange: 'Orange',
   yellow: 'Yellow',
@@ -300,6 +341,7 @@ export interface BudgetEntities {
   be_master_categories?: RawCategoryGroup[];
   be_monthly_budgets?: RawMonth[];
   be_monthly_budget_calculations?: RawMonthlyBudgetCalc[];
+  be_monthly_subcategory_budgets?: RawMonthlySubcategoryBudget[];
   be_monthly_subcategory_budget_calculations?: RawMonthlySubcategoryBudgetCalc[];
   be_scheduled_transactions?: RawScheduledTransaction[];
 }
@@ -310,9 +352,8 @@ export const resolvePayee = (
   existingPayees: RawPayee[],
   payeeName: string,
 ): { payeeId: string; newPayee?: Record<string, unknown> } => {
-  const match = existingPayees.find(
-    p => !p.is_tombstone && p.name?.toLowerCase() === payeeName.toLowerCase(),
-  );
+  const target = payeeName.toLowerCase();
+  const match = existingPayees.find(p => notTombstone(p) && p.name?.toLowerCase() === target);
   if (match?.id) return { payeeId: match.id };
 
   const payeeId = crypto.randomUUID();
@@ -341,26 +382,68 @@ export const resolvePayee = (
 export const buildAccountCalcMap = (entities: BudgetEntities) =>
   new Map((entities.be_account_calculations ?? []).map(c => [c.entities_account_id, c]));
 
-export const buildSubcategoryCalcMap = (calcs: RawMonthlySubcategoryBudgetCalc[]) => {
-  const map = new Map<string, RawMonthlySubcategoryBudgetCalc>();
+// Entity ID format: "mb/YYYY-MM/<planId>" — key by YYYY-MM
+export const buildMonthlyBudgetCalcMap = (calcs: RawMonthlyBudgetCalc[]) => {
+  const map = new Map<string, RawMonthlyBudgetCalc>();
   for (const calc of calcs) {
-    const entityId = calc.entities_monthly_subcategory_budget_id;
-    if (entityId) {
-      const parts = entityId.split('/');
-      map.set(parts.length >= 3 ? parts.slice(2).join('/') : entityId, calc);
-    }
+    const entityId = calc.entities_monthly_budget_id;
+    if (!entityId) continue;
+    const parts = entityId.split('/');
+    const month = parts[1];
+    if (parts.length >= 2 && month) map.set(month, calc);
   }
   return map;
 };
 
-export const mapCategoryWithCalc = (c: RawCategory, calcMap: Map<string, RawMonthlySubcategoryBudgetCalc>) => {
-  const calc = calcMap.get(c.id ?? '');
+// Entity ID format: "mcb/YYYY-MM/<categoryId>" — key by "YYYY-MM/<categoryId>"
+// to keep monthly calcs from overwriting each other.
+const subcategoryCalcKey = (month: string, categoryId: string) => `${month}/${categoryId}`;
+
+// Format: "mcb/YYYY-MM/<uuid>" — exactly 3 parts since category IDs are UUIDs.
+const parseSubcategoryEntityId = (entityId: string | undefined): { month: string; categoryId: string } | null => {
+  if (!entityId) return null;
+  const parts = entityId.split('/');
+  if (parts.length !== 3) return null;
+  const [, month, categoryId] = parts;
+  if (!month || !categoryId) return null;
+  return { month, categoryId };
+};
+
+export const buildSubcategoryCalcMap = (calcs: RawMonthlySubcategoryBudgetCalc[]) => {
+  const map = new Map<string, RawMonthlySubcategoryBudgetCalc>();
+  for (const calc of calcs) {
+    const parsed = parseSubcategoryEntityId(calc.entities_monthly_subcategory_budget_id);
+    if (parsed) map.set(subcategoryCalcKey(parsed.month, parsed.categoryId), calc);
+  }
+  return map;
+};
+
+export const buildSubcategoryBudgetMap = (budgets: RawMonthlySubcategoryBudget[]) => {
+  const map = new Map<string, RawMonthlySubcategoryBudget>();
+  for (const budget of budgets) {
+    if (budget.is_tombstone) continue;
+    const parsed = parseSubcategoryEntityId(budget.id);
+    if (parsed) map.set(subcategoryCalcKey(parsed.month, parsed.categoryId), budget);
+  }
+  return map;
+};
+
+export const mapCategoryForMonth = (
+  c: RawCategory,
+  budgetMap: Map<string, RawMonthlySubcategoryBudget>,
+  calcMap: Map<string, RawMonthlySubcategoryBudgetCalc>,
+  month: string,
+) => {
+  const key = subcategoryCalcKey(month, c.id ?? '');
+  const budget = budgetMap.get(key);
+  const calc = calcMap.get(key);
+  // Activity = cash_outflows + credit_outflows (YNAB splits these on the calc).
+  // The actual budgeted amount lives on be_monthly_subcategory_budgets, not the calc.
   return mapCategory({
     ...c,
-    budgeted: calc?.budgeted ?? c.budgeted,
-    activity: calc?.activity ?? c.activity,
+    budgeted: budget?.budgeted ?? c.budgeted,
+    activity: (calc?.cash_outflows ?? 0) + (calc?.credit_outflows ?? 0),
     balance: calc?.balance ?? c.balance,
-    goal_type: calc?.goal_type ?? c.goal_type,
     goal_target: calc?.goal_target ?? c.goal_target,
     goal_percentage_complete: calc?.goal_percentage_complete ?? c.goal_percentage_complete,
   });
@@ -379,12 +462,12 @@ export const buildLookups = (entities: {
   be_accounts?: RawAccount[];
   be_subcategories?: RawCategory[];
 }): EntityLookups => ({
-  payees: new Map((entities.be_payees ?? []).filter(p => !p.is_tombstone).map(p => [p.id ?? '', p.name ?? ''])),
+  payees: new Map((entities.be_payees ?? []).filter(notTombstone).map(p => [p.id ?? '', p.name ?? ''])),
   accounts: new Map(
-    (entities.be_accounts ?? []).filter(a => !a.is_tombstone).map(a => [a.id ?? '', a.account_name ?? '']),
+    (entities.be_accounts ?? []).filter(notTombstone).map(a => [a.id ?? '', a.account_name ?? '']),
   ),
   categories: new Map(
-    (entities.be_subcategories ?? []).filter(c => !c.is_tombstone).map(c => [c.id ?? '', c.name ?? '']),
+    (entities.be_subcategories ?? []).filter(notTombstone).map(c => [c.id ?? '', c.name ?? '']),
   ),
 });
 
@@ -406,8 +489,8 @@ export const mapPlan = (p: RawPlan) => {
       const df = JSON.parse(p.date_format) as { format?: string };
       dateFormat = df.format ?? '';
     }
-  } catch {
-    dateFormat = p.date_format ?? '';
+  } catch (err) {
+    log.warn('mapPlan: failed to parse date_format', { raw: p.date_format, err });
   }
 
   try {
@@ -419,8 +502,8 @@ export const mapPlan = (p: RawPlan) => {
       currencySymbol = cf.currency_symbol ?? '$';
       currencyIsoCode = cf.iso_code ?? 'USD';
     }
-  } catch {
-    // keep defaults
+  } catch (err) {
+    log.warn('mapPlan: failed to parse currency_format', { raw: p.currency_format, err });
   }
 
   return {
@@ -524,7 +607,7 @@ export const mapMonth = (m: RawMonth, calc?: RawMonthlyBudgetCalc) => {
     budgeted_milliunits: budgeted,
     activity_milliunits: activity,
     to_be_budgeted_milliunits: toBeBudgeted,
-    age_of_money: calc?.age_of_money ?? 0,
+    age_of_money: calc?.age_of_money ?? null,
   };
 };
 

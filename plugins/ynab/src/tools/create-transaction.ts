@@ -1,8 +1,16 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
-import type { BudgetEntities, RawTransaction } from './schemas.js';
-import { buildLookups, CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
+import type { BudgetEntities } from './schemas.js';
+import {
+  buildLookups,
+  CLEARED_MAP,
+  FLAG_MAP,
+  mapTransaction,
+  resolvePayee,
+  toMilliunits,
+  transactionSchema,
+} from './schemas.js';
 
 export const createTransaction = defineTool({
   name: 'create_transaction',
@@ -33,7 +41,7 @@ export const createTransaction = defineTool({
   }),
   handle: async params => {
     const planId = getPlanId();
-    const milliunits = Math.round(params.amount * 1000);
+    const milliunits = toMilliunits(params.amount);
     const txId = crypto.randomUUID();
     const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
@@ -68,15 +76,17 @@ export const createTransaction = defineTool({
           credit_amount_adjusted: 0,
           subcategory_credit_amount_preceding: 0,
           memo: params.memo ?? null,
-          cleared: CLEARED_MAP[params.cleared ?? 'uncleared'] ?? 'Uncleared',
+          cleared: CLEARED_MAP[params.cleared ?? 'uncleared'],
+          // YNAB's wire format calls this "accepted"; the public tool surface uses "approved".
           accepted: params.approved ?? true,
           check_number: null,
-          flag: params.flag_color ? FLAG_MAP[params.flag_color] ?? null : null,
+          flag: params.flag_color ? FLAG_MAP[params.flag_color] : null,
           transfer_account_id: null,
           transfer_transaction_id: null,
           transfer_subtransaction_id: null,
           matched_transaction_id: null,
           ynab_id: null,
+          // Import-related fields are only populated by bank-feed imports, not manual entry.
           imported_payee: null,
           imported_date: null,
           original_imported_payee: null,
@@ -88,11 +98,9 @@ export const createTransaction = defineTool({
       },
     ];
 
-    const result = await syncWrite(planId, changedEntities, serverKnowledge);
+    const result = await syncWrite<BudgetEntities>(planId, changedEntities, serverKnowledge);
 
-    const saved = (result.changed_entities as BudgetEntities | undefined)?.be_transactions?.find(
-      (t: RawTransaction) => t.id === txId,
-    );
+    const saved = result.changed_entities?.be_transactions?.find(t => t.id === txId);
     if (!saved) {
       throw ToolError.internal('Transaction was created but no data was returned');
     }

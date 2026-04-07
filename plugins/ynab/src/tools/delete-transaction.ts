@@ -6,7 +6,8 @@ import type { BudgetEntities } from './schemas.js';
 export const deleteTransaction = defineTool({
   name: 'delete_transaction',
   displayName: 'Delete Transaction',
-  description: 'Delete a transaction from the active YNAB plan. This marks the transaction as deleted (soft delete).',
+  description:
+    'Delete a transaction from the active YNAB plan. This marks the transaction as deleted (soft delete). Transfer transactions cannot be deleted through this tool — delete them directly in YNAB.',
   summary: 'Delete a transaction',
   icon: 'trash-2',
   group: 'Transactions',
@@ -27,6 +28,10 @@ export const deleteTransaction = defineTool({
     );
     if (!existing) {
       throw ToolError.notFound(`Transaction not found: ${params.transaction_id}`);
+    }
+
+    if (existing.transfer_account_id) {
+      throw ToolError.validation('Cannot delete transfer transactions — delete them in YNAB directly.');
     }
 
     await syncWrite(

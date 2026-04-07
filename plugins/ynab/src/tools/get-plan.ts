@@ -1,10 +1,10 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { catalog, getPlanId } from '../ynab-api.js';
+import { assertAuthenticated, catalog, getDeviceId } from '../ynab-api.js';
 import type { RawPlan } from './schemas.js';
 import { mapPlan, planSchema } from './schemas.js';
 
-interface CatalogUserData {
+interface InitialUserData {
   budget_version?: RawPlan;
 }
 
@@ -19,10 +19,13 @@ export const getPlan = defineTool({
   input: z.object({}),
   output: z.object({ plan: planSchema }),
   handle: async () => {
-    const planId = getPlanId();
-    const result = await catalog<CatalogUserData>('getInitialUserData', {
-      device_info: { id: planId, device_os: 'web' },
-    });
-    return { plan: mapPlan(result.budget_version as RawPlan) };
+    assertAuthenticated();
+    const result = (await catalog('getInitialUserData', {
+      device_info: { id: getDeviceId(), device_os: 'web' },
+    })) as InitialUserData;
+    if (!result.budget_version) {
+      throw ToolError.notFound('No active plan found');
+    }
+    return { plan: mapPlan(result.budget_version) };
   },
 });

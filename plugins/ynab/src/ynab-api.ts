@@ -33,6 +33,8 @@ interface CatalogResponse<T = Record<string, unknown>> {
 // this token in the X-Session-Token header along with device identification
 // headers. The user ID comes from YNAB_CLIENT_CONSTANTS.USER.
 
+const NOT_AUTHENTICATED_MESSAGE = 'Not authenticated — please log in to YNAB.';
+
 const generateDeviceId = (): string => crypto.randomUUID();
 
 const extractPlanId = (): string | null => {
@@ -76,15 +78,31 @@ export const waitForAuth = (): Promise<boolean> =>
 
 export const getPlanId = (): string => {
   const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please log in to YNAB.');
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
   return auth.planId;
+};
+
+export const getDeviceId = (): string => {
+  const auth = getAuth();
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
+  return auth.deviceId;
+};
+
+export const getUserId = (): string => {
+  const auth = getAuth();
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
+  return auth.userId;
+};
+
+export const assertAuthenticated = (): void => {
+  if (!getAuth()) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
 };
 
 // --- Internal API headers ---
 
 const getHeaders = (): Record<string, string> => {
   const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please log in to YNAB.');
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
 
   // Read app version fresh on every request — never cache it, since YNAB enforces
   // a minimum version via 426 and will reject stale cached values.
@@ -169,6 +187,12 @@ export const catalog = async <T = Record<string, unknown>>(
 // --- syncBudgetData helper ---
 // YNAB requires sync_type, schema_version, and schema_version_of_knowledge on all
 // syncBudgetData requests (enforced server-side via 426 if omitted).
+//
+// We send sync_type: 'delta' with starting_device_knowledge: 0 to receive a full
+// snapshot of the budget. Counter-intuitively, sync_type: 'bootstrap' returns
+// only the most recent ~1 month of transactions, while delta with zero device
+// knowledge returns the full history (verified with the YNAB UI's own captures).
+// Verified working as of schema version 41.
 
 const BUDGET_SCHEMA_VERSION = 41;
 
@@ -188,17 +212,22 @@ export const syncBudget = async <T = Record<string, unknown>>(planId: string): P
 // Write operations require the current server_knowledge to succeed.
 // Pass serverKnowledge from a prior syncBudget call to avoid a redundant read.
 
-export const syncWrite = async (
+export const syncWrite = async <T = Record<string, unknown>>(
   planId: string,
   changedEntities: Record<string, unknown>,
   serverKnowledge?: number,
-): Promise<CatalogResponse> => {
+): Promise<CatalogResponse<T>> => {
   if (serverKnowledge === undefined) {
     const readResult = await syncBudget(planId);
     serverKnowledge = readResult.current_server_knowledge ?? 0;
   }
 
-  return catalog('syncBudgetData', {
+  // ending_device_knowledge is the local change counter — YNAB's UI increments
+  // it across the session, but since we don't persist any state we send 1 to
+  // signal "one new change since 0". The server only enforces monotonic
+  // increase relative to its own knowledge, not the client counter, so a
+  // constant 1 is what YNAB tolerates from us in practice.
+  return catalog<T>('syncBudgetData', {
     budget_version_id: planId,
     sync_type: 'delta',
     starting_device_knowledge: 0,

@@ -14,6 +14,7 @@ import { getAccount } from './tools/get-account.js';
 
 // Categories
 import { listCategories } from './tools/list-categories.js';
+import { moveCategoryBudget } from './tools/move-category-budget.js';
 import { updateCategoryBudget } from './tools/update-category-budget.js';
 
 // Payees
@@ -48,6 +49,7 @@ class YnabPlugin extends OpenTabsPlugin {
     // Categories
     listCategories,
     updateCategoryBudget,
+    moveCategoryBudget,
     // Payees
     listPayees,
     // Transactions

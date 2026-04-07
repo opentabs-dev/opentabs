@@ -2,7 +2,7 @@ import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
-import { buildLookups, mapScheduledTransaction, scheduledTransactionSchema } from './schemas.js';
+import { buildLookups, mapScheduledTransaction, notTombstone, scheduledTransactionSchema } from './schemas.js';
 
 export const listScheduledTransactions = defineTool({
   name: 'list_scheduled_transactions',
@@ -25,7 +25,7 @@ export const listScheduledTransactions = defineTool({
     const lookups = buildLookups(entities ?? {});
 
     const scheduledTransactions = raw
-      .filter(s => !s.is_tombstone)
+      .filter(notTombstone)
       .map(s => mapScheduledTransaction(s, lookups))
       .sort((a, b) => a.date_next.localeCompare(b.date_next));
 

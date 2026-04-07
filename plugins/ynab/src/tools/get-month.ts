@@ -2,7 +2,17 @@ import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
-import { buildSubcategoryCalcMap, categorySchema, mapCategoryWithCalc, mapMonth, monthSchema } from './schemas.js';
+import {
+  buildMonthlyBudgetCalcMap,
+  buildSubcategoryBudgetMap,
+  buildSubcategoryCalcMap,
+  categorySchema,
+  mapCategoryForMonth,
+  mapMonth,
+  monthSchema,
+  notTombstone,
+  toMonthKey,
+} from './schemas.js';
 
 export const getMonth = defineTool({
   name: 'get_month',
@@ -14,6 +24,7 @@ export const getMonth = defineTool({
   group: 'Months',
   input: z.object({
     month: z.string().min(1).describe('Month in YYYY-MM-DD format (first of month, e.g. 2026-03-01)'),
+    include_hidden: z.boolean().optional().describe('Include hidden categories (default false)'),
   }),
   output: z.object({
     month: monthSchema,
@@ -31,15 +42,16 @@ export const getMonth = defineTool({
       throw ToolError.notFound(`Month not found: ${params.month}`);
     }
 
-    const monthlyCalcs = entities?.be_monthly_budget_calculations ?? [];
-    const monthCalc = monthlyCalcs.find(c => {
-      const budgetId = c.entities_monthly_budget_id;
-      return budgetId && budgetId.replace('mb/', '') === params.month;
-    });
+    const monthKey = toMonthKey(params.month);
+    const monthCalcMap = buildMonthlyBudgetCalcMap(entities?.be_monthly_budget_calculations ?? []);
+    const monthCalc = monthCalcMap.get(monthKey);
 
-    const rawCategories = (entities?.be_subcategories ?? []).filter(c => !c.is_tombstone && c.is_hidden !== true);
+    const rawCategories = (entities?.be_subcategories ?? []).filter(
+      c => notTombstone(c) && (params.include_hidden || c.is_hidden !== true),
+    );
+    const budgetMap = buildSubcategoryBudgetMap(entities?.be_monthly_subcategory_budgets ?? []);
     const calcMap = buildSubcategoryCalcMap(entities?.be_monthly_subcategory_budget_calculations ?? []);
-    const categories = rawCategories.map(c => mapCategoryWithCalc(c, calcMap));
+    const categories = rawCategories.map(c => mapCategoryForMonth(c, budgetMap, calcMap, monthKey));
 
     return {
       month: mapMonth(monthData, monthCalc),

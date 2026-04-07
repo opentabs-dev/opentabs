@@ -2,7 +2,7 @@ import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
-import { buildLookups, mapTransaction, transactionSchema } from './schemas.js';
+import { buildLookups, mapTransaction, notTombstone, transactionSchema } from './schemas.js';
 
 export const listTransactions = defineTool({
   name: 'list_transactions',
@@ -34,7 +34,7 @@ export const listTransactions = defineTool({
     const raw = entities?.be_transactions ?? [];
     const lookups = buildLookups(entities ?? {});
 
-    let filtered = raw.filter(t => !t.is_tombstone);
+    let filtered = raw.filter(notTombstone);
 
     if (params.account_id) {
       filtered = filtered.filter(t => t.entities_account_id === params.account_id);

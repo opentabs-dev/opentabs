@@ -1,14 +1,34 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
-import type { BudgetEntities, RawTransaction } from './schemas.js';
-import { buildLookups, CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
+import type { BudgetEntities } from './schemas.js';
+import type { ClearedStatus, FlagColor } from './schemas.js';
+import {
+  buildLookups,
+  CLEARED_MAP,
+  FLAG_MAP,
+  mapTransaction,
+  resolvePayee,
+  toMilliunits,
+  transactionSchema,
+} from './schemas.js';
+
+const resolveFlag = (requested: FlagColor | 'none' | undefined, existing: string | null | undefined): string | null => {
+  if (requested === 'none') return null;
+  if (requested) return FLAG_MAP[requested];
+  return existing ?? null;
+};
+
+const resolveCleared = (requested: ClearedStatus | undefined, existing: string | null | undefined): string => {
+  if (requested) return CLEARED_MAP[requested];
+  return existing ?? 'Uncleared';
+};
 
 export const updateTransaction = defineTool({
   name: 'update_transaction',
   displayName: 'Update Transaction',
   description:
-    'Update an existing transaction in the active YNAB plan. Only specified fields are changed; omitted fields remain unchanged. Amount is in currency units (negative for expenses, positive for income).',
+    'Update an existing transaction in the active YNAB plan. Only specified fields are changed; omitted fields remain unchanged. Amount is in currency units (negative for expenses, positive for income). Transfers and split transactions cannot be updated through this tool — edit them directly in YNAB.',
   summary: 'Update a transaction',
   icon: 'pencil',
   group: 'Transactions',
@@ -44,6 +64,17 @@ export const updateTransaction = defineTool({
       throw ToolError.notFound(`Transaction not found: ${params.transaction_id}`);
     }
 
+    if (existing.transfer_account_id) {
+      throw ToolError.validation('Cannot update transfer transactions — edit them in YNAB directly.');
+    }
+
+    const hasSubtransactions = (budget.changed_entities?.be_subtransactions ?? []).some(
+      s => s.entities_transaction_id === params.transaction_id && !s.is_tombstone,
+    );
+    if (hasSubtransactions) {
+      throw ToolError.validation('Cannot update split transactions — edit them in YNAB directly.');
+    }
+
     const changedEntities: Record<string, unknown> = {};
 
     let payeeId = params.payee_id ?? existing.entities_payee_id ?? null;
@@ -68,24 +99,17 @@ export const updateTransaction = defineTool({
           entities_scheduled_transaction_id: null,
           date: params.date ?? existing.date ?? '',
           date_entered_from_schedule: null,
-          amount: params.amount !== undefined ? Math.round(params.amount * 1000) : (existing.amount ?? 0),
+          amount: params.amount !== undefined ? toMilliunits(params.amount) : (existing.amount ?? 0),
           cash_amount: 0,
           credit_amount: 0,
           credit_amount_adjusted: 0,
           subcategory_credit_amount_preceding: 0,
           memo: params.memo ?? existing.memo ?? null,
-          cleared:
-            params.cleared !== undefined
-              ? (CLEARED_MAP[params.cleared] ?? 'Uncleared')
-              : (existing.cleared ?? 'Uncleared'),
-          accepted: params.approved ?? existing.accepted ?? true,
+          cleared: resolveCleared(params.cleared, existing.cleared),
+          // YNAB's wire format calls this "accepted"; the public tool surface uses "approved".
+          accepted: params.approved ?? existing.accepted ?? false,
           check_number: null,
-          flag:
-            params.flag_color === 'none'
-              ? null
-              : params.flag_color
-                ? (FLAG_MAP[params.flag_color] ?? null)
-                : (existing.flag ?? null),
+          flag: resolveFlag(params.flag_color, existing.flag),
           transfer_account_id: existing.transfer_account_id ?? null,
           transfer_transaction_id: null,
           transfer_subtransaction_id: null,
@@ -102,11 +126,9 @@ export const updateTransaction = defineTool({
       },
     ];
 
-    const result = await syncWrite(planId, changedEntities, serverKnowledge);
+    const result = await syncWrite<BudgetEntities>(planId, changedEntities, serverKnowledge);
 
-    const saved = (result.changed_entities as BudgetEntities | undefined)?.be_transactions?.find(
-      (t: RawTransaction) => t.id === params.transaction_id,
-    );
+    const saved = result.changed_entities?.be_transactions?.find(t => t.id === params.transaction_id);
     if (!saved) {
       throw ToolError.internal('Transaction was updated but no data was returned');
     }

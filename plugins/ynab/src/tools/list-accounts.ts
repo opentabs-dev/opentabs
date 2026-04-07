@@ -2,7 +2,7 @@ import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { syncBudget, getPlanId } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
-import { accountSchema, buildAccountCalcMap, mapAccount } from './schemas.js';
+import { accountSchema, buildAccountCalcMap, mapAccount, notTombstone } from './schemas.js';
 
 export const listAccounts = defineTool({
   name: 'list_accounts',
@@ -26,7 +26,7 @@ export const listAccounts = defineTool({
     const raw = entities?.be_accounts ?? [];
     const calcMap = buildAccountCalcMap(entities ?? {});
 
-    let accounts = raw.filter(a => !a.is_tombstone).map(a => mapAccount(a, calcMap.get(a.id)));
+    let accounts = raw.filter(notTombstone).map(a => mapAccount(a, calcMap.get(a.id)));
 
     if (!params.include_closed) {
       accounts = accounts.filter(a => !a.closed);
