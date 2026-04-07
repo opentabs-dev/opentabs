@@ -75,7 +75,6 @@ export const transactionSchema = z.object({
   cleared: z.string().describe('Cleared status: cleared, uncleared, or reconciled'),
   approved: z.boolean().describe('Whether the transaction is approved'),
   flag_color: z.string().describe('Flag color or empty string'),
-  flag_name: z.string().describe('Custom flag name or empty string'),
   account_id: z.string().describe('Account ID'),
   account_name: z.string().describe('Account name'),
   payee_id: z.string().describe('Payee ID'),
@@ -268,7 +267,7 @@ export interface RawScheduledTransaction {
   entities_payee_id?: string | null;
   entities_subcategory_id?: string | null;
   transfer_account_id?: string | null;
-  upcoming_instances?: unknown[];
+  upcoming_instances?: string[];
   is_tombstone?: boolean;
 }
 
@@ -481,10 +480,9 @@ export const mapTransaction = (t: RawTransaction, lookups?: EntityLookups) => ({
   amount: formatMilliunits(t.amount ?? 0),
   amount_milliunits: t.amount ?? 0,
   memo: t.memo ?? '',
-  cleared: t.cleared ?? 'uncleared',
+  cleared: t.cleared?.toLowerCase() ?? 'uncleared',
   approved: t.accepted ?? false,
-  flag_color: t.flag ?? '',
-  flag_name: '',
+  flag_color: t.flag?.toLowerCase() ?? '',
   account_id: t.entities_account_id ?? '',
   account_name: lookups?.accounts.get(t.entities_account_id ?? '') ?? '',
   payee_id: t.entities_payee_id ?? '',
@@ -533,12 +531,12 @@ export const mapMonth = (m: RawMonth, calc?: RawMonthlyBudgetCalc) => {
 export const mapScheduledTransaction = (s: RawScheduledTransaction, lookups?: EntityLookups) => ({
   id: s.id ?? '',
   date_first: s.date ?? '',
-  date_next: (s.upcoming_instances as string[] | undefined)?.[0] ?? s.date ?? '',
+  date_next: s.upcoming_instances?.[0] ?? s.date ?? '',
   frequency: s.frequency ?? 'never',
   amount: formatMilliunits(s.amount ?? 0),
   amount_milliunits: s.amount ?? 0,
   memo: s.memo ?? '',
-  flag_color: s.flag ?? '',
+  flag_color: s.flag?.toLowerCase() ?? '',
   account_id: s.entities_account_id ?? '',
   account_name: lookups?.accounts.get(s.entities_account_id ?? '') ?? '',
   payee_id: s.entities_payee_id ?? '',

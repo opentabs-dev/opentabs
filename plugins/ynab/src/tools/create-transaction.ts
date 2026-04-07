@@ -2,7 +2,7 @@ import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities, RawTransaction } from './schemas.js';
-import { CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
+import { buildLookups, CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
 
 export const createTransaction = defineTool({
   name: 'create_transaction',
@@ -35,17 +35,19 @@ export const createTransaction = defineTool({
     const planId = getPlanId();
     const milliunits = Math.round(params.amount * 1000);
     const txId = crypto.randomUUID();
+    const budget = await syncBudget<BudgetEntities>(planId);
+    const serverKnowledge = budget.current_server_knowledge ?? 0;
+    const lookups = buildLookups(budget.changed_entities ?? {});
     const changedEntities: Record<string, unknown> = {};
 
-    let serverKnowledge: number | undefined;
     let payeeId = params.payee_id ?? null;
-
     if (!payeeId && params.payee_name) {
-      const budget = await syncBudget<BudgetEntities>(planId);
-      serverKnowledge = budget.current_server_knowledge ?? 0;
       const resolved = resolvePayee(budget.changed_entities?.be_payees ?? [], params.payee_name);
       payeeId = resolved.payeeId;
-      if (resolved.newPayee) changedEntities.be_payees = [resolved.newPayee];
+      if (resolved.newPayee) {
+        changedEntities.be_payees = [resolved.newPayee];
+        lookups.payees.set(resolved.payeeId, params.payee_name);
+      }
     }
 
     changedEntities.be_transaction_groups = [
@@ -95,6 +97,6 @@ export const createTransaction = defineTool({
       throw ToolError.internal('Transaction was created but no data was returned');
     }
 
-    return { transaction: mapTransaction(saved) };
+    return { transaction: mapTransaction(saved, lookups) };
   },
 });

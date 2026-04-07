@@ -2,7 +2,7 @@ import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities, RawTransaction } from './schemas.js';
-import { CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
+import { buildLookups, CLEARED_MAP, FLAG_MAP, mapTransaction, resolvePayee, transactionSchema } from './schemas.js';
 
 export const updateTransaction = defineTool({
   name: 'update_transaction',
@@ -23,7 +23,10 @@ export const updateTransaction = defineTool({
     memo: z.string().optional().describe('New transaction memo'),
     cleared: z.enum(['cleared', 'uncleared', 'reconciled']).optional().describe('New cleared status'),
     approved: z.boolean().optional().describe('New approval status'),
-    flag_color: z.enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple']).optional().describe('New flag color'),
+    flag_color: z
+      .enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'none'])
+      .optional()
+      .describe('New flag color (pass "none" to clear)'),
   }),
   output: z.object({
     transaction: transactionSchema,
@@ -33,6 +36,7 @@ export const updateTransaction = defineTool({
 
     const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
+    const lookups = buildLookups(budget.changed_entities ?? {});
     const existing = budget.changed_entities?.be_transactions?.find(
       t => t.id === params.transaction_id && !t.is_tombstone,
     );
@@ -46,7 +50,10 @@ export const updateTransaction = defineTool({
     if (params.payee_name && !params.payee_id) {
       const resolved = resolvePayee(budget.changed_entities?.be_payees ?? [], params.payee_name);
       payeeId = resolved.payeeId;
-      if (resolved.newPayee) changedEntities.be_payees = [resolved.newPayee];
+      if (resolved.newPayee) {
+        changedEntities.be_payees = [resolved.newPayee];
+        lookups.payees.set(resolved.payeeId, params.payee_name);
+      }
     }
 
     changedEntities.be_transaction_groups = [
@@ -73,7 +80,12 @@ export const updateTransaction = defineTool({
               : (existing.cleared ?? 'Uncleared'),
           accepted: params.approved ?? existing.accepted ?? true,
           check_number: null,
-          flag: params.flag_color ? (FLAG_MAP[params.flag_color] ?? null) : (existing.flag ?? null),
+          flag:
+            params.flag_color === 'none'
+              ? null
+              : params.flag_color
+                ? (FLAG_MAP[params.flag_color] ?? null)
+                : (existing.flag ?? null),
           transfer_account_id: existing.transfer_account_id ?? null,
           transfer_transaction_id: null,
           transfer_subtransaction_id: null,
@@ -99,6 +111,6 @@ export const updateTransaction = defineTool({
       throw ToolError.internal('Transaction was updated but no data was returned');
     }
 
-    return { transaction: mapTransaction(saved) };
+    return { transaction: mapTransaction(saved, lookups) };
   },
 });
