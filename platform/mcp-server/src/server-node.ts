@@ -60,7 +60,10 @@ const sendResponse = (webResponse: Response, res: ServerResponse): void => {
 
   // Handle ReadableStream (web streams) by piping to the Node.js response.
   // SSE responses from MCP Streamable HTTP transport use ReadableStream —
-  // piping preserves the streaming behavior.
+  // piping preserves the streaming behavior. Flush headers immediately so
+  // clients receive the status code and headers before any body data arrives
+  // (SSE streams may start empty and only push data on future events).
+  res.flushHeaders();
   const nodeStream = Readable.fromWeb(body as unknown as NodeReadableStream);
   nodeStream.pipe(res);
   nodeStream.on('error', err => {

@@ -592,13 +592,16 @@ const handleMcpGet = (req: IncomingMessage, res: ServerResponse, port: number): 
     return;
   }
 
-  // Write SSE headers to the client — the proxy owns this response
+  // Write SSE headers to the client — the proxy owns this response.
+  // Flush immediately so the client receives headers before any SSE data
+  // arrives (the stream may stay empty until the server pushes an event).
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
     Connection: 'keep-alive',
     'mcp-session-id': session.proxySessionId,
   });
+  res.flushHeaders();
 
   // Track this SSE stream for reconnection after worker restart
   session.sseStreams.add(res);
