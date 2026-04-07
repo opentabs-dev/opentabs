@@ -22,6 +22,12 @@ export const listTransactions = defineTool({
       .string()
       .optional()
       .describe('Only return transactions on or before this date (YYYY-MM-DD). Combine with since_date for a date range.'),
+    payee_search: z
+      .string()
+      .optional()
+      .describe(
+        'Case-insensitive substring match against payee_name, imported_payee, and original_imported_payee. Useful for finding all transactions for a merchant without knowing the exact payee ID.',
+      ),
   }),
   output: z.object({
     transactions: z.array(transactionSchema).describe('List of transactions'),
@@ -48,6 +54,22 @@ export const listTransactions = defineTool({
     if (params.until_date) {
       const untilDate = params.until_date;
       filtered = filtered.filter(t => (t.date ?? '') <= untilDate);
+    }
+
+    if (params.payee_search) {
+      const needle = params.payee_search.toLowerCase();
+      // Resolve which payee IDs match the search up front so we only do the
+      // string compare once per payee instead of once per transaction.
+      const matchingPayeeIds = new Set<string>();
+      for (const [id, name] of lookups.payees) {
+        if (name.toLowerCase().includes(needle)) matchingPayeeIds.add(id);
+      }
+      filtered = filtered.filter(t => {
+        if (t.entities_payee_id && matchingPayeeIds.has(t.entities_payee_id)) return true;
+        if (t.imported_payee?.toLowerCase().includes(needle)) return true;
+        if (t.original_imported_payee?.toLowerCase().includes(needle)) return true;
+        return false;
+      });
     }
 
     const transactions = filtered
