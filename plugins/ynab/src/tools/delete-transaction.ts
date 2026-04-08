@@ -1,11 +1,13 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { getPlanId, syncWrite } from '../ynab-api.js';
+import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
 
 export const deleteTransaction = defineTool({
   name: 'delete_transaction',
   displayName: 'Delete Transaction',
-  description: 'Delete a transaction from the active YNAB plan. This marks the transaction as deleted (soft delete).',
+  description:
+    'Delete a transaction from the active YNAB plan. This marks the transaction as deleted (soft delete). Transfer transactions cannot be deleted through this tool — delete them directly in YNAB.',
   summary: 'Delete a transaction',
   icon: 'trash-2',
   group: 'Transactions',
@@ -19,15 +21,38 @@ export const deleteTransaction = defineTool({
   handle: async params => {
     const planId = getPlanId();
 
-    await syncWrite(planId, {
-      be_transactions: [
-        {
-          id: params.transaction_id,
-          entities_account_id: params.account_id,
-          is_tombstone: true,
-        },
-      ],
-    });
+    const budget = await syncBudget<BudgetEntities>(planId);
+    const serverKnowledge = budget.current_server_knowledge ?? 0;
+    const existing = budget.changed_entities?.be_transactions?.find(
+      t => t.id === params.transaction_id && !t.is_tombstone,
+    );
+    if (!existing) {
+      throw ToolError.notFound(`Transaction not found: ${params.transaction_id}`);
+    }
+
+    if (existing.transfer_account_id) {
+      throw ToolError.validation('Cannot delete transfer transactions — delete them in YNAB directly.');
+    }
+
+    // YNAB rejects minimal payloads here with 400 — the full transaction shape
+    // is required even for tombstoning. Verified by capturing the YNAB UI's
+    // own delete request and reproducing the failure with a partial payload.
+    await syncWrite(
+      planId,
+      {
+        be_transaction_groups: [
+          {
+            id: params.transaction_id,
+            be_transaction: {
+              ...existing,
+              is_tombstone: true,
+            },
+            be_subtransactions: null,
+          },
+        ],
+      },
+      serverKnowledge,
+    );
 
     return { success: true };
   },

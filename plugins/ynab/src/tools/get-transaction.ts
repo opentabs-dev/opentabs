@@ -1,13 +1,8 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawSubtransaction, RawTransaction } from './schemas.js';
-import { mapSubtransaction, mapTransaction, subtransactionSchema, transactionSchema } from './schemas.js';
-
-interface BudgetData {
-  be_transactions?: RawTransaction[];
-  be_subtransactions?: RawSubtransaction[];
-}
+import { getPlanId, syncBudget } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
+import { buildLookups, mapSubtransaction, mapTransaction, subtransactionSchema, transactionSchema } from './schemas.js';
 
 export const getTransaction = defineTool({
   name: 'get_transaction',
@@ -26,7 +21,7 @@ export const getTransaction = defineTool({
   }),
   handle: async params => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
     const entities = result.changed_entities;
     const raw = entities?.be_transactions ?? [];
@@ -36,13 +31,14 @@ export const getTransaction = defineTool({
       throw ToolError.notFound(`Transaction not found: ${params.transaction_id}`);
     }
 
+    const lookups = buildLookups(entities ?? {});
     const allSubs = entities?.be_subtransactions ?? [];
     const subtransactions = allSubs
       .filter(s => s.entities_transaction_id === params.transaction_id && !s.is_tombstone)
-      .map(mapSubtransaction);
+      .map(s => mapSubtransaction(s, lookups));
 
     return {
-      transaction: mapTransaction(tx),
+      transaction: mapTransaction(tx, lookups),
       subtransactions,
     };
   },

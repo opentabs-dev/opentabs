@@ -1,3 +1,4 @@
+import { log } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
 // --- Currency formatting ---
@@ -7,6 +8,12 @@ export const formatMilliunits = (milliunits: number): string => {
   const amount = milliunits / 1000;
   return amount.toFixed(2);
 };
+
+export const toMilliunits = (amount: number): number => Math.round(amount * 1000);
+
+export const notTombstone = <T extends { is_tombstone?: boolean }>(
+  x: T,
+): x is T & { is_tombstone?: false | undefined } => !x.is_tombstone;
 
 // --- Shared output schemas ---
 
@@ -75,7 +82,6 @@ export const transactionSchema = z.object({
   cleared: z.string().describe('Cleared status: cleared, uncleared, or reconciled'),
   approved: z.boolean().describe('Whether the transaction is approved'),
   flag_color: z.string().describe('Flag color or empty string'),
-  flag_name: z.string().describe('Custom flag name or empty string'),
   account_id: z.string().describe('Account ID'),
   account_name: z.string().describe('Account name'),
   payee_id: z.string().describe('Payee ID'),
@@ -83,7 +89,10 @@ export const transactionSchema = z.object({
   category_id: z.string().describe('Category ID'),
   category_name: z.string().describe('Category name'),
   transfer_account_id: z.string().describe('If a transfer, the destination account ID'),
-  import_id: z.string().describe('Import ID for deduplication'),
+  imported_payee: z.string().describe('Bank-imported payee name after YNAB cleansing (empty if manually entered)'),
+  original_imported_payee: z
+    .string()
+    .describe('Raw payee string from the bank feed before any cleansing (empty if manually entered)'),
   deleted: z.boolean().describe('Whether the transaction is deleted'),
 });
 
@@ -111,7 +120,7 @@ export const monthSchema = z.object({
   budgeted_milliunits: z.number().describe('Total budgeted in milliunits'),
   activity_milliunits: z.number().describe('Total activity in milliunits'),
   to_be_budgeted_milliunits: z.number().describe('Ready to Assign in milliunits'),
-  age_of_money: z.number().describe('Age of money in days'),
+  age_of_money: z.number().nullable().describe('Age of money in days, or null if not yet computed'),
 });
 
 export const scheduledTransactionSchema = z.object({
@@ -198,6 +207,15 @@ export interface RawPayee {
   id?: string;
   name?: string;
   entities_account_id?: string | null;
+  internal_name?: string | null;
+  enabled?: boolean;
+  auto_fill_subcategory_id?: string | null;
+  auto_fill_memo?: string | null;
+  auto_fill_amount?: number;
+  auto_fill_subcategory_enabled?: boolean;
+  auto_fill_memo_enabled?: boolean;
+  auto_fill_amount_enabled?: boolean;
+  rename_on_import_enabled?: boolean;
   is_tombstone?: boolean;
 }
 
@@ -207,17 +225,17 @@ export interface RawTransaction {
   amount?: number;
   memo?: string | null;
   cleared?: string;
-  approved?: boolean;
-  flag_color?: string | null;
-  flag_name?: string | null;
+  accepted?: boolean;
+  flag?: string | null;
   entities_account_id?: string;
-  account_name?: string;
   entities_payee_id?: string | null;
-  payee_name?: string | null;
   entities_subcategory_id?: string | null;
-  category_name?: string | null;
+  entities_scheduled_transaction_id?: string | null;
   transfer_account_id?: string | null;
-  import_id?: string | null;
+  imported_payee?: string | null;
+  original_imported_payee?: string | null;
+  ynab_id?: string | null;
+  source?: string | null;
   is_tombstone?: boolean;
 }
 
@@ -227,9 +245,7 @@ export interface RawSubtransaction {
   amount?: number;
   memo?: string | null;
   entities_payee_id?: string | null;
-  payee_name?: string | null;
   entities_subcategory_id?: string | null;
-  category_name?: string | null;
   transfer_account_id?: string | null;
   is_tombstone?: boolean;
 }
@@ -249,32 +265,244 @@ export interface RawMonthlyBudgetCalc {
   age_of_money?: number | null;
 }
 
+export interface RawMonthlySubcategoryBudget {
+  id?: string;
+  entities_monthly_budget_id?: string;
+  entities_subcategory_id?: string;
+  budgeted?: number;
+  is_tombstone?: boolean;
+}
+
 export interface RawMonthlySubcategoryBudgetCalc {
   entities_monthly_subcategory_budget_id?: string;
-  budgeted?: number;
-  activity?: number;
   balance?: number;
-  goal_type?: string | null;
+  cash_outflows?: number;
+  credit_outflows?: number;
   goal_target?: number | null;
   goal_percentage_complete?: number | null;
 }
 
 export interface RawScheduledTransaction {
   id?: string;
-  date_first?: string;
-  date_next?: string;
+  date?: string;
   frequency?: string;
   amount?: number;
   memo?: string | null;
-  flag_color?: string | null;
+  flag?: string | null;
   entities_account_id?: string;
-  account_name?: string;
   entities_payee_id?: string | null;
-  payee_name?: string | null;
   entities_subcategory_id?: string | null;
-  category_name?: string | null;
+  transfer_account_id?: string | null;
+  upcoming_instances?: string[];
   is_tombstone?: boolean;
 }
+
+// --- YNAB wire format constants ---
+
+export type ClearedStatus = 'cleared' | 'uncleared' | 'reconciled';
+export type FlagColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple';
+
+export const MONEY_MOVEMENT_SOURCE = {
+  /** RTA ↔ category (in either direction). */
+  ASSIGN: 'manual_assign',
+  /** Category-to-category transfer. */
+  MOVEMENT: 'manual_movement',
+} as const;
+
+// Entity ID prefixes used by the YNAB sync API.
+const SUBCATEGORY_BUDGET_PREFIX = 'mcb';
+const MONTHLY_BUDGET_PREFIX = 'mb';
+
+export const toMonthKey = (month: string): string => month.substring(0, 7);
+
+// Returns the user's current month as YYYY-MM in local time. The plugin adapter
+// runs as an injected IIFE inside the user's YNAB browser tab, so `new Date()`
+// uses the same clock and timezone YNAB itself uses to decide "today's" month.
+// There is no possible mismatch with YNAB's notion of the current month.
+export const currentMonthKey = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+};
+
+export const formatSubcategoryBudgetId = (monthKey: string, categoryId: string): string =>
+  `${SUBCATEGORY_BUDGET_PREFIX}/${monthKey}/${categoryId}`;
+
+export const formatMonthlyBudgetId = (monthKey: string, planId: string): string =>
+  `${MONTHLY_BUDGET_PREFIX}/${monthKey}/${planId}`;
+
+export const CLEARED_MAP: Record<ClearedStatus, string> = {
+  cleared: 'Cleared',
+  uncleared: 'Uncleared',
+  reconciled: 'Reconciled',
+};
+
+export const FLAG_MAP: Record<FlagColor, string> = {
+  red: 'Red',
+  orange: 'Orange',
+  yellow: 'Yellow',
+  green: 'Green',
+  blue: 'Blue',
+  purple: 'Purple',
+};
+
+// --- Shared budget data types ---
+
+export interface BudgetEntities {
+  be_transactions?: RawTransaction[];
+  be_subtransactions?: RawSubtransaction[];
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_account_calculations?: RawAccountCalculation[];
+  be_subcategories?: RawCategory[];
+  be_master_categories?: RawCategoryGroup[];
+  be_monthly_budgets?: RawMonth[];
+  be_monthly_budget_calculations?: RawMonthlyBudgetCalc[];
+  be_monthly_subcategory_budgets?: RawMonthlySubcategoryBudget[];
+  be_monthly_subcategory_budget_calculations?: RawMonthlySubcategoryBudgetCalc[];
+  be_scheduled_transactions?: RawScheduledTransaction[];
+}
+
+// --- Payee resolution ---
+
+export const resolvePayee = (
+  existingPayees: RawPayee[],
+  payeeName: string,
+): { payeeId: string; newPayee?: RawPayee } => {
+  const target = payeeName.toLowerCase();
+  const match = existingPayees.find(p => notTombstone(p) && p.name?.toLowerCase() === target);
+  if (match?.id) return { payeeId: match.id };
+
+  const payeeId = crypto.randomUUID();
+  const newPayee: RawPayee = {
+    id: payeeId,
+    is_tombstone: false,
+    entities_account_id: null,
+    enabled: true,
+    auto_fill_subcategory_id: null,
+    auto_fill_memo: null,
+    auto_fill_amount: 0,
+    auto_fill_subcategory_enabled: true,
+    auto_fill_memo_enabled: false,
+    auto_fill_amount_enabled: false,
+    rename_on_import_enabled: true,
+    name: payeeName,
+    internal_name: null,
+  };
+  return { payeeId, newPayee };
+};
+
+// --- Calculation map builders ---
+
+export const buildAccountCalcMap = (entities: BudgetEntities) =>
+  new Map((entities.be_account_calculations ?? []).map(c => [c.entities_account_id, c]));
+
+// Entity ID format: "mb/YYYY-MM/<planId>" — key by YYYY-MM
+export const buildMonthlyBudgetCalcMap = (calcs: RawMonthlyBudgetCalc[]) => {
+  const map = new Map<string, RawMonthlyBudgetCalc>();
+  for (const calc of calcs) {
+    const entityId = calc.entities_monthly_budget_id;
+    if (!entityId) continue;
+    const parts = entityId.split('/');
+    const month = parts[1];
+    if (parts.length >= 2 && month) map.set(month, calc);
+  }
+  return map;
+};
+
+// Entity ID format: "mcb/YYYY-MM/<categoryId>" — key by "YYYY-MM/<categoryId>"
+// to keep monthly calcs from overwriting each other.
+const subcategoryCalcKey = (month: string, categoryId: string) => `${month}/${categoryId}`;
+
+// Format: "mcb/YYYY-MM/<uuid>" — exactly 3 parts since category IDs are UUIDs.
+const parseSubcategoryEntityId = (entityId: string | undefined): { month: string; categoryId: string } | null => {
+  if (!entityId) return null;
+  const parts = entityId.split('/');
+  if (parts.length !== 3) return null;
+  const [, month, categoryId] = parts;
+  if (!month || !categoryId) return null;
+  return { month, categoryId };
+};
+
+export const buildSubcategoryCalcMap = (calcs: RawMonthlySubcategoryBudgetCalc[]) => {
+  const map = new Map<string, RawMonthlySubcategoryBudgetCalc>();
+  for (const calc of calcs) {
+    const parsed = parseSubcategoryEntityId(calc.entities_monthly_subcategory_budget_id);
+    if (parsed) map.set(subcategoryCalcKey(parsed.month, parsed.categoryId), calc);
+  }
+  return map;
+};
+
+export const buildSubcategoryBudgetMap = (budgets: RawMonthlySubcategoryBudget[]) => {
+  const map = new Map<string, RawMonthlySubcategoryBudget>();
+  for (const budget of budgets) {
+    if (budget.is_tombstone) continue;
+    const parsed = parseSubcategoryEntityId(budget.id);
+    if (parsed) map.set(subcategoryCalcKey(parsed.month, parsed.categoryId), budget);
+  }
+  return map;
+};
+
+export const mapCategoryForMonth = (
+  c: RawCategory,
+  budgetMap: Map<string, RawMonthlySubcategoryBudget>,
+  calcMap: Map<string, RawMonthlySubcategoryBudgetCalc>,
+  month: string,
+) => {
+  const key = subcategoryCalcKey(month, c.id ?? '');
+  const budget = budgetMap.get(key);
+  const calc = calcMap.get(key);
+  // Activity = cash_outflows + credit_outflows (YNAB splits these on the calc).
+  // The actual budgeted amount lives on be_monthly_subcategory_budgets, not the calc.
+  // goal_type is intentionally NOT pulled from the calc — YNAB stores the goal
+  // definition (type, target, cadence, etc.) on the subcategory itself, not
+  // per-month. The calc only carries the dynamically-computed funding state.
+  return mapCategory({
+    ...c,
+    budgeted: budget?.budgeted ?? c.budgeted,
+    activity: (calc?.cash_outflows ?? 0) + (calc?.credit_outflows ?? 0),
+    balance: calc?.balance ?? c.balance,
+    goal_target: calc?.goal_target ?? c.goal_target,
+    goal_percentage_complete: calc?.goal_percentage_complete ?? c.goal_percentage_complete,
+  });
+};
+
+// --- Entity lookups ---
+
+export interface EntityLookups {
+  payees: Map<string, string>;
+  accounts: Map<string, string>;
+  categories: Map<string, string>;
+}
+
+// `id ?? ''` would create a phantom empty-string entry that any ID-less
+// transaction reference could collide with. Filter out missing IDs so the
+// lookup map only contains real entries.
+const hasId = <T extends { id?: string }>(x: T): x is T & { id: string } => !!x.id;
+
+export const buildLookups = (entities: {
+  be_payees?: RawPayee[];
+  be_accounts?: RawAccount[];
+  be_subcategories?: RawCategory[];
+}): EntityLookups => ({
+  payees: new Map(
+    (entities.be_payees ?? [])
+      .filter(notTombstone)
+      .filter(hasId)
+      .map(p => [p.id, p.name ?? '']),
+  ),
+  accounts: new Map(
+    (entities.be_accounts ?? [])
+      .filter(notTombstone)
+      .filter(hasId)
+      .map(a => [a.id, a.account_name ?? '']),
+  ),
+  categories: new Map(
+    (entities.be_subcategories ?? [])
+      .filter(notTombstone)
+      .filter(hasId)
+      .map(c => [c.id, c.name ?? '']),
+  ),
+});
 
 // --- Defensive mappers ---
 
@@ -294,8 +522,8 @@ export const mapPlan = (p: RawPlan) => {
       const df = JSON.parse(p.date_format) as { format?: string };
       dateFormat = df.format ?? '';
     }
-  } catch {
-    dateFormat = p.date_format ?? '';
+  } catch (err) {
+    log.warn('mapPlan: failed to parse date_format', { raw: p.date_format, err });
   }
 
   try {
@@ -307,8 +535,8 @@ export const mapPlan = (p: RawPlan) => {
       currencySymbol = cf.currency_symbol ?? '$';
       currencyIsoCode = cf.iso_code ?? 'USD';
     }
-  } catch {
-    // keep defaults
+  } catch (err) {
+    log.warn('mapPlan: failed to parse currency_format', { raw: p.currency_format, err });
   }
 
   return {
@@ -362,37 +590,37 @@ export const mapPayee = (p: RawPayee) => ({
   transfer_account_id: p.entities_account_id ?? '',
 });
 
-export const mapTransaction = (t: RawTransaction) => ({
+export const mapTransaction = (t: RawTransaction, lookups?: EntityLookups) => ({
   id: t.id ?? '',
   date: t.date ?? '',
   amount: formatMilliunits(t.amount ?? 0),
   amount_milliunits: t.amount ?? 0,
   memo: t.memo ?? '',
-  cleared: t.cleared ?? 'uncleared',
-  approved: t.approved ?? false,
-  flag_color: t.flag_color ?? '',
-  flag_name: t.flag_name ?? '',
+  cleared: t.cleared?.toLowerCase() ?? 'uncleared',
+  approved: t.accepted ?? false,
+  flag_color: t.flag?.toLowerCase() ?? '',
   account_id: t.entities_account_id ?? '',
-  account_name: t.account_name ?? '',
+  account_name: lookups?.accounts.get(t.entities_account_id ?? '') ?? '',
   payee_id: t.entities_payee_id ?? '',
-  payee_name: t.payee_name ?? '',
+  payee_name: lookups?.payees.get(t.entities_payee_id ?? '') ?? '',
   category_id: t.entities_subcategory_id ?? '',
-  category_name: t.category_name ?? '',
+  category_name: lookups?.categories.get(t.entities_subcategory_id ?? '') ?? '',
   transfer_account_id: t.transfer_account_id ?? '',
-  import_id: t.import_id ?? '',
+  imported_payee: t.imported_payee ?? '',
+  original_imported_payee: t.original_imported_payee ?? '',
   deleted: t.is_tombstone === true,
 });
 
-export const mapSubtransaction = (s: RawSubtransaction) => ({
+export const mapSubtransaction = (s: RawSubtransaction, lookups?: EntityLookups) => ({
   id: s.id ?? '',
   transaction_id: s.entities_transaction_id ?? '',
   amount: formatMilliunits(s.amount ?? 0),
   amount_milliunits: s.amount ?? 0,
   memo: s.memo ?? '',
   payee_id: s.entities_payee_id ?? '',
-  payee_name: s.payee_name ?? '',
+  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? '',
   category_id: s.entities_subcategory_id ?? '',
-  category_name: s.category_name ?? '',
+  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? '',
   transfer_account_id: s.transfer_account_id ?? '',
   deleted: s.is_tombstone === true,
 });
@@ -412,24 +640,24 @@ export const mapMonth = (m: RawMonth, calc?: RawMonthlyBudgetCalc) => {
     budgeted_milliunits: budgeted,
     activity_milliunits: activity,
     to_be_budgeted_milliunits: toBeBudgeted,
-    age_of_money: calc?.age_of_money ?? 0,
+    age_of_money: calc?.age_of_money ?? null,
   };
 };
 
-export const mapScheduledTransaction = (s: RawScheduledTransaction) => ({
+export const mapScheduledTransaction = (s: RawScheduledTransaction, lookups?: EntityLookups) => ({
   id: s.id ?? '',
-  date_first: s.date_first ?? '',
-  date_next: s.date_next ?? '',
+  date_first: s.date ?? '',
+  date_next: s.upcoming_instances?.[0] ?? s.date ?? '',
   frequency: s.frequency ?? 'never',
   amount: formatMilliunits(s.amount ?? 0),
   amount_milliunits: s.amount ?? 0,
   memo: s.memo ?? '',
-  flag_color: s.flag_color ?? '',
+  flag_color: s.flag?.toLowerCase() ?? '',
   account_id: s.entities_account_id ?? '',
-  account_name: s.account_name ?? '',
+  account_name: lookups?.accounts.get(s.entities_account_id ?? '') ?? '',
   payee_id: s.entities_payee_id ?? '',
-  payee_name: s.payee_name ?? '',
+  payee_name: lookups?.payees.get(s.entities_payee_id ?? '') ?? '',
   category_id: s.entities_subcategory_id ?? '',
-  category_name: s.category_name ?? '',
+  category_name: lookups?.categories.get(s.entities_subcategory_id ?? '') ?? '',
   deleted: s.is_tombstone === true,
 });
