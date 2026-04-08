@@ -4,10 +4,6 @@ import { assertAuthenticated, catalog, getDeviceId } from '../ynab-api.js';
 import type { RawPlan } from './schemas.js';
 import { mapPlan, planSchema } from './schemas.js';
 
-interface InitialUserData {
-  budget_version?: RawPlan;
-}
-
 export const getPlan = defineTool({
   name: 'get_plan',
   displayName: 'Get Plan',
@@ -20,12 +16,16 @@ export const getPlan = defineTool({
   output: z.object({ plan: planSchema }),
   handle: async () => {
     assertAuthenticated();
-    const result = (await catalog('getInitialUserData', {
+    // getInitialUserData returns budget_version at the response root (not under
+    // changed_entities), so we read it via the CatalogResponse index signature
+    // and narrow it ourselves rather than retyping the whole response.
+    const result = await catalog('getInitialUserData', {
       device_info: { id: getDeviceId(), device_os: 'web' },
-    })) as InitialUserData;
-    if (!result.budget_version) {
+    });
+    const budgetVersion = result.budget_version as RawPlan | undefined;
+    if (!budgetVersion) {
       throw ToolError.notFound('No active plan found');
     }
-    return { plan: mapPlan(result.budget_version) };
+    return { plan: mapPlan(budgetVersion) };
   },
 });

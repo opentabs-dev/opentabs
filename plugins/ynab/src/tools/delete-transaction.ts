@@ -34,6 +34,9 @@ export const deleteTransaction = defineTool({
       throw ToolError.validation('Cannot delete transfer transactions — delete them in YNAB directly.');
     }
 
+    // YNAB rejects minimal payloads here with 400 — the full transaction shape
+    // is required even for tombstoning. Verified by capturing the YNAB UI's
+    // own delete request and reproducing the failure with a partial payload.
     await syncWrite(
       planId,
       {

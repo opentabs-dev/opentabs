@@ -1,13 +1,13 @@
 import {
-  ToolError,
+  clearAuthCache,
+  getAuthCache,
+  getCurrentUrl,
   getMetaContent,
   getPageGlobal,
-  getCurrentUrl,
-  waitUntil,
   parseRetryAfterMs,
-  getAuthCache,
   setAuthCache,
-  clearAuthCache,
+  ToolError,
+  waitUntil,
 } from '@opentabs-dev/plugin-sdk';
 
 // --- Types ---
@@ -218,10 +218,7 @@ export const syncWrite = async <T = Record<string, unknown>>(
   changedEntities: Record<string, unknown>,
   serverKnowledge?: number,
 ): Promise<CatalogResponse<T>> => {
-  if (serverKnowledge === undefined) {
-    const readResult = await syncBudget(planId);
-    serverKnowledge = readResult.current_server_knowledge ?? 0;
-  }
+  const knowledge = serverKnowledge ?? (await syncBudget(planId)).current_server_knowledge ?? 0;
 
   // ending_device_knowledge is the local change counter — YNAB's UI increments
   // it across the session, but since we don't persist any state we send 1 to
@@ -233,7 +230,7 @@ export const syncWrite = async <T = Record<string, unknown>>(
     sync_type: 'delta',
     starting_device_knowledge: 0,
     ending_device_knowledge: 1,
-    device_knowledge_of_server: serverKnowledge,
+    device_knowledge_of_server: knowledge,
     calculated_entities_included: false,
     schema_version: BUDGET_SCHEMA_VERSION,
     schema_version_of_knowledge: BUDGET_SCHEMA_VERSION,

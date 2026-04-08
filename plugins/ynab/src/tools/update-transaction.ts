@@ -1,8 +1,7 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
-import type { BudgetEntities } from './schemas.js';
-import type { ClearedStatus, FlagColor } from './schemas.js';
+import type { BudgetEntities, ClearedStatus, FlagColor } from './schemas.js';
 import {
   buildLookups,
   CLEARED_MAP,
@@ -96,7 +95,7 @@ export const updateTransaction = defineTool({
           entities_account_id: params.account_id,
           entities_payee_id: payeeId,
           entities_subcategory_id: params.category_id ?? existing.entities_subcategory_id ?? null,
-          entities_scheduled_transaction_id: null,
+          entities_scheduled_transaction_id: existing.entities_scheduled_transaction_id ?? null,
           date: params.date ?? existing.date ?? '',
           date_entered_from_schedule: null,
           amount: params.amount !== undefined ? toMilliunits(params.amount) : (existing.amount ?? 0),

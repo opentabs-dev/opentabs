@@ -71,6 +71,11 @@ export const createTransaction = defineTool({
           date: params.date,
           date_entered_from_schedule: null,
           amount: milliunits,
+          // cash_amount and credit_amount are server-computed splits the account
+          // type determines. Captured from a credit card account create where
+          // YNAB's UI sent zeros and the server populated them on response —
+          // not yet verified for cash/checking accounts but likely the same
+          // pattern.
           cash_amount: 0,
           credit_amount: 0,
           credit_amount_adjusted: 0,

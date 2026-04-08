@@ -1,6 +1,6 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { syncBudget, getPlanId } from '../ynab-api.js';
+import { getPlanId, syncBudget } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
 import { accountSchema, buildAccountCalcMap, mapAccount } from './schemas.js';
 

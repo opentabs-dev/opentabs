@@ -11,7 +11,9 @@ export const formatMilliunits = (milliunits: number): string => {
 
 export const toMilliunits = (amount: number): number => Math.round(amount * 1000);
 
-export const notTombstone = <T extends { is_tombstone?: boolean }>(x: T): boolean => !x.is_tombstone;
+export const notTombstone = <T extends { is_tombstone?: boolean }>(
+  x: T,
+): x is T & { is_tombstone?: false | undefined } => !x.is_tombstone;
 
 // --- Shared output schemas ---
 
@@ -205,6 +207,15 @@ export interface RawPayee {
   id?: string;
   name?: string;
   entities_account_id?: string | null;
+  internal_name?: string | null;
+  enabled?: boolean;
+  auto_fill_subcategory_id?: string | null;
+  auto_fill_memo?: string | null;
+  auto_fill_amount?: number;
+  auto_fill_subcategory_enabled?: boolean;
+  auto_fill_memo_enabled?: boolean;
+  auto_fill_amount_enabled?: boolean;
+  rename_on_import_enabled?: boolean;
   is_tombstone?: boolean;
 }
 
@@ -219,6 +230,7 @@ export interface RawTransaction {
   entities_account_id?: string;
   entities_payee_id?: string | null;
   entities_subcategory_id?: string | null;
+  entities_scheduled_transaction_id?: string | null;
   transfer_account_id?: string | null;
   imported_payee?: string | null;
   original_imported_payee?: string | null;
@@ -303,8 +315,10 @@ const MONTHLY_BUDGET_PREFIX = 'mb';
 
 export const toMonthKey = (month: string): string => month.substring(0, 7);
 
-// Returns the user's current month as YYYY-MM in local time so it matches the
-// calendar month a user sees in the YNAB UI around midnight in negative offsets.
+// Returns the user's current month as YYYY-MM in local time. The plugin adapter
+// runs as an injected IIFE inside the user's YNAB browser tab, so `new Date()`
+// uses the same clock and timezone YNAB itself uses to decide "today's" month.
+// There is no possible mismatch with YNAB's notion of the current month.
 export const currentMonthKey = (): string => {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -353,30 +367,28 @@ export interface BudgetEntities {
 export const resolvePayee = (
   existingPayees: RawPayee[],
   payeeName: string,
-): { payeeId: string; newPayee?: Record<string, unknown> } => {
+): { payeeId: string; newPayee?: RawPayee } => {
   const target = payeeName.toLowerCase();
   const match = existingPayees.find(p => notTombstone(p) && p.name?.toLowerCase() === target);
   if (match?.id) return { payeeId: match.id };
 
   const payeeId = crypto.randomUUID();
-  return {
-    payeeId,
-    newPayee: {
-      id: payeeId,
-      is_tombstone: false,
-      entities_account_id: null,
-      enabled: true,
-      auto_fill_subcategory_id: null,
-      auto_fill_memo: null,
-      auto_fill_amount: 0,
-      auto_fill_subcategory_enabled: true,
-      auto_fill_memo_enabled: false,
-      auto_fill_amount_enabled: false,
-      rename_on_import_enabled: true,
-      name: payeeName,
-      internal_name: null,
-    },
+  const newPayee: RawPayee = {
+    id: payeeId,
+    is_tombstone: false,
+    entities_account_id: null,
+    enabled: true,
+    auto_fill_subcategory_id: null,
+    auto_fill_memo: null,
+    auto_fill_amount: 0,
+    auto_fill_subcategory_enabled: true,
+    auto_fill_memo_enabled: false,
+    auto_fill_amount_enabled: false,
+    rename_on_import_enabled: true,
+    name: payeeName,
+    internal_name: null,
   };
+  return { payeeId, newPayee };
 };
 
 // --- Calculation map builders ---
@@ -441,6 +453,9 @@ export const mapCategoryForMonth = (
   const calc = calcMap.get(key);
   // Activity = cash_outflows + credit_outflows (YNAB splits these on the calc).
   // The actual budgeted amount lives on be_monthly_subcategory_budgets, not the calc.
+  // goal_type is intentionally NOT pulled from the calc — YNAB stores the goal
+  // definition (type, target, cadence, etc.) on the subcategory itself, not
+  // per-month. The calc only carries the dynamically-computed funding state.
   return mapCategory({
     ...c,
     budgeted: budget?.budgeted ?? c.budgeted,
@@ -459,14 +474,34 @@ export interface EntityLookups {
   categories: Map<string, string>;
 }
 
+// `id ?? ''` would create a phantom empty-string entry that any ID-less
+// transaction reference could collide with. Filter out missing IDs so the
+// lookup map only contains real entries.
+const hasId = <T extends { id?: string }>(x: T): x is T & { id: string } => !!x.id;
+
 export const buildLookups = (entities: {
   be_payees?: RawPayee[];
   be_accounts?: RawAccount[];
   be_subcategories?: RawCategory[];
 }): EntityLookups => ({
-  payees: new Map((entities.be_payees ?? []).filter(notTombstone).map(p => [p.id ?? '', p.name ?? ''])),
-  accounts: new Map((entities.be_accounts ?? []).filter(notTombstone).map(a => [a.id ?? '', a.account_name ?? ''])),
-  categories: new Map((entities.be_subcategories ?? []).filter(notTombstone).map(c => [c.id ?? '', c.name ?? ''])),
+  payees: new Map(
+    (entities.be_payees ?? [])
+      .filter(notTombstone)
+      .filter(hasId)
+      .map(p => [p.id, p.name ?? '']),
+  ),
+  accounts: new Map(
+    (entities.be_accounts ?? [])
+      .filter(notTombstone)
+      .filter(hasId)
+      .map(a => [a.id, a.account_name ?? '']),
+  ),
+  categories: new Map(
+    (entities.be_subcategories ?? [])
+      .filter(notTombstone)
+      .filter(hasId)
+      .map(c => [c.id, c.name ?? '']),
+  ),
 });
 
 // --- Defensive mappers ---
