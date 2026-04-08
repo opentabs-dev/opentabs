@@ -217,6 +217,35 @@ export const mapStarredItem = (s: RawStarredItem) => ({
   date_create: s.date_create ?? 0,
 });
 
+// --- Search channel schema (from search.modules API) ---
+
+export const searchChannelSchema = z.object({
+  id: z.string().describe('Channel ID (e.g., C1234567890)'),
+  name: z.string().describe('Channel name'),
+  member_count: z.number().describe('Number of members'),
+  is_member: z.boolean().describe('Whether the current user is a member'),
+  purpose: z.string().describe('Channel purpose'),
+  timestamp: z.number().describe('Unix timestamp of last activity'),
+});
+
+interface RawSearchChannel {
+  id?: string;
+  name?: string;
+  member_count?: number;
+  is_member?: boolean;
+  purpose?: { value?: string };
+  timestamp?: number;
+}
+
+export const mapSearchChannel = (c: RawSearchChannel) => ({
+  id: c.id ?? '',
+  name: c.name ?? '',
+  member_count: c.member_count ?? 0,
+  is_member: c.is_member ?? false,
+  purpose: c.purpose?.value ?? '',
+  timestamp: c.timestamp ?? 0,
+});
+
 // --- File schema ---
 
 export const fileSchema = z.object({
@@ -256,4 +285,102 @@ export const mapFile = (f: RawFile) => ({
   permalink: f.permalink ?? '',
   created: f.created ?? 0,
   user: f.user ?? '',
+});
+
+// --- Bookmark schema ---
+
+export const bookmarkSchema = z.object({
+  id: z.string().describe('Bookmark ID'),
+  channel_id: z.string().describe('Channel ID the bookmark belongs to'),
+  title: z.string().describe('Bookmark title'),
+  link: z.string().describe('Bookmark URL'),
+  type: z.string().describe('Bookmark type (link)'),
+  emoji: z.string().describe('Bookmark emoji'),
+  date_created: z.number().describe('Unix timestamp when created'),
+  date_updated: z.number().describe('Unix timestamp when last updated'),
+});
+
+interface RawBookmark {
+  id?: string;
+  channel_id?: string;
+  title?: string;
+  link?: string;
+  type?: string;
+  emoji?: string | null;
+  date_created?: number;
+  date_updated?: number;
+  date_create?: number;
+  date_update?: number;
+}
+
+export const mapBookmark = (b: RawBookmark) => ({
+  id: b.id ?? '',
+  channel_id: b.channel_id ?? '',
+  title: b.title ?? '',
+  link: b.link ?? '',
+  type: b.type ?? 'link',
+  emoji: b.emoji ?? '',
+  date_created: b.date_created ?? b.date_create ?? 0,
+  date_updated: b.date_updated ?? b.date_update ?? 0,
+});
+
+// --- User group schema ---
+
+export const userGroupSchema = z.object({
+  id: z.string().describe('User group ID'),
+  name: z.string().describe('User group name'),
+  handle: z.string().describe('User group mention handle (e.g., "engineering-team")'),
+  description: z.string().describe('User group description'),
+  user_count: z.number().describe('Number of members'),
+  is_external: z.boolean().describe('Whether this is an external group'),
+});
+
+interface RawUserGroup {
+  id?: string;
+  name?: string;
+  handle?: string;
+  description?: string;
+  user_count?: number;
+  is_external?: boolean;
+}
+
+export const mapUserGroup = (g: RawUserGroup) => ({
+  id: g.id ?? '',
+  name: g.name ?? '',
+  handle: g.handle ?? '',
+  description: g.description ?? '',
+  user_count: g.user_count ?? 0,
+  is_external: g.is_external ?? false,
+});
+
+// --- Reminder schema ---
+
+export const reminderSchema = z.object({
+  id: z.string().describe('Reminder ID'),
+  creator: z.string().describe('User ID who created the reminder'),
+  text: z.string().describe('Reminder text'),
+  user: z.string().describe('User ID the reminder is for'),
+  recurring: z.boolean().describe('Whether the reminder recurs'),
+  time: z.number().describe('Unix timestamp when the reminder fires'),
+  complete_ts: z.number().describe('Unix timestamp when completed (0 if incomplete)'),
+});
+
+interface RawReminder {
+  id?: string;
+  creator?: string;
+  text?: string;
+  user?: string;
+  recurring?: boolean;
+  time?: number;
+  complete_ts?: number;
+}
+
+export const mapReminder = (r: RawReminder) => ({
+  id: r.id ?? '',
+  creator: r.creator ?? '',
+  text: r.text ?? '',
+  user: r.user ?? '',
+  recurring: r.recurring ?? false,
+  time: r.time ?? 0,
+  complete_ts: r.complete_ts ?? 0,
 });

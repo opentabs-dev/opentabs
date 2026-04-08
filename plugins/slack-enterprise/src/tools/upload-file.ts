@@ -117,12 +117,13 @@ export const uploadFile = defineTool({
       throw ToolError.validation('Invalid upload URL');
     }
 
-    // Step 2: Upload file content
-    const signal = AbortSignal.timeout(30_000);
+    // Step 2: Upload file content to the pre-signed URL.
+    // Do not include credentials — the URL is on a different origin (files.slack.com)
+    // and already contains auth via query parameters.
+    const signal = AbortSignal.timeout(60_000);
     const uploadResp = await fetch(uploadUrl, {
       method: 'POST',
       body: contentBytes as unknown as BodyInit,
-      credentials: 'include',
       signal,
     });
 

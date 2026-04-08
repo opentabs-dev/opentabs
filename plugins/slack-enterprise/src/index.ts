@@ -15,6 +15,7 @@ import { deleteMessage } from './tools/delete-message.js';
 import { searchMessages } from './tools/search-messages.js';
 import { searchFiles } from './tools/search-files.js';
 import { searchUsers } from './tools/search-users.js';
+import { searchChannels } from './tools/search-channels.js';
 
 // Channels
 import { listChannels } from './tools/list-channels.js';
@@ -60,6 +61,31 @@ import { listStars } from './tools/list-stars.js';
 import { removeReaction } from './tools/remove-reaction.js';
 import { getReactions } from './tools/get-reactions.js';
 
+// Bookmarks
+import { listBookmarks } from './tools/list-bookmarks.js';
+import { addBookmark } from './tools/add-bookmark.js';
+import { removeBookmark } from './tools/remove-bookmark.js';
+
+// User Groups
+import { listUserGroups } from './tools/list-user-groups.js';
+import { listUserGroupMembers } from './tools/list-user-group-members.js';
+
+// Profile
+import { setStatus } from './tools/set-status.js';
+
+// Reminders
+import { addReminder } from './tools/add-reminder.js';
+import { listReminders } from './tools/list-reminders.js';
+import { deleteReminder } from './tools/delete-reminder.js';
+import { completeReminder } from './tools/complete-reminder.js';
+// Note: complete_reminder and delete_reminder may return not_found on some
+// Enterprise Grid configurations due to cross-team ID resolution limitations.
+
+// Do Not Disturb
+import { setSnooze } from './tools/set-snooze.js';
+import { endSnooze } from './tools/end-snooze.js';
+import { getDndStatus } from './tools/get-dnd-status.js';
+
 class SlackEnterprisePlugin extends OpenTabsPlugin {
   readonly name = 'slack-enterprise';
   readonly description = 'OpenTabs plugin for Slack Enterprise Grid';
@@ -80,6 +106,7 @@ class SlackEnterprisePlugin extends OpenTabsPlugin {
     searchMessages,
     searchFiles,
     searchUsers,
+    searchChannels,
     // Channels
     listChannels,
     getChannelInfo,
@@ -117,6 +144,24 @@ class SlackEnterprisePlugin extends OpenTabsPlugin {
     // Reactions
     removeReaction,
     getReactions,
+    // Bookmarks
+    listBookmarks,
+    addBookmark,
+    removeBookmark,
+    // User Groups
+    listUserGroups,
+    listUserGroupMembers,
+    // Profile
+    setStatus,
+    // Reminders
+    addReminder,
+    listReminders,
+    deleteReminder,
+    completeReminder,
+    // Do Not Disturb
+    setSnooze,
+    endSnooze,
+    getDndStatus,
   ];
 
   async isReady(): Promise<boolean> {
