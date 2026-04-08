@@ -107,7 +107,16 @@ jobs:
             (cd "$DIR" && npm install)
 
             echo "Building..."
-            (cd "$DIR" && npm run build)
+            (cd "$DIR" && npm run build) || {
+              echo "::warning::Build failed for $NPM_NAME — skipping publish"
+              continue
+            }
+
+            # Verify the build produced the required artifacts
+            if [ ! -f "$DIR/dist/adapter.iife.js" ] || [ ! -f "$DIR/dist/tools.json" ]; then
+              echo "::warning::Build incomplete for $NPM_NAME — missing adapter.iife.js or tools.json, skipping publish"
+              continue
+            fi
 
             # Publish to npm (authenticated via NPM_TOKEN secret)
             echo "Publishing $NPM_NAME@$NEW_VERSION..."
