@@ -1,12 +1,8 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawScheduledTransaction } from './schemas.js';
-import { mapScheduledTransaction, scheduledTransactionSchema } from './schemas.js';
-
-interface BudgetData {
-  be_scheduled_transactions?: RawScheduledTransaction[];
-}
+import { getPlanId, syncBudget } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
+import { buildLookups, mapScheduledTransaction, notTombstone, scheduledTransactionSchema } from './schemas.js';
 
 export const listScheduledTransactions = defineTool({
   name: 'list_scheduled_transactions',
@@ -22,13 +18,15 @@ export const listScheduledTransactions = defineTool({
   }),
   handle: async () => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
-    const raw = result.changed_entities?.be_scheduled_transactions ?? [];
+    const entities = result.changed_entities;
+    const raw = entities?.be_scheduled_transactions ?? [];
+    const lookups = buildLookups(entities ?? {});
 
     const scheduledTransactions = raw
-      .filter(s => !s.is_tombstone)
-      .map(mapScheduledTransaction)
+      .filter(notTombstone)
+      .map(s => mapScheduledTransaction(s, lookups))
       .sort((a, b) => a.date_next.localeCompare(b.date_next));
 
     return { scheduled_transactions: scheduledTransactions };

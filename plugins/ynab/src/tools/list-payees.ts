@@ -1,12 +1,8 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawPayee } from './schemas.js';
-import { mapPayee, payeeSchema } from './schemas.js';
-
-interface BudgetData {
-  be_payees?: RawPayee[];
-}
+import { getPlanId, syncBudget } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
+import { mapPayee, notTombstone, payeeSchema } from './schemas.js';
 
 export const listPayees = defineTool({
   name: 'list_payees',
@@ -22,10 +18,10 @@ export const listPayees = defineTool({
   }),
   handle: async () => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
     const raw = result.changed_entities?.be_payees ?? [];
-    const payees = raw.filter(p => !p.is_tombstone).map(mapPayee);
+    const payees = raw.filter(notTombstone).map(mapPayee);
 
     return { payees };
   },

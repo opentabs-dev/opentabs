@@ -1,35 +1,22 @@
-import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './ynab-api.js';
-
-// Account
-import { getCurrentUser } from './tools/get-current-user.js';
-
-// Plans
-import { getPlan } from './tools/get-plan.js';
-
-// Accounts
-import { listAccounts } from './tools/list-accounts.js';
-import { getAccount } from './tools/get-account.js';
-
-// Categories
-import { listCategories } from './tools/list-categories.js';
-import { updateCategoryBudget } from './tools/update-category-budget.js';
-
-// Payees
-import { listPayees } from './tools/list-payees.js';
-
-// Transactions
-import { listTransactions } from './tools/list-transactions.js';
-import { getTransaction } from './tools/get-transaction.js';
+import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import { createTransaction } from './tools/create-transaction.js';
-import { updateTransaction } from './tools/update-transaction.js';
 import { deleteTransaction } from './tools/delete-transaction.js';
-import { listScheduledTransactions } from './tools/list-scheduled-transactions.js';
-
-// Months
-import { listMonths } from './tools/list-months.js';
+import { getAccount } from './tools/get-account.js';
+import { getCurrentUser } from './tools/get-current-user.js';
 import { getMonth } from './tools/get-month.js';
+import { getPlan } from './tools/get-plan.js';
+import { getTransaction } from './tools/get-transaction.js';
+import { listAccounts } from './tools/list-accounts.js';
+import { listCategories } from './tools/list-categories.js';
+import { listMonths } from './tools/list-months.js';
+import { listPayees } from './tools/list-payees.js';
+import { listScheduledTransactions } from './tools/list-scheduled-transactions.js';
+import { listTransactions } from './tools/list-transactions.js';
+import { moveCategoryBudget } from './tools/move-category-budget.js';
+import { updateCategoryBudget } from './tools/update-category-budget.js';
+import { updateTransaction } from './tools/update-transaction.js';
+import { isAuthenticated, waitForAuth } from './ynab-api.js';
 
 class YnabPlugin extends OpenTabsPlugin {
   readonly name = 'ynab';
@@ -48,6 +35,7 @@ class YnabPlugin extends OpenTabsPlugin {
     // Categories
     listCategories,
     updateCategoryBudget,
+    moveCategoryBudget,
     // Payees
     listPayees,
     // Transactions

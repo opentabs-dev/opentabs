@@ -1,12 +1,8 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawTransaction } from './schemas.js';
-import { mapTransaction, transactionSchema } from './schemas.js';
-
-interface BudgetData {
-  be_transactions?: RawTransaction[];
-}
+import { getPlanId, syncBudget } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
+import { buildLookups, mapTransaction, notTombstone, transactionSchema } from './schemas.js';
 
 export const listTransactions = defineTool({
   name: 'list_transactions',
@@ -22,29 +18,63 @@ export const listTransactions = defineTool({
       .string()
       .optional()
       .describe('Only return transactions on or after this date (YYYY-MM-DD). Omit for all transactions.'),
+    until_date: z
+      .string()
+      .optional()
+      .describe(
+        'Only return transactions on or before this date (YYYY-MM-DD). Combine with since_date for a date range.',
+      ),
+    payee_search: z
+      .string()
+      .optional()
+      .describe(
+        'Case-insensitive substring match against payee_name, imported_payee, and original_imported_payee. Useful for finding all transactions for a merchant without knowing the exact payee ID.',
+      ),
   }),
   output: z.object({
     transactions: z.array(transactionSchema).describe('List of transactions'),
   }),
   handle: async params => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
-    const raw = result.changed_entities?.be_transactions ?? [];
+    const entities = result.changed_entities;
+    const raw = entities?.be_transactions ?? [];
+    const lookups = buildLookups(entities ?? {});
 
-    let transactions = raw.filter(t => !t.is_tombstone).map(mapTransaction);
+    let filtered = raw.filter(notTombstone);
 
     if (params.account_id) {
-      transactions = transactions.filter(t => t.account_id === params.account_id);
+      filtered = filtered.filter(t => t.entities_account_id === params.account_id);
     }
 
     if (params.since_date) {
       const sinceDate = params.since_date;
-      transactions = transactions.filter(t => t.date >= sinceDate);
+      filtered = filtered.filter(t => (t.date ?? '') >= sinceDate);
     }
 
-    // Sort by date descending
-    transactions.sort((a, b) => b.date.localeCompare(a.date));
+    if (params.until_date) {
+      const untilDate = params.until_date;
+      filtered = filtered.filter(t => (t.date ?? '') <= untilDate);
+    }
+
+    if (params.payee_search) {
+      const needle = params.payee_search.toLowerCase();
+      // Resolve which payee IDs match the search up front so we only do the
+      // string compare once per payee instead of once per transaction.
+      const matchingPayeeIds = new Set<string>();
+      for (const [id, name] of lookups.payees) {
+        if (name.toLowerCase().includes(needle)) matchingPayeeIds.add(id);
+      }
+      filtered = filtered.filter(t => {
+        if (t.entities_payee_id && matchingPayeeIds.has(t.entities_payee_id)) return true;
+        if (t.imported_payee?.toLowerCase().includes(needle)) return true;
+        if (t.original_imported_payee?.toLowerCase().includes(needle)) return true;
+        return false;
+      });
+    }
+
+    const transactions = filtered.map(t => mapTransaction(t, lookups)).sort((a, b) => b.date.localeCompare(a.date));
 
     return { transactions };
   },

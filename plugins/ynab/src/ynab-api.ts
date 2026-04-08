@@ -1,13 +1,13 @@
 import {
-  ToolError,
+  clearAuthCache,
+  getAuthCache,
+  getCurrentUrl,
   getMetaContent,
   getPageGlobal,
-  getCurrentUrl,
-  waitUntil,
   parseRetryAfterMs,
-  getAuthCache,
   setAuthCache,
-  clearAuthCache,
+  ToolError,
+  waitUntil,
 } from '@opentabs-dev/plugin-sdk';
 
 // --- Types ---
@@ -32,6 +32,8 @@ interface CatalogResponse<T = Record<string, unknown>> {
 // embedded in a <meta name="session-token"> tag. The internal API requires
 // this token in the X-Session-Token header along with device identification
 // headers. The user ID comes from YNAB_CLIENT_CONSTANTS.USER.
+
+const NOT_AUTHENTICATED_MESSAGE = 'Not authenticated — please log in to YNAB.';
 
 const generateDeviceId = (): string => crypto.randomUUID();
 
@@ -76,15 +78,31 @@ export const waitForAuth = (): Promise<boolean> =>
 
 export const getPlanId = (): string => {
   const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please log in to YNAB.');
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
   return auth.planId;
+};
+
+export const getDeviceId = (): string => {
+  const auth = getAuth();
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
+  return auth.deviceId;
+};
+
+export const getUserId = (): string => {
+  const auth = getAuth();
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
+  return auth.userId;
+};
+
+export const assertAuthenticated = (): void => {
+  if (!getAuth()) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
 };
 
 // --- Internal API headers ---
 
 const getHeaders = (): Record<string, string> => {
   const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please log in to YNAB.');
+  if (!auth) throw ToolError.auth(NOT_AUTHENTICATED_MESSAGE);
 
   // Read app version fresh on every request — never cache it, since YNAB enforces
   // a minimum version via 426 and will reject stale cached values.
@@ -126,9 +144,17 @@ const handleApiError = async (response: Response, context: string): Promise<neve
   throw ToolError.internal(`API error (${response.status}): ${context} — ${errorBody}`);
 };
 
+const handleNetworkError = (err: unknown, context: string): never => {
+  if (err instanceof DOMException && err.name === 'TimeoutError')
+    throw ToolError.timeout(`Request timed out: ${context}`);
+  if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
+  throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
+    category: 'internal',
+    retryable: true,
+  });
+};
+
 // --- Catalog API (internal RPC endpoint) ---
-// YNAB's web app uses POST /api/v1/catalog with operation_name + request_data
-// as the primary data access mechanism for budget operations.
 
 export const catalog = async <T = Record<string, unknown>>(
   operationName: string,
@@ -147,13 +173,7 @@ export const catalog = async <T = Record<string, unknown>>(
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'TimeoutError')
-      throw ToolError.timeout(`Catalog request timed out: ${operationName}`);
-    if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
-    throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
-      category: 'internal',
-      retryable: true,
-    });
+    return handleNetworkError(err, operationName);
   }
 
   if (!response.ok) return handleApiError(response, operationName);
@@ -168,6 +188,12 @@ export const catalog = async <T = Record<string, unknown>>(
 // --- syncBudgetData helper ---
 // YNAB requires sync_type, schema_version, and schema_version_of_knowledge on all
 // syncBudgetData requests (enforced server-side via 426 if omitted).
+//
+// We send sync_type: 'delta' with starting_device_knowledge: 0 to receive a full
+// snapshot of the budget. Counter-intuitively, sync_type: 'bootstrap' returns
+// only the most recent ~1 month of transactions, while delta with zero device
+// knowledge returns the full history (verified with the YNAB UI's own captures).
+// Verified working as of schema version 41.
 
 const BUDGET_SCHEMA_VERSION = 41;
 
@@ -185,18 +211,26 @@ export const syncBudget = async <T = Record<string, unknown>>(planId: string): P
   });
 
 // Write operations require the current server_knowledge to succeed.
-// This fetches it first, then sends the write in one round-trip.
+// Pass serverKnowledge from a prior syncBudget call to avoid a redundant read.
 
-export const syncWrite = async (planId: string, changedEntities: Record<string, unknown>): Promise<CatalogResponse> => {
-  const readResult = await syncBudget(planId);
-  const serverKnowledge = readResult.current_server_knowledge ?? 0;
+export const syncWrite = async <T = Record<string, unknown>>(
+  planId: string,
+  changedEntities: Record<string, unknown>,
+  serverKnowledge?: number,
+): Promise<CatalogResponse<T>> => {
+  const knowledge = serverKnowledge ?? (await syncBudget(planId)).current_server_knowledge ?? 0;
 
-  return catalog('syncBudgetData', {
+  // ending_device_knowledge is the local change counter — YNAB's UI increments
+  // it across the session, but since we don't persist any state we send 1 to
+  // signal "one new change since 0". The server only enforces monotonic
+  // increase relative to its own knowledge, not the client counter, so a
+  // constant 1 is what YNAB tolerates from us in practice.
+  return catalog<T>('syncBudgetData', {
     budget_version_id: planId,
     sync_type: 'delta',
     starting_device_knowledge: 0,
     ending_device_knowledge: 1,
-    device_knowledge_of_server: serverKnowledge,
+    device_knowledge_of_server: knowledge,
     calculated_entities_included: false,
     schema_version: BUDGET_SCHEMA_VERSION,
     schema_version_of_knowledge: BUDGET_SCHEMA_VERSION,
@@ -231,13 +265,7 @@ export const api = async <T>(
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err: unknown) {
-    if (err instanceof DOMException && err.name === 'TimeoutError')
-      throw ToolError.timeout(`API request timed out: ${endpoint}`);
-    if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
-    throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
-      category: 'internal',
-      retryable: true,
-    });
+    return handleNetworkError(err, endpoint);
   }
 
   if (!response.ok) return handleApiError(response, endpoint);

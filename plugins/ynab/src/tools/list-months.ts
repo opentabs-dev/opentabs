@@ -1,13 +1,8 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { syncBudget, getPlanId } from '../ynab-api.js';
-import type { RawMonth, RawMonthlyBudgetCalc } from './schemas.js';
-import { mapMonth, monthSchema } from './schemas.js';
-
-interface BudgetData {
-  be_monthly_budgets?: RawMonth[];
-  be_monthly_budget_calculations?: RawMonthlyBudgetCalc[];
-}
+import { getPlanId, syncBudget } from '../ynab-api.js';
+import type { BudgetEntities } from './schemas.js';
+import { buildMonthlyBudgetCalcMap, mapMonth, monthSchema, notTombstone } from './schemas.js';
 
 export const listMonths = defineTool({
   name: 'list_months',
@@ -23,25 +18,15 @@ export const listMonths = defineTool({
   }),
   handle: async () => {
     const planId = getPlanId();
-    const result = await syncBudget<BudgetData>(planId);
+    const result = await syncBudget<BudgetEntities>(planId);
 
     const entities = result.changed_entities;
     const rawMonths = entities?.be_monthly_budgets ?? [];
-    const rawCalcs = entities?.be_monthly_budget_calculations ?? [];
-
-    // Map calculation data by month (entities_monthly_budget_id format: mb/YYYY-MM-DD)
-    const calcMap = new Map<string, RawMonthlyBudgetCalc>();
-    for (const calc of rawCalcs) {
-      const budgetId = calc.entities_monthly_budget_id;
-      if (budgetId) {
-        const month = budgetId.replace('mb/', '');
-        calcMap.set(month, calc);
-      }
-    }
+    const calcMap = buildMonthlyBudgetCalcMap(entities?.be_monthly_budget_calculations ?? []);
 
     const months = rawMonths
-      .filter(m => !m.is_tombstone)
-      .map(m => mapMonth(m, calcMap.get(m.month ?? '')))
+      .filter(notTombstone)
+      .map(m => mapMonth(m, calcMap.get((m.month ?? '').substring(0, 7))))
       .sort((a, b) => b.month.localeCompare(a.month));
 
     return { months };
