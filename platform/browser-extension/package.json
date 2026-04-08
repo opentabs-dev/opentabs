@@ -61,7 +61,7 @@
     "@tailwindcss/vite": "^4.2.2",
     "@types/chrome": "^0.1.38",
     "@vitejs/plugin-react": "^5.2.0",
-    "esbuild": "^0.27.3",
+    "esbuild": "^0.28.0",
     "lucide-react": "^1.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
