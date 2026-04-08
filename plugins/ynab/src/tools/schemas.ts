@@ -88,7 +88,9 @@ export const transactionSchema = z.object({
   category_name: z.string().describe('Category name'),
   transfer_account_id: z.string().describe('If a transfer, the destination account ID'),
   imported_payee: z.string().describe('Bank-imported payee name after YNAB cleansing (empty if manually entered)'),
-  original_imported_payee: z.string().describe('Raw payee string from the bank feed before any cleansing (empty if manually entered)'),
+  original_imported_payee: z
+    .string()
+    .describe('Raw payee string from the bank feed before any cleansing (empty if manually entered)'),
   deleted: z.boolean().describe('Whether the transaction is deleted'),
 });
 
@@ -463,12 +465,8 @@ export const buildLookups = (entities: {
   be_subcategories?: RawCategory[];
 }): EntityLookups => ({
   payees: new Map((entities.be_payees ?? []).filter(notTombstone).map(p => [p.id ?? '', p.name ?? ''])),
-  accounts: new Map(
-    (entities.be_accounts ?? []).filter(notTombstone).map(a => [a.id ?? '', a.account_name ?? '']),
-  ),
-  categories: new Map(
-    (entities.be_subcategories ?? []).filter(notTombstone).map(c => [c.id ?? '', c.name ?? '']),
-  ),
+  accounts: new Map((entities.be_accounts ?? []).filter(notTombstone).map(a => [a.id ?? '', a.account_name ?? ''])),
+  categories: new Map((entities.be_subcategories ?? []).filter(notTombstone).map(c => [c.id ?? '', c.name ?? ''])),
 });
 
 // --- Defensive mappers ---

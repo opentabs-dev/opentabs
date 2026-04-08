@@ -30,14 +30,8 @@ export const moveCategoryBudget = defineTool({
         .regex(/^\d{4}-\d{2}(-\d{2})?$/, 'Month must be YYYY-MM or YYYY-MM-DD')
         .describe('Month in YYYY-MM format (e.g. 2026-03)'),
       amount: z.number().positive().describe('Amount to move in currency units (e.g. 50 for $50)'),
-      from_category_id: z
-        .string()
-        .optional()
-        .describe('Source category ID. Omit to move from Ready to Assign.'),
-      to_category_id: z
-        .string()
-        .optional()
-        .describe('Destination category ID. Omit to move to Ready to Assign.'),
+      from_category_id: z.string().optional().describe('Source category ID. Omit to move from Ready to Assign.'),
+      to_category_id: z.string().optional().describe('Destination category ID. Omit to move to Ready to Assign.'),
     })
     .refine(p => p.from_category_id || p.to_category_id, {
       message: 'At least one of from_category_id or to_category_id must be provided',
@@ -46,7 +40,9 @@ export const moveCategoryBudget = defineTool({
       message: 'from_category_id and to_category_id must differ',
     }),
   output: z.object({
-    categories: z.array(categorySchema).describe('Updated categories (1 if RTA is involved, 2 for category-to-category)'),
+    categories: z
+      .array(categorySchema)
+      .describe('Updated categories (1 if RTA is involved, 2 for category-to-category)'),
   }),
   handle: async params => {
     const planId = getPlanId();
@@ -86,8 +82,7 @@ export const moveCategoryBudget = defineTool({
     if (fromCategory && fromBudgetId) budgetEntries.push(buildEntry(fromCategory.id, fromBudgetId, -milliunits));
     if (toCategory && toBudgetId) budgetEntries.push(buildEntry(toCategory.id, toBudgetId, milliunits));
 
-    const source =
-      fromCategory && toCategory ? MONEY_MOVEMENT_SOURCE.MOVEMENT : MONEY_MOVEMENT_SOURCE.ASSIGN;
+    const source = fromCategory && toCategory ? MONEY_MOVEMENT_SOURCE.MOVEMENT : MONEY_MOVEMENT_SOURCE.ASSIGN;
 
     const result = await syncWrite<BudgetEntities>(
       planId,

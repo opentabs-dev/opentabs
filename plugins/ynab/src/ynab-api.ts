@@ -145,7 +145,8 @@ const handleApiError = async (response: Response, context: string): Promise<neve
 };
 
 const handleNetworkError = (err: unknown, context: string): never => {
-  if (err instanceof DOMException && err.name === 'TimeoutError') throw ToolError.timeout(`Request timed out: ${context}`);
+  if (err instanceof DOMException && err.name === 'TimeoutError')
+    throw ToolError.timeout(`Request timed out: ${context}`);
   if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
   throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
     category: 'internal',

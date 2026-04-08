@@ -21,7 +21,9 @@ export const listTransactions = defineTool({
     until_date: z
       .string()
       .optional()
-      .describe('Only return transactions on or before this date (YYYY-MM-DD). Combine with since_date for a date range.'),
+      .describe(
+        'Only return transactions on or before this date (YYYY-MM-DD). Combine with since_date for a date range.',
+      ),
     payee_search: z
       .string()
       .optional()
@@ -72,9 +74,7 @@ export const listTransactions = defineTool({
       });
     }
 
-    const transactions = filtered
-      .map(t => mapTransaction(t, lookups))
-      .sort((a, b) => b.date.localeCompare(a.date));
+    const transactions = filtered.map(t => mapTransaction(t, lookups)).sort((a, b) => b.date.localeCompare(a.date));
 
     return { transactions };
   },
