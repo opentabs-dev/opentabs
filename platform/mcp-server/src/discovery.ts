@@ -20,6 +20,7 @@ interface DiscoveryResult {
 interface DiscoveryError {
   readonly specifier: string;
   readonly error: string;
+  readonly source: 'npm' | 'local';
 }
 
 /**
@@ -47,14 +48,14 @@ const discoverPlugins = async (
     ? { dirs: [], errors: [] }
     : await discoverGlobalNpmPlugins();
   for (const npmErr of npmErrors) {
-    errors.push({ specifier: '(npm auto-discovery)', error: npmErr });
+    errors.push({ specifier: '(npm auto-discovery)', error: npmErr, source: 'npm' });
   }
 
   // Phase 2 + 3: Resolve and load all plugins in parallel
   const loadNpm = npmDirs.map(async (dir): Promise<LoadedPlugin | null> => {
     const loadResult = await loadPlugin(dir, 'npm');
     if (isErr(loadResult)) {
-      errors.push({ specifier: dir, error: loadResult.error });
+      errors.push({ specifier: dir, error: loadResult.error, source: 'npm' });
       failures.push({ path: dir, error: loadResult.error });
       return null;
     }
@@ -67,7 +68,7 @@ const discoverPlugins = async (
       // "Path not found" means the directory no longer exists — treat as a stale config
       // entry and skip silently (only log, don't add to failedPlugins).
       const isStale = resolveResult.error.startsWith('Path not found:');
-      errors.push({ specifier, error: resolveResult.error });
+      errors.push({ specifier, error: resolveResult.error, source: 'local' });
       if (!isStale) {
         failures.push({ path: specifier, error: resolveResult.error });
       }
@@ -77,7 +78,7 @@ const discoverPlugins = async (
     const dir = resolveResult.value;
     const loadResult = await loadPlugin(dir, 'local');
     if (isErr(loadResult)) {
-      errors.push({ specifier, error: loadResult.error });
+      errors.push({ specifier, error: loadResult.error, source: 'local' });
       failures.push({ path: dir, error: loadResult.error });
       return null;
     }
@@ -88,21 +89,24 @@ const discoverPlugins = async (
   const [npmSettled, localSettled] = await Promise.all([Promise.allSettled(loadNpm), Promise.allSettled(loadLocal)]);
 
   // Collect results
-  const collectLoaded = (settled: PromiseSettledResult<LoadedPlugin | null>[]): LoadedPlugin[] => {
+  const collectLoaded = (
+    settled: PromiseSettledResult<LoadedPlugin | null>[],
+    source: 'npm' | 'local',
+  ): LoadedPlugin[] => {
     const loaded: LoadedPlugin[] = [];
     for (const result of settled) {
       if (result.status === 'fulfilled' && result.value !== null) {
         loaded.push(result.value);
       } else if (result.status === 'rejected') {
         const errorMsg = toErrorMessage(result.reason);
-        errors.push({ specifier: '(unknown)', error: errorMsg });
+        errors.push({ specifier: '(unknown)', error: errorMsg, source });
       }
     }
     return loaded;
   };
 
-  const npmLoaded = collectLoaded(npmSettled);
-  const localLoaded = collectLoaded(localSettled);
+  const npmLoaded = collectLoaded(npmSettled, 'npm');
+  const localLoaded = collectLoaded(localSettled, 'local');
 
   // Phase 4: Merge — local plugins override npm plugins of the same name
   const merged = new Map<string, LoadedPlugin>();

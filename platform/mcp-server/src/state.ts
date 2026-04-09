@@ -315,7 +315,7 @@ export interface ServerState {
   /** Timestamp (ms since epoch) when the server process first started — survives hot reloads */
   startedAt: number;
   /** Discovery errors from the most recent reload — used by config.getState for the side panel */
-  discoveryErrors: ReadonlyArray<{ specifier: string; error: string }>;
+  discoveryErrors: ReadonlyArray<{ specifier: string; error: string; source: 'npm' | 'local' }>;
   /** Circular buffer of recent tool invocations for diagnostics and monitoring */
   auditLog: AuditEntry[];
   /** Whether approval prompts for ask-mode tools are bypassed (off tools remain disabled) */

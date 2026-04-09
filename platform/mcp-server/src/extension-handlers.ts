@@ -28,7 +28,7 @@ import { log } from './logger.js';
 import {
   checkPluginUpdates,
   installPlugin,
-  removeLocalPluginBySpecifier,
+  removeFailedPlugin,
   removePlugin,
   searchNpmPlugins,
   updatePlugin,
@@ -1030,17 +1030,12 @@ const handlePluginRemoveBySpecifier = async (
     return;
   }
 
-  const specifier = params.specifier;
-  const removed = await removeLocalPluginBySpecifier(state, specifier);
-
-  if (!removed) {
-    sendJsonRpcError(state, id, -32602, `Specifier not found in localPlugins: ${specifier}`);
+  try {
+    await removeFailedPlugin(params.specifier, state, callbacks.onReload);
+  } catch (err) {
+    sendPluginManagementError(state, id, err);
     return;
   }
-
-  log.info(`Removed local plugin by specifier: ${specifier}`);
-
-  await callbacks.onReload();
 
   sendToExtension(state, {
     jsonrpc: '2.0',

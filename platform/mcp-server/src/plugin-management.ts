@@ -715,6 +715,74 @@ const removePlugin = async (
   return { ok: true };
 };
 
+/**
+ * Remove a failed plugin by its discovery specifier (filesystem path).
+ *
+ * Tries local removal first (from config.localPlugins). If the specifier is
+ * not a local plugin, checks whether it is a known npm discovery failure and
+ * runs `npm uninstall -g` to remove the broken package.
+ *
+ * @param specifier - The plugin path from discoveryErrors (e.g., /opt/homebrew/lib/node_modules/...)
+ * @param state - Server state (for discoveryErrors, configWriteMutex)
+ * @param onReload - Callback to trigger plugin rediscovery after removal
+ *
+ * @throws Error with `code` property for structured JSON-RPC error handling:
+ *   - code -32602: specifier not found in localPlugins or discoveryErrors
+ *   - code -32603: npm uninstall failure or unreadable package.json
+ */
+const removeFailedPlugin = async (
+  specifier: string,
+  state: ServerState,
+  onReload: () => Promise<{ plugins: number; durationMs: number }>,
+): Promise<{ ok: true }> => {
+  // Try local removal first
+  const removedLocal = await removeLocalPluginBySpecifier(state, specifier);
+  if (removedLocal) {
+    log.info(`Removed failed local plugin by specifier: ${specifier}`);
+    await onReload();
+    return { ok: true };
+  }
+
+  // Check if this is a known npm discovery failure
+  const failedEntry = state.discoveryErrors.find(e => e.specifier === specifier && e.source === 'npm');
+  if (!failedEntry) {
+    const error = new Error(`Plugin not found: ${specifier}`) as Error & { code: number };
+    error.code = -32602;
+    throw error;
+  }
+
+  // Read the npm package name from the specifier's package.json
+  let pkgName: string;
+  try {
+    const raw = await readFile(join(specifier, 'package.json'), 'utf-8');
+    const pkg = JSON.parse(raw) as { name?: string };
+    if (typeof pkg.name !== 'string' || pkg.name.length === 0) {
+      const error = new Error(`Cannot read package name from ${specifier}/package.json`) as Error & { code: number };
+      error.code = -32603;
+      throw error;
+    }
+    pkgName = pkg.name;
+  } catch (err) {
+    if (err instanceof Error && 'code' in err && (err as Error & { code: number }).code === -32603) throw err;
+    const error = new Error(`Cannot read ${specifier}/package.json`) as Error & { code: number };
+    error.code = -32603;
+    throw error;
+  }
+
+  if (!isValidPluginPackageName(pkgName)) {
+    const error = new Error(`Invalid npm package name: ${pkgName}`) as Error & { code: number };
+    error.code = -32603;
+    throw error;
+  }
+
+  log.info(`Uninstalling failed npm plugin: ${pkgName}`);
+  await runNpmGlobal('uninstall', pkgName);
+  log.info(`npm uninstall succeeded for ${pkgName}`);
+
+  await onReload();
+  return { ok: true };
+};
+
 // ---------------------------------------------------------------------------
 // Check for outdated plugins
 // ---------------------------------------------------------------------------
@@ -749,6 +817,7 @@ export {
   isValidPluginPackageName,
   MAX_OUTPUT_SIZE,
   normalizePluginName,
+  removeFailedPlugin,
   removeLocalPluginBySpecifier,
   removePlugin,
   searchNpmPlugins,
