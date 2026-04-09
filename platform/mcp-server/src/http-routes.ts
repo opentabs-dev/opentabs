@@ -764,6 +764,19 @@ const handleMcp = async (
       }
     }
 
+    if (sessionId) {
+      // Session ID was provided but not found — stale/expired session.
+      // MCP spec (2025-03-26) §3: respond with 404 so clients auto-reconnect.
+      return Response.json(
+        {
+          jsonrpc: '2.0',
+          error: { code: -32600, message: 'Session not found' },
+          id: null,
+        },
+        { status: 404 },
+      );
+    }
+
     return Response.json(
       {
         jsonrpc: '2.0',
@@ -785,7 +798,7 @@ const handleMcp = async (
     if (getTransport) {
       return getTransport.handleRequest(req);
     }
-    return new Response('Missing or invalid session', { status: 400 });
+    return new Response('Session not found', { status: 404 });
   }
 
   if (req.method === 'DELETE') {
@@ -796,7 +809,7 @@ const handleMcp = async (
     if (delTransport) {
       return delTransport.handleRequest(req);
     }
-    return new Response('Missing or invalid session', { status: 400 });
+    return new Response('Session not found', { status: 404 });
   }
 
   return new Response('Method not allowed', { status: 405 });
