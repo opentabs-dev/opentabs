@@ -151,7 +151,7 @@ export const requireGroupId = (params: Record<string, unknown>, id: string | num
  * Validates that `params.tabIds` is a non-empty array of positive integers.
  * Sends a JSONRPC_INVALID_PARAMS error if invalid, returning `null`.
  */
-export const requireTabIds = (params: Record<string, unknown>, id: string | number): number[] | null => {
+export const requireTabIds = (params: Record<string, unknown>, id: string | number): [number, ...number[]] | null => {
   const tabIds = params.tabIds;
   if (
     !Array.isArray(tabIds) ||
@@ -168,7 +168,7 @@ export const requireTabIds = (params: Record<string, unknown>, id: string | numb
     });
     return null;
   }
-  return tabIds;
+  return tabIds as [number, ...number[]];
 };
 
 /** Sends a JSON-RPC 2.0 success response. */

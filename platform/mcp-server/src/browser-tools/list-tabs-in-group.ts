@@ -10,7 +10,9 @@ const listTabsInGroup = defineBrowserTool({
   name: 'browser_list_tabs_in_group',
   description:
     'List all tabs in a specific Chrome tab group. Returns tab ID, title, URL, active status, ' +
-    'and window ID for each tab. Use browser_list_tab_groups to find group IDs.',
+    'and window ID for each tab. Use browser_list_tab_groups to find group IDs and the owning connectionId. ' +
+    'In multi-profile setups, pass the connectionId from browser_list_tab_groups so the query ' +
+    'reaches the profile that owns the group.',
   summary: 'List tabs in a tab group',
   icon: 'list',
   group: 'Tabs',
@@ -25,7 +27,7 @@ const listTabsInGroup = defineBrowserTool({
       .optional()
       .describe(
         'Target a specific browser profile. Get from browser_list_tab_groups. ' +
-          'Required in multi-profile setups to ensure the correct profile is queried.',
+          'Required in multi-profile setups so the query reaches the profile that owns the group.',
       ),
   }),
   handler: async (args, state) =>

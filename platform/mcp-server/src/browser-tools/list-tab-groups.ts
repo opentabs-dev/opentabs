@@ -11,9 +11,10 @@ import { defineBrowserTool } from './definition.js';
 const listTabGroups = defineBrowserTool({
   name: 'browser_list_tab_groups',
   description:
-    'List all Chrome tab groups across all connected browser profiles. Returns group ID, title, color, ' +
-    'collapsed state, window ID, and connectionId for each group. Use the returned group IDs with ' +
-    'browser_add_tabs_to_group, browser_update_tab_group, and browser_list_tabs_in_group.',
+    'List all Chrome tab groups across all connected browser profiles. Returns groupId, title, color, ' +
+    'collapsed state, windowId, and connectionId for each group. Use the returned groupId with ' +
+    'browser_add_tabs_to_group, browser_update_tab_group, and browser_list_tabs_in_group, and pass ' +
+    'the connectionId in multi-profile setups so subsequent operations target the correct profile.',
   summary: 'List all tab groups',
   icon: 'layers',
   group: 'Tabs',

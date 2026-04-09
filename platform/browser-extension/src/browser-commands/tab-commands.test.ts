@@ -314,7 +314,19 @@ describe('handleBrowserListTabGroups', () => {
     const msg = firstSentMessage();
     const result = msg.result as Array<Record<string, unknown>>;
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ id: 1, title: 'Group 1', color: 'blue', collapsed: false });
+    expect(result[0]).toMatchObject({
+      groupId: 1,
+      title: 'Group 1',
+      color: 'blue',
+      collapsed: false,
+      windowId: 1,
+    });
+  });
+
+  test('propagates chrome.tabGroups.query rejection', async () => {
+    mockTabGroupsQuery.mockRejectedValueOnce(new Error('chrome failed'));
+    await handleBrowserListTabGroups({}, 'req-62');
+    expect(firstSentMessage()).toMatchObject({ error: { message: expect.stringContaining('chrome failed') } });
   });
 
   test('filters by windowId', async () => {
@@ -352,7 +364,13 @@ describe('handleBrowserCreateTabGroup', () => {
     expect(mockTabsGroup).toHaveBeenCalledWith({ tabIds: [10, 20] });
     expect(mockTabGroupsUpdate).toHaveBeenCalledWith(1, { title: 'Test', color: 'red' });
     const msg = firstSentMessage();
-    expect(msg.result).toMatchObject({ groupId: 1, title: 'Test', color: 'red' });
+    expect(msg.result).toMatchObject({ groupId: 1, title: 'Test', color: 'red', collapsed: false, windowId: 1 });
+  });
+
+  test('propagates chrome.tabs.group rejection', async () => {
+    mockTabsGroup.mockRejectedValueOnce(new Error('group failed'));
+    await handleBrowserCreateTabGroup({ tabIds: [1] }, 'req-74');
+    expect(firstSentMessage()).toMatchObject({ error: { message: expect.stringContaining('group failed') } });
   });
 
   test('rejects missing tabIds', async () => {
@@ -415,6 +433,12 @@ describe('handleBrowserAddTabsToGroup', () => {
       error: { code: -32602 },
     });
   });
+
+  test('propagates chrome.tabs.group rejection', async () => {
+    mockTabsGroup.mockRejectedValueOnce(new Error('add failed'));
+    await handleBrowserAddTabsToGroup({ groupId: 5, tabIds: [1] }, 'req-84');
+    expect(firstSentMessage()).toMatchObject({ error: { message: expect.stringContaining('add failed') } });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -448,6 +472,12 @@ describe('handleBrowserRemoveTabsFromGroup', () => {
       error: { code: -32602 },
     });
   });
+
+  test('propagates chrome.tabs.ungroup rejection', async () => {
+    mockTabsUngroup.mockRejectedValueOnce(new Error('ungroup failed'));
+    await handleBrowserRemoveTabsFromGroup({ tabIds: [1] }, 'req-93');
+    expect(firstSentMessage()).toMatchObject({ error: { message: expect.stringContaining('ungroup failed') } });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -470,7 +500,7 @@ describe('handleBrowserUpdateTabGroup', () => {
     await handleBrowserUpdateTabGroup({ groupId: 3, title: 'Updated', color: 'green', collapsed: true }, 'req-100');
     expect(mockTabGroupsUpdate).toHaveBeenCalledWith(3, { title: 'Updated', color: 'green', collapsed: true });
     expect(firstSentMessage()).toMatchObject({
-      result: { groupId: 3, title: 'Updated', color: 'green', collapsed: true },
+      result: { groupId: 3, title: 'Updated', color: 'green', collapsed: true, windowId: 1 },
     });
   });
 
@@ -485,6 +515,22 @@ describe('handleBrowserUpdateTabGroup', () => {
     await handleBrowserUpdateTabGroup({ groupId: 3, color: 'rainbow' }, 'req-102');
     expect(firstSentMessage()).toMatchObject({
       error: { code: -32602 },
+    });
+  });
+
+  test('rejects empty update (no fields provided)', async () => {
+    await handleBrowserUpdateTabGroup({ groupId: 3 }, 'req-103');
+    expect(firstSentMessage()).toMatchObject({
+      error: { code: -32602, message: expect.stringContaining('At least one of title, color, or collapsed') },
+    });
+    expect(mockTabGroupsUpdate).not.toHaveBeenCalled();
+  });
+
+  test('propagates chrome.tabGroups.update rejection (e.g. group deleted)', async () => {
+    mockTabGroupsUpdate.mockRejectedValueOnce(new Error('No group with id: 99'));
+    await handleBrowserUpdateTabGroup({ groupId: 99, title: 'X' }, 'req-104');
+    expect(firstSentMessage()).toMatchObject({
+      error: { message: expect.stringContaining('No group with id: 99') },
     });
   });
 });

@@ -20,6 +20,10 @@
     "./browser-tools-catalog": {
       "types": "./dist/generated/browser-tools-catalog.d.ts",
       "import": "./dist/generated/browser-tools-catalog.js"
+    },
+    "./tab-group-colors": {
+      "types": "./dist/tab-group-colors.d.ts",
+      "import": "./dist/tab-group-colors.js"
     }
   },
   "types": "./dist/index.d.ts",

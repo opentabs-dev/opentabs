@@ -48,7 +48,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_create_tab_group',
     description:
-      'Create a new Chrome tab group from one or more tab IDs. Optionally set a title and color. Use browser_list_tabs to find tab IDs. Returns the new group ID, title, and color.',
+      'Create a new Chrome tab group from one or more tab IDs. Optionally set a title and color. Use browser_list_tabs to find tab IDs. Returns the new groupId, title, color, collapsed state, and windowId.',
     summary: 'Create a new tab group',
     icon: 'folder-plus',
     group: 'Tabs',
@@ -200,7 +200,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_list_tab_groups',
     description:
-      'List all Chrome tab groups across all connected browser profiles. Returns group ID, title, color, collapsed state, window ID, and connectionId for each group. Use the returned group IDs with browser_add_tabs_to_group, browser_update_tab_group, and browser_list_tabs_in_group.',
+      'List all Chrome tab groups across all connected browser profiles. Returns groupId, title, color, collapsed state, windowId, and connectionId for each group. Use the returned groupId with browser_add_tabs_to_group, browser_update_tab_group, and browser_list_tabs_in_group, and pass the connectionId in multi-profile setups so subsequent operations target the correct profile.',
     summary: 'List all tab groups',
     icon: 'layers',
     group: 'Tabs',
@@ -216,7 +216,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_list_tabs_in_group',
     description:
-      'List all tabs in a specific Chrome tab group. Returns tab ID, title, URL, active status, and window ID for each tab. Use browser_list_tab_groups to find group IDs.',
+      'List all tabs in a specific Chrome tab group. Returns tab ID, title, URL, active status, and window ID for each tab. Use browser_list_tab_groups to find group IDs and the owning connectionId. In multi-profile setups, pass the connectionId from browser_list_tab_groups so the query reaches the profile that owns the group.',
     summary: 'List tabs in a tab group',
     icon: 'list',
     group: 'Tabs',
@@ -303,7 +303,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_update_tab_group',
     description:
-      "Update a Chrome tab group's title, color, or collapsed state. Use browser_list_tab_groups to find group IDs.",
+      "Update a Chrome tab group's title, color, or collapsed state. At least one of title, color, or collapsed must be provided. Use browser_list_tab_groups to find group IDs and the owning connectionId. In multi-profile setups, pass the connectionId from browser_list_tab_groups so the update is dispatched to the correct browser profile.",
     summary: 'Update a tab group',
     icon: 'folder-pen',
     group: 'Tabs',
