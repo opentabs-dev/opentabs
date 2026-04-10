@@ -1,4 +1,4 @@
-import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
+import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, getUserId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities, RawMonthlySubcategoryBudget } from './schemas.js';
@@ -6,6 +6,7 @@ import {
   buildSubcategoryBudgetMap,
   buildSubcategoryCalcMap,
   categorySchema,
+  findCategory,
   formatMonthlyBudgetId,
   formatSubcategoryBudgetId,
   MONEY_MOVEMENT_SOURCE,
@@ -44,12 +45,7 @@ export const updateCategoryBudget = defineTool({
 
     const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
-    const category = (budget.changed_entities?.be_subcategories ?? []).find(
-      c => c.id === params.category_id && notTombstone(c),
-    );
-    if (!category) {
-      throw ToolError.notFound(`Category not found: ${params.category_id}`);
-    }
+    const category = findCategory(budget.changed_entities, params.category_id);
 
     const existingBudget = (budget.changed_entities?.be_monthly_subcategory_budgets ?? []).find(
       b => b.id === budgetId && notTombstone(b),

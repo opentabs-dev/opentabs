@@ -1,4 +1,4 @@
-import { log } from '@opentabs-dev/plugin-sdk';
+import { log, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
 // --- Currency formatting ---
@@ -14,6 +14,30 @@ export const toMilliunits = (amount: number): number => Math.round(amount * 1000
 export const notTombstone = <T extends { is_tombstone?: boolean }>(
   x: T,
 ): x is T & { is_tombstone?: false | undefined } => !x.is_tombstone;
+
+// --- Common entity lookups ---
+
+export const findCategory = (entities: BudgetEntities | undefined, id: string) => {
+  const c = (entities?.be_subcategories ?? []).find(s => s.id === id && notTombstone(s));
+  if (!c) throw ToolError.notFound(`Category not found: ${id}`);
+  return c;
+};
+
+export const findCategoryGroup = (entities: BudgetEntities | undefined, id: string) => {
+  const g = (entities?.be_master_categories ?? []).find(m => m.id === id && notTombstone(m));
+  if (!g) throw ToolError.notFound(`Category group not found: ${id}`);
+  return g;
+};
+
+// Returns a sortable_index strictly less than every existing index in `rows`,
+// so a freshly created entity sorts to the top of its container.
+export const nextTopSortableIndex = (rows: { sortable_index?: number }[], step = 10): number => {
+  let min = 0;
+  for (const r of rows) {
+    if (typeof r.sortable_index === 'number' && r.sortable_index < min) min = r.sortable_index;
+  }
+  return min - step;
+};
 
 // --- Shared output schemas ---
 
@@ -185,20 +209,38 @@ export interface RawCategoryGroup {
   id?: string;
   name?: string;
   is_hidden?: boolean | null;
+  internal_name?: string | null;
+  deletable?: boolean;
+  sortable_index?: number;
+  note?: string | null;
   is_tombstone?: boolean;
 }
 
 export interface RawCategory {
   id?: string;
   entities_master_category_id?: string;
+  entities_account_id?: string | null;
+  internal_name?: string | null;
+  sortable_index?: number;
   name?: string;
+  type?: string;
   is_hidden?: boolean | null;
   budgeted?: number;
   activity?: number;
   balance?: number;
   goal_type?: string | null;
   goal_target?: number | null;
+  goal_target_amount?: number | null;
+  goal_target_date?: string | null;
+  goal_created_on?: string | null;
+  goal_needs_whole_amount?: boolean | null;
+  goal_cadence?: number | null;
+  goal_cadence_frequency?: number | null;
+  goal_day?: number | null;
+  monthly_funding?: number | null;
   goal_percentage_complete?: number | null;
+  pinned_index?: number | null;
+  pinned_goal_index?: number | null;
   is_tombstone?: boolean;
   note?: string | null;
 }
@@ -270,6 +312,7 @@ export interface RawMonthlySubcategoryBudget {
   entities_monthly_budget_id?: string;
   entities_subcategory_id?: string;
   budgeted?: number;
+  goal_snoozed_at?: string | null;
   is_tombstone?: boolean;
 }
 
@@ -278,7 +321,8 @@ export interface RawMonthlySubcategoryBudgetCalc {
   balance?: number;
   cash_outflows?: number;
   credit_outflows?: number;
-  goal_target?: number | null;
+  // goal_target is intentionally not surfaced — it's the dynamically-computed
+  // "remaining to fund this month" which is misleading vs the configured target.
   goal_percentage_complete?: number | null;
 }
 
@@ -308,6 +352,23 @@ export const MONEY_MOVEMENT_SOURCE = {
   /** Category-to-category transfer. */
   MOVEMENT: 'manual_movement',
 } as const;
+
+export const GOAL_TYPE = {
+  /** "Set aside" or "Refill" — `goal_needs_whole_amount` differentiates. */
+  NEED: 'NEED',
+  /** "Have a balance of" — no date, no cadence. */
+  TARGET_BALANCE: 'TB',
+  /** "Have a balance of by date" — one-shot with `goal_target_date`. */
+  TARGET_BY_DATE: 'TBD',
+  /** Debt payment goals on debt-account categories. */
+  DEBT: 'DEBT',
+  /** Legacy "Monthly Funding". The modern UI no longer creates these but they
+      still exist on older categories and the API still honors them. */
+  MONTHLY_FUNDING: 'MF',
+} as const;
+
+/** YNAB's default category type for non-credit-card categories. */
+export const CATEGORY_TYPE_DEFAULT = 'DFT';
 
 // Entity ID prefixes used by the YNAB sync API.
 const SUBCATEGORY_BUDGET_PREFIX = 'mcb';
@@ -343,6 +404,170 @@ export const FLAG_MAP: Record<FlagColor, string> = {
   green: 'Green',
   blue: 'Blue',
   purple: 'Purple',
+};
+
+// --- Category goal types ---
+//
+// YNAB's modern UI exposes these goal kinds, all writing to be_subcategories:
+//   "Set aside"           → NEED with goal_needs_whole_amount=true  (recharges per cadence)
+//   "Refill"              → NEED with goal_needs_whole_amount=false (refills up to target)
+//   "Have a balance of"   → TB  (no date, no cadence)
+//   "Have a balance by date" → TBD (target_date, no cadence)
+// Legacy categories may carry MF (Monthly Funding); the modern UI no longer
+// creates new MF goals but the API still honors existing ones.
+//
+// Cadence wire encoding (verified by capturing the YNAB UI):
+//   goal_cadence: 1 = monthly, 2 = weekly, 13 = yearly
+//   goal_cadence_frequency: "every N" multiplier (default 1)
+//   goal_day: day-of-week (0=Sunday, 6=Saturday) for weekly,
+//             day-of-month (1-31) for monthly, unused for yearly
+//   goal_target_date: first occurrence date — required for yearly,
+//                     optional anchor for monthly with custom intervals
+
+export type GoalCadence = 'weekly' | 'monthly' | 'yearly';
+
+const cadenceWireValue: Record<GoalCadence, number> = {
+  weekly: 2,
+  monthly: 1,
+  yearly: 13,
+};
+
+const needGoalShape = {
+  target: z.number().positive().describe('Goal amount in currency units (e.g. 50 for $50)'),
+  cadence: z
+    .enum(['weekly', 'monthly', 'yearly'])
+    .optional()
+    .describe('How often the goal recurs. Defaults to monthly.'),
+  every: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe('Multiplier on cadence (e.g. cadence=monthly + every=5 means every 5 months). Defaults to 1.'),
+  day: z
+    .number()
+    .int()
+    .min(0)
+    .max(31)
+    .optional()
+    .describe('Day-of-week (0=Sunday, 6=Saturday) for weekly cadence, or day-of-month (1-31) for monthly cadence.'),
+  start_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+    .optional()
+    .describe('First occurrence date (YYYY-MM-DD). Required for yearly cadence; optional for others.'),
+} as const;
+
+// Yearly NEED goals require start_date (the first occurrence) since YNAB
+// can't infer the recurrence anchor without it.
+const yearlyNeedRefine = (data: { cadence?: GoalCadence; start_date?: string }, ctx: z.RefinementCtx): void => {
+  if (data.cadence === 'yearly' && !data.start_date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'start_date is required when cadence is "yearly"',
+      path: ['start_date'],
+    });
+  }
+};
+
+export const goalSpecSchema = z.discriminatedUnion('type', [
+  z
+    .object({ type: z.literal('set_aside'), ...needGoalShape })
+    .strict()
+    .superRefine(yearlyNeedRefine),
+  z
+    .object({ type: z.literal('refill'), ...needGoalShape })
+    .strict()
+    .superRefine(yearlyNeedRefine),
+  z
+    .object({
+      type: z.literal('target_balance'),
+      target: z.number().positive().describe('Balance to maintain in currency units'),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('target_by_date'),
+      target: z.number().positive().describe('Target balance to have by the given date in currency units'),
+      date: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+        .describe('Target date YYYY-MM-DD'),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('debt'),
+      target: z.number().positive().describe('Monthly payment amount in currency units'),
+      day: z
+        .number()
+        .int()
+        .min(1)
+        .max(31)
+        .optional()
+        .describe('Day of month the payment is due (1-31). Defaults to 1.'),
+    })
+    .strict(),
+  z.object({ type: z.literal('none') }).strict(),
+]);
+
+export type GoalSpec = z.infer<typeof goalSpecSchema>;
+
+const NO_GOAL_FIELDS = {
+  goal_type: null,
+  goal_created_on: null,
+  goal_needs_whole_amount: null,
+  goal_target_amount: 0,
+  goal_target_date: null,
+  goal_cadence: null,
+  goal_cadence_frequency: null,
+  goal_day: null,
+} as const;
+
+// Translate a high-level goal spec into the wire fields YNAB stores on a
+// be_subcategories row. Returns the goal-related fields only.
+export const buildGoalFields = (goal: GoalSpec | undefined): Partial<RawCategory> => {
+  if (!goal || goal.type === 'none') return { ...NO_GOAL_FIELDS };
+
+  // goal_created_on is the first day of the month the goal was created.
+  const now = new Date();
+  const createdOn = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const base = { ...NO_GOAL_FIELDS, goal_created_on: createdOn };
+
+  switch (goal.type) {
+    case 'set_aside':
+    case 'refill': {
+      const cadence = goal.cadence ?? 'monthly';
+      return {
+        ...base,
+        goal_type: GOAL_TYPE.NEED,
+        goal_needs_whole_amount: goal.type === 'set_aside',
+        goal_target_amount: toMilliunits(goal.target),
+        goal_cadence: cadenceWireValue[cadence],
+        goal_cadence_frequency: goal.every ?? 1,
+        goal_day: cadence === 'yearly' ? null : (goal.day ?? null),
+        goal_target_date: goal.start_date ?? null,
+      };
+    }
+    case 'target_balance':
+      return { ...base, goal_type: GOAL_TYPE.TARGET_BALANCE, goal_target_amount: toMilliunits(goal.target) };
+    case 'target_by_date':
+      return {
+        ...base,
+        goal_type: GOAL_TYPE.TARGET_BY_DATE,
+        goal_target_amount: toMilliunits(goal.target),
+        goal_target_date: goal.date,
+      };
+    case 'debt':
+      return {
+        ...base,
+        goal_type: GOAL_TYPE.DEBT,
+        goal_target_amount: toMilliunits(goal.target),
+        goal_cadence: cadenceWireValue.monthly,
+        goal_cadence_frequency: 1,
+        goal_day: goal.day ?? 1,
+      };
+  }
 };
 
 // --- Shared budget data types ---
@@ -461,7 +686,6 @@ export const mapCategoryForMonth = (
     budgeted: budget?.budgeted ?? c.budgeted,
     activity: (calc?.cash_outflows ?? 0) + (calc?.credit_outflows ?? 0),
     balance: calc?.balance ?? c.balance,
-    goal_target: calc?.goal_target ?? c.goal_target,
     goal_percentage_complete: calc?.goal_percentage_complete ?? c.goal_percentage_complete,
   });
 };
@@ -580,7 +804,15 @@ export const mapCategory = (c: RawCategory) => ({
   activity_milliunits: c.activity ?? 0,
   balance_milliunits: c.balance ?? 0,
   goal_type: c.goal_type ?? '',
-  goal_target: formatMilliunits(c.goal_target ?? 0),
+  // The "goal target" the user configured is stored on the category itself:
+  // - MF (legacy Monthly Funding): the static target lives in `monthly_funding`
+  // - All modern goal types (NEED, TB, TBD, DEBT): use `goal_target_amount`
+  // The calc's `goal_target` is YNAB's dynamically-computed "needed this month",
+  // which for refill goals returns max(0, target - current_balance) — surprising
+  // and not what users mean when they ask for the goal target.
+  goal_target: formatMilliunits(
+    (c.goal_type === GOAL_TYPE.MONTHLY_FUNDING ? c.monthly_funding : c.goal_target_amount) ?? 0,
+  ),
   goal_percentage_complete: c.goal_percentage_complete ?? 0,
 });
 
