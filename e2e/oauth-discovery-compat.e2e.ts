@@ -521,7 +521,7 @@ test.describe('MCP auth hardening — 405 for sessionless GET/DELETE', () => {
     }
   });
 
-  test('GET /mcp with invalid session ID returns 400', async () => {
+  test('GET /mcp with invalid session ID returns 404 per MCP spec', async () => {
     const server = await startMcpServer(configDir, true);
     try {
       await server.waitForHealth(h => h.status === 'ok');
@@ -536,7 +536,7 @@ test.describe('MCP auth hardening — 405 for sessionless GET/DELETE', () => {
         method: 'GET',
         headers,
       });
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(404);
     } finally {
       await server.kill();
     }
