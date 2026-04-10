@@ -138,7 +138,9 @@ export const commentSchema = z.object({
   content: z.string().describe('Comment text content'),
   created_time: z.string().describe('Comment creation time in ISO 8601 format'),
   modified_time: z.string().describe('Comment last modified time in ISO 8601 format'),
-  resolved: z.boolean().describe('Whether the comment thread is resolved'),
+  resolved: z
+    .boolean()
+    .describe('Whether the comment thread is resolved (closed). Resolved threads no longer need attention.'),
   quoted_text: z.string().describe('The document text this comment is anchored to'),
   replies: z.array(replySchema).describe('Replies in this comment thread'),
 });

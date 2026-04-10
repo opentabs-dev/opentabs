@@ -135,6 +135,23 @@ export const driveApi = <T>(
   } = {},
 ): Promise<T> => callApi<T>(`${DRIVE_API_BASE}${endpoint}`, options);
 
+export const driveApiRaw = async (
+  endpoint: string,
+  options: {
+    params?: Record<string, string | number | boolean | undefined>;
+  } = {},
+): Promise<string> => {
+  try {
+    const response = await gapiRequest<unknown>({
+      path: `${DRIVE_API_BASE}${endpoint}`,
+      params: options.params,
+    });
+    return response.body;
+  } catch (err: unknown) {
+    return classifyGapiError(endpoint, err);
+  }
+};
+
 export const driveApiVoid = async (
   endpoint: string,
   options: {
