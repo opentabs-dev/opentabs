@@ -7,10 +7,12 @@
  */
 
 import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared';
+import { addTabsToGroup } from './add-tabs-to-group.js';
 import { analyzeSiteTool } from './analyze-site.js';
 import { clearConsoleLogs } from './clear-console-logs.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
+import { createTabGroup } from './create-tab-group.js';
 import type { BrowserToolDefinition } from './definition.js';
 import { deleteCookies } from './delete-cookies.js';
 import { disableNetworkCapture } from './disable-network-capture.js';
@@ -35,18 +37,22 @@ import { getWebSocketFrames } from './get-websocket-frames.js';
 import { handleDialog } from './handle-dialog.js';
 import { hoverElement } from './hover-element.js';
 import { listResources } from './list-resources.js';
+import { listTabGroups } from './list-tab-groups.js';
 import { listTabs } from './list-tabs.js';
+import { listTabsInGroup } from './list-tabs-in-group.js';
 import { navigateTab } from './navigate-tab.js';
 import { openTab } from './open-tab.js';
 import { pluginListTabs } from './plugin-list-tabs.js';
 import { pressKey } from './press-key.js';
 import { queryElements } from './query-elements.js';
 import { reloadExtension } from './reload-extension.js';
+import { removeTabsFromGroup } from './remove-tabs-from-group.js';
 import { screenshotTab } from './screenshot-tab.js';
 import { scroll } from './scroll.js';
 import { selectOption } from './select-option.js';
 import { setCookie } from './set-cookie.js';
 import { typeText } from './type-text.js';
+import { updateTabGroup } from './update-tab-group.js';
 import { waitForElement } from './wait-for-element.js';
 
 const browserTools: BrowserToolDefinition[] = [
@@ -57,6 +63,12 @@ const browserTools: BrowserToolDefinition[] = [
   navigateTab,
   focusTab,
   getTabInfo,
+  listTabGroups,
+  createTabGroup,
+  addTabsToGroup,
+  removeTabsFromGroup,
+  updateTabGroup,
+  listTabsInGroup,
   executeScript,
   screenshotTab,
   getTabContent,

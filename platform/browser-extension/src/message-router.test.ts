@@ -22,6 +22,12 @@ const {
   mockHandleBrowserNavigateTab,
   mockHandleBrowserFocusTab,
   mockHandleBrowserGetTabInfo,
+  mockHandleBrowserListTabGroups,
+  mockHandleBrowserCreateTabGroup,
+  mockHandleBrowserAddTabsToGroup,
+  mockHandleBrowserRemoveTabsFromGroup,
+  mockHandleBrowserUpdateTabGroup,
+  mockHandleBrowserListTabsInGroup,
   mockHandleBrowserGetTabContent,
   mockHandleBrowserGetPageHtml,
   mockHandleBrowserGetStorage,
@@ -84,6 +90,24 @@ const {
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleBrowserGetTabInfo: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserListTabGroups: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserCreateTabGroup: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserAddTabsToGroup: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserRemoveTabsFromGroup: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserUpdateTabGroup: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserListTabsInGroup: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleBrowserGetTabContent: vi.fn(
@@ -247,6 +271,12 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserGetPageHtml: mockHandleBrowserGetPageHtml,
   handleBrowserGetStorage: mockHandleBrowserGetStorage,
   handleBrowserGetTabInfo: mockHandleBrowserGetTabInfo,
+  handleBrowserListTabGroups: mockHandleBrowserListTabGroups,
+  handleBrowserCreateTabGroup: mockHandleBrowserCreateTabGroup,
+  handleBrowserAddTabsToGroup: mockHandleBrowserAddTabsToGroup,
+  handleBrowserRemoveTabsFromGroup: mockHandleBrowserRemoveTabsFromGroup,
+  handleBrowserUpdateTabGroup: mockHandleBrowserUpdateTabGroup,
+  handleBrowserListTabsInGroup: mockHandleBrowserListTabsInGroup,
   handleBrowserScreenshotTab: mockHandleBrowserScreenshotTab,
   handleBrowserClickElement: mockHandleBrowserClickElement,
   handleBrowserTypeText: mockHandleBrowserTypeText,
@@ -1118,6 +1148,72 @@ describe('handleServerMessage', () => {
 
       expect(mockHandleBrowserGetTabInfo).toHaveBeenCalledTimes(1);
       expect(mockHandleBrowserGetTabInfo).toHaveBeenCalledWith({ tabId: 11 }, 26);
+    });
+
+    test('dispatches browser.listTabGroups to handleBrowserListTabGroups', () => {
+      handleServerMessage({
+        method: 'browser.listTabGroups',
+        id: 50,
+        params: {},
+      });
+
+      expect(mockHandleBrowserListTabGroups).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserListTabGroups).toHaveBeenCalledWith({}, 50);
+    });
+
+    test('dispatches browser.createTabGroup to handleBrowserCreateTabGroup', () => {
+      handleServerMessage({
+        method: 'browser.createTabGroup',
+        id: 51,
+        params: { tabIds: [1, 2], title: 'Test' },
+      });
+
+      expect(mockHandleBrowserCreateTabGroup).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserCreateTabGroup).toHaveBeenCalledWith({ tabIds: [1, 2], title: 'Test' }, 51);
+    });
+
+    test('dispatches browser.addTabsToGroup to handleBrowserAddTabsToGroup', () => {
+      handleServerMessage({
+        method: 'browser.addTabsToGroup',
+        id: 52,
+        params: { groupId: 5, tabIds: [10] },
+      });
+
+      expect(mockHandleBrowserAddTabsToGroup).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserAddTabsToGroup).toHaveBeenCalledWith({ groupId: 5, tabIds: [10] }, 52);
+    });
+
+    test('dispatches browser.removeTabsFromGroup to handleBrowserRemoveTabsFromGroup', () => {
+      handleServerMessage({
+        method: 'browser.removeTabsFromGroup',
+        id: 53,
+        params: { tabIds: [10, 20] },
+      });
+
+      expect(mockHandleBrowserRemoveTabsFromGroup).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserRemoveTabsFromGroup).toHaveBeenCalledWith({ tabIds: [10, 20] }, 53);
+    });
+
+    test('dispatches browser.updateTabGroup to handleBrowserUpdateTabGroup', () => {
+      handleServerMessage({
+        method: 'browser.updateTabGroup',
+        id: 54,
+        params: { groupId: 3, title: 'Updated' },
+      });
+
+      expect(mockHandleBrowserUpdateTabGroup).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserUpdateTabGroup).toHaveBeenCalledWith({ groupId: 3, title: 'Updated' }, 54);
+    });
+
+    test('dispatches browser.listTabsInGroup to handleBrowserListTabsInGroup', () => {
+      handleServerMessage({
+        method: 'browser.listTabsInGroup',
+        id: 55,
+        params: { groupId: 5 },
+      });
+
+      expect(mockHandleBrowserListTabsInGroup).toHaveBeenCalledTimes(1);
+      expect(mockHandleBrowserListTabsInGroup).toHaveBeenCalledWith({ groupId: 5 }, 55);
     });
 
     test('dispatches browser.getTabContent to handleBrowserGetTabContent', () => {
