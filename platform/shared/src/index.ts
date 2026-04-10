@@ -16,6 +16,12 @@ export {
 } from './generated/browser-tools-catalog.js';
 
 // ---------------------------------------------------------------------------
+// Chrome tab group colors — single source of truth
+// ---------------------------------------------------------------------------
+
+export { isTabGroupColor, TAB_GROUP_COLORS, type TabGroupColor } from './tab-group-colors.js';
+
+// ---------------------------------------------------------------------------
 // Cross-platform utilities
 // ---------------------------------------------------------------------------
 

@@ -43,10 +43,16 @@ export {
 } from './resource-commands.js';
 export { handleBrowserScroll } from './scroll-command.js';
 export {
+  handleBrowserAddTabsToGroup,
   handleBrowserCloseTab,
+  handleBrowserCreateTabGroup,
   handleBrowserFocusTab,
   handleBrowserGetTabInfo,
+  handleBrowserListTabGroups,
   handleBrowserListTabs,
+  handleBrowserListTabsInGroup,
   handleBrowserNavigateTab,
   handleBrowserOpenTab,
+  handleBrowserRemoveTabsFromGroup,
+  handleBrowserUpdateTabGroup,
 } from './tab-commands.js';

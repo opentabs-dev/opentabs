@@ -130,6 +130,47 @@ export const sendValidationError = (id: string | number, message: string): void 
   });
 };
 
+/**
+ * Validates that `params.groupId` is a non-negative integer.
+ * Sends a JSONRPC_INVALID_PARAMS error if invalid, returning `null`.
+ */
+export const requireGroupId = (params: Record<string, unknown>, id: string | number): number | null => {
+  const groupId = params.groupId;
+  if (typeof groupId !== 'number' || !Number.isInteger(groupId) || groupId < 0) {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: { code: JSONRPC_INVALID_PARAMS, message: 'Missing or invalid groupId parameter' },
+      id,
+    });
+    return null;
+  }
+  return groupId;
+};
+
+/**
+ * Validates that `params.tabIds` is a non-empty array of positive integers.
+ * Sends a JSONRPC_INVALID_PARAMS error if invalid, returning `null`.
+ */
+export const requireTabIds = (params: Record<string, unknown>, id: string | number): [number, ...number[]] | null => {
+  const tabIds = params.tabIds;
+  if (
+    !Array.isArray(tabIds) ||
+    tabIds.length === 0 ||
+    !tabIds.every((v): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0)
+  ) {
+    sendToServer({
+      jsonrpc: '2.0',
+      error: {
+        code: JSONRPC_INVALID_PARAMS,
+        message: 'Missing or invalid tabIds parameter (expected non-empty array of positive integers)',
+      },
+      id,
+    });
+    return null;
+  }
+  return tabIds as [number, ...number[]];
+};
+
 /** Sends a JSON-RPC 2.0 success response. */
 export const sendSuccessResult = (id: string | number, result: unknown): void => {
   sendToServer({ jsonrpc: '2.0', result, id });
