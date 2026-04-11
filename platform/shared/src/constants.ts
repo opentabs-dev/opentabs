@@ -108,6 +108,37 @@ export const normalizePluginName = (name: string): string => {
   return candidates[0] ?? `@opentabs-dev/${PLUGIN_PREFIX}${name}`;
 };
 
+/**
+ * Derive the canonical plugin ID from an npm package name.
+ *
+ * The official `@opentabs-dev` scope is stripped (treated as unscoped). All
+ * other scopes are prepended with a hyphen separator. The `opentabs-plugin-`
+ * prefix is removed from the package name in all cases.
+ *
+ * Examples:
+ *   "opentabs-plugin-slack"                    → "slack"
+ *   "@opentabs-dev/opentabs-plugin-e2e-test"   → "e2e-test"
+ *   "@myorg/opentabs-plugin-jira"              → "myorg-jira"
+ */
+export const pluginNameFromPackage = (pkgName: string): string => {
+  const prefixPattern = new RegExp(`^${PLUGIN_PREFIX}`);
+  if (pkgName.startsWith('@')) {
+    const parts = pkgName.split('/');
+    const scopePart = parts[0] ?? '';
+    const namePart = parts[1] ?? '';
+    const pluginSuffix = namePart.replace(prefixPattern, '');
+
+    // Official scope is invisible — treat like an unscoped package
+    if (scopePart === '@opentabs-dev') {
+      return pluginSuffix;
+    }
+
+    const scope = scopePart.slice(1);
+    return `${scope}-${pluginSuffix}`;
+  }
+  return pkgName.replace(prefixPattern, '');
+};
+
 // ---------------------------------------------------------------------------
 // Cryptography
 // ---------------------------------------------------------------------------

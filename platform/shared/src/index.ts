@@ -58,6 +58,7 @@ export {
   normalizePluginName,
   PLATFORM_PACKAGES,
   PLUGIN_PREFIX,
+  pluginNameFromPackage,
   resolvePluginPackageCandidates,
   TOOLS_FILENAME,
 } from './constants.js';

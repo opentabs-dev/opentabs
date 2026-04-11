@@ -18,8 +18,8 @@ import {
   BROWSER_TOOLS_CATALOG,
   err,
   ok,
-  PLUGIN_PREFIX,
   parsePluginPackageJson,
+  pluginNameFromPackage,
   TOOLS_FILENAME,
   validatePluginName,
   validateUrlPattern,
@@ -64,32 +64,6 @@ interface LoadedPlugin {
   /** Optional config schema from tools.json manifest */
   readonly configSchema: ConfigSchema | undefined;
 }
-
-/**
- * Extract the internal plugin name from an npm package name.
- *
- * Unscoped:                opentabs-plugin-slack                      → slack
- * Official @opentabs-dev:  @opentabs-dev/opentabs-plugin-e2e-test     → e2e-test
- * Third-party scope:       @myorg/opentabs-plugin-jira                → myorg-jira
- */
-const pluginNameFromPackage = (pkgName: string): string => {
-  const prefixPattern = new RegExp(`^${PLUGIN_PREFIX}`);
-  if (pkgName.startsWith('@')) {
-    const parts = pkgName.split('/');
-    const scopePart = parts[0] ?? '';
-    const namePart = parts[1] ?? '';
-    const pluginSuffix = namePart.replace(prefixPattern, '');
-
-    // Official scope is invisible — treat like an unscoped package
-    if (scopePart === '@opentabs-dev') {
-      return pluginSuffix;
-    }
-
-    const scope = scopePart.slice(1);
-    return `${scope}-${pluginSuffix}`;
-  }
-  return pkgName.replace(prefixPattern, '');
-};
 
 /**
  * Check plugin tool descriptions for references to browser tool names.

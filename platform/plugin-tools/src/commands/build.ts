@@ -25,6 +25,7 @@ import {
   getConfigDir,
   getConfigPath,
   parsePluginPackageJson,
+  pluginNameFromPackage,
   TOOLS_FILENAME,
   toErrorMessage,
 } from '@opentabs-dev/shared';
@@ -1126,7 +1127,19 @@ const runBuild = async (projectDir: string): Promise<void> => {
   const distDir = join(projectDir, 'dist');
   mkdirSync(distDir, { recursive: true });
 
-  await bundleIIFE(sourceEntry, distDir, plugin.name);
+  // Derive the canonical adapter key from the npm package name — this must
+  // match what the MCP server derives via pluginNameFromPackage() so the
+  // extension can look up the right adapter in globalThis.__openTabs.adapters.
+  const derivedName = pluginNameFromPackage(pkgJson.name);
+  if (plugin.name !== derivedName) {
+    console.warn(
+      pc.yellow(
+        `Warning: plugin class name "${plugin.name}" does not match the name derived from package.json ("${derivedName}"). The adapter will be registered as "${derivedName}". Update the plugin class name to avoid confusion.`,
+      ),
+    );
+  }
+
+  await bundleIIFE(sourceEntry, distDir, derivedName);
   // Read the bundled IIFE. esbuild appends a //# sourceMappingURL= comment at
   // the end when sourcemap:'linked' is used. Strip it so we can move it to the
   // very end of the file (after hashAndFreeze), keeping the source map reference
@@ -1155,7 +1168,7 @@ const runBuild = async (projectDir: string): Promise<void> => {
   // finds it at the end of the file, as required by the source map spec.
   // The '__adapterHash' property name must match ADAPTER_HASH_PROP in
   // platform/browser-extension/src/constants.ts.
-  const safeName = jsStringLiteral(plugin.name);
+  const safeName = jsStringLiteral(derivedName);
   const safeHash = jsStringLiteral(adapterHash);
   const hashAndFreeze = `(function(){var o=(globalThis).__openTabs;if(o&&o.adapters&&o.adapters[${safeName}]){var a=o.adapters[${safeName}];a.__adapterHash=${safeHash};if(a.tools&&Array.isArray(a.tools)){for(var i=0;i<a.tools.length;i++){Object.freeze(a.tools[i]);}Object.freeze(a.tools);}Object.freeze(a);Object.defineProperty(o.adapters,${safeName},{value:a,writable:false,configurable:false,enumerable:true});Object.defineProperty(o,"adapters",{value:o.adapters,writable:false,configurable:false});}})();`;
   await writeFile(iifePath, iifeContent + hashAndFreeze + sourceMappingUrlSuffix, 'utf-8');
