@@ -1,5 +1,6 @@
+import { pluginNameFromPackage } from '@opentabs-dev/shared';
 import { describe, expect, test } from 'vitest';
-import { checkBrowserToolReferences, pluginNameFromPackage } from './loader.js';
+import { checkBrowserToolReferences } from './loader.js';
 
 describe('pluginNameFromPackage', () => {
   test('strips opentabs-plugin- prefix from unscoped package', () => {
