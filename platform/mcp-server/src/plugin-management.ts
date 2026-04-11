@@ -18,9 +18,9 @@ import {
   isWindows,
   normalizePluginName,
   PLATFORM_PACKAGES,
+  pluginNameFromPackage,
   resolvePluginPackageCandidates,
 } from '@opentabs-dev/shared';
-import { pluginNameFromPackage } from './loader.js';
 import { log } from './logger.js';
 import type { RegisteredPlugin, ServerState } from './state.js';
 

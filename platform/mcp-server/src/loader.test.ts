@@ -1,8 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pluginNameFromPackage } from '@opentabs-dev/shared';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { checkSdkCompatibility, loadPlugin, parseMajorMinor, pluginNameFromPackage, validateTools } from './loader.js';
+import { checkSdkCompatibility, loadPlugin, parseMajorMinor, validateTools } from './loader.js';
 
 /**
  * Unit tests for the plugin loader module.

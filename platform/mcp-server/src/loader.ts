@@ -429,6 +429,5 @@ export {
   extractToolsArray,
   loadPlugin,
   parseMajorMinor,
-  pluginNameFromPackage,
   validateTools,
 };
