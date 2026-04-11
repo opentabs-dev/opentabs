@@ -4,13 +4,12 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { normalizePluginName, resolvePluginPackageCandidates } from '@opentabs-dev/shared';
+import { normalizePluginName, pluginNameFromPackage, resolvePluginPackageCandidates } from '@opentabs-dev/shared';
 import type { MockInstance } from 'vitest';
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   buildDirectLookupCandidates,
   findPluginDir,
-  pluginNameFromPackage,
   readLocalPluginInfo,
   readPluginConfigSchema,
   removeFromLocalPlugins,

@@ -14,6 +14,7 @@ import {
   normalizePluginName,
   PLATFORM_PACKAGES,
   PLUGIN_PREFIX,
+  pluginNameFromPackage,
   resolvePluginPackageCandidates,
   TOOLS_FILENAME,
   toErrorMessage,
@@ -689,24 +690,6 @@ const handlePluginList = async (options: PluginListOptions): Promise<void> => {
 };
 
 // --- Configure handler ---
-
-/**
- * Derive the short plugin name from a package name.
- * Mirrors pluginNameFromPackage in mcp-server/src/loader.ts.
- */
-const pluginNameFromPackage = (pkgName: string): string => {
-  const prefixPattern = new RegExp(`^${PLUGIN_PREFIX}`);
-  if (pkgName.startsWith('@')) {
-    const parts = pkgName.split('/');
-    const scopePart = parts[0] ?? '';
-    const namePart = parts[1] ?? '';
-    const pluginSuffix = namePart.replace(prefixPattern, '');
-    if (scopePart === '@opentabs-dev') return pluginSuffix;
-    const scope = scopePart.slice(1);
-    return `${scope}-${pluginSuffix}`;
-  }
-  return pkgName.replace(prefixPattern, '');
-};
 
 /**
  * Find a plugin directory on disk by scanning local plugins and global npm.
