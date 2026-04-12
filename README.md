@@ -24,9 +24,9 @@
 
 Your AI calls the same internal APIs that web apps call.
 Through your browser. Using your existing session.
-No screenshots. No DOM scraping. Just real API calls.
+No screenshots, no DOM scraping — just real API calls.
 
-Works with Claude Code, Cursor, Windsurf, and any [MCP](https://modelcontextprotocol.io/) client.
+Works with any [MCP](https://modelcontextprotocol.io/) client — Claude Code, Cursor, Windsurf, and more.
 Don't want MCP? Use [CLI mode](https://opentabs.dev/docs/reference/mcp-server#cli-mode) — every tool becomes a shell command.
 
 <figure>
