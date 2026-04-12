@@ -1,11 +1,12 @@
-import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
+import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, getUserId, syncBudget, syncWrite } from '../ynab-api.js';
-import type { BudgetEntities, RawCategory, RawMonthlySubcategoryBudget } from './schemas.js';
+import type { BudgetEntities, RawMonthlySubcategoryBudget } from './schemas.js';
 import {
   buildSubcategoryBudgetMap,
   buildSubcategoryCalcMap,
   categorySchema,
+  findCategory,
   formatMonthlyBudgetId,
   formatSubcategoryBudgetId,
   MONEY_MOVEMENT_SOURCE,
@@ -53,19 +54,15 @@ export const moveCategoryBudget = defineTool({
 
     const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
-    const subcategories = budget.changed_entities?.be_subcategories ?? [];
     const existingBudgets = budget.changed_entities?.be_monthly_subcategory_budgets ?? [];
 
-    const findCategory = (id: string): RawCategory & { id: string } => {
-      const c = subcategories.find(s => s.id === id && notTombstone(s));
-      if (!c?.id) throw ToolError.notFound(`Category not found: ${id}`);
-      return { ...c, id: c.id };
-    };
-    const fromCategory = params.from_category_id ? findCategory(params.from_category_id) : null;
-    const toCategory = params.to_category_id ? findCategory(params.to_category_id) : null;
+    const fromCategoryId = params.from_category_id;
+    const toCategoryId = params.to_category_id;
+    const fromCategory = fromCategoryId ? findCategory(budget.changed_entities, fromCategoryId) : null;
+    const toCategory = toCategoryId ? findCategory(budget.changed_entities, toCategoryId) : null;
 
-    const fromBudgetId = fromCategory ? formatSubcategoryBudgetId(monthKey, fromCategory.id) : null;
-    const toBudgetId = toCategory ? formatSubcategoryBudgetId(monthKey, toCategory.id) : null;
+    const fromBudgetId = fromCategoryId ? formatSubcategoryBudgetId(monthKey, fromCategoryId) : null;
+    const toBudgetId = toCategoryId ? formatSubcategoryBudgetId(monthKey, toCategoryId) : null;
 
     const buildEntry = (categoryId: string, budgetId: string, signedDelta: number): RawMonthlySubcategoryBudget => {
       const current = existingBudgets.find(b => b.id === budgetId && notTombstone(b))?.budgeted ?? 0;
@@ -79,10 +76,10 @@ export const moveCategoryBudget = defineTool({
     };
 
     const budgetEntries: RawMonthlySubcategoryBudget[] = [];
-    if (fromCategory && fromBudgetId) budgetEntries.push(buildEntry(fromCategory.id, fromBudgetId, -milliunits));
-    if (toCategory && toBudgetId) budgetEntries.push(buildEntry(toCategory.id, toBudgetId, milliunits));
+    if (fromCategoryId && fromBudgetId) budgetEntries.push(buildEntry(fromCategoryId, fromBudgetId, -milliunits));
+    if (toCategoryId && toBudgetId) budgetEntries.push(buildEntry(toCategoryId, toBudgetId, milliunits));
 
-    const source = fromCategory && toCategory ? MONEY_MOVEMENT_SOURCE.MOVEMENT : MONEY_MOVEMENT_SOURCE.ASSIGN;
+    const source = fromCategoryId && toCategoryId ? MONEY_MOVEMENT_SOURCE.MOVEMENT : MONEY_MOVEMENT_SOURCE.ASSIGN;
 
     const result = await syncWrite<BudgetEntities>(
       planId,

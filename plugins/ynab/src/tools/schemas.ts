@@ -29,6 +29,24 @@ export const findCategoryGroup = (entities: BudgetEntities | undefined, id: stri
   return g;
 };
 
+// Default-deny: only allow writes when YNAB explicitly marks the group as deletable.
+// Internal groups (Credit Card Payments, Hidden Categories, Internal Master Category)
+// either have deletable=false or omit the field entirely.
+export const assertCategoryGroupDeletable = (group: RawCategoryGroup): void => {
+  if (group.deletable !== true) {
+    throw ToolError.validation(`Category group "${group.name}" is not deletable.`);
+  }
+};
+
+// Only user-created default categories can be deleted. Credit card payment
+// categories (type DBT) and account-linked categories (entities_account_id set)
+// are system-managed and must not be tombstoned.
+export const assertCategoryDeletable = (category: RawCategory): void => {
+  if (category.entities_account_id != null || category.type !== CATEGORY_TYPE_DEFAULT) {
+    throw ToolError.validation(`Category "${category.name}" is system-managed and cannot be deleted.`);
+  }
+};
+
 // Returns a sortable_index strictly less than every existing index in `rows`,
 // so a freshly created entity sorts to the top of its container.
 export const nextTopSortableIndex = (rows: { sortable_index?: number }[], step = 10): number => {
@@ -432,6 +450,16 @@ const cadenceWireValue: Record<GoalCadence, number> = {
   yearly: 13,
 };
 
+const isValidCalendarDate = (s: string): boolean => {
+  const parts = s.split('-').map(Number);
+  const year = parts[0] ?? 0;
+  const month = parts[1] ?? 0;
+  const day = parts[2] ?? 0;
+  if (month < 1 || month > 12) return false;
+  const maxDay = new Date(year, month, 0).getDate();
+  return day >= 1 && day <= maxDay;
+};
+
 const needGoalShape = {
   target: z.number().positive().describe('Goal amount in currency units (e.g. 50 for $50)'),
   cadence: z
@@ -454,6 +482,7 @@ const needGoalShape = {
   start_date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+    .refine(isValidCalendarDate, 'Date must be a valid calendar date')
     .optional()
     .describe('First occurrence date (YYYY-MM-DD). Required for yearly cadence; optional for others.'),
 } as const;
@@ -470,15 +499,41 @@ const yearlyNeedRefine = (data: { cadence?: GoalCadence; start_date?: string }, 
   }
 };
 
+const needCadenceDayRefine = (data: { cadence?: GoalCadence; day?: number }, ctx: z.RefinementCtx): void => {
+  if (data.day === undefined) return;
+  const cadence = data.cadence ?? 'monthly';
+  if (cadence === 'weekly' && (data.day < 0 || data.day > 6)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'For weekly cadence, day must be 0–6 (0=Sunday, 6=Saturday)',
+      path: ['day'],
+    });
+  } else if (cadence === 'monthly' && (data.day < 1 || data.day > 31)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'For monthly cadence, day must be 1–31',
+      path: ['day'],
+    });
+  } else if (cadence === 'yearly') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'For yearly cadence, use start_date to set the recurrence anchor instead of day',
+      path: ['day'],
+    });
+  }
+};
+
 export const goalSpecSchema = z.discriminatedUnion('type', [
   z
     .object({ type: z.literal('set_aside'), ...needGoalShape })
     .strict()
-    .superRefine(yearlyNeedRefine),
+    .superRefine(yearlyNeedRefine)
+    .superRefine(needCadenceDayRefine),
   z
     .object({ type: z.literal('refill'), ...needGoalShape })
     .strict()
-    .superRefine(yearlyNeedRefine),
+    .superRefine(yearlyNeedRefine)
+    .superRefine(needCadenceDayRefine),
   z
     .object({
       type: z.literal('target_balance'),
@@ -492,6 +547,7 @@ export const goalSpecSchema = z.discriminatedUnion('type', [
       date: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD')
+        .refine(isValidCalendarDate, 'Date must be a valid calendar date')
         .describe('Target date YYYY-MM-DD'),
     })
     .strict(),
@@ -619,7 +675,9 @@ export const resolvePayee = (
 // --- Calculation map builders ---
 
 export const buildAccountCalcMap = (entities: BudgetEntities) =>
-  new Map((entities.be_account_calculations ?? []).map(c => [c.entities_account_id, c]));
+  new Map(
+    (entities.be_account_calculations ?? []).filter(c => c.entities_account_id).map(c => [c.entities_account_id, c]),
+  );
 
 // Entity ID format: "mb/YYYY-MM/<planId>" — key by YYYY-MM
 export const buildMonthlyBudgetCalcMap = (calcs: RawMonthlyBudgetCalc[]) => {

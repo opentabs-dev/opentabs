@@ -2,7 +2,7 @@ import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
-import { findCategory } from './schemas.js';
+import { assertCategoryDeletable, findCategory } from './schemas.js';
 
 export const deleteCategory = defineTool({
   name: 'delete_category',
@@ -24,6 +24,7 @@ export const deleteCategory = defineTool({
     const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
     const existing = findCategory(budget.changed_entities, params.category_id);
+    assertCategoryDeletable(existing);
 
     await syncWrite<BudgetEntities>(
       planId,
