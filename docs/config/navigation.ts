@@ -68,11 +68,5 @@ export const navConfig: INavigationConfig = {
         { title: 'Publishing', href: '/docs/contributing/publishing' },
       ],
     },
-    {
-      title: 'Legal',
-      children: [
-        { title: 'Disclaimer', href: '/docs/legal/disclaimer' },
-      ],
-    },
   ],
 };

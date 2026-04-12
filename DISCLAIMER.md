@@ -1,8 +1,4 @@
----
-title: Disclaimer
-description: Legal disclaimer for OpenTabs — third-party trademarks, liability, and usage terms.
-lastUpdated: 2026-04-12
----
+# Disclaimer
 
 ## Third-Party Services
 
@@ -12,7 +8,7 @@ Plugins access third-party services through the user's own authenticated browser
 
 ## No Warranty
 
-OpenTabs is provided "as is" under the [MIT License](https://github.com/opentabs-dev/opentabs/blob/main/LICENSE), without warranty of any kind, express or implied. The authors are not liable for any damages arising from use of this software.
+OpenTabs is provided "as is" under the [MIT License](LICENSE), without warranty of any kind, express or implied. The authors are not liable for any damages arising from use of this software.
 
 ## User Responsibility
 
@@ -20,4 +16,4 @@ You are responsible for complying with the terms of service of any third-party s
 
 ## Data and Privacy
 
-OpenTabs runs entirely on your local machine. No data is sent to OpenTabs servers. Anonymous, opt-out [telemetry](/docs/reference/telemetry) collects only non-identifiable usage metrics (OS, Node version, plugin count). No tool calls, credentials, or personal data are collected.
+OpenTabs runs entirely on your local machine. No data is sent to OpenTabs servers. Anonymous, opt-out [telemetry](https://opentabs.dev/docs/reference/telemetry) collects only non-identifiable usage metrics (OS, Node version, plugin count). No tool calls, credentials, or personal data are collected.

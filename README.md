@@ -88,7 +88,7 @@ npm run check     # build + type-check + lint + knip + test
 
 ## License
 
-[MIT](LICENSE) — Not affiliated with or endorsed by any third-party service. [Full disclaimer](https://opentabs.dev/docs/legal/disclaimer).
+[MIT](LICENSE) — Not affiliated with or endorsed by any third-party service. [Full disclaimer](DISCLAIMER.md).
 
 ---
 
