@@ -19,7 +19,7 @@ const config: KnipConfig = {
     },
     'platform/plugin-sdk': {},
     'platform/cli': {
-      entry: ['src/**/*.test.ts'],
+      entry: ['src/**/*.test.ts', 'src/version-info.ts'],
       ignoreDependencies: [
         // Referenced as a string literal in scaffolded package.json output, not a static import
         '@opentabs-dev/plugin-tools',
