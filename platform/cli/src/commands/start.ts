@@ -31,6 +31,7 @@ import {
   readConfig,
 } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
+import { getCliVersion, getMcpServerVersion } from '../version-info.js';
 import { installExtension } from './setup.js';
 
 interface StreamingProcess {
@@ -398,8 +399,11 @@ const handleStart = async (options: StartOptions): Promise<void> => {
 
   const logFilePath = getLogFilePath();
 
+  const [cliVersion, serverVersion] = await Promise.all([getCliVersion(), getMcpServerVersion()]);
+
   const printStartupHeader = (): void => {
     console.log(`Starting OpenTabs MCP server on port ${pc.bold(String(port))}...`);
+    console.log(`  ${pc.cyan('Server:'.padEnd(15))}${serverVersion ? `v${serverVersion}` : 'unknown'}`);
     console.log('');
     const label = (s: string) => `  ${pc.cyan(s.padEnd(15))}`;
     console.log(`${label('MCP endpoint:')}http://127.0.0.1:${port}/mcp`);
@@ -407,6 +411,14 @@ const handleStart = async (options: StartOptions): Promise<void> => {
     console.log(`${label('Health check:')}http://127.0.0.1:${port}/health`);
     console.log(`${label('Log file:')}${logFilePath}`);
     console.log('');
+  };
+
+  const printVersionWarning = (): void => {
+    if (cliVersion && serverVersion && cliVersion !== serverVersion) {
+      console.log(pc.yellow(`  Warning: CLI version (v${cliVersion}) does not match MCP server (v${serverVersion}).`));
+      console.log(pc.dim('  Run: npm install -g @opentabs-dev/cli@latest'));
+      console.log('');
+    }
   };
 
   const printSetupHints = (): void => {
@@ -507,6 +519,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
     }
 
     printStartupHeader();
+    printVersionWarning();
     printSetupHints();
     await showTelemetryNoticeIfNeeded();
 
@@ -518,6 +531,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   }
 
   printStartupHeader();
+  printVersionWarning();
   printSetupHints();
   await showTelemetryNoticeIfNeeded();
 
