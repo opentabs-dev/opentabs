@@ -10,6 +10,7 @@ import { access, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { EXTENSION_COPY_EXCLUDE_PATTERN } from '@opentabs-dev/shared';
+import { getCliVersion } from '../version-info.js';
 
 const resolveExtensionDir = (): string => {
   try {
@@ -18,12 +19,6 @@ const resolveExtensionDir = (): string => {
     const cliDir = dirname(fileURLToPath(import.meta.url));
     return resolve(cliDir, '..', '..', '..', 'browser-extension');
   }
-};
-
-const getCliVersion = async (): Promise<string> => {
-  const cliPkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
-  const pkgJson = JSON.parse(await readFile(cliPkgPath, 'utf-8')) as { version: string };
-  return pkgJson.version;
 };
 
 interface InstallExtensionResult {

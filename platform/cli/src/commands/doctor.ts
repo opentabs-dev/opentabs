@@ -6,8 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { access, readFile, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { ADAPTER_FILENAME, DEFAULT_HOST, TOOLS_FILENAME } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
@@ -22,6 +21,7 @@ import {
   resolvePluginPath,
 } from '../config.js';
 import { parsePort, resolvePort } from '../parse-port.js';
+import { getCliVersion, getMcpServerVersion } from '../version-info.js';
 
 interface DoctorOptions {
   port?: number;
@@ -152,13 +152,9 @@ const checkExtensionInstalled = async (): Promise<{ result: CheckResult; version
 };
 
 const checkExtensionVersion = async (installedVersion: string | null): Promise<CheckResult> => {
-  const cliDir = dirname(fileURLToPath(import.meta.url));
-  let cliVersion = 'unknown';
+  let cliVersion: string;
   try {
-    const pkgJson = JSON.parse(await readFile(join(cliDir, '..', '..', 'package.json'), 'utf-8')) as {
-      version: string;
-    };
-    cliVersion = pkgJson.version;
+    cliVersion = await getCliVersion();
   } catch {
     return warn(
       'Extension version',
@@ -179,6 +175,22 @@ const checkExtensionVersion = async (installedVersion: string | null): Promise<C
     'Extension version',
     `v${installedVersion} (CLI is v${cliVersion})`,
     'Restart opentabs start to update the extension',
+  );
+};
+
+const checkMcpServerVersion = async (): Promise<CheckResult> => {
+  const cliVersion = await getCliVersion();
+  const serverVersion = await getMcpServerVersion();
+  if (!serverVersion) {
+    return warn('MCP server version', 'could not read version', 'Ensure @opentabs-dev/mcp-server is installed');
+  }
+  if (serverVersion === cliVersion) {
+    return pass('MCP server version', `v${serverVersion} (matches CLI)`);
+  }
+  return warn(
+    'MCP server version',
+    `v${serverVersion} (CLI is v${cliVersion})`,
+    'Run: npm install -g @opentabs-dev/cli@latest',
   );
 };
 
@@ -489,24 +501,27 @@ const handleDoctor = async (options: DoctorOptions): Promise<void> => {
   }
   results.push(augmentedServerResult);
 
-  // 6. Extension connected
+  // 6. MCP server package version
+  results.push(await checkMcpServerVersion());
+
+  // 7. Extension connected
   results.push(checkExtensionConnected(healthData));
 
-  // 7. Extension installed
+  // 8. Extension installed
   const { result: installedResult, versionFile } = await checkExtensionInstalled();
   results.push(installedResult);
 
-  // 8. Extension version matches CLI
+  // 9. Extension version matches CLI
   results.push(await checkExtensionVersion(versionFile));
 
-  // 9. MCP client config
+  // 10. MCP client config
   results.push(await checkMcpClientConfig());
 
-  // 10. Local plugin checks
+  // 11. Local plugin checks
   const pluginResults = await checkPlugins(config);
   results.push(...pluginResults);
 
-  // 11. npm plugin health (from server /health data)
+  // 12. npm plugin health (from server /health data)
   results.push(...checkNpmPlugins(healthData));
 
   // Print results
@@ -562,6 +577,7 @@ export {
   checkConfigFile,
   checkExtensionConnected,
   checkMcpClientConfig,
+  checkMcpServerVersion,
   checkNpmPlugins,
   checkPlugins,
   checkRuntime,

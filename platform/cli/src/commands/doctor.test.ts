@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, afterEach, describe, expect, test, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { CheckResult } from './doctor.js';
 import {
   checkAuthSecret,
@@ -12,6 +12,7 @@ import {
   checkConfigFile,
   checkExtensionConnected,
   checkMcpClientConfig,
+  checkMcpServerVersion,
   checkNpmPlugins,
   checkPlugins,
   checkRuntime,
@@ -19,6 +20,10 @@ import {
   defaultMcpClientLocations,
   isCwdProjectDirectory,
 } from './doctor.js';
+
+vi.mock('../version-info.js');
+
+import { getCliVersion, getMcpServerVersion } from '../version-info.js';
 
 /** Create a test HTTP server listening on a random port. Returns { port, close }. */
 const createTestServer = (
@@ -864,5 +869,52 @@ describe('defaultMcpClientLocations', () => {
     } finally {
       rmSync(projectDir, { recursive: true, force: true });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkMcpServerVersion
+// ---------------------------------------------------------------------------
+
+describe('checkMcpServerVersion', () => {
+  beforeEach(() => {
+    vi.mocked(getCliVersion).mockResolvedValue('1.0.0');
+    vi.mocked(getMcpServerVersion).mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test('returns warn when MCP server version is unreadable', async () => {
+    vi.mocked(getMcpServerVersion).mockResolvedValue(null);
+    const result: CheckResult = await checkMcpServerVersion();
+    expect(result.ok).toBe(false);
+    expect(result.fatal).toBe(false);
+    expect(result.label).toBe('MCP server version');
+    expect(result.detail).toContain('could not read version');
+    expect(result.hint).toContain('@opentabs-dev/mcp-server');
+  });
+
+  test('returns pass when server version matches CLI version', async () => {
+    vi.mocked(getCliVersion).mockResolvedValue('1.2.3');
+    vi.mocked(getMcpServerVersion).mockResolvedValue('1.2.3');
+    const result: CheckResult = await checkMcpServerVersion();
+    expect(result.ok).toBe(true);
+    expect(result.label).toBe('MCP server version');
+    expect(result.detail).toContain('v1.2.3');
+    expect(result.detail).toContain('matches CLI');
+  });
+
+  test('returns warn when server version differs from CLI version', async () => {
+    vi.mocked(getCliVersion).mockResolvedValue('1.2.3');
+    vi.mocked(getMcpServerVersion).mockResolvedValue('1.0.0');
+    const result: CheckResult = await checkMcpServerVersion();
+    expect(result.ok).toBe(false);
+    expect(result.fatal).toBe(false);
+    expect(result.label).toBe('MCP server version');
+    expect(result.detail).toContain('v1.0.0');
+    expect(result.detail).toContain('CLI is v1.2.3');
+    expect(result.hint).toContain('npm install');
   });
 });
