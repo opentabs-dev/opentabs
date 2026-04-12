@@ -22,7 +22,12 @@
 
 **Browser automation clicks buttons. OpenTabs calls APIs.**
 
-Your AI calls the same internal APIs that web apps call — through your browser, using your existing session. No screenshots. No DOM scraping. Just real API calls exposed as [MCP](https://modelcontextprotocol.io/) tools.
+Your AI calls the same internal APIs that web apps call.
+Through your browser. Using your existing session.
+No screenshots. No DOM scraping. Just real API calls.
+
+Works with Claude Code, Cursor, Windsurf, and any [MCP](https://modelcontextprotocol.io/) client.
+Don't want MCP? Use [CLI mode](https://opentabs.dev/docs/reference/cli) — every tool becomes a shell command.
 
 <figure>
   <img src="assets/demo-hero.gif" alt="Demo: AI sends a Discord message and adds reactions through real API calls" />
@@ -32,8 +37,8 @@ Your AI calls the same internal APIs that web apps call — through your browser
 ## How It Works
 
 1. **Install** the CLI and load the Chrome extension
-2. **Connect** — the extension bridges your browser to a local MCP server
-3. **Use** — your AI agent calls web APIs through your authenticated session
+2. **Connect** — the extension bridges your browser to a local server
+3. **Use** — your AI calls web APIs through your authenticated session
 
 No API keys. No OAuth setup. If you're logged in, your AI can use it.
 
@@ -56,11 +61,18 @@ Full walkthrough: [Quick Start guide](https://opentabs.dev/docs/quick-start)
 
 ## What You Get
 
-**100+ plugins, ~2,000 tools.** Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, and [a lot more](plugins/). One command to install. Works immediately.
+**100+ plugins, ~2,000 tools.**
+Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, and [a lot more](plugins/).
+One command to install. Works immediately.
 
-**Built-in browser tools.** Screenshots, clicking, typing, network capture — works on any tab, no plugin needed.
+**Built-in browser tools.**
+Screenshots, clicking, typing, network capture.
+Works on any tab, no plugin needed.
 
-**Build your own.** Scaffold a plugin in one command. Publish to npm. Anyone can install it. Or point your AI at any website — it can analyze the page, discover the APIs, and build the plugin for you. [Plugin Development guide](https://opentabs.dev/docs/guides/plugin-development)
+**Build your own.**
+Scaffold a plugin in one command. Publish to npm. Anyone can install it.
+Or point your AI at any website — it discovers the APIs and builds the plugin for you.
+[Plugin Development guide](https://opentabs.dev/docs/guides/plugin-development)
 
 <figure>
   <img src="assets/demo-install-plugin.gif" alt="Demo: installing a Reddit plugin and immediately using it to create a post" />
