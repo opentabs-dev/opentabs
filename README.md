@@ -29,8 +29,8 @@ Playwright, Puppeteer, and Stagehand simulate a human — click, type, read the 
 No screenshots. No DOM scraping. No pixel-guessing.
 
 <figure>
-  <img src="assets/demo-hero.gif" alt="Demo: AI checks stocks, orders Panda Express, and sends a Discord message — all through the browser" />
-  <figcaption><p align="center"><sub>AI checking Robinhood, ordering Panda Express, and messaging on Discord — all through open browser tabs</sub></p></figcaption>
+  <img src="assets/demo-hero.gif" alt="Demo: AI sends a Discord message and adds reactions — through the browser, using real APIs" />
+  <figcaption><p align="center"><sub>AI sending a Discord message and adding reactions — real API calls through your browser session</sub></p></figcaption>
 </figure>
 
 ---
