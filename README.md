@@ -59,6 +59,11 @@ Five minutes, start to finish. See the [Quick Start guide](https://opentabs.dev/
 
 Slack, Discord, GitHub, Jira, Notion, Figma, AWS, Stripe, Robinhood, Panda Express, Airbnb, and [a lot more](plugins/). Plus built-in browser tools (screenshots, clicking, typing, network capture) that work on any tab without a plugin.
 
+<figure>
+  <img src="assets/demo-install-plugin.gif" alt="Demo: installing a Reddit plugin and immediately using it to create a post" />
+  <figcaption><p align="center"><sub>Install a plugin, and the AI can use it immediately — no restart needed</sub></p></figcaption>
+</figure>
+
 ## Build a Plugin
 
 Point your AI at any website. It analyzes the page, discovers the APIs, scaffolds the code, and registers it.
