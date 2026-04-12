@@ -22,12 +22,9 @@
 
 **Browser automation clicks buttons. OpenTabs calls APIs.**
 
-Your AI calls the same internal APIs that web apps call.<br>
-Through your browser. Using your existing session.<br>
-No screenshots, no DOM scraping — just real API calls.
-
+Your AI calls real web APIs through your browser session — no screenshots, no DOM scraping.<br>
 Works with any [MCP](https://modelcontextprotocol.io/) client — Claude Code, Cursor, Windsurf, and more.<br>
-Don't want MCP? Use [CLI mode](https://opentabs.dev/docs/reference/mcp-server#cli-mode) — every tool becomes a shell command.
+Don't want MCP? Use [CLI mode](https://opentabs.dev/docs/reference/mcp-server#cli-mode) instead.
 
 <figure>
   <img src="assets/demo-hero.gif" alt="Demo: AI sends a Discord message and adds reactions through real API calls" />
