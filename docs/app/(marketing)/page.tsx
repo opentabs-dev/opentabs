@@ -26,7 +26,7 @@ import Link from 'next/link';
 import Footer from '@/components/footer';
 import { Button, Text } from '@/components/retroui';
 
-const DISCORD_URL = 'https://discord.com/channels/1477900943524888789';
+const DISCORD_URL = 'https://discord.gg/b8Hjpz4B';
 const GITHUB_URL = 'https://github.com/opentabs-dev/opentabs';
 
 interface PluginShowcase {

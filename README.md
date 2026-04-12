@@ -10,7 +10,7 @@
 
 <br>
 
-[Website](https://opentabs.dev) &nbsp;&middot;&nbsp; [Docs](https://opentabs.dev/docs) &nbsp;&middot;&nbsp; [Plugins](plugins/) &nbsp;&middot;&nbsp; [Discord](https://discord.gg/opentabs)
+[Website](https://opentabs.dev) &nbsp;&middot;&nbsp; [Docs](https://opentabs.dev/docs) &nbsp;&middot;&nbsp; [Plugins](plugins/) &nbsp;&middot;&nbsp; [Discord](https://discord.gg/b8Hjpz4B)
 
 <br>
 
@@ -89,7 +89,7 @@ npm run dev       # tsc watch + MCP server + extension
 npm run check     # build + type-check + lint + knip + test
 ```
 
-See the [Development Setup guide](https://opentabs.dev/docs/contributing/dev-setup). Questions? Join the [Discord](https://discord.gg/opentabs).
+See the [Development Setup guide](https://opentabs.dev/docs/contributing/dev-setup). Questions? Join the [Discord](https://discord.gg/b8Hjpz4B).
 
 ## How This Was Built
 

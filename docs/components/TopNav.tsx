@@ -41,7 +41,7 @@ export default function TopNav() {
               {isDarkMode ? <SunIcon size={20} /> : <MoonIcon size={20} />}
             </button>
             <Link
-              href="https://discord.com/channels/1477900943524888789"
+              href="https://discord.gg/b8Hjpz4B"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Discord">
@@ -58,7 +58,7 @@ export default function TopNav() {
           </div>
 
           <div className="hidden items-center space-x-3 lg:flex">
-            <Link href="https://discord.com/channels/1477900943524888789" target="_blank" rel="noopener noreferrer">
+            <Link href="https://discord.gg/b8Hjpz4B" target="_blank" rel="noopener noreferrer">
               <Button variant="secondary" size="icon" aria-label="Discord">
                 <SiDiscord size={14} />
               </Button>
