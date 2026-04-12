@@ -1,8 +1,8 @@
-import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
+import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities } from './schemas.js';
-import { findCategoryGroup, notTombstone } from './schemas.js';
+import { assertCategoryGroupDeletable, findCategoryGroup, notTombstone } from './schemas.js';
 
 export const deleteCategoryGroup = defineTool({
   name: 'delete_category_group',
@@ -26,12 +26,7 @@ export const deleteCategoryGroup = defineTool({
     const serverKnowledge = budget.current_server_knowledge ?? 0;
 
     const group = findCategoryGroup(budget.changed_entities, params.group_id);
-    // Default-deny: only allow deletion when YNAB explicitly marks the group as deletable.
-    // Internal groups (Credit Card Payments, Hidden Categories, Internal Master Category)
-    // either have deletable=false or omit the field entirely.
-    if (group.deletable !== true) {
-      throw ToolError.validation(`Category group "${group.name}" is not deletable.`);
-    }
+    assertCategoryGroupDeletable(group);
 
     const childCategories = (budget.changed_entities?.be_subcategories ?? []).filter(
       c => c.entities_master_category_id === params.group_id && notTombstone(c),

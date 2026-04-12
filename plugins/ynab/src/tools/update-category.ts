@@ -1,8 +1,9 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities, RawCategory } from './schemas.js';
 import {
+  assertCategoryGroupDeletable,
   buildGoalFields,
   categorySchema,
   findCategory,
@@ -37,7 +38,12 @@ export const updateCategory = defineTool({
     const serverKnowledge = budget.current_server_knowledge ?? 0;
 
     const existing = findCategory(budget.changed_entities, params.category_id);
-    if (params.group_id) findCategoryGroup(budget.changed_entities, params.group_id);
+    if (params.group_id) {
+      assertCategoryGroupDeletable(findCategoryGroup(budget.changed_entities, params.group_id));
+    }
+    if (params.goal?.type === 'debt' && existing.entities_account_id == null) {
+      throw ToolError.validation('Debt goals can only be set on debt-account categories.');
+    }
 
     const updated: RawCategory = {
       ...existing,

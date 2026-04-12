@@ -1,8 +1,9 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getPlanId, syncBudget, syncWrite } from '../ynab-api.js';
 import type { BudgetEntities, RawCategory, RawMonthlySubcategoryBudget } from './schemas.js';
 import {
+  assertCategoryGroupDeletable,
   buildGoalFields,
   CATEGORY_TYPE_DEFAULT,
   categorySchema,
@@ -19,7 +20,7 @@ export const createCategory = defineTool({
   name: 'create_category',
   displayName: 'Create Category',
   description:
-    'Create a new category in an existing category group. Optionally set an initial goal: "set_aside" (set aside X per cadence), "refill" (refill the balance up to X per cadence), "target_balance" (have a balance of X), "target_by_date" (have a balance of X by a specific date), or "debt" (recurring debt payment). NEED-style goals (set_aside, refill) accept weekly/monthly/yearly cadence.',
+    'Create a new category in an existing category group. Optionally set an initial goal: "set_aside" (set aside X per cadence), "refill" (refill the balance up to X per cadence), "target_balance" (have a balance of X), or "target_by_date" (have a balance of X by a specific date). NEED-style goals (set_aside, refill) accept weekly/monthly/yearly cadence. Debt goals are not supported for new categories — they only apply to existing debt-account categories.',
   summary: 'Create a new budget category',
   icon: 'plus',
   group: 'Categories',
@@ -33,13 +34,17 @@ export const createCategory = defineTool({
     category: categorySchema,
   }),
   handle: async params => {
+    if (params.goal?.type === 'debt') {
+      throw ToolError.validation('Debt goals can only be set on debt-account categories.');
+    }
+
     const planId = getPlanId();
     const categoryId = crypto.randomUUID();
 
     const budget = await syncBudget<BudgetEntities>(planId);
     const serverKnowledge = budget.current_server_knowledge ?? 0;
 
-    findCategoryGroup(budget.changed_entities, params.group_id);
+    assertCategoryGroupDeletable(findCategoryGroup(budget.changed_entities, params.group_id));
 
     const childCategories = (budget.changed_entities?.be_subcategories ?? []).filter(
       c => c.entities_master_category_id === params.group_id,
