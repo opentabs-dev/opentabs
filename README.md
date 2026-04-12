@@ -29,8 +29,8 @@ Playwright, Puppeteer, and Stagehand simulate a human — click, type, read the 
 No screenshots. No DOM scraping. No pixel-guessing.
 
 <figure>
-  <img src="assets/demo-hero.gif" alt="Demo: AI sends a Discord message, adds reactions, and deletes it — through the browser, using real APIs" />
-  <figcaption><p align="center"><sub>AI sending a Discord message, adding reactions, then deleting it — real API calls through your browser session</sub></p></figcaption>
+  <img src="assets/demo-hero.gif" alt="Demo: AI sends a Discord message and adds reactions — through the browser, using real APIs" />
+  <figcaption><p align="center"><sub>AI sending a Discord message and adding reactions — real API calls through your browser session</sub></p></figcaption>
 </figure>
 
 ---
