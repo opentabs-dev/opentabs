@@ -245,6 +245,12 @@ vi.mock('./logger.js', () => ({
   log: { debug: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() },
 }));
 
+const { mockTrackEvent } = vi.hoisted(() => ({ mockTrackEvent: vi.fn() }));
+vi.mock('./telemetry.js', () => ({
+  trackEvent: mockTrackEvent,
+  getSessionId: vi.fn().mockReturnValue('test-session-id'),
+}));
+
 /** Create a minimal mock ServerState for handler tests */
 const createMockState = (overrides: Partial<ServerState> = {}): ServerState =>
   ({
@@ -2478,5 +2484,92 @@ describe('handlePluginToolCall — instance parameter', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('No open tab found for instance "alpha"');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Telemetry: plugin_reviewed event
+// ---------------------------------------------------------------------------
+
+describe('telemetry: plugin_reviewed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(validateReviewToken).mockReturnValue(true);
+  });
+
+  test('plugin_reviewed is emitted with permission_set auto', async () => {
+    const plugin = createTestPlugin();
+    const state = createStateWithPlugins([plugin]);
+    state.pluginPermissions = {};
+    const callbacks = createMockCallbacks();
+
+    await handlePluginMarkReviewed(
+      state,
+      { plugin: 'test-plugin', version: '1.2.3', reviewToken: 'valid-token', permission: 'auto' },
+      callbacks,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_reviewed', {
+      session_id: 'test-session-id',
+      permission_set: 'auto',
+      review_source: 'agent',
+    });
+  });
+
+  test('plugin_reviewed is emitted with permission_set ask', async () => {
+    const plugin = createTestPlugin();
+    const state = createStateWithPlugins([plugin]);
+    state.pluginPermissions = {};
+    const callbacks = createMockCallbacks();
+
+    await handlePluginMarkReviewed(
+      state,
+      { plugin: 'test-plugin', version: '1.2.3', reviewToken: 'valid-token', permission: 'ask' },
+      callbacks,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_reviewed', {
+      session_id: 'test-session-id',
+      permission_set: 'ask',
+      review_source: 'agent',
+    });
+  });
+
+  test('plugin_reviewed is not emitted on invalid token', async () => {
+    vi.mocked(validateReviewToken).mockReturnValue(false);
+    const plugin = createTestPlugin();
+    const state = createStateWithPlugins([plugin]);
+    state.pluginPermissions = {};
+    const callbacks = createMockCallbacks();
+
+    await handlePluginMarkReviewed(
+      state,
+      { plugin: 'test-plugin', version: '1.2.3', reviewToken: 'bad-token', permission: 'auto' },
+      callbacks,
+    );
+
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('plugin_reviewed event does not include privacy-violating fields', async () => {
+    const plugin = createTestPlugin();
+    const state = createStateWithPlugins([plugin]);
+    state.pluginPermissions = {};
+    const callbacks = createMockCallbacks();
+
+    await handlePluginMarkReviewed(
+      state,
+      { plugin: 'test-plugin', version: '1.2.3', reviewToken: 'valid-token', permission: 'auto' },
+      callbacks,
+    );
+
+    const calls = mockTrackEvent.mock.calls;
+    for (const [, props] of calls) {
+      const p = props as Record<string, unknown>;
+      expect(p).not.toHaveProperty('plugin_name');
+      expect(p).not.toHaveProperty('plugin');
+      expect(p).not.toHaveProperty('version');
+      expect(p).not.toHaveProperty('review_token');
+    }
   });
 });

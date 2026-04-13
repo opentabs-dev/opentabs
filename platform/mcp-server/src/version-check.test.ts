@@ -30,8 +30,31 @@ vi.mock('node:child_process', async importOriginal => ({
   spawn: mockSpawn,
 }));
 
+vi.mock('node:url', async importOriginal => {
+  const original = await importOriginal<typeof import('node:url')>();
+  return {
+    ...original,
+    fileURLToPath: (url: string) => {
+      const real = original.fileURLToPath(url);
+      // Make _serverDir include 'node_modules' so isProductionInstall() returns true
+      if (real.includes('version-check')) return real.replace('platform/', 'node_modules/platform/');
+      return real;
+    },
+  };
+});
+
+const { mockTrackEvent } = vi.hoisted(() => ({ mockTrackEvent: vi.fn() }));
+vi.mock('./telemetry.js', () => ({
+  trackEvent: mockTrackEvent,
+  getSessionId: vi.fn().mockReturnValue('test-session-id'),
+}));
+
+vi.mock('./logger.js', () => ({
+  log: { debug: vi.fn(), warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+}));
+
 // Import after mocking so modules pick up the mocked spawn
-const { fetchLatestVersion, isNewer, checkForUpdates } = await import('./version-check.js');
+const { fetchLatestVersion, isNewer, checkForUpdates, checkServerUpdate } = await import('./version-check.js');
 const { buildRegistry } = await import('./registry.js');
 const { createState } = await import('./state.js');
 
@@ -317,5 +340,53 @@ describe('checkForUpdates', () => {
     // plugin-a gets version 2.0.0 (outdated), plugin-b npm view fails (skipped)
     expect(state.outdatedPlugins).toHaveLength(1);
     expect(state.outdatedPlugins[0]?.name).toBe('opentabs-plugin-a');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Telemetry: server_update_available event
+// ---------------------------------------------------------------------------
+
+describe('checkServerUpdate telemetry', () => {
+  beforeEach(() => {
+    mockSpawn.mockReset();
+    mockTrackEvent.mockClear();
+  });
+
+  test('server_update_available is emitted when a newer version is detected', async () => {
+    mockNpmView('99.0.0');
+
+    const state = createState();
+    await checkServerUpdate(state);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('server_update_available', {
+      session_id: 'test-session-id',
+    });
+  });
+
+  test('server_update_available is not emitted when version is up-to-date', async () => {
+    // Return the same version as current — isNewer will be false
+    mockNpmView('0.0.0');
+
+    const state = createState();
+    await checkServerUpdate(state);
+
+    expect(mockTrackEvent).not.toHaveBeenCalled();
+  });
+
+  test('server_update_available event has no version numbers in properties', async () => {
+    mockNpmView('99.0.0');
+
+    const state = createState();
+    await checkServerUpdate(state);
+
+    const calls = mockTrackEvent.mock.calls;
+    for (const [, props] of calls) {
+      const p = props as Record<string, unknown>;
+      expect(p).not.toHaveProperty('version');
+      expect(p).not.toHaveProperty('current_version');
+      expect(p).not.toHaveProperty('latest_version');
+      expect(p).not.toHaveProperty('package_name');
+    }
   });
 });

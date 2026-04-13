@@ -4,10 +4,16 @@ import {
   handleConfigGetState,
   handleConfigSetPluginPermission,
   handleConfigSetPluginSettings,
+  handleConfigSetSkipPermissions,
   handleConfigSetToolPermission,
   handleConfirmationResponse,
+  handlePluginInstall,
   handlePluginLog,
   handlePluginRemove,
+  handlePluginRemoveBySpecifier,
+  handlePluginSearch,
+  handlePluginUpdateFromRegistry,
+  handleServerSelfUpdate,
   handleTabStateChanged,
   handleTabSyncAll,
   handleToolProgress,
@@ -16,6 +22,7 @@ import {
   sendToExtension,
 } from './extension-handlers.js';
 import { clearAllLogs, getLogs } from './log-buffer.js';
+import { searchNpmPlugins } from './plugin-management.js';
 import type { ExtensionConnection, PendingConfirmation, PendingDispatch, RegisteredPlugin } from './state.js';
 import { createState, DISPATCH_TIMEOUT_MS, getMergedTabMapping, MAX_DISPATCH_TIMEOUT_MS } from './state.js';
 
@@ -24,8 +31,33 @@ vi.mock('./plugin-management.js', () => ({
   installPlugin: vi.fn().mockResolvedValue({ ok: true }),
   updatePlugin: vi.fn().mockResolvedValue({ ok: true }),
   removePlugin: vi.fn().mockResolvedValue({ ok: true }),
+  removeFailedPlugin: vi.fn().mockResolvedValue({ ok: true }),
   checkPluginUpdates: vi.fn().mockResolvedValue([]),
 }));
+
+const { mockTrackEvent } = vi.hoisted(() => ({ mockTrackEvent: vi.fn() }));
+vi.mock('./telemetry.js', () => ({
+  trackEvent: mockTrackEvent,
+  getSessionId: vi.fn().mockReturnValue('test-session-id'),
+}));
+
+vi.mock('node:child_process', () => ({
+  spawn: vi.fn().mockReturnValue({ unref: vi.fn() }),
+  spawnSync: vi.fn().mockReturnValue({ status: 0, error: null }),
+}));
+
+vi.mock('node:url', async importOriginal => {
+  const original = await importOriginal<typeof import('node:url')>();
+  return {
+    ...original,
+    fileURLToPath: (url: string) => {
+      const real = original.fileURLToPath(url);
+      // Make serverSourcePath include 'node_modules' so handleServerSelfUpdate tests work
+      if (real.includes('extension-handlers')) return real.replace('platform/', 'node_modules/platform/');
+      return real;
+    },
+  };
+});
 
 /** Create a tracked PendingConfirmation that records resolve/reject calls */
 const createPendingConfirmation = (
@@ -1959,5 +1991,414 @@ describe('handleConfigSetPluginSettings', () => {
     expect(state.pluginSettings['not-loaded']).toEqual({ key: 'value' });
     const response = JSON.parse(messages[messages.length - 1] as string) as { result: { ok: boolean } };
     expect(response.result).toEqual({ ok: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Telemetry event tests
+// ---------------------------------------------------------------------------
+
+/** Assert no trackEvent call includes privacy-violating properties */
+const assertNoPrivacyViolation = (calls: unknown[][]): void => {
+  for (const [, props] of calls) {
+    const p = props as Record<string, unknown>;
+    expect(p).not.toHaveProperty('plugin_name');
+    expect(p).not.toHaveProperty('plugin');
+    expect(p).not.toHaveProperty('query');
+    expect(p).not.toHaveProperty('error_message');
+    expect(p).not.toHaveProperty('version');
+    expect(p).not.toHaveProperty('package_name');
+  }
+};
+
+/** Shared test setup: create state with a mock WS connection */
+const createTelemetryTestState = (): {
+  state: ReturnType<typeof createState>;
+  messages: string[];
+} => {
+  const messages: string[] = [];
+  const state = createState();
+  state.extensionConnections.set('test-conn', {
+    ws: { send: (msg: string) => messages.push(msg), close: () => {} },
+    connectionId: 'test-conn',
+    profileLabel: 'test-conn',
+    tabMapping: new Map(),
+    activeNetworkCaptures: new Set(),
+  });
+  return { state, messages };
+};
+
+describe('telemetry events', () => {
+  beforeEach(() => {
+    mockTrackEvent.mockClear();
+  });
+
+  // --- plugin_installed ---
+
+  test('plugin_installed is emitted on successful install', async () => {
+    const { state } = createTelemetryTestState();
+
+    await handlePluginInstall(state, { name: 'some-plugin' }, 'req-1', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_installed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  // --- plugin_install_failed ---
+
+  test('plugin_install_failed emits timeout error_category', async () => {
+    const { installPlugin } = await import('./plugin-management.js');
+    vi.mocked(installPlugin).mockRejectedValueOnce(new Error('Install timed out after 30s'));
+
+    const { state } = createTelemetryTestState();
+    await handlePluginInstall(state, { name: 'bad-plugin' }, 'req-2', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_install_failed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      error_category: 'timeout',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  test('plugin_install_failed emits invalid_plugin error_category', async () => {
+    const { installPlugin } = await import('./plugin-management.js');
+    vi.mocked(installPlugin).mockRejectedValueOnce(new Error('not a valid opentabs plugin'));
+
+    const { state } = createTelemetryTestState();
+    await handlePluginInstall(state, { name: 'bad-plugin' }, 'req-3', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_install_failed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      error_category: 'invalid_plugin',
+    });
+  });
+
+  test('plugin_install_failed emits npm_failure error_category for generic errors', async () => {
+    const { installPlugin } = await import('./plugin-management.js');
+    vi.mocked(installPlugin).mockRejectedValueOnce(new Error('npm ERR! code E404'));
+
+    const { state } = createTelemetryTestState();
+    await handlePluginInstall(state, { name: 'bad-plugin' }, 'req-4', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_install_failed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      error_category: 'npm_failure',
+    });
+  });
+
+  // --- plugin_removed (successful plugin) ---
+
+  test('plugin_removed is emitted with was_failed false for normal removal', async () => {
+    const { state } = createTelemetryTestState();
+    const plugin: RegisteredPlugin = {
+      name: 'test-plugin',
+      version: '1.0.0',
+      displayName: 'Test',
+      urlPatterns: ['https://example.com/*'],
+      excludePatterns: [],
+      iife: '',
+      tools: [],
+      source: 'npm',
+    };
+    state.registry = {
+      ...state.registry,
+      plugins: new Map([['test-plugin', plugin]]) as ReadonlyMap<string, RegisteredPlugin>,
+    };
+
+    await handlePluginRemove(state, { name: 'test-plugin' }, 'req-5', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_removed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      was_failed: false,
+      plugin_source: 'npm',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  test('plugin_removed reports local source correctly', async () => {
+    const { state } = createTelemetryTestState();
+    const plugin: RegisteredPlugin = {
+      name: 'local-plugin',
+      version: '1.0.0',
+      displayName: 'Local',
+      urlPatterns: ['https://example.com/*'],
+      excludePatterns: [],
+      iife: '',
+      tools: [],
+      source: 'local',
+    };
+    state.registry = {
+      ...state.registry,
+      plugins: new Map([['local-plugin', plugin]]) as ReadonlyMap<string, RegisteredPlugin>,
+    };
+
+    await handlePluginRemove(state, { name: 'local-plugin' }, 'req-6', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_removed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      was_failed: false,
+      plugin_source: 'local',
+    });
+  });
+
+  // --- plugin_removed (failed plugin via specifier) ---
+
+  test('plugin_removed is emitted with was_failed true for removeBySpecifier', async () => {
+    const { state } = createTelemetryTestState();
+
+    await handlePluginRemoveBySpecifier(state, { specifier: '/path/to/failed' }, 'req-7', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_removed', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      was_failed: true,
+      plugin_source: 'unknown',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  // --- plugin_updated ---
+
+  test('plugin_updated is emitted on successful update', async () => {
+    const { state } = createTelemetryTestState();
+
+    await handlePluginUpdateFromRegistry(state, { name: 'some-plugin' }, 'req-8', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_updated', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  // --- permission_changed ---
+
+  test('permission_changed is emitted for plugin permission', () => {
+    const { state } = createTelemetryTestState();
+    const plugin: RegisteredPlugin = {
+      name: 'my-plugin',
+      version: '1.0.0',
+      displayName: 'My',
+      urlPatterns: ['https://example.com/*'],
+      excludePatterns: [],
+      iife: '',
+      tools: [],
+      source: 'local',
+    };
+    state.registry = {
+      ...state.registry,
+      plugins: new Map([['my-plugin', plugin]]) as ReadonlyMap<string, RegisteredPlugin>,
+    };
+
+    handleConfigSetPluginPermission(state, { plugin: 'my-plugin', permission: 'auto' }, 'req-9', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('permission_changed', {
+      session_id: 'test-session-id',
+      target: 'plugin',
+      new_permission: 'auto',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  test('permission_changed emits target browser for browser plugin', () => {
+    const { state } = createTelemetryTestState();
+
+    handleConfigSetPluginPermission(state, { plugin: 'browser', permission: 'ask' }, 'req-10', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('permission_changed', {
+      session_id: 'test-session-id',
+      target: 'browser',
+      new_permission: 'ask',
+    });
+  });
+
+  // --- skip_permissions_changed ---
+
+  test('skip_permissions_changed is emitted when toggled on', () => {
+    const { state } = createTelemetryTestState();
+
+    handleConfigSetSkipPermissions(state, { skipPermissions: true }, 'req-11', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('skip_permissions_changed', {
+      session_id: 'test-session-id',
+      enabled: true,
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  test('skip_permissions_changed is emitted when toggled off', () => {
+    const { state } = createTelemetryTestState();
+
+    handleConfigSetSkipPermissions(state, { skipPermissions: false }, 'req-12', noopCallbacks);
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('skip_permissions_changed', {
+      session_id: 'test-session-id',
+      enabled: false,
+    });
+  });
+
+  // --- plugin_search ---
+
+  test('plugin_search emits result_count_bucket 0 for empty results', async () => {
+    vi.mocked(searchNpmPlugins).mockResolvedValueOnce([]);
+    const { state } = createTelemetryTestState();
+
+    await handlePluginSearch(state, { query: 'test' }, 'req-13');
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_search', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      result_count_bucket: '0',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  test('plugin_search emits result_count_bucket 1-5 for 3 results', async () => {
+    const fakeResults = Array.from({ length: 3 }, (_, i) => ({ name: `p${i}`, description: '' }));
+    vi.mocked(searchNpmPlugins).mockResolvedValueOnce(fakeResults as never);
+    const { state } = createTelemetryTestState();
+
+    await handlePluginSearch(state, { query: 'test' }, 'req-14');
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_search', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      result_count_bucket: '1-5',
+    });
+  });
+
+  test('plugin_search emits result_count_bucket 6+ for 10 results', async () => {
+    const fakeResults = Array.from({ length: 10 }, (_, i) => ({ name: `p${i}`, description: '' }));
+    vi.mocked(searchNpmPlugins).mockResolvedValueOnce(fakeResults as never);
+    const { state } = createTelemetryTestState();
+
+    await handlePluginSearch(state, { query: 'test' }, 'req-15');
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_search', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      result_count_bucket: '6+',
+    });
+  });
+
+  // --- plugin_configured ---
+
+  test('plugin_configured is emitted with had_required_fields true', async () => {
+    const { state } = createTelemetryTestState();
+    const plugin: RegisteredPlugin = {
+      name: 'cfg-plugin',
+      version: '1.0.0',
+      displayName: 'Cfg',
+      urlPatterns: ['https://example.com/*'],
+      excludePatterns: [],
+      iife: '',
+      tools: [],
+      source: 'local',
+      configSchema: {
+        apiKey: { type: 'string', label: 'API Key', required: true },
+      } as RegisteredPlugin['configSchema'],
+    };
+    state.registry = {
+      ...state.registry,
+      plugins: new Map([['cfg-plugin', plugin]]) as ReadonlyMap<string, RegisteredPlugin>,
+    };
+
+    await handleConfigSetPluginSettings(
+      state,
+      { plugin: 'cfg-plugin', settings: { apiKey: 'my-secret-key' } },
+      'req-16',
+      noopCallbacks,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_configured', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      had_required_fields: true,
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  test('plugin_configured is emitted with had_required_fields false', async () => {
+    const { state } = createTelemetryTestState();
+    const plugin: RegisteredPlugin = {
+      name: 'opt-plugin',
+      version: '1.0.0',
+      displayName: 'Opt',
+      urlPatterns: ['https://example.com/*'],
+      excludePatterns: [],
+      iife: '',
+      tools: [],
+      source: 'local',
+      configSchema: {
+        theme: { type: 'string', label: 'Theme', required: false },
+      } as RegisteredPlugin['configSchema'],
+    };
+    state.registry = {
+      ...state.registry,
+      plugins: new Map([['opt-plugin', plugin]]) as ReadonlyMap<string, RegisteredPlugin>,
+    };
+
+    await handleConfigSetPluginSettings(
+      state,
+      { plugin: 'opt-plugin', settings: { theme: 'dark' } },
+      'req-17',
+      noopCallbacks,
+    );
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('plugin_configured', {
+      session_id: 'test-session-id',
+      source: 'side_panel',
+      had_required_fields: false,
+    });
+  });
+
+  // --- server_update_applied ---
+
+  test('server_update_applied is emitted after successful self-update', async () => {
+    const { state } = createTelemetryTestState();
+    state.serverUpdate = { latestVersion: '99.0.0', updateCommand: 'npm install -g @opentabs-dev/cli@99.0.0' };
+
+    await handleServerSelfUpdate(state, 'req-18');
+
+    expect(mockTrackEvent).toHaveBeenCalledWith('server_update_applied', {
+      session_id: 'test-session-id',
+    });
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+  });
+
+  // --- privacy: no events leak forbidden fields ---
+
+  test('no telemetry event includes forbidden privacy-violating fields', async () => {
+    const { state } = createTelemetryTestState();
+    const plugin: RegisteredPlugin = {
+      name: 'test-plugin',
+      version: '2.0.0',
+      displayName: 'Test',
+      urlPatterns: ['https://example.com/*'],
+      excludePatterns: [],
+      iife: '',
+      tools: [],
+      source: 'npm',
+    };
+    state.registry = {
+      ...state.registry,
+      plugins: new Map([['test-plugin', plugin]]) as ReadonlyMap<string, RegisteredPlugin>,
+    };
+
+    // Trigger multiple events
+    await handlePluginInstall(state, { name: 'some-plugin' }, 'r1', noopCallbacks);
+    await handlePluginRemove(state, { name: 'test-plugin' }, 'r2', noopCallbacks);
+    handleConfigSetPluginPermission(state, { plugin: 'browser', permission: 'auto' }, 'r3', noopCallbacks);
+    handleConfigSetSkipPermissions(state, { skipPermissions: true }, 'r4', noopCallbacks);
+
+    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
   });
 });
