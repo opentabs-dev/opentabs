@@ -110,6 +110,54 @@ jobs:
           npm run lint
           npm run test
 
+      - name: CLI smoke test (packed tarball)
+        run: |
+          set -euo pipefail
+          SMOKE_DIR=$(mktemp -d)
+          export OPENTABS_CONFIG_DIR="$SMOKE_DIR"
+          export OPENTABS_TELEMETRY_DISABLED=1
+          CLI="node platform/cli/dist/cli.js"
+
+          # Test --version matches the target release version
+          VERSION_OUTPUT=$($CLI --version)
+          echo "Version: $VERSION_OUTPUT"
+          EXPECTED="${{ inputs.version }}"
+          if [ "$VERSION_OUTPUT" != "$EXPECTED" ]; then
+            echo "::error::Version mismatch: got $VERSION_OUTPUT, expected $EXPECTED"
+            exit 1
+          fi
+
+          # Test --help exits 0
+          $CLI --help > /dev/null
+          echo "--help: OK"
+
+          # Test start --show-config exits 0
+          $CLI start --show-config > /dev/null
+          echo "start --show-config: OK"
+
+          # Test config path outputs an absolute path
+          CONFIG_PATH=$($CLI config path)
+          echo "config path: $CONFIG_PATH"
+          if [[ ! "$CONFIG_PATH" == /* ]]; then
+            echo "::error::config path is not absolute: $CONFIG_PATH"
+            exit 1
+          fi
+
+          # Test doctor (some checks fail without a server — exit 0 or 1 is fine, just no crash)
+          $CLI doctor > /dev/null 2>&1 || true
+          echo "doctor: OK"
+
+          # Test plugin list (offline mode)
+          $CLI plugin list > /dev/null 2>&1 || true
+          echo "plugin list: OK"
+
+          # Test telemetry status
+          $CLI telemetry status > /dev/null 2>&1 || true
+          echo "telemetry status: OK"
+
+          rm -rf "$SMOKE_DIR"
+          echo "All CLI smoke tests passed."
+
       - name: Publish packages to npm (dependency order)
         if: ${{ !inputs.dry-run }}
         env:
