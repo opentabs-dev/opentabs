@@ -681,6 +681,14 @@ const handlePluginSettings = async (
     params: { ...buildConfigStatePayload(state) },
   });
 
+  const pluginEntry = state.registry.plugins.get(body.plugin);
+  const hasRequired = pluginEntry?.configSchema ? Object.values(pluginEntry.configSchema).some(f => f.required) : false;
+  trackEvent('plugin_configured', {
+    session_id: getSessionId(),
+    source: 'http',
+    had_required_fields: hasRequired,
+  });
+
   return Response.json({ ok: true });
 };
 

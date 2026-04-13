@@ -44,6 +44,7 @@ import {
   getMergedTabMapping,
   MAX_DISPATCH_TIMEOUT_MS,
 } from './state.js';
+import { getSessionId, trackEvent } from './telemetry.js';
 import { version } from './version.js';
 
 /** Absolute path to the MCP server's package directory (parent of dist/) */
@@ -551,6 +552,12 @@ const handleConfigSetPluginPermission = (
   callbacks.onToolConfigChanged();
   callbacks.onPluginPermissionsPersist();
 
+  trackEvent('permission_changed', {
+    session_id: getSessionId(),
+    target: pluginName === 'browser' ? 'browser' : 'plugin',
+    new_permission: permission,
+  });
+
   sendToExtension(state, {
     jsonrpc: '2.0',
     method: 'plugins.changed',
@@ -587,6 +594,11 @@ const handleConfigSetSkipPermissions = (
   }
 
   state.skipPermissions = skipPermissions;
+
+  trackEvent('skip_permissions_changed', {
+    session_id: getSessionId(),
+    enabled: skipPermissions,
+  });
 
   // Notify the dev proxy so it can pass the updated value to the next worker.
   if (process.env.OPENTABS_PROXY === '1' && process.send) {
@@ -728,6 +740,14 @@ const handleConfigSetPluginSettings = async (
   } catch (err) {
     log.warn('Reload after settings change failed:', err);
   }
+
+  const pluginEntry = state.registry.plugins.get(pluginName);
+  const hasRequired = pluginEntry?.configSchema ? Object.values(pluginEntry.configSchema).some(f => f.required) : false;
+  trackEvent('plugin_configured', {
+    session_id: getSessionId(),
+    source: 'side_panel',
+    had_required_fields: hasRequired,
+  });
 
   sendToExtension(state, {
     jsonrpc: '2.0',
@@ -903,6 +923,13 @@ const handlePluginSearch = async (
 
   try {
     const results = await searchNpmPlugins(query ?? undefined);
+    const resultCount = results.length;
+    const result_count_bucket = resultCount === 0 ? '0' : resultCount <= 5 ? '1-5' : '6+';
+    trackEvent('plugin_search', {
+      session_id: getSessionId(),
+      source: 'side_panel',
+      result_count_bucket,
+    });
     sendToExtension(state, {
       jsonrpc: '2.0',
       result: { results },
@@ -927,6 +954,11 @@ const handlePluginInstall = async (
   try {
     const result = await installPlugin(params.name, state, callbacks.onReload);
 
+    trackEvent('plugin_installed', {
+      session_id: getSessionId(),
+      source: 'side_panel',
+    });
+
     // Notify the side panel so the UI refreshes with the new plugin
     sendToExtension(state, {
       jsonrpc: '2.0',
@@ -944,6 +976,17 @@ const handlePluginInstall = async (
       id,
     });
   } catch (err) {
+    const errorMsg = err instanceof Error ? err.message.toLowerCase() : '';
+    const error_category = errorMsg.includes('timed out')
+      ? 'timeout'
+      : errorMsg.includes('not a valid opentabs plugin')
+        ? 'invalid_plugin'
+        : 'npm_failure';
+    trackEvent('plugin_install_failed', {
+      session_id: getSessionId(),
+      source: 'side_panel',
+      error_category,
+    });
     sendPluginManagementError(state, id, err);
   }
 };
@@ -967,6 +1010,11 @@ const handlePluginUpdateFromRegistry = async (
       jsonrpc: '2.0',
       method: 'plugins.changed',
       params: { ...buildConfigStatePayload(state) },
+    });
+
+    trackEvent('plugin_updated', {
+      session_id: getSessionId(),
+      source: 'side_panel',
     });
 
     log.info(
@@ -996,7 +1044,17 @@ const handlePluginRemove = async (
 
   try {
     const pluginName = params.name;
+    const existingPlugin = state.registry.plugins.get(pluginName);
+    const pluginSource =
+      existingPlugin?.source === 'npm' ? 'npm' : existingPlugin?.source === 'local' ? 'local' : 'unknown';
     const result = await removePlugin(pluginName, state, callbacks.onReload);
+
+    trackEvent('plugin_removed', {
+      session_id: getSessionId(),
+      source: 'side_panel',
+      was_failed: false,
+      plugin_source: pluginSource,
+    });
 
     // Send plugin.uninstall as a request (with id) so the extension's wrapAsync
     // handler processes it. Best-effort: ignore timeout/error so removal proceeds.
@@ -1040,6 +1098,13 @@ const handlePluginRemoveBySpecifier = async (
     sendPluginManagementError(state, id, err);
     return;
   }
+
+  trackEvent('plugin_removed', {
+    session_id: getSessionId(),
+    source: 'side_panel',
+    was_failed: true,
+    plugin_source: 'unknown',
+  });
 
   sendToExtension(state, {
     jsonrpc: '2.0',
@@ -1100,6 +1165,10 @@ const handleServerSelfUpdate = async (state: ServerState, id: string | number): 
     });
     return;
   }
+
+  trackEvent('server_update_applied', {
+    session_id: getSessionId(),
+  });
 
   sendToExtension(state, {
     jsonrpc: '2.0',

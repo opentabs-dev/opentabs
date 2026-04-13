@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { isWindows, toErrorMessage } from '@opentabs-dev/shared';
 import { log } from './logger.js';
 import type { OutdatedPlugin, ServerState } from './state.js';
+import { getSessionId, trackEvent } from './telemetry.js';
 import { version } from './version.js';
 
 /** Result of checking a single plugin for updates */
@@ -132,6 +133,9 @@ export const checkServerUpdate = async (state: ServerState): Promise<void> => {
 
   if (isNewer(version, latest)) {
     state.serverUpdate = { latestVersion: latest, updateCommand: `npm install -g ${CLI_PACKAGE_NAME}` };
+    trackEvent('server_update_available', {
+      session_id: getSessionId(),
+    });
     log.info(`${CLI_PACKAGE_NAME}: ${version} → ${latest}`);
   } else {
     state.serverUpdate = undefined;

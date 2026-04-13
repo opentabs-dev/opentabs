@@ -30,6 +30,7 @@ import {
   getToolPermission,
   validateReviewToken,
 } from './state.js';
+import { getSessionId, trackEvent } from './telemetry.js';
 
 /** Maximum concurrent tool dispatches per plugin to prevent tab performance degradation */
 const MAX_CONCURRENT_DISPATCHES_PER_PLUGIN = 25;
@@ -808,6 +809,12 @@ const handlePluginMarkReviewed = async (
 
   // Persist to config.json
   void savePluginPermissions(state, state.pluginPermissions);
+
+  trackEvent('plugin_reviewed', {
+    session_id: getSessionId(),
+    permission_set: permission as string,
+    review_source: 'agent',
+  });
 
   // Notify MCP clients that tool list changed (description prefixes update)
   callbacks.onToolConfigChanged();
