@@ -49,6 +49,9 @@ const App = () => {
   const [serverVersion, setServerVersion] = useState<string | undefined>(undefined);
   const [serverSourcePath, setServerSourcePath] = useState<string | undefined>(undefined);
   const [extensionHash, setExtensionHash] = useState<string | undefined>(undefined);
+  const [serverUpdate, setServerUpdate] = useState<{ latestVersion: string; updateCommand: string } | undefined>(
+    undefined,
+  );
   const [loading, setLoading] = useState(true);
   const [activeTools, setActiveTools] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -263,6 +266,7 @@ const App = () => {
       setServerVersion(result.serverVersion);
       setServerSourcePath(result.serverSourcePath);
       setExtensionHash(result.extensionHash);
+      setServerUpdate(result.serverUpdate);
       setActiveTools(prev => {
         const next = new Set<string>();
         for (const key of prev) {
@@ -338,6 +342,7 @@ const App = () => {
           setServerVersion(undefined);
           setServerSourcePath(undefined);
           setExtensionHash(undefined);
+          setServerUpdate(undefined);
           setActiveTools(new Set());
           setPendingConfirmations([]);
           clearAllSeenIds();
@@ -500,6 +505,7 @@ const App = () => {
                       onToolsChange={setBrowserTools}
                       serverVersion={serverVersion}
                       serverSourcePath={serverSourcePath}
+                      serverUpdate={serverUpdate}
                       browserPermission={browserPermission}
                       onBrowserPermissionChange={setBrowserPermission}
                     />
