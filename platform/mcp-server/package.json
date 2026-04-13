@@ -12,7 +12,7 @@
     "tool-dispatch",
     "plugin-discovery"
   ],
-  "version": "0.0.94",
+  "version": "0.0.95",
   "license": "MIT",
   "engines": {
     "node": ">= 22.0.0"
