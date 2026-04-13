@@ -5,7 +5,12 @@ import { fileURLToPath } from 'node:url';
 const cliDir = dirname(fileURLToPath(import.meta.url));
 
 export const getCliVersion = async (): Promise<string> => {
-  const pkgPath = join(cliDir, '..', '..', 'package.json');
+  let pkgPath: string;
+  try {
+    pkgPath = fileURLToPath(import.meta.resolve('@opentabs-dev/cli/package.json'));
+  } catch {
+    pkgPath = join(cliDir, '..', '..', 'package.json');
+  }
   const pkgJson = JSON.parse(await readFile(pkgPath, 'utf-8')) as { version: string };
   return pkgJson.version;
 };
