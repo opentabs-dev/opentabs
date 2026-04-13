@@ -1,0 +1,55 @@
+{
+  "name": "@opentabs-dev/opentabs-plugin-lucid",
+  "description": "OpenTabs plugin for Lucid (Lucidchart, Lucidspark)",
+  "version": "0.0.93",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "dist/adapter.iife.js",
+  "keywords": [
+    "opentabs-plugin"
+  ],
+  "opentabs": {
+    "displayName": "Lucid",
+    "description": "OpenTabs plugin for Lucid (Lucidchart, Lucidspark)",
+    "urlPatterns": [
+      "*://*.lucid.app/*"
+    ],
+    "iconSvg": "<svg viewBox=\"0 0 50 50\" xmlns=\"http://www.w3.org/2000/svg\"> <g transform=\"translate(3.7,0)\"> <path fill=\"#F96B13\" d=\"M0,12.5v25L21.3,50v-6.2l-16-9.4V15.6L0,12.5z\"/> <path fill=\"#CC4E00\" d=\"M37.3,15.6v25l5.3-3.1v-25L37.3,15.6z\"/> <path fill=\"#FFCA73\" d=\"M16,3.1l21.3,12.5l5.3-3.1L21.3,0L16,3.1z\"/> <path fill=\"#FFCA73\" d=\"M0,12.5l5.3,3.1l5.3-3.1L5.3,9.4L0,12.5z\"/> <path fill=\"#CC4E00\" d=\"M5.3,15.6v18.7l5.3-3.1V12.5L5.3,15.6z\"/> <path fill=\"#CC4E00\" d=\"M21.3,43.8V50l5.3-3.1v-6.3L21.3,43.8z\"/> <path fill=\"#FFCA73\" d=\"M5.3,34.4l16,9.4l5.3-3.1l-16-9.4L5.3,34.4z\"/> <path fill=\"#F96B13\" d=\"M16,3.1v6.3l16,9.4v18.8l5.3,3.1v-25L16,3.1z\"/> </g> </svg>",
+    "iconDarkSvg": "<svg viewBox=\"0 0 50 50\" xmlns=\"http://www.w3.org/2000/svg\"> <g transform=\"translate(3.7,0)\"> <path fill=\"#F96B13\" d=\"M0,12.5v25L21.3,50v-6.2l-16-9.4V15.6L0,12.5z\"/> <path fill=\"#CC4E00\" d=\"M37.3,15.6v25l5.3-3.1v-25L37.3,15.6z\"/> <path fill=\"#FFCA73\" d=\"M16,3.1l21.3,12.5l5.3-3.1L21.3,0L16,3.1z\"/> <path fill=\"#FFCA73\" d=\"M0,12.5l5.3,3.1l5.3-3.1L5.3,9.4L0,12.5z\"/> <path fill=\"#CC4E00\" d=\"M5.3,15.6v18.7l5.3-3.1V12.5L5.3,15.6z\"/> <path fill=\"#CC4E00\" d=\"M21.3,43.8V50l5.3-3.1v-6.3L21.3,43.8z\"/> <path fill=\"#FFCA73\" d=\"M5.3,34.4l16,9.4l5.3-3.1l-16-9.4L5.3,34.4z\"/> <path fill=\"#F96B13\" d=\"M16,3.1v6.3l16,9.4v18.8l5.3,3.1v-25L16,3.1z\"/> </g> </svg>"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && opentabs-plugin build",
+    "dev": "tsc --watch --preserveWatchOutput & opentabs-plugin build --watch",
+    "type-check": "tsc --noEmit",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --fix src/",
+    "format:check": "biome format src/",
+    "format": "biome format --write src/",
+    "check": "npm run build && npm run type-check && npm run lint && npm run format:check"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "dependencies": {
+    "@opentabs-dev/plugin-sdk": "^0.0.93"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.5",
+    "@opentabs-dev/plugin-tools": "^0.0.93",
+    "jiti": "^2.6.1",
+    "typescript": "^5.9.3",
+    "zod": "^4.0.0"
+  }
+}
