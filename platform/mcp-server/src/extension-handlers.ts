@@ -552,6 +552,12 @@ const handleConfigSetPluginPermission = (
   callbacks.onToolConfigChanged();
   callbacks.onPluginPermissionsPersist();
 
+  trackEvent('permission_changed', {
+    session_id: getSessionId(),
+    target: pluginName === 'browser' ? 'browser' : 'plugin',
+    new_permission: permission,
+  });
+
   sendToExtension(state, {
     jsonrpc: '2.0',
     method: 'plugins.changed',
@@ -588,6 +594,11 @@ const handleConfigSetSkipPermissions = (
   }
 
   state.skipPermissions = skipPermissions;
+
+  trackEvent('skip_permissions_changed', {
+    session_id: getSessionId(),
+    enabled: skipPermissions,
+  });
 
   // Notify the dev proxy so it can pass the updated value to the next worker.
   if (process.env.OPENTABS_PROXY === '1' && process.send) {
