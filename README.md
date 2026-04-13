@@ -20,8 +20,7 @@
 
 <br>
 
-Your AI calls real web APIs through your browser session — no screenshots, no DOM scraping.<br>
-Works with any [MCP](https://modelcontextprotocol.io/) client. Don't want MCP? Use [CLI mode](https://opentabs.dev/docs/reference/mcp-server#cli-mode) instead.
+Your AI calls real web APIs through your browser session — no screenshots, no DOM scraping.
 
 <p align="center">
   <br>
@@ -38,6 +37,8 @@ Works with any [MCP](https://modelcontextprotocol.io/) client. Don't want MCP? U
 3. **Use** — your AI calls web APIs through your authenticated session
 
 No API keys. No OAuth setup. If you're logged in, your AI can use it.
+
+Works with any [MCP](https://modelcontextprotocol.io/) client. Don't want MCP? Use [CLI mode](https://opentabs.dev/docs/reference/mcp-server#cli-mode) instead.
 
 ## Quick Start
 
