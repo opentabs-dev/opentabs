@@ -57,6 +57,7 @@ import {
   prefixedToolName,
   STATE_SCHEMA_VERSION,
 } from './state.js';
+import { getSessionId, trackEvent } from './telemetry.js';
 import { version } from './version.js';
 
 /** Opaque HotState accessor — index.ts injects the getter */
@@ -1107,6 +1108,18 @@ const createHandleWsOpen =
       activeNetworkCaptures: new Set(),
     };
     state.extensionConnections.set(connectionId, conn);
+
+    if (!state.hadExtensionConnection) {
+      state.hadExtensionConnection = true;
+      const elapsed = Date.now() - state.startedAt;
+      const bucket = elapsed < 10_000 ? '<10s' : elapsed < 60_000 ? '10-60s' : elapsed < 300_000 ? '1-5min' : '>5min';
+      trackEvent('extension_connected', {
+        session_id: getSessionId(),
+        time_to_connect_bucket: bucket,
+        profile_count: Math.min(state.extensionConnections.size, 3),
+      });
+    }
+
     log.info(`Extension WebSocket connected [${profileLabel}] (connectionId: ${connectionId})`);
 
     void sendSyncFull(state).catch((err: unknown) => {
