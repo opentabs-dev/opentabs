@@ -86,51 +86,48 @@ export const updateTransaction = defineTool({
       }
     }
 
+    const updatedTransaction = {
+      id: params.transaction_id,
+      is_tombstone: false,
+      entities_account_id: params.account_id,
+      entities_payee_id: payeeId,
+      entities_subcategory_id: params.category_id ?? existing.entities_subcategory_id ?? null,
+      entities_scheduled_transaction_id: existing.entities_scheduled_transaction_id ?? null,
+      date: params.date ?? existing.date ?? '',
+      date_entered_from_schedule: null,
+      amount: params.amount !== undefined ? toMilliunits(params.amount) : (existing.amount ?? 0),
+      cash_amount: 0,
+      credit_amount: 0,
+      credit_amount_adjusted: 0,
+      subcategory_credit_amount_preceding: 0,
+      memo: params.memo ?? existing.memo ?? null,
+      cleared: resolveCleared(params.cleared, existing.cleared),
+      // YNAB's wire format calls this "accepted"; the public tool surface uses "approved".
+      accepted: params.approved ?? existing.accepted ?? false,
+      check_number: null,
+      flag: resolveFlag(params.flag_color, existing.flag),
+      transfer_account_id: existing.transfer_account_id ?? null,
+      transfer_transaction_id: null,
+      transfer_subtransaction_id: null,
+      matched_transaction_id: null,
+      ynab_id: existing.ynab_id ?? null,
+      imported_payee: existing.imported_payee ?? null,
+      imported_date: null,
+      original_imported_payee: existing.original_imported_payee ?? null,
+      provider_cleansed_payee: null,
+      source: existing.source ?? null,
+      debt_transaction_type: null,
+    };
+
     changedEntities.be_transaction_groups = [
-      {
-        id: params.transaction_id,
-        be_transaction: {
-          id: params.transaction_id,
-          is_tombstone: false,
-          entities_account_id: params.account_id,
-          entities_payee_id: payeeId,
-          entities_subcategory_id: params.category_id ?? existing.entities_subcategory_id ?? null,
-          entities_scheduled_transaction_id: existing.entities_scheduled_transaction_id ?? null,
-          date: params.date ?? existing.date ?? '',
-          date_entered_from_schedule: null,
-          amount: params.amount !== undefined ? toMilliunits(params.amount) : (existing.amount ?? 0),
-          cash_amount: 0,
-          credit_amount: 0,
-          credit_amount_adjusted: 0,
-          subcategory_credit_amount_preceding: 0,
-          memo: params.memo ?? existing.memo ?? null,
-          cleared: resolveCleared(params.cleared, existing.cleared),
-          // YNAB's wire format calls this "accepted"; the public tool surface uses "approved".
-          accepted: params.approved ?? existing.accepted ?? false,
-          check_number: null,
-          flag: resolveFlag(params.flag_color, existing.flag),
-          transfer_account_id: existing.transfer_account_id ?? null,
-          transfer_transaction_id: null,
-          transfer_subtransaction_id: null,
-          matched_transaction_id: null,
-          ynab_id: existing.ynab_id ?? null,
-          imported_payee: existing.imported_payee ?? null,
-          imported_date: null,
-          original_imported_payee: existing.original_imported_payee ?? null,
-          provider_cleansed_payee: null,
-          source: existing.source ?? null,
-          debt_transaction_type: null,
-        },
-        be_subtransactions: null,
-      },
+      { id: params.transaction_id, be_transaction: updatedTransaction, be_subtransactions: null },
     ];
 
     const result = await syncWrite<BudgetEntities>(planId, changedEntities, serverKnowledge);
 
-    const saved = result.changed_entities?.be_transactions?.find(t => t.id === params.transaction_id);
-    if (!saved) {
-      throw ToolError.internal('Transaction was updated but no data was returned');
-    }
+    // Prefer server-echoed data (captures any concurrent merges); fall back to
+    // our local copy when the server omits the transaction from the response.
+    const saved = result.changed_entities?.be_transactions?.find(t => t.id === params.transaction_id) ?? updatedTransaction;
 
     return { transaction: mapTransaction(saved, lookups) };
   },
