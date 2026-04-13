@@ -52,6 +52,7 @@ import {
   getConnectionForTab,
   getNextRequestId,
 } from './state.js';
+import { getSessionId, trackEvent } from './telemetry.js';
 
 /** Maximum incoming WebSocket message size (10MB) */
 const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
@@ -316,8 +317,17 @@ const dispatchToExtension = (
 
   return new Promise((resolve, reject) => {
     const timerId = setTimeout(() => {
-      if (state.pendingDispatches.has(id)) {
+      const p = state.pendingDispatches.get(id);
+      if (p) {
         state.pendingDispatches.delete(id);
+        const elapsed = Date.now() - p.startTs;
+        const durationBucket =
+          elapsed < 32_000 ? '30s' : elapsed < 65_000 ? '1min' : elapsed < 130_000 ? '2min' : '5min';
+        trackEvent('dispatch_timed_out', {
+          session_id: getSessionId(),
+          had_progress_updates: p.lastProgressTs !== undefined,
+          duration_bucket: durationBucket,
+        });
         reject(new Error(`Dispatch ${dispatchLabel} timed out after ${timeoutMs}ms`));
       }
     }, timeoutMs);
