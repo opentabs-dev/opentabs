@@ -40,11 +40,7 @@ export default function TopNav() {
             <button type="button" onClick={toggleDarkMode} aria-label="Toggle dark mode">
               {isDarkMode ? <SunIcon size={20} /> : <MoonIcon size={20} />}
             </button>
-            <Link
-              href="https://discord.gg/b8Hjpz4B"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Discord">
+            <Link href="https://discord.gg/b8Hjpz4B" target="_blank" rel="noopener noreferrer" aria-label="Discord">
               <SiDiscord size={24} />
             </Link>
             <Link
