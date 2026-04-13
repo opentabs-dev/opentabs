@@ -25,6 +25,7 @@ let client:
     }
   | undefined;
 let anonymousId: string | undefined;
+let sessionId: string | undefined;
 let enabled = false;
 let debugMode = false;
 
@@ -91,6 +92,7 @@ const initTelemetry = async (): Promise<void> => {
     }
 
     anonymousId = await getOrCreateAnonymousId();
+    sessionId = crypto.randomUUID();
     enabled = true;
 
     if (debugMode) return;
@@ -100,6 +102,7 @@ const initTelemetry = async (): Promise<void> => {
       host: POSTHOG_HOST,
       flushAt: 1,
       flushInterval: 0,
+      disableGeoip: true,
     });
   } catch {
     // posthog-node not installed or other init failure — telemetry disabled
@@ -126,6 +129,45 @@ const trackEvent = (event: string, properties?: Record<string, unknown>): void =
   }
 };
 
+/** Return the per-process session UUID, or empty string if telemetry is not yet initialized. */
+const getSessionId = (): string => sessionId ?? '';
+
+/** Bucket the tool error rate into a human-readable category. */
+const computeErrorRateBucket = (total: number, errors: number): '0%' | '<5%' | '<25%' | '>=25%' => {
+  if (total === 0 || errors === 0) return '0%';
+  const rate = errors / total;
+  if (rate < 0.05) return '<5%';
+  if (rate < 0.25) return '<25%';
+  return '>=25%';
+};
+
+/** Classify plugin load failures into categories based on error message patterns. */
+const classifyLoadFailures = (
+  failures: ReadonlyArray<{ path: string; error: string }>,
+): { missing_adapter: number; invalid_manifest: number; schema_error: number; unknown: number } => {
+  const result = { missing_adapter: 0, invalid_manifest: 0, schema_error: 0, unknown: 0 };
+  for (const f of failures) {
+    const e = f.error.toLowerCase();
+    if (e.includes('adapter') || e.includes('iife') || e.includes('enoent')) {
+      result.missing_adapter++;
+    } else if (
+      e.includes('tools.json') ||
+      e.includes('package.json') ||
+      e.includes('manifest') ||
+      e.includes('opentabs') ||
+      e.includes('plugin name') ||
+      e.includes('url pattern')
+    ) {
+      result.invalid_manifest++;
+    } else if (e.includes('schema') || e.includes('ajv') || e.includes('compile') || e.includes('sdk')) {
+      result.schema_error++;
+    } else {
+      result.unknown++;
+    }
+  }
+  return result;
+};
+
 /**
  * Flush pending telemetry events. Call before process exit.
  * Has a 2-second timeout so it cannot prevent process exit.
@@ -140,4 +182,13 @@ const shutdownTelemetry = async (): Promise<void> => {
   }
 };
 
-export { getOrCreateAnonymousId, initTelemetry, isTelemetryEnabled, shutdownTelemetry, trackEvent };
+export {
+  classifyLoadFailures,
+  computeErrorRateBucket,
+  getOrCreateAnonymousId,
+  getSessionId,
+  initTelemetry,
+  isTelemetryEnabled,
+  shutdownTelemetry,
+  trackEvent,
+};

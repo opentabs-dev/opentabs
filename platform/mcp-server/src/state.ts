@@ -342,6 +342,10 @@ export interface ServerState {
   nextProfileLabel: number;
   /** Maps connectionId → profile label for reuse on same-profile reconnect */
   profileLabelMap: Map<string, string>;
+  /** High-water mark of simultaneous pending dispatches */
+  peakConcurrentDispatches: number;
+  /** Whether the extension ever connected during this session */
+  hadExtensionConnection: boolean;
   /** Coalescing state for POST /reload — multiple concurrent requests share one performConfigReload call */
   pendingReload: {
     promise: Promise<{ plugins: number; durationMs: number }>;
@@ -352,7 +356,7 @@ export interface ServerState {
 }
 
 /** Increment when changing the type of an existing ServerState field */
-export const STATE_SCHEMA_VERSION = 7;
+export const STATE_SCHEMA_VERSION = 8;
 
 /** Frozen empty registry for initializing ServerState */
 export const EMPTY_REGISTRY: PluginRegistry = Object.freeze({
@@ -409,6 +413,8 @@ export const createState = (): ServerState => ({
   pendingReload: null,
   nextProfileLabel: 0,
   profileLabelMap: new Map(),
+  peakConcurrentDispatches: 0,
+  hadExtensionConnection: false,
 });
 
 /** Generate a cryptographically random JSON-RPC request ID */

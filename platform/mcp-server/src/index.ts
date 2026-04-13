@@ -51,7 +51,7 @@ import { createNodeServer } from './server-node.js';
 import { installShutdownHandlers } from './shutdown.js';
 import type { ServerState } from './state.js';
 import { createState } from './state.js';
-import { initTelemetry, trackEvent } from './telemetry.js';
+import { getSessionId, initTelemetry, trackEvent } from './telemetry.js';
 import { version } from './version.js';
 
 // =========================================================================
@@ -256,12 +256,17 @@ if (!isHotReload) {
   const modeLabel = isDev() ? ' (dev mode)' : '';
   log.info(`MCP server v${version} listening on http://${HOST}:${actualPort}${modeLabel}`);
 
+  const plugins = Array.from(state.registry.plugins.values());
   trackEvent('server_started', {
     version,
     os: process.platform,
     arch: process.arch,
     nodeVersion: process.version,
-    pluginCount: state.registry.plugins.size,
+    plugins_loaded: state.registry.plugins.size,
+    plugins_failed: state.registry.failures.length,
+    plugins_local: plugins.filter(p => p.source === 'local').length,
+    plugins_npm: plugins.filter(p => p.source === 'npm').length,
+    session_id: getSessionId(),
     mode: isDev() ? 'dev' : 'production',
   });
 }
