@@ -624,42 +624,50 @@ const handlePluginList = async (options: PluginListOptions): Promise<void> => {
     }
   }
 
-  // Offline mode — server is not running
-  const configPath = getConfigPath();
-  const { config } = await readConfig(configPath);
-  const localPlugins = config ? getLocalPluginsFromConfig(config) : [];
+  // Offline mode — server is not running.
+  // Wrap in try/catch so that any failure in offline discovery (npm spawn errors
+  // on Windows, JSON parse failures, path issues) degrades gracefully to "no
+  // plugins" rather than propagating to Commander's catch-all and setting exit 1.
+  let deduped: ListPluginEntry[] = [];
+  try {
+    const configPath = getConfigPath();
+    const { config } = await readConfig(configPath);
+    const localPlugins = config ? getLocalPluginsFromConfig(config) : [];
 
-  const localEntries: ListPluginEntry[] = [];
-  for (const entry of localPlugins) {
-    const resolved = resolvePluginPath(entry, configPath);
-    const info = await readLocalPluginInfo(resolved);
-    if (info) {
-      localEntries.push({
-        name: info.name,
-        displayName: info.displayName,
-        version: info.version,
-        source: 'local',
-        tabState: null,
-        toolCount: info.toolCount,
-        toolNames: info.toolNames,
-      });
-    } else {
-      localEntries.push({
-        name: entry,
-        displayName: entry,
-        version: null,
-        source: 'local',
-        tabState: null,
-        toolCount: 0,
-      });
+    const localEntries: ListPluginEntry[] = [];
+    for (const entry of localPlugins) {
+      const resolved = resolvePluginPath(entry, configPath);
+      const info = await readLocalPluginInfo(resolved);
+      if (info) {
+        localEntries.push({
+          name: info.name,
+          displayName: info.displayName,
+          version: info.version,
+          source: 'local',
+          tabState: null,
+          toolCount: info.toolCount,
+          toolNames: info.toolNames,
+        });
+      } else {
+        localEntries.push({
+          name: entry,
+          displayName: entry,
+          version: null,
+          source: 'local',
+          tabState: null,
+          toolCount: 0,
+        });
+      }
     }
+
+    const npmEntries = await scanNpmPlugins();
+
+    // Deduplicate: local entries take precedence over npm entries with the same name
+    const seenNames = new Set(localEntries.map(e => e.name));
+    deduped = [...localEntries, ...npmEntries.filter(e => !seenNames.has(e.name))];
+  } catch {
+    // Offline discovery failed — show empty list rather than exiting non-zero
   }
-
-  const npmEntries = await scanNpmPlugins();
-
-  // Deduplicate: local entries take precedence over npm entries with the same name
-  const seenNames = new Set(localEntries.map(e => e.name));
-  const deduped = [...localEntries, ...npmEntries.filter(e => !seenNames.has(e.name))];
 
   if (options.json) {
     console.log(JSON.stringify({ plugins: deduped, failedPlugins: [], serverRunning: false }, null, 2));

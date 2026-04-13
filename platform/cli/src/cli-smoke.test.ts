@@ -123,7 +123,10 @@ describe('CLI smoke tests', () => {
 
     it('opentabs plugin list exits 0', async () => {
       const result = await run('plugin', 'list');
-      expect(result.code).toBe(0);
+      expect(
+        result.code,
+        `plugin list failed (code=${result.code}):\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
+      ).toBe(0);
     });
   });
 
