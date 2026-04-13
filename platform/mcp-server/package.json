@@ -12,7 +12,7 @@
     "tool-dispatch",
     "plugin-discovery"
   ],
-  "version": "0.0.91",
+  "version": "0.0.94",
   "license": "MIT",
   "engines": {
     "node": ">= 22.0.0"
@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
-    "@opentabs-dev/shared": "*",
+    "@opentabs-dev/shared": "^0.0.94",
     "ajv": "^8.18.0",
     "open": "^11.0.0",
     "posthog-node": "^5.29.2",
