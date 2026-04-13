@@ -20,7 +20,13 @@ import { rejectAllPendingConfirmations } from './extension-handlers.js';
 import { stopFileWatching } from './file-watcher.js';
 import { log } from './logger.js';
 import type { ServerState } from './state.js';
-import { shutdownTelemetry } from './telemetry.js';
+import {
+  classifyLoadFailures,
+  computeErrorRateBucket,
+  getSessionId,
+  shutdownTelemetry,
+  trackEvent,
+} from './telemetry.js';
 
 const SHUTDOWN_INSTALLED_KEY = '__opentabs_shutdown_installed__' as const;
 
@@ -78,7 +84,20 @@ const installShutdownHandlers = (getState: () => ServerState): void => {
       state.extensionConnections.delete(id);
     }
 
-    // 6. Flush pending telemetry events (fire-and-forget, has its own 2s timeout)
+    // 6. Emit server_stopped telemetry event, then flush
+    const auditLog = state.auditLog;
+    const total = auditLog.length;
+    const errors = auditLog.filter(e => !e.success).length;
+    trackEvent('server_stopped', {
+      session_id: getSessionId(),
+      uptime_seconds: Math.round((Date.now() - state.startedAt) / 1000),
+      tool_calls_total: total,
+      tool_errors_total: errors,
+      tool_error_rate_bucket: computeErrorRateBucket(total, errors),
+      extension_was_connected: state.hadExtensionConnection,
+      peak_concurrent_dispatches: state.peakConcurrentDispatches,
+      plugin_load_failures: classifyLoadFailures(state.registry.failures),
+    });
     void shutdownTelemetry();
 
     log.info('Shutdown complete');
