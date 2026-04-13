@@ -1013,7 +1013,17 @@ const handlePluginRemove = async (
 
   try {
     const pluginName = params.name;
+    const existingPlugin = state.registry.plugins.get(pluginName);
+    const pluginSource =
+      existingPlugin?.source === 'npm' ? 'npm' : existingPlugin?.source === 'local' ? 'local' : 'unknown';
     const result = await removePlugin(pluginName, state, callbacks.onReload);
+
+    trackEvent('plugin_removed', {
+      session_id: getSessionId(),
+      source: 'side_panel',
+      was_failed: false,
+      plugin_source: pluginSource,
+    });
 
     // Send plugin.uninstall as a request (with id) so the extension's wrapAsync
     // handler processes it. Best-effort: ignore timeout/error so removal proceeds.
@@ -1057,6 +1067,13 @@ const handlePluginRemoveBySpecifier = async (
     sendPluginManagementError(state, id, err);
     return;
   }
+
+  trackEvent('plugin_removed', {
+    session_id: getSessionId(),
+    source: 'side_panel',
+    was_failed: true,
+    plugin_source: 'unknown',
+  });
 
   sendToExtension(state, {
     jsonrpc: '2.0',
