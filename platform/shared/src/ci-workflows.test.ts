@@ -98,7 +98,7 @@ describe('GitHub Actions workflow YAML validity', () => {
   test('CI docs workflow has expected structure', async () => {
     const content = await readFile(join(WORKFLOWS_DIR, 'ci-docs.yml'), 'utf-8');
     const jobNames = extractJobNames(content);
-    expect(jobNames).toContain('check');
+    expect(jobNames).toContain('check-docs');
     expect(content).toContain('docs/**');
   });
 });
