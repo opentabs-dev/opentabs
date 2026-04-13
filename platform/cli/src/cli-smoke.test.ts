@@ -1,4 +1,4 @@
-import { execFile as execFileCb } from 'node:child_process';
+import { type ChildProcess, execFile as execFileCb, spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -124,5 +124,52 @@ describe('CLI smoke tests', () => {
       const result = await run('plugin', 'list');
       expect(result.code).toBe(0);
     });
+  });
+
+  describe('start command lifecycle', () => {
+    it('starts the server and responds to health check', async () => {
+      const child: ChildProcess = spawn('node', [CLI, 'start'], {
+        env: {
+          ...process.env,
+          PORT: '0',
+          OPENTABS_CONFIG_DIR: tmpDir,
+          OPENTABS_SKIP_NPM_DISCOVERY: '1',
+          OPENTABS_TELEMETRY_DISABLED: '1',
+          OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '1',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+
+      try {
+        const port = await new Promise<number>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Server did not start within 15s')), 15_000);
+          const onData = (chunk: Buffer) => {
+            const match = chunk.toString().match(/[Ll]istening on http:\/\/(?:127\.0\.0\.1|localhost):(\d+)/);
+            if (match) {
+              clearTimeout(timeout);
+              child.stdout?.off('data', onData);
+              child.stderr?.off('data', onData);
+              resolve(Number(match[1]));
+            }
+          };
+          child.stdout?.on('data', onData);
+          child.stderr?.on('data', onData);
+          child.on('error', err => {
+            clearTimeout(timeout);
+            reject(err);
+          });
+          child.on('exit', code => {
+            clearTimeout(timeout);
+            if (code !== null && code !== 0) reject(new Error(`Server exited with code ${code}`));
+          });
+        });
+
+        const res = await fetch(`http://127.0.0.1:${port}/health`);
+        expect(res.status).toBe(200);
+      } finally {
+        child.kill('SIGTERM');
+        await new Promise<void>(resolve => child.on('exit', () => resolve()));
+      }
+    }, 20_000);
   });
 });
