@@ -998,6 +998,27 @@ const handleTestSimulateUpdate = async (req: Request, state: ServerState): Promi
   return Response.json({ ok: true });
 };
 
+/** Dev-only: set serverUpdate for E2E testing (POST /__test/set-server-update) */
+const handleTestSetServerUpdate = async (req: Request, state: ServerState): Promise<Response> => {
+  if (!isDev()) return new Response('Not Found', { status: 404 });
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+  const body = (await req.json()) as { serverUpdate?: { latestVersion: string; updateCommand: string } | null };
+  state.serverUpdate = body.serverUpdate ?? undefined;
+  sendToExtension(state, { jsonrpc: '2.0', method: 'plugins.changed', params: { ...buildConfigStatePayload(state) } });
+  return Response.json({ ok: true });
+};
+
+/** Dev-only: simulate a completed server update for E2E testing (POST /__test/simulate-server-update) */
+const handleTestSimulateServerUpdate = async (req: Request, state: ServerState): Promise<Response> => {
+  if (!isDev()) return new Response('Not Found', { status: 404 });
+  const authError = checkBearerAuth(req, state.wsSecret);
+  if (authError) return authError;
+  state.serverUpdate = undefined;
+  sendToExtension(state, { jsonrpc: '2.0', method: 'plugins.changed', params: { ...buildConfigStatePayload(state) } });
+  return Response.json({ ok: true });
+};
+
 // --- Main router ---
 
 const createHandleFetch =
@@ -1043,6 +1064,10 @@ const createHandleFetch =
     if (url.pathname === '/__test/set-outdated' && req.method === 'POST') return handleTestSetOutdated(req, state);
     if (url.pathname === '/__test/simulate-update' && req.method === 'POST')
       return handleTestSimulateUpdate(req, state);
+    if (url.pathname === '/__test/set-server-update' && req.method === 'POST')
+      return handleTestSetServerUpdate(req, state);
+    if (url.pathname === '/__test/simulate-server-update' && req.method === 'POST')
+      return handleTestSimulateServerUpdate(req, state);
     if (url.pathname === '/mcp/gateway')
       return handleGatewayMcp(req, server, state, gatewayTransports, gatewaySessionServers);
     if (url.pathname === '/mcp') return handleMcp(req, server, state, transports, sessionServers);
