@@ -127,7 +127,8 @@ export const updateTransaction = defineTool({
 
     // Prefer server-echoed data (captures any concurrent merges); fall back to
     // our local copy when the server omits the transaction from the response.
-    const saved = result.changed_entities?.be_transactions?.find(t => t.id === params.transaction_id) ?? updatedTransaction;
+    const saved =
+      result.changed_entities?.be_transactions?.find(t => t.id === params.transaction_id) ?? updatedTransaction;
 
     return { transaction: mapTransaction(saved, lookups) };
   },
