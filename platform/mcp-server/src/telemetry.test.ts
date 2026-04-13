@@ -6,13 +6,17 @@ import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vit
 
 // --- PostHog mock via vi.mock ---
 
-const { mockCapture, mockShutdown } = vi.hoisted(() => ({
+const { mockCapture, mockShutdown, mockConstructorOptions } = vi.hoisted(() => ({
   mockCapture: vi.fn(),
   mockShutdown: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  mockConstructorOptions: { captured: undefined as Record<string, unknown> | undefined },
 }));
 
 vi.mock('posthog-node', () => ({
   PostHog: class MockPostHog {
+    constructor(_key: string, options?: Record<string, unknown>) {
+      mockConstructorOptions.captured = options;
+    }
     capture = mockCapture;
     shutdown = mockShutdown;
   },
@@ -52,6 +56,7 @@ beforeEach(() => {
   vi.unstubAllEnvs();
   mockCapture.mockClear();
   mockShutdown.mockClear().mockResolvedValue(undefined);
+  mockConstructorOptions.captured = undefined;
 });
 
 afterEach(() => {
@@ -270,5 +275,153 @@ describe('shutdownTelemetry', () => {
     await initTelemetry();
 
     await expect(shutdownTelemetry()).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// disableGeoip
+// ---------------------------------------------------------------------------
+
+describe('disableGeoip', () => {
+  test('passes disableGeoip: true to PostHog constructor', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+
+    const { initTelemetry } = await importTelemetry();
+    await initTelemetry();
+
+    expect(mockConstructorOptions.captured).toMatchObject({ disableGeoip: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getSessionId
+// ---------------------------------------------------------------------------
+
+describe('getSessionId', () => {
+  test('returns empty string before initTelemetry', async () => {
+    makeTestDir();
+
+    const { getSessionId } = await importTelemetry();
+    expect(getSessionId()).toBe('');
+  });
+
+  test('returns a UUIDv4 after initTelemetry', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+
+    const { initTelemetry, getSessionId } = await importTelemetry();
+    await initTelemetry();
+
+    const id = getSessionId();
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+
+  test('returns consistent value within same module instance', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+
+    const { initTelemetry, getSessionId } = await importTelemetry();
+    await initTelemetry();
+
+    expect(getSessionId()).toBe(getSessionId());
+  });
+
+  test('session_id differs from persistent telemetry-id file', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+
+    const { initTelemetry, getSessionId, getOrCreateAnonymousId } = await importTelemetry();
+    await initTelemetry();
+
+    const anonId = await getOrCreateAnonymousId();
+    expect(getSessionId()).not.toBe(anonId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeErrorRateBucket
+// ---------------------------------------------------------------------------
+
+describe('computeErrorRateBucket', () => {
+  test('returns 0% when both total and errors are 0', async () => {
+    const { computeErrorRateBucket } = await importTelemetry();
+    expect(computeErrorRateBucket(0, 0)).toBe('0%');
+  });
+
+  test('returns 0% when total is positive but errors is 0', async () => {
+    const { computeErrorRateBucket } = await importTelemetry();
+    expect(computeErrorRateBucket(100, 0)).toBe('0%');
+  });
+
+  test('returns <5% when error rate is below 5%', async () => {
+    const { computeErrorRateBucket } = await importTelemetry();
+    expect(computeErrorRateBucket(100, 1)).toBe('<5%');
+  });
+
+  test('returns <25% when error rate is between 5% and 25%', async () => {
+    const { computeErrorRateBucket } = await importTelemetry();
+    expect(computeErrorRateBucket(100, 10)).toBe('<25%');
+  });
+
+  test('returns >=25% when error rate is 25% or above', async () => {
+    const { computeErrorRateBucket } = await importTelemetry();
+    expect(computeErrorRateBucket(100, 50)).toBe('>=25%');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyLoadFailures
+// ---------------------------------------------------------------------------
+
+describe('classifyLoadFailures', () => {
+  test('correctly categorizes failure types', async () => {
+    const { classifyLoadFailures } = await importTelemetry();
+
+    const failures = [
+      { path: '/some/path', error: 'ENOENT: no such file or directory, open dist/adapter.iife.js' },
+      { path: '/other', error: 'Invalid tools.json: missing name field' },
+      { path: '/third', error: 'Schema compilation failed: invalid pattern keyword' },
+      { path: '/fourth', error: 'Unexpected token in package.json' },
+      { path: '/fifth', error: 'Completely unknown error' },
+    ];
+
+    const result = classifyLoadFailures(failures);
+    expect(result).toEqual({
+      missing_adapter: 1,
+      invalid_manifest: 2,
+      schema_error: 1,
+      unknown: 1,
+    });
+  });
+
+  test('returns all zeros for empty array', async () => {
+    const { classifyLoadFailures } = await importTelemetry();
+
+    expect(classifyLoadFailures([])).toEqual({
+      missing_adapter: 0,
+      invalid_manifest: 0,
+      schema_error: 0,
+      unknown: 0,
+    });
+  });
+
+  test('classifies adapter-related errors as missing_adapter', async () => {
+    const { classifyLoadFailures } = await importTelemetry();
+
+    const failures = [
+      { path: '/a', error: 'Adapter IIFE not found at dist/adapter.iife.js' },
+      { path: '/b', error: 'ENOENT: no such file or directory' },
+    ];
+
+    expect(classifyLoadFailures(failures).missing_adapter).toBe(2);
+  });
+
+  test('classifies sdk-related errors as schema_error', async () => {
+    const { classifyLoadFailures } = await importTelemetry();
+
+    const failures = [{ path: '/a', error: 'SDK version mismatch' }];
+
+    expect(classifyLoadFailures(failures).schema_error).toBe(1);
   });
 });
