@@ -127,6 +127,59 @@ export const mapComment = (c: RawComment) => ({
   body: c.body?.storage?.value ?? '',
 });
 
+// --- Inline comment schemas ---
+
+export const inlineCommentSchema = z.object({
+  id: z.string().describe('Comment ID'),
+  page_id: z.string().describe('Page ID the comment belongs to'),
+  status: z.string().describe('Comment status'),
+  title: z.string().describe('Comment title'),
+  author_id: z.string().describe('Account ID of the comment author'),
+  created_at: z.string().describe('ISO 8601 timestamp of comment creation'),
+  body: z.string().describe('Comment body in storage format (HTML)'),
+  resolution_status: z
+    .string()
+    .describe('Resolution status of the inline comment (open, resolved, reopened, dangling)'),
+  text_selection: z.string().nullable().describe('The text in the page that this comment is anchored to'),
+  inline_marker_ref: z.string().describe('Internal marker reference ID for the inline comment'),
+});
+
+export interface RawInlineComment {
+  id?: string;
+  pageId?: string;
+  status?: string;
+  title?: string;
+  version?: {
+    authorId?: string;
+    createdAt?: string;
+  };
+  body?: {
+    storage?: {
+      value?: string;
+    };
+  };
+  resolutionStatus?: string;
+  properties?: {
+    inlineOriginalSelection?: string;
+    inlineMarkerRef?: string;
+    'inline-original-selection'?: string;
+    'inline-marker-ref'?: string;
+  };
+}
+
+export const mapInlineComment = (c: RawInlineComment) => ({
+  id: c.id ?? '',
+  page_id: c.pageId ?? '',
+  status: c.status ?? '',
+  title: c.title ?? '',
+  author_id: c.version?.authorId ?? '',
+  created_at: c.version?.createdAt ?? '',
+  body: c.body?.storage?.value ?? '',
+  resolution_status: c.resolutionStatus ?? '',
+  text_selection: c.properties?.inlineOriginalSelection ?? c.properties?.['inline-original-selection'] ?? null,
+  inline_marker_ref: c.properties?.inlineMarkerRef ?? c.properties?.['inline-marker-ref'] ?? '',
+});
+
 // --- Label schemas ---
 
 export const labelSchema = z.object({

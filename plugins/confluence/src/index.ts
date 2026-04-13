@@ -3,6 +3,7 @@ import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './confluence-api.js';
 import { addLabel } from './tools/add-label.js';
 import { createComment } from './tools/create-comment.js';
+import { createInlineComment } from './tools/create-inline-comment.js';
 import { createPage } from './tools/create-page.js';
 import { deleteComment } from './tools/delete-comment.js';
 import { deletePage } from './tools/delete-page.js';
@@ -10,7 +11,9 @@ import { getPage } from './tools/get-page.js';
 import { getPageChildren } from './tools/get-page-children.js';
 import { getSpace } from './tools/get-space.js';
 import { getUserProfile } from './tools/get-user-profile.js';
+import { listCommentReplies } from './tools/list-comment-replies.js';
 import { listComments } from './tools/list-comments.js';
+import { listInlineComments } from './tools/list-inline-comments.js';
 import { listLabels } from './tools/list-labels.js';
 import { listPageAttachments } from './tools/list-page-attachments.js';
 import { listPageVersions } from './tools/list-page-versions.js';
@@ -48,7 +51,10 @@ class ConfluencePlugin extends OpenTabsPlugin {
     listPageVersions,
     search,
     listComments,
+    listInlineComments,
+    listCommentReplies,
     createComment,
+    createInlineComment,
     deleteComment,
     listLabels,
     addLabel,
