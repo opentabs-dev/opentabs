@@ -51,7 +51,7 @@ import { createNodeServer } from './server-node.js';
 import { installShutdownHandlers } from './shutdown.js';
 import type { ServerState } from './state.js';
 import { createState } from './state.js';
-import { getSessionId, initTelemetry, trackEvent } from './telemetry.js';
+import { getSessionId, identifyPerson, initTelemetry, trackEvent } from './telemetry.js';
 import { version } from './version.js';
 
 // =========================================================================
@@ -268,6 +268,11 @@ if (!isHotReload) {
     plugins_npm: plugins.filter(p => p.source === 'npm').length,
     session_id: getSessionId(),
     mode: isDev() ? 'dev' : 'production',
+  });
+
+  identifyPerson({
+    $set: { version, mode: isDev() ? 'dev' : 'production' },
+    $set_once: { os: process.platform, arch: process.arch, node_version: process.version },
   });
 }
 
