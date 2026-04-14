@@ -31,6 +31,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Page Inspection',
   },
   {
+    name: 'browser_clear_site_data',
+    description:
+      'Clear browsing data for a specific origin. Selectively clear cookies, localStorage, cache, IndexedDB, and/or service workers. By default clears cookies and localStorage. Useful for resetting site state or debugging authentication issues.',
+    summary: 'Clear site data',
+    icon: 'eraser',
+    group: 'Data',
+  },
+  {
     name: 'browser_click_element',
     description:
       'Click an element on the page matching the given CSS selector. Dispatches trusted (isTrusted: true) mouse events (mousedown + mouseup) via Chrome DevTools Protocol Input.dispatchMouseEvent at the element center. Returns the tag name and trimmed text content of the clicked element. Useful for submitting forms, toggling buttons, and navigating.',
@@ -172,6 +180,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Get raw HTML from a page',
     icon: 'code',
     group: 'Page Inspection',
+  },
+  {
+    name: 'browser_get_recently_closed',
+    description:
+      'Get recently closed tabs and windows (up to 25). Returns sessions with type (tab or window), sessionId, closedAt (ISO string), and details (title, url for tabs; tab count for windows). Use the sessionId with browser_restore_session to restore a closed tab or window.',
+    summary: 'Get recently closed tabs',
+    icon: 'undo-2',
+    group: 'Sessions',
   },
   {
     name: 'browser_get_resource_content',
@@ -339,6 +355,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Remove tabs from a tab group',
     icon: 'folder-output',
     group: 'Tabs',
+  },
+  {
+    name: 'browser_restore_session',
+    description:
+      'Restore a recently closed tab or window by its session ID. Use browser_get_recently_closed to find session IDs. Returns the restored session details.',
+    summary: 'Restore closed tab/window',
+    icon: 'undo-2',
+    group: 'Sessions',
   },
   {
     name: 'browser_screenshot_tab',

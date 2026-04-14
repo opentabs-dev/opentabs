@@ -66,6 +66,9 @@ const {
   mockHandleBrowserSearchBookmarks,
   mockHandleBrowserCreateBookmark,
   mockHandleBrowserListBookmarkTree,
+  mockHandleBrowserGetRecentlyClosed,
+  mockHandleBrowserRestoreSession,
+  mockHandleBrowserClearSiteData,
   mockHandleExtensionGetState,
   mockHandleExtensionGetLogs,
   mockHandleExtensionGetSidePanel,
@@ -227,6 +230,15 @@ const {
     mockHandleBrowserListBookmarkTree: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
+    mockHandleBrowserGetRecentlyClosed: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserRestoreSession: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserClearSiteData: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
     mockHandleExtensionGetState: vi.fn(asyncNoop as (id: string | number) => Promise<void>),
     mockHandleExtensionGetLogs: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
@@ -364,6 +376,9 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserSearchBookmarks: mockHandleBrowserSearchBookmarks,
   handleBrowserCreateBookmark: mockHandleBrowserCreateBookmark,
   handleBrowserListBookmarkTree: mockHandleBrowserListBookmarkTree,
+  handleBrowserGetRecentlyClosed: mockHandleBrowserGetRecentlyClosed,
+  handleBrowserRestoreSession: mockHandleBrowserRestoreSession,
+  handleBrowserClearSiteData: mockHandleBrowserClearSiteData,
   initNotificationClickHandler: vi.fn(),
   handleExtensionCheckAdapter: mockHandleExtensionCheckAdapter,
   handleExtensionForceReconnect: mockHandleExtensionForceReconnect,

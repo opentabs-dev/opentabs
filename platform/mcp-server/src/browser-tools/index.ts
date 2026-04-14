@@ -10,6 +10,7 @@ import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared';
 import { addTabsToGroup } from './add-tabs-to-group.js';
 import { analyzeSiteTool } from './analyze-site.js';
 import { clearConsoleLogs } from './clear-console-logs.js';
+import { clearSiteData } from './clear-site-data.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
 import { closeWindow } from './close-window.js';
@@ -34,6 +35,7 @@ import { getCookies } from './get-cookies.js';
 import { getDownloadStatus } from './get-download-status.js';
 import { getNetworkRequests } from './get-network-requests.js';
 import { getPageHtml } from './get-page-html.js';
+import { getRecentlyClosed } from './get-recently-closed.js';
 import { getResourceContent } from './get-resource-content.js';
 import { getStorage } from './get-storage.js';
 import { getTabContent } from './get-tab-content.js';
@@ -56,6 +58,7 @@ import { pressKey } from './press-key.js';
 import { queryElements } from './query-elements.js';
 import { reloadExtension } from './reload-extension.js';
 import { removeTabsFromGroup } from './remove-tabs-from-group.js';
+import { restoreSession } from './restore-session.js';
 import { screenshotTab } from './screenshot-tab.js';
 import { scroll } from './scroll.js';
 import { searchBookmarks } from './search-bookmarks.js';
@@ -121,6 +124,9 @@ const browserTools: BrowserToolDefinition[] = [
   searchBookmarks,
   createBookmark,
   listBookmarkTree,
+  getRecentlyClosed,
+  restoreSession,
+  clearSiteData,
   extensionGetState,
   extensionGetLogs,
   extensionGetSidePanel,

@@ -3,6 +3,7 @@ export {
   handleBrowserListBookmarkTree,
   handleBrowserSearchBookmarks,
 } from './bookmark-commands.js';
+export { handleBrowserClearSiteData } from './browsing-data-commands.js';
 export {
   handleBrowserGetPageHtml,
   handleBrowserGetStorage,
@@ -54,6 +55,7 @@ export {
   withDebugger,
 } from './resource-commands.js';
 export { handleBrowserScroll } from './scroll-command.js';
+export { handleBrowserGetRecentlyClosed, handleBrowserRestoreSession } from './session-commands.js';
 export {
   handleBrowserAddTabsToGroup,
   handleBrowserCloseTab,

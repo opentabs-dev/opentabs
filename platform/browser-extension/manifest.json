@@ -36,7 +36,9 @@
     "notifications",
     "downloads",
     "history",
-    "bookmarks"
+    "bookmarks",
+    "sessions",
+    "browsingData"
   ],
   "host_permissions": ["<all_urls>"]
 }
