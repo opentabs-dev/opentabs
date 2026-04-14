@@ -229,6 +229,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Tabs',
   },
   {
+    name: 'browser_notify',
+    description:
+      'Show a Chrome desktop notification. Use this to alert the user about completed tasks, errors, or important events. The notification appears even when Chrome is in the background. If url is provided, clicking the notification opens that URL in a new tab; otherwise it opens the OpenTabs side panel.',
+    summary: 'Show a desktop notification',
+    icon: 'bell',
+    group: 'Notifications',
+  },
+  {
     name: 'browser_open_tab',
     description:
       'Open a new browser tab with the specified URL. Returns the new tab ID, which can be used with browser_navigate_tab, browser_close_tab, and browser_execute_script. When multiple browser profiles are connected, use connectionId to target a specific profile (get connectionIds from browser_list_tabs). Without connectionId, opens in an arbitrary profile.',

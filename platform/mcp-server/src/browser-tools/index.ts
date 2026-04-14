@@ -51,6 +51,7 @@ import { screenshotTab } from './screenshot-tab.js';
 import { scroll } from './scroll.js';
 import { selectOption } from './select-option.js';
 import { setCookie } from './set-cookie.js';
+import { showNotification } from './show-notification.js';
 import { typeText } from './type-text.js';
 import { updateTabGroup } from './update-tab-group.js';
 import { waitForElement } from './wait-for-element.js';
@@ -95,6 +96,7 @@ const browserTools: BrowserToolDefinition[] = [
   scroll,
   hoverElement,
   handleDialog,
+  showNotification,
   extensionGetState,
   extensionGetLogs,
   extensionGetSidePanel,
