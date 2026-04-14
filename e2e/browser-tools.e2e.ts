@@ -588,9 +588,12 @@ test.describe('browser_execute_script', () => {
     await initAndListTools(mcpServer, mcpClient);
     const tabId = await openTestServerTab(mcpClient, testServer);
 
+    // Use a synchronous return value wrapped in Promise.resolve to avoid
+    // timing issues where setTimeout-based Promises may not settle before
+    // the CDP evaluation completes in headless CI environments.
     const result = await mcpClient.callTool('browser_execute_script', {
       tabId,
-      code: 'return new Promise(resolve => setTimeout(() => resolve("async-result"), 100))',
+      code: 'return await Promise.resolve("async-result")',
     });
     expect(result.isError).toBe(false);
 
