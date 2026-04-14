@@ -94,12 +94,28 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Network',
   },
   {
+    name: 'browser_fail_request',
+    description:
+      'Fail a paused HTTP request with a network error. The request must have been paused by browser_intercept_requests. Use this to simulate network failures, blocked requests, or connection errors.',
+    summary: 'Fail a paused request with an error',
+    icon: 'route',
+    group: 'Network',
+  },
+  {
     name: 'browser_focus_tab',
     description:
       'Focus a browser tab by making it the active tab in its window and bringing the window to the foreground. Useful for bringing a tab to the foreground for visual inspection. Use browser_list_tabs to find tab IDs.',
     summary: 'Focus a browser tab',
     icon: 'eye',
     group: 'Tabs',
+  },
+  {
+    name: 'browser_fulfill_request',
+    description:
+      'Fulfill a paused HTTP request with a custom response. The request must have been paused by browser_intercept_requests. Provide the requestId from the paused request, an HTTP status code, optional response headers, and optional body.',
+    summary: 'Fulfill a paused request with a custom response',
+    icon: 'route',
+    group: 'Network',
   },
   {
     name: 'browser_get_console_logs',
@@ -188,6 +204,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Hover over an element on the page',
     icon: 'hand',
     group: 'Page Interaction',
+  },
+  {
+    name: 'browser_intercept_requests',
+    description:
+      'Start intercepting HTTP requests for a browser tab using the Chrome DevTools Protocol Fetch domain. Intercepted requests are paused and can be fulfilled with custom responses (browser_fulfill_request), failed with an error (browser_fail_request), or released by stopping interception (browser_stop_intercepting). Use urlPatterns to filter which requests to intercept (default: all requests). WARNING: Paused requests block the page — always fulfill, fail, or stop intercepting promptly. Requests not handled within 30 seconds are automatically continued.',
+    summary: 'Start intercepting HTTP requests',
+    icon: 'route',
+    group: 'Network',
   },
   {
     name: 'browser_list_resources',
@@ -299,6 +323,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Set or update a browser cookie',
     icon: 'cookie',
     group: 'Storage & Cookies',
+  },
+  {
+    name: 'browser_stop_intercepting',
+    description:
+      'Stop intercepting HTTP requests for a tab. Disables the CDP Fetch domain and releases all paused requests. Any requests still paused when this is called are automatically continued.',
+    summary: 'Stop intercepting HTTP requests',
+    icon: 'route',
+    group: 'Network',
   },
   {
     name: 'browser_type_text',

@@ -22,6 +22,12 @@ export {
   handleBrowserTypeText,
   handleBrowserWaitForElement,
 } from './interaction-commands.js';
+export {
+  handleBrowserFailRequest,
+  handleBrowserFulfillRequest,
+  handleBrowserInterceptRequests,
+  handleBrowserStopIntercepting,
+} from './interception-commands.js';
 export { handleBrowserPressKey } from './key-press-command.js';
 export {
   handleBrowserClearConsoleLogs,

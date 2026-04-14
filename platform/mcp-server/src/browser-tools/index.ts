@@ -24,7 +24,9 @@ import { extensionForceReconnect } from './extension-force-reconnect.js';
 import { extensionGetLogs } from './extension-get-logs.js';
 import { extensionGetSidePanel } from './extension-get-side-panel.js';
 import { extensionGetState } from './extension-get-state.js';
+import { failRequest } from './fail-request.js';
 import { focusTab } from './focus-tab.js';
+import { fulfillRequest } from './fulfill-request.js';
 import { getConsoleLogs } from './get-console-logs.js';
 import { getCookies } from './get-cookies.js';
 import { getNetworkRequests } from './get-network-requests.js';
@@ -36,6 +38,7 @@ import { getTabInfo } from './get-tab-info.js';
 import { getWebSocketFrames } from './get-websocket-frames.js';
 import { handleDialog } from './handle-dialog.js';
 import { hoverElement } from './hover-element.js';
+import { interceptRequests } from './intercept-requests.js';
 import { listResources } from './list-resources.js';
 import { listTabGroups } from './list-tab-groups.js';
 import { listTabs } from './list-tabs.js';
@@ -52,6 +55,7 @@ import { scroll } from './scroll.js';
 import { selectOption } from './select-option.js';
 import { setCookie } from './set-cookie.js';
 import { showNotification } from './show-notification.js';
+import { stopIntercepting } from './stop-intercepting.js';
 import { typeText } from './type-text.js';
 import { updateTabGroup } from './update-tab-group.js';
 import { waitForElement } from './wait-for-element.js';
@@ -97,6 +101,10 @@ const browserTools: BrowserToolDefinition[] = [
   hoverElement,
   handleDialog,
   showNotification,
+  interceptRequests,
+  fulfillRequest,
+  failRequest,
+  stopIntercepting,
   extensionGetState,
   extensionGetLogs,
   extensionGetSidePanel,

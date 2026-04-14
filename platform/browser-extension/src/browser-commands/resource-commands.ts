@@ -9,6 +9,7 @@ import {
   sendSuccessResult,
   sendValidationError,
 } from './helpers.js';
+import { isIntercepting } from './interception-commands.js';
 
 export interface CdpFrame {
   id: string;
@@ -73,7 +74,7 @@ export const findFrameForResource = (
  * otherwise temporarily attaches and detaches in the finally block.
  */
 export const withDebugger = async <T>(tabId: number, fn: () => Promise<T>): Promise<T> => {
-  const alreadyAttached = isCapturing(tabId);
+  const alreadyAttached = isCapturing(tabId) || isIntercepting(tabId);
   if (!alreadyAttached) {
     try {
       await chrome.debugger.attach({ tabId }, CDP_VERSION);

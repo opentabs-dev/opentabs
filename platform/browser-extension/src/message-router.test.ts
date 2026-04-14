@@ -54,6 +54,10 @@ const {
   mockHandleBrowserHoverElement,
   mockHandleBrowserHandleDialog,
   mockHandleBrowserShowNotification,
+  mockHandleBrowserInterceptRequests,
+  mockHandleBrowserFulfillRequest,
+  mockHandleBrowserFailRequest,
+  mockHandleBrowserStopIntercepting,
   mockHandleExtensionGetState,
   mockHandleExtensionGetLogs,
   mockHandleExtensionGetSidePanel,
@@ -177,6 +181,18 @@ const {
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleBrowserShowNotification: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserInterceptRequests: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserFulfillRequest: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserFailRequest: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserStopIntercepting: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleExtensionGetState: vi.fn(asyncNoop as (id: string | number) => Promise<void>),
@@ -304,6 +320,10 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserHoverElement: mockHandleBrowserHoverElement,
   handleBrowserHandleDialog: mockHandleBrowserHandleDialog,
   handleBrowserShowNotification: mockHandleBrowserShowNotification,
+  handleBrowserInterceptRequests: mockHandleBrowserInterceptRequests,
+  handleBrowserFulfillRequest: mockHandleBrowserFulfillRequest,
+  handleBrowserFailRequest: mockHandleBrowserFailRequest,
+  handleBrowserStopIntercepting: mockHandleBrowserStopIntercepting,
   initNotificationClickHandler: vi.fn(),
   handleExtensionCheckAdapter: mockHandleExtensionCheckAdapter,
   handleExtensionForceReconnect: mockHandleExtensionForceReconnect,

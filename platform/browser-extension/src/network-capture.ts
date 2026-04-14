@@ -1,4 +1,9 @@
 import { toErrorMessage } from '@opentabs-dev/shared';
+import {
+  cleanupInterception,
+  handleFetchRequestPaused,
+  isIntercepting,
+} from './browser-commands/interception-commands.js';
 import { CDP_VERSION } from './constants.js';
 
 // ---------------------------------------------------------------------------
@@ -187,6 +192,14 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
   const paramsRecord = params as Record<string, unknown> | undefined;
   const tabId = source.tabId;
   if (tabId === undefined) return;
+
+  // Route Fetch.requestPaused to the interception handler regardless of network capture state.
+  // Interception manages its own per-tab state and the debugger may be attached without capture.
+  if (method === 'Fetch.requestPaused' && paramsRecord && isIntercepting(tabId)) {
+    handleFetchRequestPaused(source, paramsRecord);
+    return;
+  }
+
   const state = captures.get(tabId);
   if (!state) return;
 
@@ -401,8 +414,9 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
   }
 });
 
-// Clean up capture state when a tab is closed
+// Clean up capture and interception state when a tab is closed
 chrome.tabs.onRemoved.addListener((tabId: number) => {
+  cleanupInterception(tabId);
   const state = captures.get(tabId);
   if (state) {
     clearInterval(state.pruneIntervalId);
@@ -417,6 +431,7 @@ chrome.tabs.onRemoved.addListener((tabId: number) => {
 chrome.debugger.onDetach.addListener((source: chrome.debugger.Debuggee, _reason: string) => {
   const tabId = source.tabId;
   if (tabId !== undefined) {
+    cleanupInterception(tabId);
     const state = captures.get(tabId);
     if (state) clearInterval(state.pruneIntervalId);
     captures.delete(tabId);
