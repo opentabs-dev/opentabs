@@ -6,6 +6,11 @@ export {
 } from './content-commands.js';
 export { handleBrowserDeleteCookies, handleBrowserGetCookies, handleBrowserSetCookie } from './cookie-commands.js';
 export {
+  handleBrowserDownloadFile,
+  handleBrowserGetDownloadStatus,
+  handleBrowserListDownloads,
+} from './download-commands.js';
+export {
   handleBrowserExecuteScript,
   handleExtensionCheckAdapter,
   handleExtensionForceReconnect,

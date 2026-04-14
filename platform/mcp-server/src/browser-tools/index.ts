@@ -18,6 +18,7 @@ import { createWindow } from './create-window.js';
 import type { BrowserToolDefinition } from './definition.js';
 import { deleteCookies } from './delete-cookies.js';
 import { disableNetworkCapture } from './disable-network-capture.js';
+import { downloadFile } from './download-file.js';
 import { enableNetworkCapture } from './enable-network-capture.js';
 import { executeScript } from './execute-script.js';
 import { exportHar } from './export-har.js';
@@ -29,6 +30,7 @@ import { extensionGetState } from './extension-get-state.js';
 import { focusTab } from './focus-tab.js';
 import { getConsoleLogs } from './get-console-logs.js';
 import { getCookies } from './get-cookies.js';
+import { getDownloadStatus } from './get-download-status.js';
 import { getNetworkRequests } from './get-network-requests.js';
 import { getPageHtml } from './get-page-html.js';
 import { getResourceContent } from './get-resource-content.js';
@@ -38,6 +40,7 @@ import { getTabInfo } from './get-tab-info.js';
 import { getWebSocketFrames } from './get-websocket-frames.js';
 import { handleDialog } from './handle-dialog.js';
 import { hoverElement } from './hover-element.js';
+import { listDownloads } from './list-downloads.js';
 import { listResources } from './list-resources.js';
 import { listTabGroups } from './list-tab-groups.js';
 import { listTabs } from './list-tabs.js';
@@ -105,6 +108,9 @@ const browserTools: BrowserToolDefinition[] = [
   createWindow,
   updateWindow,
   closeWindow,
+  downloadFile,
+  listDownloads,
+  getDownloadStatus,
   extensionGetState,
   extensionGetLogs,
   extensionGetSidePanel,
