@@ -2,6 +2,7 @@ import { toErrorMessage } from '@opentabs-dev/shared';
 import { CDP_VERSION } from '../constants.js';
 import { isCapturing } from '../network-capture.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
+import { isEmulating } from './emulation-commands.js';
 import {
   requireStringParam,
   requireTabId,
@@ -9,6 +10,8 @@ import {
   sendSuccessResult,
   sendValidationError,
 } from './helpers.js';
+import { isIntercepting } from './interception-commands.js';
+import { isThrottling } from './throttle-commands.js';
 
 export interface CdpFrame {
   id: string;
@@ -73,7 +76,7 @@ export const findFrameForResource = (
  * otherwise temporarily attaches and detaches in the finally block.
  */
 export const withDebugger = async <T>(tabId: number, fn: () => Promise<T>): Promise<T> => {
-  const alreadyAttached = isCapturing(tabId);
+  const alreadyAttached = isCapturing(tabId) || isIntercepting(tabId) || isEmulating(tabId) || isThrottling(tabId);
   if (!alreadyAttached) {
     try {
       await chrome.debugger.attach({ tabId }, CDP_VERSION);

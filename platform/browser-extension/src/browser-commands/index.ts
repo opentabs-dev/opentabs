@@ -6,6 +6,18 @@ export {
 } from './content-commands.js';
 export { handleBrowserDeleteCookies, handleBrowserGetCookies, handleBrowserSetCookie } from './cookie-commands.js';
 export {
+  handleBrowserForcePseudoState,
+  handleBrowserGetCssCoverage,
+  handleBrowserGetElementStyles,
+} from './css-commands.js';
+export {
+  handleBrowserClearEmulation,
+  handleBrowserEmulateDevice,
+  handleBrowserEmulateVisionDeficiency,
+  handleBrowserSetGeolocation,
+  handleBrowserSetMediaFeatures,
+} from './emulation-commands.js';
+export {
   handleBrowserExecuteScript,
   handleExtensionCheckAdapter,
   handleExtensionForceReconnect,
@@ -22,6 +34,12 @@ export {
   handleBrowserTypeText,
   handleBrowserWaitForElement,
 } from './interaction-commands.js';
+export {
+  handleBrowserFailRequest,
+  handleBrowserFulfillRequest,
+  handleBrowserInterceptRequests,
+  handleBrowserStopIntercepting,
+} from './interception-commands.js';
 export { handleBrowserPressKey } from './key-press-command.js';
 export {
   handleBrowserClearConsoleLogs,
@@ -57,3 +75,4 @@ export {
   handleBrowserRemoveTabsFromGroup,
   handleBrowserUpdateTabGroup,
 } from './tab-commands.js';
+export { handleBrowserClearNetworkThrottle, handleBrowserThrottleNetwork } from './throttle-commands.js';
