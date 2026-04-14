@@ -49,6 +49,7 @@ export const DISPATCH_METHODS = [
   'browser.scroll',
   'browser.hoverElement',
   'browser.handleDialog',
+  'browser.showNotification',
   'extension.reload',
   'extension.getState',
   'extension.getLogs',

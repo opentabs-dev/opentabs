@@ -31,6 +31,7 @@ export {
   handleBrowserGetNetworkRequests,
   handleBrowserGetWebSocketFrames,
 } from './network-commands.js';
+export { handleBrowserShowNotification, initNotificationClickHandler } from './notification-commands.js';
 export type { CdpFrame, CdpFrameResourceTree, CdpResource } from './resource-commands.js';
 export {
   findFrameForResource,
