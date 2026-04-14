@@ -21,7 +21,13 @@ afterAll(async () => {
   await rm(tmpDir, { recursive: true, force: true });
 });
 
-const run = async (...args: string[]): Promise<{ stdout: string; stderr: string; code: number }> => {
+const run = async (
+  ...argsAndOpts: [...string[], { timeout?: number }] | string[]
+): Promise<{ stdout: string; stderr: string; code: number }> => {
+  const last = argsAndOpts[argsAndOpts.length - 1];
+  const hasOpts = typeof last === 'object' && last !== null;
+  const args = (hasOpts ? argsAndOpts.slice(0, -1) : argsAndOpts) as string[];
+  const timeout = hasOpts ? ((last as { timeout?: number }).timeout ?? 10_000) : 10_000;
   try {
     const { stdout, stderr } = await execFile('node', [CLI, ...args], {
       env: {
@@ -29,7 +35,7 @@ const run = async (...args: string[]): Promise<{ stdout: string; stderr: string;
         OPENTABS_CONFIG_DIR: tmpDir,
         OPENTABS_TELEMETRY_DISABLED: '1',
       },
-      timeout: 10_000,
+      timeout,
     });
     return { stdout, stderr, code: 0 };
   } catch (err: unknown) {
@@ -122,7 +128,8 @@ describe('CLI smoke tests', () => {
     });
 
     it('opentabs plugin list exits 0', async () => {
-      const result = await run('plugin', 'list');
+      // Plugin list runs npm discovery which can be slow on Windows CI
+      const result = await run('plugin', 'list', { timeout: 30_000 });
       expect(
         result.code,
         `plugin list failed (code=${result.code}):\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,

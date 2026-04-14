@@ -52,8 +52,9 @@ vi.mock('node:url', async importOriginal => {
     ...original,
     fileURLToPath: (url: string) => {
       const real = original.fileURLToPath(url);
-      // Make serverSourcePath include 'node_modules' so handleServerSelfUpdate tests work
-      if (real.includes('extension-handlers')) return real.replace('platform/', 'node_modules/platform/');
+      // Make serverSourcePath include 'node_modules' so handleServerSelfUpdate tests work.
+      // Match both forward and back slashes for Windows compatibility.
+      if (real.includes('extension-handlers')) return real.replace(/platform[/\\]/, 'node_modules/platform/');
       return real;
     },
   };

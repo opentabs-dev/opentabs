@@ -36,8 +36,9 @@ vi.mock('node:url', async importOriginal => {
     ...original,
     fileURLToPath: (url: string) => {
       const real = original.fileURLToPath(url);
-      // Make _serverDir include 'node_modules' so isProductionInstall() returns true
-      if (real.includes('version-check')) return real.replace('platform/', 'node_modules/platform/');
+      // Make _serverDir include 'node_modules' so isProductionInstall() returns true.
+      // Match both forward and back slashes for Windows compatibility.
+      if (real.includes('version-check')) return real.replace(/platform[/\\]/, 'node_modules/platform/');
       return real;
     },
   };
