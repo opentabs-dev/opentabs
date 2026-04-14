@@ -2,7 +2,9 @@ import { toErrorMessage } from '@opentabs-dev/shared';
 import { CDP_VERSION } from '../constants.js';
 import { isCapturing } from '../network-capture.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
+import { isEmulating } from './emulation-commands.js';
 import { requireStringParam, requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
+import { isThrottling } from './throttle-commands.js';
 
 /** Auto-continue timeout for paused requests (ms). Prevents page hangs. */
 const AUTO_CONTINUE_TIMEOUT_MS = 30_000;
@@ -65,8 +67,8 @@ export const handleBrowserInterceptRequests = async (
 
     const fetchPatterns = rawPatterns.map(p => ({ urlPattern: p, requestStage: 'Request' }));
 
-    // Attach debugger if not already attached (e.g., by network capture)
-    const alreadyAttached = isCapturing(tabId);
+    // Attach debugger if not already attached (e.g., by network capture, emulation, or throttling)
+    const alreadyAttached = isCapturing(tabId) || isEmulating(tabId) || isThrottling(tabId);
     if (!alreadyAttached) {
       try {
         await chrome.debugger.attach({ tabId }, CDP_VERSION);
@@ -198,8 +200,8 @@ export const handleBrowserStopIntercepting = async (
       // Debugger may already be detached
     }
 
-    // Detach debugger if network capture is not active
-    if (!isCapturing(tabId)) {
+    // Detach debugger if no other features are using it
+    if (!isCapturing(tabId) && !isEmulating(tabId) && !isThrottling(tabId)) {
       await chrome.debugger.detach({ tabId }).catch(() => {});
     }
 

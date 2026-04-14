@@ -75,3 +75,4 @@ export {
   handleBrowserRemoveTabsFromGroup,
   handleBrowserUpdateTabGroup,
 } from './tab-commands.js';
+export { handleBrowserClearNetworkThrottle, handleBrowserThrottleNetwork } from './throttle-commands.js';

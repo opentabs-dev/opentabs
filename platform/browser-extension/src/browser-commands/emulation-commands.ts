@@ -4,6 +4,7 @@ import { isCapturing } from '../network-capture.js';
 import { sanitizeErrorMessage } from '../sanitize-error.js';
 import { requireTabId, sendErrorResult, sendSuccessResult } from './helpers.js';
 import { isIntercepting } from './interception-commands.js';
+import { isThrottling } from './throttle-commands.js';
 
 /** Per-tab emulation state tracking. Emulation persists while the debugger is attached. */
 const emulatingTabs = new Set<number>();
@@ -22,7 +23,7 @@ export const cleanupEmulation = (tabId: number): void => {
  * because emulation state persists only while the debugger session is active.
  */
 const ensureDebuggerAttached = async (tabId: number): Promise<void> => {
-  const alreadyAttached = isCapturing(tabId) || isIntercepting(tabId) || isEmulating(tabId);
+  const alreadyAttached = isCapturing(tabId) || isIntercepting(tabId) || isEmulating(tabId) || isThrottling(tabId);
   if (!alreadyAttached) {
     try {
       await chrome.debugger.attach({ tabId }, CDP_VERSION);
@@ -185,7 +186,7 @@ export const handleBrowserClearEmulation = async (
     emulatingTabs.delete(tabId);
 
     // Detach debugger if no other features are using it
-    if (!isCapturing(tabId) && !isIntercepting(tabId)) {
+    if (!isCapturing(tabId) && !isIntercepting(tabId) && !isThrottling(tabId)) {
       await chrome.debugger.detach({ tabId }).catch(() => {});
     }
 

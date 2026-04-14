@@ -5,6 +5,7 @@ import {
   handleFetchRequestPaused,
   isIntercepting,
 } from './browser-commands/interception-commands.js';
+import { cleanupThrottle } from './browser-commands/throttle-commands.js';
 import { CDP_VERSION } from './constants.js';
 
 // ---------------------------------------------------------------------------
@@ -419,6 +420,7 @@ chrome.debugger.onEvent.addListener((source: chrome.debugger.Debuggee, method: s
 chrome.tabs.onRemoved.addListener((tabId: number) => {
   cleanupInterception(tabId);
   cleanupEmulation(tabId);
+  cleanupThrottle(tabId);
   const state = captures.get(tabId);
   if (state) {
     clearInterval(state.pruneIntervalId);
