@@ -1,4 +1,9 @@
 export {
+  handleBrowserCreateBookmark,
+  handleBrowserListBookmarkTree,
+  handleBrowserSearchBookmarks,
+} from './bookmark-commands.js';
+export {
   handleBrowserGetPageHtml,
   handleBrowserGetStorage,
   handleBrowserGetTabContent,

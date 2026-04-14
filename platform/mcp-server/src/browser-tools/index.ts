@@ -13,6 +13,7 @@ import { clearConsoleLogs } from './clear-console-logs.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
 import { closeWindow } from './close-window.js';
+import { createBookmark } from './create-bookmark.js';
 import { createTabGroup } from './create-tab-group.js';
 import { createWindow } from './create-window.js';
 import type { BrowserToolDefinition } from './definition.js';
@@ -41,6 +42,7 @@ import { getVisits } from './get-visits.js';
 import { getWebSocketFrames } from './get-websocket-frames.js';
 import { handleDialog } from './handle-dialog.js';
 import { hoverElement } from './hover-element.js';
+import { listBookmarkTree } from './list-bookmark-tree.js';
 import { listDownloads } from './list-downloads.js';
 import { listResources } from './list-resources.js';
 import { listTabGroups } from './list-tab-groups.js';
@@ -56,6 +58,7 @@ import { reloadExtension } from './reload-extension.js';
 import { removeTabsFromGroup } from './remove-tabs-from-group.js';
 import { screenshotTab } from './screenshot-tab.js';
 import { scroll } from './scroll.js';
+import { searchBookmarks } from './search-bookmarks.js';
 import { searchHistory } from './search-history.js';
 import { selectOption } from './select-option.js';
 import { setCookie } from './set-cookie.js';
@@ -115,6 +118,9 @@ const browserTools: BrowserToolDefinition[] = [
   getDownloadStatus,
   searchHistory,
   getVisits,
+  searchBookmarks,
+  createBookmark,
+  listBookmarkTree,
   extensionGetState,
   extensionGetLogs,
   extensionGetSidePanel,

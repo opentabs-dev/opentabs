@@ -54,6 +54,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Windows',
   },
   {
+    name: 'browser_create_bookmark',
+    description:
+      'Create a new bookmark. Returns the created bookmark node with id, title, url, parentId, index, and dateAdded (ISO string). Optionally specify a parentId to place the bookmark in a specific folder (use browser_list_bookmark_tree to find folder IDs).',
+    summary: 'Create a bookmark',
+    icon: 'bookmark',
+    group: 'Bookmarks',
+  },
+  {
     name: 'browser_create_tab_group',
     description:
       'Create a new Chrome tab group from one or more tab IDs. Optionally set a title and color. Use browser_list_tabs to find tab IDs. Returns the new groupId, title, color, collapsed state, and windowId.',
@@ -230,6 +238,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Page Interaction',
   },
   {
+    name: 'browser_list_bookmark_tree',
+    description:
+      'List the bookmark tree structure. Returns bookmark folders and their children up to a max depth of 3. Optionally specify a parentId to get a subtree. Each node has id, title, url (if a bookmark), dateAdded (ISO string), and children (if a folder). Use this to discover folder IDs for browser_create_bookmark.',
+    summary: 'List bookmark tree',
+    icon: 'bookmark',
+    group: 'Bookmarks',
+  },
+  {
     name: 'browser_list_downloads',
     description:
       'List recent downloads with optional filtering by filename, URL, or state. Returns download entries with id, filename, url, state (in_progress/interrupted/complete), bytesReceived, totalBytes, and startTime. Use browser_get_download_status for detailed progress on a specific download.',
@@ -339,6 +355,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     summary: 'Scroll the page or a container',
     icon: 'arrow-down-up',
     group: 'Page Interaction',
+  },
+  {
+    name: 'browser_search_bookmarks',
+    description:
+      'Search bookmarks by query string. Matches against bookmark titles and URLs. Returns matching bookmarks with id, title, url, parentId, and dateAdded (ISO string).',
+    summary: 'Search bookmarks',
+    icon: 'bookmark',
+    group: 'Bookmarks',
   },
   {
     name: 'browser_search_history',
