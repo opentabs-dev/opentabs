@@ -11,6 +11,7 @@ import { addTabsToGroup } from './add-tabs-to-group.js';
 import { analyzeSiteTool } from './analyze-site.js';
 import { clearConsoleLogs } from './clear-console-logs.js';
 import { clearEmulation } from './clear-emulation.js';
+import { clearNetworkThrottle } from './clear-network-throttle.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
 import { createTabGroup } from './create-tab-group.js';
@@ -64,6 +65,7 @@ import { setGeolocation } from './set-geolocation.js';
 import { setMediaFeatures } from './set-media-features.js';
 import { showNotification } from './show-notification.js';
 import { stopIntercepting } from './stop-intercepting.js';
+import { throttleNetwork } from './throttle-network.js';
 import { typeText } from './type-text.js';
 import { updateTabGroup } from './update-tab-group.js';
 import { waitForElement } from './wait-for-element.js';
@@ -121,6 +123,8 @@ const browserTools: BrowserToolDefinition[] = [
   getElementStyles,
   forcePseudoState,
   getCssCoverage,
+  throttleNetwork,
+  clearNetworkThrottle,
   extensionGetState,
   extensionGetLogs,
   extensionGetSidePanel,

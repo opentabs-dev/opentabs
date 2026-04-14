@@ -58,6 +58,8 @@ const {
   mockHandleBrowserFulfillRequest,
   mockHandleBrowserFailRequest,
   mockHandleBrowserStopIntercepting,
+  mockHandleBrowserThrottleNetwork,
+  mockHandleBrowserClearNetworkThrottle,
   mockHandleExtensionGetState,
   mockHandleExtensionGetLogs,
   mockHandleExtensionGetSidePanel,
@@ -193,6 +195,12 @@ const {
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleBrowserStopIntercepting: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserThrottleNetwork: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserClearNetworkThrottle: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
     mockHandleExtensionGetState: vi.fn(asyncNoop as (id: string | number) => Promise<void>),
@@ -332,6 +340,8 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserGetElementStyles: vi.fn(),
   handleBrowserForcePseudoState: vi.fn(),
   handleBrowserGetCssCoverage: vi.fn(),
+  handleBrowserThrottleNetwork: mockHandleBrowserThrottleNetwork,
+  handleBrowserClearNetworkThrottle: mockHandleBrowserClearNetworkThrottle,
   initNotificationClickHandler: vi.fn(),
   handleExtensionCheckAdapter: mockHandleExtensionCheckAdapter,
   handleExtensionForceReconnect: mockHandleExtensionForceReconnect,

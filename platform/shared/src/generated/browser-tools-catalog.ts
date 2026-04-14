@@ -39,6 +39,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Emulation',
   },
   {
+    name: 'browser_clear_network_throttle',
+    description:
+      'Remove network throttling for a tab, restoring normal network conditions. Use after browser_throttle_network to stop simulating slow connections.',
+    summary: 'Remove network throttling',
+    icon: 'gauge',
+    group: 'Network',
+  },
+  {
     name: 'browser_click_element',
     description:
       'Click an element on the page matching the given CSS selector. Dispatches trusted (isTrusted: true) mouse events (mousedown + mouseup) via Chrome DevTools Protocol Input.dispatchMouseEvent at the element center. Returns the tag name and trimmed text content of the clicked element. Useful for submitting forms, toggling buttons, and navigating.',
@@ -394,6 +402,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
       'Stop intercepting HTTP requests for a tab. Disables the CDP Fetch domain and releases all paused requests. Any requests still paused when this is called are automatically continued.',
     summary: 'Stop intercepting HTTP requests',
     icon: 'route',
+    group: 'Network',
+  },
+  {
+    name: 'browser_throttle_network',
+    description:
+      'Simulate slow network conditions for a tab using the Chrome DevTools Protocol Network domain. Choose a preset (offline, slow-3g, 3g, 4g, wifi) or provide custom latency and throughput values. Throttling persists until cleared with browser_clear_network_throttle or the debugger is detached. Presets match Chrome DevTools defaults.',
+    summary: 'Simulate slow network conditions',
+    icon: 'gauge',
     group: 'Network',
   },
   {

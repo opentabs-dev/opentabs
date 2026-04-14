@@ -77,6 +77,8 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserGetElementStyles: vi.fn(asyncNoop),
   handleBrowserForcePseudoState: vi.fn(asyncNoop),
   handleBrowserGetCssCoverage: vi.fn(asyncNoop),
+  handleBrowserThrottleNetwork: vi.fn(asyncNoop),
+  handleBrowserClearNetworkThrottle: vi.fn(asyncNoop),
   initNotificationClickHandler: vi.fn(),
   handleExtensionCheckAdapter: vi.fn(asyncNoop),
   handleExtensionForceReconnect: vi.fn(asyncNoop),

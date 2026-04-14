@@ -62,6 +62,8 @@ export const DISPATCH_METHODS = [
   'browser.getElementStyles',
   'browser.forcePseudoState',
   'browser.getCssCoverage',
+  'browser.throttleNetwork',
+  'browser.clearNetworkThrottle',
   'extension.reload',
   'extension.getState',
   'extension.getLogs',
