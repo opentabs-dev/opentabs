@@ -21,6 +21,7 @@ const POSTHOG_HOST = 'https://us.i.posthog.com';
 let client:
   | {
       capture: (opts: { distinctId: string; event: string; properties?: Record<string, unknown> }) => void;
+      identify: (opts: { distinctId: string; properties?: Record<string, unknown> }) => void;
       shutdown: () => Promise<void>;
     }
   | undefined;
@@ -129,6 +130,29 @@ const trackEvent = (event: string, properties?: Record<string, unknown>): void =
   }
 };
 
+/**
+ * Set person-level properties on the anonymous installation ID.
+ * Uses PostHog's `identify()` with `$set` for mutable properties (version, mode)
+ * and `$set_once` for immutable properties (os, arch, node_version).
+ *
+ * Person properties are attached to the `distinctId` permanently in PostHog,
+ * making every event filterable by these properties in the standard UI.
+ */
+const identifyPerson = (properties: { $set: Record<string, unknown>; $set_once: Record<string, unknown> }): void => {
+  if (!enabled || !anonymousId) return;
+
+  try {
+    if (debugMode) {
+      process.stderr.write(`[telemetry] identify ${JSON.stringify(properties)}\n`);
+      return;
+    }
+
+    client?.identify({ distinctId: anonymousId, properties });
+  } catch {
+    // Silently swallow — telemetry must never affect the server
+  }
+};
+
 /** Return the per-process session UUID, or empty string if telemetry is not yet initialized. */
 const getSessionId = (): string => sessionId ?? '';
 
@@ -187,6 +211,7 @@ export {
   computeErrorRateBucket,
   getOrCreateAnonymousId,
   getSessionId,
+  identifyPerson,
   initTelemetry,
   isTelemetryEnabled,
   shutdownTelemetry,

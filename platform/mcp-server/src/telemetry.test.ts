@@ -6,8 +6,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vit
 
 // --- PostHog mock via vi.mock ---
 
-const { mockCapture, mockShutdown, mockConstructorOptions } = vi.hoisted(() => ({
+const { mockCapture, mockIdentify, mockShutdown, mockConstructorOptions } = vi.hoisted(() => ({
   mockCapture: vi.fn(),
+  mockIdentify: vi.fn(),
   mockShutdown: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   mockConstructorOptions: { captured: undefined as Record<string, unknown> | undefined },
 }));
@@ -18,6 +19,7 @@ vi.mock('posthog-node', () => ({
       mockConstructorOptions.captured = options;
     }
     capture = mockCapture;
+    identify = mockIdentify;
     shutdown = mockShutdown;
   },
 }));
@@ -55,6 +57,7 @@ const makeTestDir = (): string => {
 beforeEach(() => {
   vi.unstubAllEnvs();
   mockCapture.mockClear();
+  mockIdentify.mockClear();
   mockShutdown.mockClear().mockResolvedValue(undefined);
   mockConstructorOptions.captured = undefined;
 });
@@ -336,6 +339,98 @@ describe('getSessionId', () => {
 
     const anonId = await getOrCreateAnonymousId();
     expect(getSessionId()).not.toBe(anonId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// identifyPerson
+// ---------------------------------------------------------------------------
+
+describe('identifyPerson', () => {
+  test('calls client.identify with $set and $set_once properties', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+
+    const { initTelemetry, identifyPerson } = await importTelemetry();
+    await initTelemetry();
+
+    identifyPerson({
+      $set: { version: '1.0.0', mode: 'production' },
+      $set_once: { os: 'darwin', arch: 'arm64', node_version: 'v22.11.0' },
+    });
+
+    expect(mockIdentify).toHaveBeenCalledOnce();
+    expect(mockIdentify.mock.calls[0]?.[0]).toMatchObject({
+      distinctId: expect.any(String),
+      properties: {
+        $set: { version: '1.0.0', mode: 'production' },
+        $set_once: { os: 'darwin', arch: 'arm64', node_version: 'v22.11.0' },
+      },
+    });
+  });
+
+  test('is a no-op when telemetry is disabled', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({ telemetry: false }));
+
+    const { initTelemetry, identifyPerson } = await importTelemetry();
+    await initTelemetry();
+
+    identifyPerson({
+      $set: { version: '1.0.0' },
+      $set_once: { os: 'darwin' },
+    });
+
+    expect(mockIdentify).not.toHaveBeenCalled();
+  });
+
+  test('is a no-op before initTelemetry', async () => {
+    makeTestDir();
+
+    const { identifyPerson } = await importTelemetry();
+    identifyPerson({
+      $set: { version: '1.0.0' },
+      $set_once: { os: 'darwin' },
+    });
+
+    expect(mockIdentify).not.toHaveBeenCalled();
+  });
+
+  test('does not throw when client.identify throws', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+    mockIdentify.mockImplementation(() => {
+      throw new Error('identify failed');
+    });
+
+    const { initTelemetry, identifyPerson } = await importTelemetry();
+    await initTelemetry();
+
+    expect(() =>
+      identifyPerson({
+        $set: { version: '1.0.0' },
+        $set_once: { os: 'darwin' },
+      }),
+    ).not.toThrow();
+  });
+
+  test('prints to stderr in debug mode instead of calling client.identify', async () => {
+    const dir = makeTestDir();
+    await writeFile(join(dir, 'config.json'), JSON.stringify({}));
+    vi.stubEnv('OPENTABS_TELEMETRY_DEBUG', '1');
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const { initTelemetry, identifyPerson } = await importTelemetry();
+    await initTelemetry();
+
+    identifyPerson({
+      $set: { version: '1.0.0' },
+      $set_once: { os: 'darwin' },
+    });
+
+    expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining('[telemetry] identify'));
+    expect(mockIdentify).not.toHaveBeenCalled();
   });
 });
 
