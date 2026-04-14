@@ -58,6 +58,9 @@ const {
   mockHandleBrowserCreateWindow,
   mockHandleBrowserUpdateWindow,
   mockHandleBrowserCloseWindow,
+  mockHandleBrowserDownloadFile,
+  mockHandleBrowserListDownloads,
+  mockHandleBrowserGetDownloadStatus,
   mockHandleExtensionGetState,
   mockHandleExtensionGetLogs,
   mockHandleExtensionGetSidePanel,
@@ -195,6 +198,15 @@ const {
     mockHandleBrowserCloseWindow: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
     ),
+    mockHandleBrowserDownloadFile: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserListDownloads: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
+    mockHandleBrowserGetDownloadStatus: vi.fn(
+      asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
+    ),
     mockHandleExtensionGetState: vi.fn(asyncNoop as (id: string | number) => Promise<void>),
     mockHandleExtensionGetLogs: vi.fn(
       asyncNoop as (params: Record<string, unknown>, id: string | number) => Promise<void>,
@@ -324,6 +336,9 @@ vi.mock('./browser-commands/index.js', () => ({
   handleBrowserCreateWindow: mockHandleBrowserCreateWindow,
   handleBrowserUpdateWindow: mockHandleBrowserUpdateWindow,
   handleBrowserCloseWindow: mockHandleBrowserCloseWindow,
+  handleBrowserDownloadFile: mockHandleBrowserDownloadFile,
+  handleBrowserListDownloads: mockHandleBrowserListDownloads,
+  handleBrowserGetDownloadStatus: mockHandleBrowserGetDownloadStatus,
   initNotificationClickHandler: vi.fn(),
   handleExtensionCheckAdapter: mockHandleExtensionCheckAdapter,
   handleExtensionForceReconnect: mockHandleExtensionForceReconnect,
