@@ -102,6 +102,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Tabs',
   },
   {
+    name: 'browser_get_accessibility_tree',
+    description:
+      'Get the accessibility tree for a browser tab using the Chrome DevTools Protocol. Returns a flat array of accessibility nodes with role, name, value, description, and states. Useful for understanding page structure, verifying accessibility compliance, and finding interactive elements. Large trees are truncated to 2000 nodes. Use the depth parameter to limit tree depth, or interestingOnly (default: true) to filter out nodes without semantic content.',
+    summary: 'Get the accessibility tree for a tab',
+    icon: 'accessibility',
+    group: 'Accessibility',
+  },
+  {
     name: 'browser_get_console_logs',
     description:
       'Get console log messages from a browser tab. Requires browser_enable_network_capture to be active on the tab (the debugger captures both network requests and console output). Filter by level to see only errors, warnings, etc.',

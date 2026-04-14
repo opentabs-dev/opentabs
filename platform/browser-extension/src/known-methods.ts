@@ -50,6 +50,7 @@ export const DISPATCH_METHODS = [
   'browser.hoverElement',
   'browser.handleDialog',
   'browser.showNotification',
+  'browser.getAccessibilityTree',
   'extension.reload',
   'extension.getState',
   'extension.getLogs',

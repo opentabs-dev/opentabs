@@ -25,6 +25,7 @@ import { extensionGetLogs } from './extension-get-logs.js';
 import { extensionGetSidePanel } from './extension-get-side-panel.js';
 import { extensionGetState } from './extension-get-state.js';
 import { focusTab } from './focus-tab.js';
+import { getAccessibilityTree } from './get-accessibility-tree.js';
 import { getConsoleLogs } from './get-console-logs.js';
 import { getCookies } from './get-cookies.js';
 import { getNetworkRequests } from './get-network-requests.js';
@@ -104,6 +105,7 @@ const browserTools: BrowserToolDefinition[] = [
   extensionForceReconnect,
   analyzeSiteTool,
   pluginListTabs,
+  getAccessibilityTree,
 ];
 
 // Validate that every tool definition matches its entry in BROWSER_TOOLS_CATALOG.

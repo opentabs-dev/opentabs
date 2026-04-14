@@ -1,3 +1,4 @@
+export { handleBrowserGetAccessibilityTree } from './accessibility-commands.js';
 export {
   handleBrowserGetPageHtml,
   handleBrowserGetStorage,
