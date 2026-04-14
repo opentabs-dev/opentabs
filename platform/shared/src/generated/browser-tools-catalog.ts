@@ -24,6 +24,14 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
     group: 'Tabs',
   },
   {
+    name: 'browser_audit_page',
+    description:
+      'Audit a browser tab for page issues using the Chrome DevTools Protocol Audits domain. Detects mixed content, CORS errors, Content Security Policy violations, cookie warnings, deprecated API usage, and other issues. Issues are grouped by category with severity, source file, and line number when available. Use waitSeconds to control how long to collect issues (default: 2s). Useful for diagnosing security issues, deprecation warnings, and compliance problems.',
+    summary: 'Audit a page for issues',
+    icon: 'shield-alert',
+    group: 'Inspection',
+  },
+  {
     name: 'browser_clear_console_logs',
     description: 'Clear the console log buffer for a browser tab without disabling capture.',
     summary: 'Clear captured console logs for a tab',

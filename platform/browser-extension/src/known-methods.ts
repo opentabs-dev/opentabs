@@ -52,6 +52,7 @@ export const DISPATCH_METHODS = [
   'browser.showNotification',
   'browser.getAccessibilityTree',
   'browser.getPerformanceMetrics',
+  'browser.auditPage',
   'extension.reload',
   'extension.getState',
   'extension.getLogs',

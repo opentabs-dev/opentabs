@@ -9,6 +9,7 @@ import type {
 } from '@opentabs-dev/shared';
 import {
   handleBrowserAddTabsToGroup,
+  handleBrowserAuditPage,
   handleBrowserClearConsoleLogs,
   handleBrowserClickElement,
   handleBrowserCloseTab,
@@ -725,6 +726,7 @@ const methodHandlers = new Map<string, MessageHandler>([
   ['browser.showNotification', wrapAsync('browser.showNotification', handleBrowserShowNotification)],
   ['browser.getAccessibilityTree', wrapAsync('browser.getAccessibilityTree', handleBrowserGetAccessibilityTree)],
   ['browser.getPerformanceMetrics', wrapAsync('browser.getPerformanceMetrics', handleBrowserGetPerformanceMetrics)],
+  ['browser.auditPage', wrapAsync('browser.auditPage', handleBrowserAuditPage)],
   ['extension.getState', wrapAsync('extension.getState', (_params, id) => handleExtensionGetState(id))],
   ['extension.getLogs', wrapAsync('extension.getLogs', handleExtensionGetLogs)],
   ['extension.getSidePanel', wrapAsync('extension.getSidePanel', (_params, id) => handleExtensionGetSidePanel(id))],

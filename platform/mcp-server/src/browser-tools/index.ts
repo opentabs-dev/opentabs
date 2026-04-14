@@ -9,6 +9,7 @@
 import { BROWSER_TOOLS_CATALOG } from '@opentabs-dev/shared';
 import { addTabsToGroup } from './add-tabs-to-group.js';
 import { analyzeSiteTool } from './analyze-site.js';
+import { auditPage } from './audit-page.js';
 import { clearConsoleLogs } from './clear-console-logs.js';
 import { clickElement } from './click-element.js';
 import { closeTab } from './close-tab.js';
@@ -108,6 +109,7 @@ const browserTools: BrowserToolDefinition[] = [
   pluginListTabs,
   getAccessibilityTree,
   getPerformanceMetrics,
+  auditPage,
 ];
 
 // Validate that every tool definition matches its entry in BROWSER_TOOLS_CATALOG.

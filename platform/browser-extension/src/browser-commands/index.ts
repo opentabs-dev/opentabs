@@ -1,4 +1,5 @@
 export { handleBrowserGetAccessibilityTree } from './accessibility-commands.js';
+export { handleBrowserAuditPage } from './audit-commands.js';
 export {
   handleBrowserGetPageHtml,
   handleBrowserGetStorage,
