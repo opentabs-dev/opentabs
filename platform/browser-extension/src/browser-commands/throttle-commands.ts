@@ -102,6 +102,14 @@ export const handleBrowserClearNetworkThrottle = async (
     const tabId = requireTabId(params, id);
     if (tabId === null) return;
 
+    // Validate the tab exists before attempting debugger commands
+    try {
+      await chrome.tabs.get(tabId);
+    } catch {
+      sendErrorResult(id, new Error(`Tab ${tabId} not found`));
+      return;
+    }
+
     // Disable throttling by setting throughput to -1 (unlimited)
     await chrome.debugger
       .sendCommand({ tabId }, 'Network.emulateNetworkConditions', {

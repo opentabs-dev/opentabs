@@ -132,11 +132,11 @@ test.describe('Side panel — browser tool groups', () => {
       await expect(sidePanelPage.getByText('Browser')).toBeVisible({ timeout: 30_000 });
 
       // 4. Type a search term that matches tools in only one group.
-      // "hover" matches only browser_hover_element (display name "Hover Element")
+      // "select option" matches only browser_select_option (display name "Select Option")
       // in the "Page Interaction" group. The search bar switches the view to
       // SearchResults, which renders BrowserToolsCard with a toolFilter prop.
       const searchInput = sidePanelPage.locator('input[placeholder*="earch"]');
-      await searchInput.fill('hover');
+      await searchInput.fill('select option');
 
       // 5. In SearchResults view, the Browser card starts collapsed.
       // Wait for it to appear, then expand it.
