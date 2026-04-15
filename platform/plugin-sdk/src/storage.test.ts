@@ -3,11 +3,15 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { LogEntry } from './log.js';
 import { _setLogTransport } from './log.js';
 import {
+  clearAuthCache,
+  findLocalStorageEntry,
+  getAuthCache,
   getCookie,
   getLocalStorage,
   getSessionStorage,
   removeLocalStorage,
   removeSessionStorage,
+  setAuthCache,
   setLocalStorage,
   setSessionStorage,
 } from './storage.js';
@@ -876,5 +880,186 @@ describe('getCookie', () => {
     if (originalDescriptor) {
       Object.defineProperty(win.document, 'cookie', originalDescriptor);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findLocalStorageEntry
+// ---------------------------------------------------------------------------
+
+describe('findLocalStorageEntry', () => {
+  test('returns matching entry when predicate returns true', () => {
+    localStorage.setItem('auth-token', 'secret123');
+    localStorage.setItem('user-name', 'alice');
+    const result = findLocalStorageEntry(key => key === 'auth-token');
+    expect(result).toEqual({ key: 'auth-token', value: 'secret123' });
+  });
+
+  test('returns null when no entry matches', () => {
+    localStorage.setItem('unrelated', 'value');
+    expect(findLocalStorageEntry(key => key === 'nonexistent')).toBeNull();
+  });
+
+  test('returns null when localStorage throws', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      get: () => {
+        throw new DOMException('Access denied', 'SecurityError');
+      },
+      configurable: true,
+    });
+    expect(findLocalStorageEntry(() => true)).toBeNull();
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: win.localStorage as unknown as Storage,
+      configurable: true,
+      writable: true,
+    });
+  });
+
+  describe('iframe fallback', () => {
+    test('returns value from iframe localStorage when localStorage is undefined', () => {
+      Object.defineProperty(globalThis, 'localStorage', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      const store: Record<string, string> = { 'fb-token': 'fb-secret' };
+      const keys = Object.keys(store);
+      const mockIframe = {
+        style: {} as CSSStyleDeclaration,
+        contentWindow: {
+          localStorage: {
+            get length() {
+              return keys.length;
+            },
+            key: (i: number) => keys[i] ?? null,
+            getItem: (k: string) => store[k] ?? null,
+          },
+        },
+      };
+      const createElementSpy = vi
+        .spyOn(document, 'createElement')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const removeChildSpy = vi
+        .spyOn(document.body, 'removeChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      try {
+        expect(findLocalStorageEntry(k => k === 'fb-token')).toEqual({ key: 'fb-token', value: 'fb-secret' });
+        expect(findLocalStorageEntry(k => k === 'missing')).toBeNull();
+      } finally {
+        createElementSpy.mockRestore();
+        appendChildSpy.mockRestore();
+        removeChildSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAuthCache
+// ---------------------------------------------------------------------------
+
+describe('getAuthCache', () => {
+  const g = globalThis as Record<string, unknown>;
+
+  afterEach(() => {
+    delete g.__openTabs;
+  });
+
+  test('returns value from tokenCache for known namespace', () => {
+    g.__openTabs = { tokenCache: { myPlugin: { token: 'abc' } } };
+    expect(getAuthCache('myPlugin')).toEqual({ token: 'abc' });
+  });
+
+  test('returns null when namespace is not in tokenCache', () => {
+    g.__openTabs = { tokenCache: { other: 'val' } };
+    expect(getAuthCache('myPlugin')).toBeNull();
+  });
+
+  test('returns null when tokenCache is not initialized', () => {
+    g.__openTabs = {};
+    expect(getAuthCache('myPlugin')).toBeNull();
+  });
+
+  test('returns null when __openTabs is not set', () => {
+    expect(getAuthCache('myPlugin')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setAuthCache
+// ---------------------------------------------------------------------------
+
+describe('setAuthCache', () => {
+  const g = globalThis as Record<string, unknown>;
+
+  afterEach(() => {
+    delete g.__openTabs;
+  });
+
+  test('writes value to tokenCache', () => {
+    g.__openTabs = { tokenCache: {} };
+    setAuthCache('myPlugin', 'token-value');
+    expect((g.__openTabs as Record<string, unknown>).tokenCache).toEqual({ myPlugin: 'token-value' });
+  });
+
+  test('initializes __openTabs when missing', () => {
+    setAuthCache('myPlugin', 42);
+    expect(g.__openTabs).toBeDefined();
+    const ns = g.__openTabs as Record<string, unknown>;
+    expect((ns.tokenCache as Record<string, unknown>).myPlugin).toBe(42);
+  });
+
+  test('initializes tokenCache when __openTabs exists but tokenCache is missing', () => {
+    g.__openTabs = { otherProp: true };
+    setAuthCache('myPlugin', 'val');
+    const ns = g.__openTabs as Record<string, unknown>;
+    expect((ns.tokenCache as Record<string, unknown>).myPlugin).toBe('val');
+  });
+
+  test('overwrites existing value', () => {
+    g.__openTabs = { tokenCache: { myPlugin: 'old' } };
+    setAuthCache('myPlugin', 'new');
+    expect((g.__openTabs as Record<string, unknown>).tokenCache).toEqual({ myPlugin: 'new' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// clearAuthCache
+// ---------------------------------------------------------------------------
+
+describe('clearAuthCache', () => {
+  const g = globalThis as Record<string, unknown>;
+
+  afterEach(() => {
+    delete g.__openTabs;
+  });
+
+  test('getAuthCache returns null after clearAuthCache', () => {
+    setAuthCache('myPlugin', 'token');
+    expect(getAuthCache('myPlugin')).toBe('token');
+    clearAuthCache('myPlugin');
+    expect(getAuthCache('myPlugin')).toBeNull();
+  });
+
+  test('key still exists in tokenCache with value undefined (not deleted)', () => {
+    setAuthCache('myPlugin', 'token');
+    clearAuthCache('myPlugin');
+    const ns = g.__openTabs as Record<string, unknown>;
+    const cache = ns.tokenCache as Record<string, unknown>;
+    expect(Object.keys(cache)).toContain('myPlugin');
+    expect(cache.myPlugin).toBeUndefined();
+  });
+
+  test('no-op when cache namespace never set', () => {
+    g.__openTabs = { tokenCache: {} };
+    expect(() => clearAuthCache('nonexistent')).not.toThrow();
   });
 });
