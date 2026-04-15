@@ -52,15 +52,12 @@ test.describe('Auth bootstrap', () => {
       try {
         // 3. Wait for the extension to attempt connection and fail.
         //    Without auth.json, wsSecret is null → /ws-info returns 401 → auth_failed.
-        await expect
-          .poll(
-            async () => {
-              const h = await server?.health();
-              return h?.extensionConnected;
-            },
-            { timeout: 10_000, message: 'extension should not connect without auth.json' },
-          )
-          .toBe(false);
+        //    The extension retries with exponential backoff (1s initial, 2x multiplier,
+        //    3s cap). After 3 seconds it has made at least 2 connection attempts that
+        //    both returned auth_failed — enough to confirm it is in its retry loop.
+        await new Promise(r => setTimeout(r, 3_000));
+        const h = await server?.health();
+        expect(h?.extensionConnected).toBe(false);
 
         // 5. Write auth.json to the extension directory with the server's secret.
         //    The extension's next connect() call will run bootstrapFromAuthFile(),
