@@ -173,7 +173,7 @@ export const sentryApi = async <T>(
       throw ToolError.timeout(`API request timed out: ${endpoint}`);
     }
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new ToolError('Request was aborted', 'aborted');
+      throw ToolError.timeout('Request was aborted');
     }
     throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
       category: 'internal',
