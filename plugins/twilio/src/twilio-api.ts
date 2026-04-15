@@ -4,7 +4,6 @@ import {
   buildQueryString,
   fetchFromPage,
   getAuthCache,
-  getLocalStorage,
   setAuthCache,
   waitUntil,
 } from '@opentabs-dev/plugin-sdk';
@@ -26,7 +25,8 @@ const fetchProjectInfo = async (): Promise<TwilioAuth | null> => {
       return { accountSid: data.projectSid, authToken: data.authToken };
     }
     return null;
-  } catch {
+  } catch (e: unknown) {
+    if (e instanceof ToolError) throw e;
     return null;
   }
 };
@@ -50,7 +50,7 @@ const ensureAuth = async (): Promise<TwilioAuth> => {
 };
 
 export const isAuthenticated = (): boolean => {
-  return getLocalStorage('accountSid') !== null;
+  return getAuth() !== null;
 };
 
 export const waitForAuth = async (): Promise<boolean> => {
