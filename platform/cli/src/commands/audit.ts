@@ -189,12 +189,7 @@ const handleAuditFromFile = async (options: AuditOptions): Promise<void> => {
   if (options.json) {
     console.log(JSON.stringify(entries, null, 2));
   } else if (entries.length === 0) {
-    const hasFilters = options.plugin || options.tool || options.since;
-    if (hasFilters) {
-      console.log(pc.dim('No entries match the current filters. Try broadening the search.'));
-    } else {
-      console.log(pc.dim('No audit entries found. Invoke tools through an MCP client to generate audit entries.'));
-    }
+    console.log(pc.dim('No audit entries found. Invoke tools through an MCP client to generate audit entries.'));
   } else {
     printAuditTable(entries);
   }
@@ -280,12 +275,7 @@ const handleAudit = async (options: AuditOptions): Promise<void> => {
     }
 
     if (entries.length === 0) {
-      const hasFilters = options.plugin || options.tool || options.since;
-      if (hasFilters) {
-        console.log(pc.dim('No entries match the current filters. Try broadening the search.'));
-      } else {
-        console.log(pc.dim('No audit entries found. Invoke tools through an MCP client to generate audit entries.'));
-      }
+      console.log(pc.dim('No audit entries found. Invoke tools through an MCP client to generate audit entries.'));
       return;
     }
 
