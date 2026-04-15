@@ -73,6 +73,7 @@ export const api = async <T>(
     method,
     headers,
     credentials: 'include',
+    signal: AbortSignal.timeout(30_000),
   };
 
   if (options.body && method !== 'GET') {
@@ -83,8 +84,8 @@ export const api = async <T>(
   try {
     response = await fetch(url, init);
   } catch (error: unknown) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
-      throw ToolError.timeout('Request timed out.');
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      throw ToolError.timeout('Stripe API request timed out after 30s.');
     }
     throw ToolError.internal(`Network error: ${error instanceof Error ? error.message : String(error)}`);
   }
