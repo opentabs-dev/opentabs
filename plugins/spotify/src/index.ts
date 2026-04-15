@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './spotify-api.js';
+import { isAuthenticated, resetInterceptor, waitForAuth } from './spotify-api.js';
 
 // GraphQL-backed tools (internal API, no rate limits)
 import { getCurrentUser } from './tools/get-current-user.js';
@@ -62,6 +62,10 @@ class SpotifyPlugin extends OpenTabsPlugin {
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
     return waitForAuth();
+  }
+
+  override teardown(): void {
+    resetInterceptor();
   }
 }
 

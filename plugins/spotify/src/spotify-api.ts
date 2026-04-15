@@ -52,6 +52,17 @@ const installInterceptor = (): void => {
 
 installInterceptor();
 
+export const resetInterceptor = (): void => {
+  if (typeof window === 'undefined') return;
+
+  const origFetch = (globalThis as Record<string, unknown>).__spotifyOrigFetch as typeof fetch | undefined;
+  if (!origFetch) return;
+
+  window.fetch = origFetch;
+  delete (globalThis as Record<string, unknown>).__spotifyOrigFetch;
+  interceptorInstalled = false;
+};
+
 const getAuth = (): SpotifyAuth | null => {
   return getAuthCache<SpotifyAuth>('spotify');
 };
