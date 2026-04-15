@@ -1,4 +1,4 @@
-import { ToolError, buildQueryString, fetchFromPage, getPageGlobal, waitUntil } from '@opentabs-dev/plugin-sdk';
+import { ToolError, fetchFromPage, getPageGlobal, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 // --- Internal Snowflake types ---
 
@@ -270,10 +270,6 @@ export const fetchChunk = async (queryId: string, chunkIndex: number): Promise<s
     },
   });
 
-  if (!response.ok) {
-    throw ToolError.internal(`Chunk fetch failed: ${response.status} — ${response.statusText}`);
-  }
-
   const text = await response.text();
   if (!text || text.length === 0) return [];
   return JSON.parse(`[${text}]`) as string[][];
@@ -369,32 +365,4 @@ export const listEntities = async (options: {
     const msg = err instanceof Error ? err.message : String(err);
     throw ToolError.internal(`Snowflake entity API error: ${msg}`);
   }
-};
-
-// --- Query status polling (for async queries) ---
-
-export const getQueryStatus = async (queryId: string): Promise<{ status: string; errorMessage: string | null }> => {
-  const ctx = requireContext();
-  const qs = buildQueryString({ queryId });
-
-  const response = await fetchFromPage(`${ctx.appServerUrl}/v1/queries/${queryId}/status?${qs}`, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-      'x-snowflake-context': ctx.decodedUserKey,
-    },
-  });
-
-  if (!response.ok) {
-    throw ToolError.internal(`Query status check failed: ${response.status}`);
-  }
-
-  const data = (await response.json()) as {
-    status?: { summary?: string; errorMessage?: string | null };
-  };
-
-  return {
-    status: data.status?.summary ?? 'UNKNOWN',
-    errorMessage: data.status?.errorMessage ?? null,
-  };
 };
