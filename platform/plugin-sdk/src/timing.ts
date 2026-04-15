@@ -133,6 +133,7 @@ export const waitUntil = (predicate: () => boolean | Promise<boolean>, opts?: Wa
   return new Promise<void>((resolve, reject) => {
     let settled = false;
     let poller: ReturnType<typeof setTimeout>;
+    let lastPredicateError: unknown;
 
     const isSettled = () => settled;
 
@@ -154,7 +155,9 @@ export const waitUntil = (predicate: () => boolean | Promise<boolean>, opts?: Wa
     const timer = setTimeout(() => {
       if (isSettled()) return;
       cleanup();
-      reject(new Error(`waitUntil: timed out after ${timeout}ms waiting for predicate to return true`));
+      const errorContext =
+        lastPredicateError instanceof Error ? `: predicate last threw — ${lastPredicateError.message}` : '';
+      reject(new Error(`waitUntil: timed out after ${timeout}ms waiting for predicate to return true${errorContext}`));
     }, timeout);
 
     const check = async () => {
@@ -166,8 +169,8 @@ export const waitUntil = (predicate: () => boolean | Promise<boolean>, opts?: Wa
           resolve();
           return;
         }
-      } catch {
-        // Predicate threw — keep polling until timeout
+      } catch (err) {
+        lastPredicateError = err;
       }
       if (!isSettled()) {
         poller = setTimeout(() => void check(), interval);
