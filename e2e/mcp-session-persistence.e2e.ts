@@ -573,7 +573,17 @@ test.describe
             const output = parseToolResult(slowResult.content);
             expect(output.completed).toBe(true);
           }
-        } catch {
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : String(e);
+          const isExpected =
+            message.includes('502') ||
+            message.includes('503') ||
+            message.includes('missing session') ||
+            message.includes('ECONNRESET') ||
+            message.toLowerCase().includes('connection');
+          if (!isExpected) {
+            throw e;
+          }
           // Expected: 502, connection reset, or partial response during worker restart
         }
 
