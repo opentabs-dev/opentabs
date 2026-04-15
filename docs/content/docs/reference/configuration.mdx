@@ -1,7 +1,7 @@
 ---
 title: Configuration
 description: Reference for the ~/.opentabs/config.json configuration file, environment variables, and directory structure.
-lastUpdated: 2026-03-29
+lastUpdated: 2026-04-15
 ---
 
 All settings live in one JSON file at `~/.opentabs/config.json`. You won't need to touch it often — the side panel handles permissions, and `opentabs-plugin build` registers local plugins automatically. But it's worth knowing what's in there, especially if you want to configure permissions by hand or adjust the server port.
@@ -67,6 +67,12 @@ Override the config directory with the `OPENTABS_CONFIG_DIR` environment variabl
       <Table.Cell className="*:text-xs">`boolean`</Table.Cell>
       <Table.Cell className="*:text-xs">`true`</Table.Cell>
       <Table.Cell>Enable or disable anonymous telemetry. Set to `false` to opt out. See [Telemetry](/docs/reference/telemetry) for details.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`updateCheckIntervalMinutes`</Table.Cell>
+      <Table.Cell className="*:text-xs">`number`</Table.Cell>
+      <Table.Cell className="*:text-xs">`30`</Table.Cell>
+      <Table.Cell>Minutes between automatic npm plugin update checks. Set to `0` to disable update checks entirely.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
