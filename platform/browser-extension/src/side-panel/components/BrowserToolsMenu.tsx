@@ -77,9 +77,12 @@ const BrowserToolsMenu = ({
         <Menu.Trigger asChild>
           <button
             type="button"
-            className="flex h-6 w-6 items-center justify-center rounded hover:bg-muted/50"
+            className="relative flex h-6 w-6 items-center justify-center rounded hover:bg-muted/50"
             aria-label="Browser tools options">
             <MoreHorizontal className="h-4 w-4" />
+            {serverUpdate && (
+              <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border border-border bg-primary" />
+            )}
           </button>
         </Menu.Trigger>
         <Menu.Content align="end">

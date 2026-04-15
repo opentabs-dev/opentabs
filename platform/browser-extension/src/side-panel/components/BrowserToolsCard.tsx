@@ -138,20 +138,15 @@ const BrowserToolsCard = ({
     <Accordion.Item value="browser-tools">
       <AccordionPrimitive.Header className="flex">
         <AccordionPrimitive.Trigger className="focus-ring flex min-w-0 flex-1 cursor-pointer items-center gap-2 px-3 py-2 [&[data-state=open]>svg.chevron]:rotate-180">
-          <div className="relative">
-            <PluginIcon
-              pluginName="browser"
-              displayName="Browser"
-              tabState="ready"
-              size={32}
-              iconSvg={CHROME_ICON_SVG}
-              iconInactiveSvg={CHROME_ICON_SVG}
-              active={hasActiveTool}
-            />
-            {serverUpdate && (
-              <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border border-border bg-primary" />
-            )}
-          </div>
+          <PluginIcon
+            pluginName="browser"
+            displayName="Browser"
+            tabState="ready"
+            size={32}
+            iconSvg={CHROME_ICON_SVG}
+            iconInactiveSvg={CHROME_ICON_SVG}
+            active={hasActiveTool}
+          />
           <div className="flex min-w-0 flex-1 items-center gap-1.5 truncate font-head text-foreground text-sm">
             Browser
           </div>
