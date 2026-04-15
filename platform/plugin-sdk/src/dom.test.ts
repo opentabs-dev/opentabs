@@ -116,6 +116,29 @@ describe('waitForSelector', () => {
     const el = await waitForSelector('#race-target', { timeout: 5000 });
     expect(el).toBe(fakeEl);
   });
+
+  test('resolves when attribute is set on existing element making it match :disabled pseudo-class', async () => {
+    const input = document.createElement('input');
+    document.body.appendChild(input);
+    const promise = waitForSelector('input:disabled', { timeout: 5000 });
+    queueMicrotask(() => {
+      input.setAttribute('disabled', '');
+    });
+    const el = await promise;
+    expect(el).toBe(input);
+  });
+
+  test('resolves when attribute is set on existing element making it match :checked pseudo-class', async () => {
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    document.body.appendChild(input);
+    const promise = waitForSelector('input:checked', { timeout: 5000 });
+    queueMicrotask(() => {
+      input.setAttribute('checked', '');
+    });
+    const el = await promise;
+    expect(el).toBe(input);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -216,6 +239,18 @@ describe('waitForSelectorRemoval', () => {
 
     await waitForSelectorRemoval('#race-removal-target', { timeout: 5000 });
   });
+
+  test('resolves when attribute is removed from existing element making it no longer match :disabled', async () => {
+    const button = document.createElement('button');
+    button.setAttribute('disabled', '');
+    document.body.appendChild(button);
+    const promise = waitForSelectorRemoval('button:disabled', { timeout: 5000 });
+    queueMicrotask(() => {
+      button.removeAttribute('disabled');
+    });
+    await promise;
+    expect(document.querySelector('button:disabled')).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -262,6 +297,61 @@ describe('getTextContent', () => {
 
   test('returns null for invalid CSS selector', () => {
     expect(getTextContent('[invalid')).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// needsAttributeObservation (tested indirectly via MutationObserver options)
+// ---------------------------------------------------------------------------
+
+describe('needsAttributeObservation', () => {
+  /** Helper: starts waitForSelector and returns the `attributes` option passed to observer.observe */
+  const getAttributesOption = async (selector: string): Promise<boolean> => {
+    let capturedAttributes = false;
+    const OriginalObserver = globalThis.MutationObserver;
+    globalThis.MutationObserver = class extends OriginalObserver {
+      override observe(target: Node, options?: MutationObserverInit) {
+        capturedAttributes = options?.attributes ?? false;
+        super.observe(target, options);
+      }
+    } as typeof MutationObserver;
+    try {
+      // Start waitForSelector — it will set up the observer immediately since there's no matching element
+      const promise = waitForSelector(selector, { timeout: 100 });
+      await promise.catch(() => {}); // let it time out
+    } finally {
+      globalThis.MutationObserver = OriginalObserver;
+    }
+    return capturedAttributes;
+  };
+
+  test('returns true for selectors containing attribute-backed pseudo-classes', async () => {
+    for (const pseudo of [
+      ':checked',
+      ':disabled',
+      ':enabled',
+      ':required',
+      ':optional',
+      ':read-only',
+      ':read-write',
+      ':default',
+    ]) {
+      expect(await getAttributesOption(`input${pseudo}`)).toBe(true);
+    }
+  });
+
+  test('returns false for plain tag selectors like div, span, input#myId', async () => {
+    for (const selector of ['div', 'span', 'input#myId', '#some-id', 'div > span']) {
+      expect(await getAttributesOption(selector)).toBe(false);
+    }
+  });
+
+  test('returns true for class selectors (existing behavior)', async () => {
+    expect(await getAttributesOption('.my-class')).toBe(true);
+  });
+
+  test('returns true for attribute selectors (existing behavior)', async () => {
+    expect(await getAttributesOption('input[type="text"]')).toBe(true);
   });
 });
 

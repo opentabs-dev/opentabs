@@ -3,10 +3,21 @@
 // ---------------------------------------------------------------------------
 
 /**
- * Returns true if the selector may match via attribute changes (class or attribute selectors),
- * requiring `attributes: true` in MutationObserver options to detect such changes.
+ * Matches CSS pseudo-classes whose state is backed by HTML attribute mutations
+ * (e.g., :checked reflects the checked attribute, :disabled reflects disabled).
+ * Pseudo-classes driven by user interaction (:hover, :focus, :active) are excluded
+ * because they don't correspond to attribute mutations.
  */
-const needsAttributeObservation = (selector: string): boolean => selector.includes('[') || selector.includes('.');
+const ATTRIBUTE_PSEUDO_RE =
+  /:(checked|disabled|enabled|required|optional|read-only|read-write|default|valid|invalid|in-range|out-of-range|placeholder-shown)/;
+
+/**
+ * Returns true if the selector may match via attribute changes (class, attribute, or
+ * attribute-backed pseudo-class selectors), requiring `attributes: true` in
+ * MutationObserver options to detect such changes.
+ */
+const needsAttributeObservation = (selector: string): boolean =>
+  selector.includes('[') || selector.includes('.') || ATTRIBUTE_PSEUDO_RE.test(selector);
 
 export interface WaitForSelectorOptions {
   /** Timeout in milliseconds (default: 10000) */
