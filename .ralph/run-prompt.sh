@@ -67,6 +67,11 @@ if [ -f "$PERFECT_PROMPT_FILE" ]; then
 $PROMPT"
 fi
 
+# Use a per-invocation unique findings file to prevent race conditions when
+# multiple audit scripts run in parallel and write to the same file.
+FINDINGS_FILE="/tmp/perfect-findings-$$.md"
+PROMPT="${PROMPT//\/tmp\/perfect-findings.md/$FINDINGS_FILE}"
+
 # --- Stream filter ---
 # Extracts readable progress lines from claude's stream-json output.
 # Shows tool invocations (Read, Write, Edit, Bash, etc.) and text responses.
@@ -125,4 +130,4 @@ CLAUDE_ARGS=(--dangerously-skip-permissions --output-format stream-json --verbos
 [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
 
 cd "$REPO_ROOT"
-claude "${CLAUDE_ARGS[@]}" < <(echo "$PROMPT") 2>/dev/null | stream_filter
+claude "${CLAUDE_ARGS[@]}" < <(echo "$PROMPT") | stream_filter
