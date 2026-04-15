@@ -193,17 +193,6 @@ const handleStatus = async (options: StatusOptions): Promise<void> => {
         }
       }
 
-      const disabledBrowserTools = Array.isArray(data.disabledBrowserTools)
-        ? (data.disabledBrowserTools as string[])
-        : [];
-      if (disabledBrowserTools.length > 0) {
-        console.log('');
-        console.log(pc.bold('  Disabled Browser Tools'));
-        for (const name of disabledBrowserTools) {
-          console.log(`    ${pc.red(name)}`);
-        }
-      }
-
       const failedPlugins = Array.isArray(data.failedPlugins) ? (data.failedPlugins as FailedPluginEntry[]) : [];
       if (failedPlugins.length > 0) {
         console.log('');
