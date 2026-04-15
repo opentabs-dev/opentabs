@@ -8,6 +8,7 @@
  */
 
 import { deleteExecFile, dispatchToExtension, writeExecFile } from '../../extension-protocol.js';
+import { log } from '../../logger.js';
 import type { ExtensionConnection, ServerState } from '../../state.js';
 import { getAnyConnection, getConnectionForTab } from '../../state.js';
 import { validateDispatchResult } from '../dispatch-utils.js';
@@ -841,7 +842,11 @@ const analyzeSite = async (
       tabId,
       maxRequests: 200,
     });
-    captureConn = getConnectionForTab(state, tabId) ?? getAnyConnection(state);
+    const owningConn = getConnectionForTab(state, tabId);
+    if (!owningConn) {
+      log.debug(`No owning connection for tab ${tabId}, falling back to any connection for network capture tracking`);
+    }
+    captureConn = owningConn ?? getAnyConnection(state);
     captureConn?.activeNetworkCaptures.add(tabId);
 
     // Step 3: Navigate to the target URL — network capture is already active

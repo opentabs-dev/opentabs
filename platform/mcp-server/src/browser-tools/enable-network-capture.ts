@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { dispatchToExtension } from '../extension-protocol.js';
+import { log } from '../logger.js';
 import { getAnyConnection, getConnectionForTab } from '../state.js';
 import { defineBrowserTool } from './definition.js';
 
@@ -53,7 +54,13 @@ const enableNetworkCapture = defineBrowserTool({
       ...(args.maxConsoleLogs !== undefined ? { maxConsoleLogs: args.maxConsoleLogs } : {}),
       ...(args.maxWsFrames !== undefined ? { maxWsFrames: args.maxWsFrames } : {}),
     });
-    const conn = getConnectionForTab(state, args.tabId) ?? getAnyConnection(state);
+    const owning = getConnectionForTab(state, args.tabId);
+    if (!owning) {
+      log.debug(
+        `No owning connection for tab ${args.tabId}, falling back to any connection for network capture tracking`,
+      );
+    }
+    const conn = owning ?? getAnyConnection(state);
     conn?.activeNetworkCaptures.add(args.tabId);
     return result;
   },
