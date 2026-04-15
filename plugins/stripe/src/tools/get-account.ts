@@ -1,6 +1,5 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, getPageGlobal, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { getPageGlobal } from '@opentabs-dev/plugin-sdk';
 
 export const getAccount = defineTool({
   name: 'get_account',
@@ -23,7 +22,7 @@ export const getAccount = defineTool({
   }),
   handle: async () => {
     const merchant = getPageGlobal('PRELOADED.merchant') as Record<string, unknown> | undefined;
-    if (!merchant) throw new Error('Account data not available');
+    if (!merchant) throw ToolError.internal('Account data not available');
     const livemode = !window.location.pathname.includes('/test/');
     return {
       id: (merchant.id as string) ?? '',
