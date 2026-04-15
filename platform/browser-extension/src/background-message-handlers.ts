@@ -335,8 +335,9 @@ const handleToolProgress: MessageHandler = (message, sendResponse) => {
  * Re-probes the plugin's readiness across all matching tabs and sends a
  * tab.stateChanged notification if the state actually changed.
  */
-const handlePluginReadinessChanged: MessageHandler = (message, _sendResponse) => {
+const handlePluginReadinessChanged: MessageHandler = (message, sendResponse) => {
   const plugin = message.plugin;
+  sendResponse({ ok: true }); // Release port immediately — async work runs in background
   if (typeof plugin !== 'string' || plugin === '') return;
 
   (async () => {
