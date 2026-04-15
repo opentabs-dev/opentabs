@@ -690,7 +690,7 @@ Admin endpoints (`/reload`, `/extension/reload`) are rate-limited to 10 requests
 4. Extension executes `handle()` via `chrome.scripting.executeScript` in MAIN world
 5. Result flows back: Extension → WebSocket → MCP Server → MCP Client
 
-Timeouts: 30 seconds by default, extended by progress reports (up to 5 minutes maximum). Up to 5 concurrent tool calls per plugin; additional calls return an error asking the client to wait for in-flight requests to complete.
+Timeouts: 30 seconds by default, extended by progress reports (up to 5 minutes maximum). Up to 25 concurrent tool calls per plugin; additional calls return an error asking the client to wait for in-flight requests to complete.
 
 ---
 
