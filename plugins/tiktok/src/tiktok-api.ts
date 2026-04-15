@@ -146,17 +146,12 @@ export const api = async <T>(
     headers: { Accept: 'application/json' },
   });
 
-  if (response.status === 200) {
-    const text = await response.text();
-    if (text.length === 0) {
-      throw ToolError.internal('TikTok returned an empty response — the endpoint may require additional signing.');
-    }
-    return JSON.parse(text) as T;
-  }
-
-  // fetchFromPage already throws on non-ok; this is a fallback
+  if (response.status === 204) return {} as T;
   const text = await response.text();
-  throw ToolError.internal(`TikTok API error: ${response.status} ${text.substring(0, 200)}`);
+  if (text.length === 0) {
+    throw ToolError.internal('TikTok returned an empty response — the endpoint may require additional signing.');
+  }
+  return JSON.parse(text) as T;
 };
 
 // --- SSR page fetch ---
