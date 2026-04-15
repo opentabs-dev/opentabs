@@ -7,6 +7,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Kill the Docker test container on any exit (normal, error, or signal).
+# This prevents container leaks when perfect.sh is interrupted (Ctrl+C).
+cleanup_docker() {
+  docker kill opentabs-platform-contributor-test 2>/dev/null || true
+}
+trap cleanup_docker EXIT SIGTERM SIGINT
+
 read -r -d '' PROMPT <<'PROMPT_EOF' || true
 You are a QA engineer performing a platform contributor experience test for the OpenTabs monorepo. Go through the entire contributor workflow — clone, install, build, run quality checks, make changes, run tests, exercise dev mode — and identify every friction point. Then use the ralph skill to create PRD(s) to fix them.
 

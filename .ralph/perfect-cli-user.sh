@@ -7,6 +7,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Kill the Docker test container on any exit (normal, error, or signal).
+# This prevents container leaks when perfect.sh is interrupted (Ctrl+C).
+cleanup_docker() {
+  docker kill opentabs-ux-test 2>/dev/null || true
+}
+trap cleanup_docker EXIT SIGTERM SIGINT
+
 read -r -d '' PROMPT <<'PROMPT_EOF' || true
 You are a QA engineer performing a fresh-user experience test of the OpenTabs CLI. Install and use the CLI exactly as a real new user would — someone who has never heard of OpenTabs before — identify every friction point, then use the ralph skill to create PRD(s) to fix them.
 
