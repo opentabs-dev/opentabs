@@ -1,6 +1,7 @@
 import {
   ToolError,
   clearAuthCache,
+  findLocalStorageEntry,
   getAuthCache,
   getCookie,
   getLocalStorage,
@@ -50,25 +51,15 @@ const getSpaceIdFromLocalStorage = (): string | null => {
     }
   } catch {}
 
-  try {
-    // Scan localStorage for spaceId patterns
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.includes('spaceId')) {
-        const val = getLocalStorage(key);
-        if (val) {
-          try {
-            const parsed = JSON.parse(val) as { value?: string };
-            if (parsed.value?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/)) {
-              return parsed.value;
-            }
-          } catch {
-            if (val.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/)) return val;
-          }
-        }
-      }
+  const entry = findLocalStorageEntry(key => key.includes('spaceId'));
+  if (entry) {
+    try {
+      const parsed = JSON.parse(entry.value) as { value?: string };
+      if (parsed.value?.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/)) return parsed.value;
+    } catch {
+      if (entry.value.match(/^[0-9a-f]{8}-[0-9a-f]{4}-/)) return entry.value;
     }
-  } catch {}
+  }
 
   return null;
 };
