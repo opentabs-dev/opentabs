@@ -666,7 +666,7 @@ const handlePluginSettings = async (
   }
 
   state.pluginSettings[body.plugin] = body.settings;
-  savePluginSettings(state, { ...state.pluginSettings }).catch(() => {});
+  await savePluginSettings(state, { ...state.pluginSettings }).catch(() => {});
 
   try {
     await performConfigReload(state, sessionServers, transports);
