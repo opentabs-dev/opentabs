@@ -30,11 +30,8 @@ function triggerBrowserDownload(bytes: Uint8Array, filename: string, mimeType: s
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  // Cleanup after a short delay to ensure the download starts
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 1000);
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export const downloadAttachment = defineTool({
