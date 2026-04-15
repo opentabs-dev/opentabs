@@ -1,7 +1,7 @@
 ---
 title: CLI Commands
 description: Complete reference for the opentabs CLI — start the server, manage plugins, view logs, run diagnostics, and configure settings.
-lastUpdated: 2026-03-29
+lastUpdated: 2026-04-15
 ---
 
 The `opentabs` CLI is the single entry point for everything platform-side: starting the server, managing plugins, checking status, viewing logs, and rotating secrets. I wanted one command that handles all of it, so you never have to remember which tool does what. Install it globally:
@@ -69,6 +69,11 @@ opentabs start [options]
       <Table.Cell>—</Table.Cell>
       <Table.Cell>Print MCP client configuration and exit (does not start the server). By default, MCP client config is only shown on first run.</Table.Cell>
     </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--stdio`</Table.Cell>
+      <Table.Cell>—</Table.Cell>
+      <Table.Cell>Use stdio transport — the MCP client spawns `opentabs start --stdio` as a subprocess rather than connecting to a running server. The bridge connects to the existing HTTP server on the configured port. Useful for MCP clients that manage server lifecycle automatically.</Table.Cell>
+    </Table.Row>
   </Table.Body>
 </Table>
 
@@ -92,6 +97,9 @@ opentabs start --port 3000
 
 # Start in the background (use opentabs stop to stop)
 opentabs start --background
+
+# Auto-start via stdio (for MCP clients that manage server lifecycle)
+opentabs start --stdio
 ```
 
 ---
