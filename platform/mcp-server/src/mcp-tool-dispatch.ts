@@ -255,7 +255,7 @@ const handleBrowserToolCall = async (
       content: [
         {
           type: 'text' as const,
-          text: `Tool "${toolName}" is currently disabled. Ask the user to enable it in the OpenTabs side panel.`,
+          text: `Tool "${toolName}" is currently disabled.\n\nTo enable it:\n- In the OpenTabs side panel: toggle the tool on\n- Via CLI: opentabs config set plugin-permission.browser-tool auto (enables all browser tools)\n- Via CLI: opentabs config set tool-permission.browser-tool.${toolName} auto (enables this tool only)`,
         },
       ],
       isError: true,

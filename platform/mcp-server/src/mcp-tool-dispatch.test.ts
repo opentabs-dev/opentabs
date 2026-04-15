@@ -333,7 +333,11 @@ describe('handleBrowserToolCall', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain('currently disabled');
-    expect(result.content[0]?.text).toContain('enable it in the OpenTabs side panel');
+    expect(result.content[0]?.text).toContain('In the OpenTabs side panel: toggle the tool on');
+    expect(result.content[0]?.text).toContain('opentabs config set plugin-permission.browser-tool auto');
+    expect(result.content[0]?.text).toContain(
+      'opentabs config set tool-permission.browser-tool.browser_test_tool auto',
+    );
   });
 
   test('permission auto executes immediately', async () => {
