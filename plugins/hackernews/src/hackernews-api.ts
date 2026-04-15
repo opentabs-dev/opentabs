@@ -213,20 +213,11 @@ export const submitComment = async (parentId: number, text: string): Promise<voi
   formData.append('hmac', hmac);
   formData.append('text', text);
 
-  const response = await fetchFromPage('/comment', {
+  await fetchFromPage('/comment', {
     method: 'POST',
     body: formData,
     redirect: 'follow',
   });
-
-  // HN redirects to the item page on success. A non-redirect error means failure.
-  if (!response.ok && response.status !== 302 && response.status !== 301) {
-    const body = await response.text().catch(() => '');
-    if (body.includes('Please confirm your email address')) {
-      throw ToolError.auth('HN requires email confirmation before you can post comments.');
-    }
-    throw ToolError.internal(`Comment submission failed (${response.status}): ${body.substring(0, 200)}`);
-  }
 };
 
 // --- User parsing ---
