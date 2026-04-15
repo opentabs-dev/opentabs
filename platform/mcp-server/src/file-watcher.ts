@@ -24,10 +24,9 @@ import type { FSWatcher } from 'node:fs';
 import { readdirSync, statSync, watch } from 'node:fs';
 import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ManifestTool } from '@opentabs-dev/shared';
 import { ADAPTER_FILENAME, ADAPTER_SOURCE_MAP_FILENAME, isOk, TOOLS_FILENAME } from '@opentabs-dev/shared';
 import { getConfigDir } from './config.js';
-import { extractToolsArray, loadPlugin } from './loader.js';
+import { extractToolsArray, loadPlugin, validateTools } from './loader.js';
 import { log } from './logger.js';
 import { buildRegistry } from './registry.js';
 import type { FileWatcherEntry, RegisteredPlugin, ServerState } from './state.js';
@@ -231,61 +230,6 @@ const handleIifeChange = async (
   }
 };
 
-/** Parsed result from a tools.json file */
-interface ParsedManifest {
-  tools: ManifestTool[];
-}
-
-/**
- * Parse a tools.json file contents into tools.
- * Supports both legacy array format and current { tools: [...] } format.
- * Returns null if parsing fails.
- */
-const parseToolsJson = (raw: string, filePath: string): ParsedManifest | null => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    log.error(`File watcher: Invalid JSON in ${filePath}`);
-    return null;
-  }
-
-  const toolsArray = extractToolsArray(parsed);
-  if (!toolsArray) {
-    log.error(`File watcher: ${filePath} is not a valid manifest`);
-    return null;
-  }
-
-  const tools: ManifestTool[] = [];
-  for (const t of toolsArray) {
-    if (typeof t !== 'object' || t === null) continue;
-    const obj = t as Record<string, unknown>;
-    if (typeof obj.name !== 'string' || typeof obj.description !== 'string') continue;
-    const displayName = typeof obj.displayName === 'string' ? obj.displayName : obj.name;
-    const icon = typeof obj.icon === 'string' ? obj.icon : 'wrench';
-    const group = typeof obj.group === 'string' ? obj.group : undefined;
-    const inputSchema =
-      typeof obj.input_schema === 'object' && obj.input_schema !== null
-        ? (obj.input_schema as Record<string, unknown>)
-        : ({ type: 'object', properties: {} } as Record<string, unknown>);
-    const outputSchema =
-      typeof obj.output_schema === 'object' && obj.output_schema !== null
-        ? (obj.output_schema as Record<string, unknown>)
-        : ({ type: 'object', properties: {} } as Record<string, unknown>);
-    tools.push({
-      name: obj.name,
-      displayName,
-      description: obj.description,
-      icon,
-      ...(group ? { group } : {}),
-      input_schema: inputSchema,
-      output_schema: outputSchema,
-    });
-  }
-
-  return { tools };
-};
-
 /**
  * Handle a dist/tools.json file change for a local plugin.
  *
@@ -310,9 +254,24 @@ const handleToolsJsonChange = async (
 
   try {
     const raw = await readFileWithRetry(toolsJsonPath);
-    const parsed = parseToolsJson(raw, toolsJsonPath);
-    if (!parsed) return;
-    const { tools } = parsed;
+    let parsedManifest: unknown;
+    try {
+      parsedManifest = JSON.parse(raw);
+    } catch {
+      log.error(`File watcher: Invalid JSON in ${toolsJsonPath}`);
+      return;
+    }
+    const toolsArray = extractToolsArray(parsedManifest);
+    if (!toolsArray) {
+      log.error(`File watcher: ${toolsJsonPath} is not a valid manifest`);
+      return;
+    }
+    const toolsResult = validateTools(toolsArray, toolsJsonPath);
+    if (!isOk(toolsResult)) {
+      log.error(`File watcher: Invalid tools in ${toolsJsonPath}: ${toolsResult.error}`);
+      return;
+    }
+    const tools = toolsResult.value;
 
     const plugin = state.registry.plugins.get(pluginName);
     if (!plugin) {
