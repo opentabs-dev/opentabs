@@ -112,7 +112,13 @@ export const graphql = async <T>(
 
   if (data.errors?.length && !data.data) {
     const msg = data.errors.map(e => e.message).join('; ');
-    if (msg.includes('UNAUTHENTICATED') || msg.includes('401')) {
+    if (
+      msg.includes('UNAUTHENTICATED') ||
+      msg.includes('401') ||
+      msg.includes('403') ||
+      msg.includes('CSRF') ||
+      msg.includes('FORBIDDEN')
+    ) {
       clearAuthCache('booking');
       throw ToolError.auth(`GraphQL auth error: ${msg}`);
     }
