@@ -34,24 +34,6 @@ const getHeaders = (): Record<string, string> => {
   };
 };
 
-const classifyError = async (response: Response, endpoint: string): Promise<never> => {
-  const errorBody = (await response.text().catch(() => '')).substring(0, 512);
-
-  if (response.status === 429) {
-    throw ToolError.rateLimited(`Rate limited: ${endpoint} — ${errorBody}`);
-  }
-  if (response.status === 401 || response.status === 403) {
-    throw ToolError.auth(`Auth error (${response.status}): ${errorBody}`);
-  }
-  if (response.status === 404) {
-    throw ToolError.notFound(`Not found: ${endpoint} — ${errorBody}`);
-  }
-  if (response.status === 400) {
-    throw ToolError.validation(`Bad request: ${endpoint} — ${errorBody}`);
-  }
-  throw ToolError.internal(`API error (${response.status}): ${endpoint} — ${errorBody}`);
-};
-
 export const api = async <T>(
   endpoint: string,
   options: {
@@ -91,10 +73,6 @@ export const api = async <T>(
       throw ToolError.timeout(`Request timed out: ${endpoint}`);
     }
     throw ToolError.internal(`Network error: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
-  if (!response.ok) {
-    return classifyError(response, endpoint);
   }
 
   if (response.status === 204) return {} as T;
