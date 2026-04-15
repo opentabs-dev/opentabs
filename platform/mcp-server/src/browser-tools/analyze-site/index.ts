@@ -8,8 +8,8 @@
  */
 
 import { deleteExecFile, dispatchToExtension, writeExecFile } from '../../extension-protocol.js';
-import type { ServerState } from '../../state.js';
-import { getAnyConnection } from '../../state.js';
+import type { ExtensionConnection, ServerState } from '../../state.js';
+import { getAnyConnection, getConnectionForTab } from '../../state.js';
 import { validateDispatchResult } from '../dispatch-utils.js';
 import type { ApiAnalysis, ApiEndpoint, WsFrame } from './detect-apis.js';
 import { detectApis } from './detect-apis.js';
@@ -818,6 +818,7 @@ const analyzeSite = async (
 ): Promise<SiteAnalysis> => {
   let tabId: number | null = null;
   let cancelSleep: (() => void) | undefined;
+  let captureConn: ExtensionConnection | undefined;
 
   try {
     // Step 1: Open a new tab to about:blank so network capture can be enabled
@@ -840,7 +841,8 @@ const analyzeSite = async (
       tabId,
       maxRequests: 200,
     });
-    getAnyConnection(state)?.activeNetworkCaptures.add(tabId);
+    captureConn = getConnectionForTab(state, tabId) ?? getAnyConnection(state);
+    captureConn?.activeNetworkCaptures.add(tabId);
 
     // Step 3: Navigate to the target URL — network capture is already active
     await dispatchToExtension(state, 'browser.navigateTab', { tabId, url });
@@ -1080,7 +1082,7 @@ const analyzeSite = async (
       } catch {
         // Best-effort cleanup — ignore errors
       }
-      getAnyConnection(state)?.activeNetworkCaptures.delete(tabId);
+      captureConn?.activeNetworkCaptures.delete(tabId);
       try {
         await dispatchToExtension(state, 'browser.closeTab', { tabId });
       } catch {
