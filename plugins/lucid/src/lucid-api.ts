@@ -63,12 +63,8 @@ const lucidFetch = async <T>(
   if (method === 'DELETE') {
     const response = await fetchFromPage(url, init);
     if (response.status === 204) return {} as T;
-    if (response.ok) {
-      const text = await response.text();
-      return text ? (JSON.parse(text) as T) : ({} as T);
-    }
-    // fetchFromPage already threw on non-ok, but just in case
-    return {} as T;
+    const text = await response.text();
+    return text ? (JSON.parse(text) as T) : ({} as T);
   }
 
   const data = await fetchJSON<T>(url, init);
