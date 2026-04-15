@@ -68,7 +68,7 @@ const BrowserToolsCard = ({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const toggleCounter = useRef(0);
-  const preToggleRef = useRef<BrowserToolState[]>([]);
+  const pendingToolRollbacks = useRef<Map<number, { toolName: string; prev: ToolPermission }>>(new Map());
 
   useEffect(() => () => clearTimeout(errorTimerRef.current), []);
 
@@ -94,16 +94,22 @@ const BrowserToolsCard = ({
 
   const handleToolPermissionChange = (toolName: string, newPermission: ToolPermission) => {
     const myVersion = ++toggleCounter.current;
-    onToolsChange(prev => {
-      preToggleRef.current = prev;
-      return prev.map(t => (t.name === toolName ? { ...t, permission: newPermission } : t));
-    });
-    void setToolPermission('browser', toolName, newPermission).catch(() => {
-      if (toggleCounter.current === myVersion) {
-        onToolsChange(() => preToggleRef.current);
-      }
-      showToggleError(`Failed to update ${toolName}`);
-    });
+    const currentPerm = tools.find(t => t.name === toolName)?.permission ?? 'off';
+    pendingToolRollbacks.current.set(myVersion, { toolName, prev: currentPerm });
+    onToolsChange(prev => prev.map(t => (t.name === toolName ? { ...t, permission: newPermission } : t)));
+    void setToolPermission('browser', toolName, newPermission)
+      .catch(() => {
+        const rollback = pendingToolRollbacks.current.get(myVersion);
+        if (rollback) {
+          onToolsChange(prev =>
+            prev.map(t => (t.name === rollback.toolName ? { ...t, permission: rollback.prev } : t)),
+          );
+        }
+        showToggleError(`Failed to update ${toolName}`);
+      })
+      .finally(() => {
+        pendingToolRollbacks.current.delete(myVersion);
+      });
   };
 
   const filterLower = toolFilter?.toLowerCase() ?? '';
