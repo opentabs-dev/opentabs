@@ -34,6 +34,17 @@ import { parsePort, resolvePort } from '../parse-port.js';
 import { getCliVersion, getMcpServerVersion } from '../version-info.js';
 import { installExtension } from './setup.js';
 
+/** Compare two semver strings. Returns positive if a > b, negative if a < b, 0 if equal. */
+const compareSemver = (a: string, b: string): number => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+};
+
 interface StreamingProcess {
   stdout: ReadableStream<Uint8Array>;
   stderr: ReadableStream<Uint8Array>;
@@ -371,12 +382,27 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   }
 
   if (portInUse) {
-    console.error(pc.red(`Error: Port ${port} is already in use.`));
-    console.error(
-      port === 9515
-        ? 'Another OpenTabs server may already be running. Use --port to specify a different port.'
-        : `Use a different port with: opentabs start --port <number>`,
-    );
+    let isOpenTabs = false;
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`, {
+        signal: AbortSignal.timeout(1500),
+      });
+      isOpenTabs = res.headers.has('x-opentabs-version');
+    } catch {
+      // Health check failed or timed out — fall through to generic message
+    }
+
+    if (isOpenTabs) {
+      console.error(pc.red(`Error: OpenTabs is already running on port ${port}.`));
+      console.error(`Stop it with: opentabs stop${port !== DEFAULT_PORT ? ` --port ${port}` : ''}`);
+    } else {
+      console.error(pc.red(`Error: Port ${port} is already in use.`));
+      console.error(
+        port === DEFAULT_PORT
+          ? 'Another OpenTabs server may already be running. Use --port to specify a different port.'
+          : `Use a different port with: opentabs start --port <number>`,
+      );
+    }
     process.exit(1);
   }
 
@@ -416,7 +442,11 @@ const handleStart = async (options: StartOptions): Promise<void> => {
   const printVersionWarning = (): void => {
     if (cliVersion && serverVersion && cliVersion !== serverVersion) {
       console.log(pc.yellow(`  Warning: CLI version (v${cliVersion}) does not match MCP server (v${serverVersion}).`));
-      console.log(pc.dim('  Run: npm install -g @opentabs-dev/cli@latest'));
+      if (compareSemver(cliVersion, serverVersion) > 0) {
+        console.log(pc.dim('  Restart the server to update it to the latest version.'));
+      } else {
+        console.log(pc.dim('  Run: npm install -g @opentabs-dev/cli@latest'));
+      }
       console.log('');
     }
   };
