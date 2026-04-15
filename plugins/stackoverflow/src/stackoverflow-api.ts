@@ -100,8 +100,7 @@ export const api = async (
 };
 
 export interface SEResponse {
-  // biome-ignore lint/suspicious/noExplicitAny: SE API returns untyped JSON
-  items: Record<string, any>[];
+  items: Record<string, unknown>[];
   has_more: boolean;
   quota_remaining: number;
 }
