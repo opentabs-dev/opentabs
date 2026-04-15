@@ -65,11 +65,9 @@ test.describe('Side panel — plugin tool groups', () => {
       const groupHeaders = pluginItem.locator('span.uppercase.tracking-wider');
       await expect(groupHeaders.first()).toBeVisible({ timeout: 5_000 });
 
-      // 7. Verify at least 2 distinct group headers appear.
-      // The e2e-test plugin has 2 groups: "Basic" and "Data", plus ungrouped
-      // tools that appear under "Other" — so at least 3 headers total.
-      const headerCount = await groupHeaders.count();
-      expect(headerCount).toBeGreaterThanOrEqual(2);
+      // 7. Verify exactly 3 distinct group headers appear:
+      // "Basic", "Data", and "Other" (for ungrouped tools).
+      await expect(groupHeaders).toHaveCount(3);
 
       // 8. Verify specific known group names appear
       await expect(pluginItem.locator('span.uppercase.tracking-wider', { hasText: 'Basic' })).toBeVisible({
@@ -146,8 +144,7 @@ test.describe('Side panel — plugin tool groups', () => {
 
       // Group headers live inside bg-muted/30 containers with a left accent bar
       const groupHeaderContainers = pluginItem.locator('div.bg-muted\\/30');
-      const containerCount = await groupHeaderContainers.count();
-      expect(containerCount).toBeGreaterThanOrEqual(2);
+      await expect(groupHeaderContainers).toHaveCount(3);
 
       // No Switch components exist — group headers are non-interactive dividers
       const switches = pluginItem.locator('[role="switch"]');
@@ -212,10 +209,7 @@ test.describe('stress', () => {
       // Verify group headers are still visible and correct
       const expandedItem = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'E2E Test' });
       const headers = expandedItem.locator('span.uppercase.tracking-wider');
-      await expect(headers.first()).toBeVisible({ timeout: 5_000 });
-
-      const headerCount = await headers.count();
-      expect(headerCount).toBeGreaterThanOrEqual(2);
+      await expect(headers).toHaveCount(3);
 
       // Verify known group names still render
       await expect(expandedItem.locator('span.uppercase.tracking-wider', { hasText: 'Basic' })).toBeVisible({

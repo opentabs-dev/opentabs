@@ -75,11 +75,8 @@ test.describe('Side panel — browser tool groups', () => {
       // Wait for at least one group header to appear
       await expect(groupHeaders.first()).toBeVisible({ timeout: 5_000 });
 
-      // 6. Count distinct group headers — must be at least 3
-      // The catalog has 7 groups: Page Inspection, Page Interaction, Tabs,
-      // Storage & Cookies, Network, Extension, Plugins
-      const headerCount = await groupHeaders.count();
-      expect(headerCount).toBeGreaterThanOrEqual(3);
+      // 6. Verify at least 3 distinct group headers appear (the catalog has 7 groups).
+      await expect(groupHeaders.nth(2)).toBeVisible({ timeout: 5_000 });
 
       // 7. Verify specific known group names appear (these are from the catalog)
       for (const groupName of ['Tabs', 'Page Interaction', 'Page Inspection']) {
@@ -153,8 +150,7 @@ test.describe('Side panel — browser tool groups', () => {
       });
 
       // Only one group header should be visible
-      const filteredCount = await groupHeaders.count();
-      expect(filteredCount).toBe(1);
+      await expect(groupHeaders).toHaveCount(1);
 
       // Other groups should not be present
       await expect(browserItem.locator('span.uppercase.tracking-wider', { hasText: 'Tabs' })).toBeHidden();
@@ -171,10 +167,7 @@ test.describe('Side panel — browser tool groups', () => {
 
       const normalBrowserItem = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'Browser' });
       const normalGroupHeaders = normalBrowserItem.locator('span.uppercase.tracking-wider');
-      await expect(normalGroupHeaders.first()).toBeVisible({ timeout: 5_000 });
-
-      const restoredCount = await normalGroupHeaders.count();
-      expect(restoredCount).toBeGreaterThanOrEqual(3);
+      await expect(normalGroupHeaders.nth(2)).toBeVisible({ timeout: 5_000 });
 
       await sidePanelPage.close();
     } finally {
@@ -248,10 +241,7 @@ test.describe('stress', () => {
       await expect(browserCardAfter).toHaveAttribute('aria-expanded', 'true', { timeout: 5_000 });
       const browserItemAfter = sidePanelPage.locator('[data-state="open"]').filter({ hasText: 'Browser' });
       const groupHeaders = browserItemAfter.locator('span.uppercase.tracking-wider');
-      await expect(groupHeaders.first()).toBeVisible({ timeout: 10_000 });
-
-      const headerCount = await groupHeaders.count();
-      expect(headerCount).toBeGreaterThanOrEqual(3);
+      await expect(groupHeaders.nth(2)).toBeVisible({ timeout: 10_000 });
 
       expect(pageErrors).toHaveLength(0);
 
