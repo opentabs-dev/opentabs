@@ -1,6 +1,7 @@
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { FailedPluginState } from '../bridge.js';
+import { Alert } from './retro/Alert.js';
 import { Button } from './retro/Button.js';
 import { Dialog } from './retro/Dialog.js';
 import { Loader } from './retro/Loader.js';
@@ -9,9 +10,10 @@ interface FailedPluginCardProps {
   plugin: FailedPluginState;
   onRemove: () => void;
   removing: boolean;
+  actionError?: string | null;
 }
 
-const FailedPluginCard = ({ plugin, onRemove, removing }: FailedPluginCardProps) => {
+const FailedPluginCard = ({ plugin, onRemove, removing, actionError }: FailedPluginCardProps) => {
   const [expanded, setExpanded] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -46,6 +48,11 @@ const FailedPluginCard = ({ plugin, onRemove, removing }: FailedPluginCardProps)
           className="mt-1 cursor-pointer text-muted-foreground text-xs underline">
           {expanded ? 'Show less' : 'Show more'}
         </button>
+      )}
+      {actionError && (
+        <Alert status="error" className="mt-2 px-2 py-1 text-xs">
+          {actionError}
+        </Alert>
       )}
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

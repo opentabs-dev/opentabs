@@ -92,6 +92,7 @@ const PluginList = ({
   pluginErrors,
   onRemoveFailedPlugin,
   removingFailedPlugins,
+  failedPluginErrors,
 }: {
   plugins: PluginState[];
   failedPlugins: FailedPluginState[];
@@ -104,6 +105,7 @@ const PluginList = ({
   pluginErrors?: Map<string, string>;
   onRemoveFailedPlugin?: (specifier: string) => void;
   removingFailedPlugins?: ReadonlySet<string>;
+  failedPluginErrors?: Map<string, string>;
 }) => {
   const filterLower = toolFilter.toLowerCase();
 
@@ -257,6 +259,7 @@ const PluginList = ({
               plugin={fp}
               onRemove={() => onRemoveFailedPlugin?.(fp.specifier)}
               removing={removingFailedPlugins?.has(fp.specifier) ?? false}
+              actionError={failedPluginErrors?.get(fp.specifier) ?? null}
             />
           ))}
         </div>

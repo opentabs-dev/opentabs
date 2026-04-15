@@ -64,10 +64,12 @@ const App = () => {
   const [removingFailedPlugins, setRemovingFailedPlugins] = useState<ReadonlySet<string>>(new Set());
   const [installErrors, setInstallErrors] = useState<Map<string, string>>(new Map());
   const [pluginErrors, setPluginErrors] = useState<Map<string, string>>(new Map());
+  const [failedPluginErrors, setFailedPluginErrors] = useState<Map<string, string>>(new Map());
   const [browserToolsOpen, setBrowserToolsOpen] = useState(false);
   const [browserToolsHydrated, setBrowserToolsHydrated] = useState(false);
 
   const pluginErrorTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const failedPluginErrorTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const npmSearchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const npmSearchCounter = useRef(0);
 
@@ -90,6 +92,7 @@ const App = () => {
   useEffect(
     () => () => {
       for (const timer of pluginErrorTimers.current.values()) clearTimeout(timer);
+      for (const timer of failedPluginErrorTimers.current.values()) clearTimeout(timer);
     },
     [],
   );
@@ -135,6 +138,23 @@ const App = () => {
       next.delete(pluginName);
       return next;
     });
+  };
+
+  const showFailedPluginError = (specifier: string, message: string) => {
+    const existing = failedPluginErrorTimers.current.get(specifier);
+    if (existing) clearTimeout(existing);
+    setFailedPluginErrors(prev => new Map(prev).set(specifier, message));
+    failedPluginErrorTimers.current.set(
+      specifier,
+      setTimeout(() => {
+        setFailedPluginErrors(prev => {
+          const next = new Map(prev);
+          next.delete(specifier);
+          return next;
+        });
+        failedPluginErrorTimers.current.delete(specifier);
+      }, ERROR_DISPLAY_DURATION_MS),
+    );
   };
 
   const handleSearchChange = (query: string) => {
@@ -227,12 +247,13 @@ const App = () => {
           return next;
         });
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         setRemovingFailedPlugins(prev => {
           const next = new Set(prev);
           next.delete(specifier);
           return next;
         });
+        showFailedPluginError(specifier, err instanceof Error ? err.message : String(err));
       });
   };
 
@@ -358,6 +379,9 @@ const App = () => {
           for (const timer of pluginErrorTimers.current.values()) clearTimeout(timer);
           pluginErrorTimers.current.clear();
           setPluginErrors(new Map());
+          for (const timer of failedPluginErrorTimers.current.values()) clearTimeout(timer);
+          failedPluginErrorTimers.current.clear();
+          setFailedPluginErrors(new Map());
         }
         sendResponse({ ok: true });
         return true;
@@ -523,6 +547,7 @@ const App = () => {
                   pluginErrors={pluginErrors}
                   onRemoveFailedPlugin={handleRemoveFailedPlugin}
                   removingFailedPlugins={removingFailedPlugins}
+                  failedPluginErrors={failedPluginErrors}
                 />
                 {plugins.length === 0 && failedPlugins.length === 0 && (
                   <Empty className="border-muted" role="status">
