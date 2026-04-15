@@ -208,14 +208,7 @@ const handleToolSchema = async (name: string, options: { port?: number }): Promi
   const tool = tools.find(t => t.name === name);
   if (!tool) {
     console.error(pc.red(`Tool "${name}" not found.`));
-    console.error();
-    const names = tools.map(t => t.name).sort();
-    if (names.length > 0) {
-      console.error(`Available tools:`);
-      for (const n of names) {
-        console.error(`  ${pc.cyan(n)}`);
-      }
-    }
+    console.error(`Run ${pc.cyan('opentabs tool list')} to see all available tools.`);
     process.exit(1);
   }
 
