@@ -10,6 +10,10 @@ import {
 
 let cachedAuth: { userId: string } | null = null;
 
+export const clearAuth = (): void => {
+  cachedAuth = null;
+};
+
 export const isAuthenticated = (): boolean => {
   // On first load, we don't have cached auth yet — isReady() will poll via waitForAuth
   return cachedAuth !== null;
@@ -69,12 +73,26 @@ export const api = async <T>(
     init.body = JSON.stringify(options.body);
   }
 
-  return (await fetchJSON<T>(url, init)) as T;
+  try {
+    return (await fetchJSON<T>(url, init)) as T;
+  } catch (error) {
+    if (error instanceof ToolError && error.category === 'auth') {
+      clearAuth();
+    }
+    throw error;
+  }
 };
 
 export const apiText = async (endpoint: string): Promise<string> => {
   ensureAuth();
-  return fetchText(`/api${endpoint}`);
+  try {
+    return await fetchText(`/api${endpoint}`);
+  } catch (error) {
+    if (error instanceof ToolError && error.category === 'auth') {
+      clearAuth();
+    }
+    throw error;
+  }
 };
 
 // --- Query execution: 3-step batch flow ---
