@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated } from './carta-api.js';
+import { waitForAuth } from './carta-api.js';
 import { checkFavourite } from './tools/check-favourite.js';
 import { getCompanyProfile } from './tools/get-company-profile.js';
 import { getCurrentUser } from './tools/get-current-user.js';
@@ -59,7 +59,7 @@ class CartaPlugin extends OpenTabsPlugin {
   ];
 
   async isReady(): Promise<boolean> {
-    return isAuthenticated();
+    return waitForAuth();
   }
 }
 
