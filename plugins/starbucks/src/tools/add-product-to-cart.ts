@@ -1,4 +1,4 @@
-import { defineTool, getPageGlobal } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool, getPageGlobal } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../starbucks-api.js';
 
@@ -66,7 +66,7 @@ export const addProductToCart = defineTool({
     });
 
     const product = data.products?.[0];
-    if (!product) throw new Error(`Product ${params.product_number}/${params.form} not found`);
+    if (!product) throw ToolError.notFound(`Product ${params.product_number}/${params.form} not found`);
 
     const sizes = product.sizes ?? [];
 
@@ -75,12 +75,14 @@ export const addProductToCart = defineTool({
     if (params.size) {
       selectedSize = sizes.find(s => s.sizeCode?.toLowerCase() === params.size?.toLowerCase());
       if (!selectedSize)
-        throw new Error(`Size "${params.size}" not found. Available: ${sizes.map(s => s.sizeCode).join(', ')}`);
+        throw ToolError.validation(
+          `Size "${params.size}" not found. Available: ${sizes.map(s => s.sizeCode).join(', ')}`,
+        );
     } else {
       selectedSize = sizes.find(s => (s as Record<string, unknown>).default === true) ?? sizes[0];
     }
 
-    if (!selectedSize) throw new Error('No sizes available for this product');
+    if (!selectedSize) throw ToolError.notFound('No sizes available for this product');
 
     const sizeCode = selectedSize.sizeCode ?? '';
     const sku = selectedSize.sku ?? '';
@@ -105,7 +107,7 @@ export const addProductToCart = defineTool({
 
     // Dispatch to the Redux store
     const store = getPageGlobal('store') as StarbucksStore | undefined;
-    if (!store?.dispatch) throw new Error('Redux store not available');
+    if (!store?.dispatch) throw ToolError.internal('Redux store not available');
 
     store.dispatch({
       type: 'ADD_PRODUCT_TO_CART',

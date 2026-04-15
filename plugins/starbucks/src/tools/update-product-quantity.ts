@@ -1,4 +1,4 @@
-import { defineTool, getPageGlobal } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool, getPageGlobal } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
 // CHANGE_QUANTITY dispatches { delta, itemId } to increment/decrement quantity.
@@ -33,13 +33,13 @@ export const updateProductQuantity = defineTool({
   }),
   handle: async params => {
     const store = getPageGlobal('store') as StarbucksStore | undefined;
-    if (!store?.dispatch || !store?.getState) throw new Error('Redux store not available');
+    if (!store?.dispatch || !store?.getState) throw ToolError.internal('Redux store not available');
 
     const state = store.getState();
     const cart = state.ordering?.cart?.current ?? {};
     const currentItem = cart[params.item_key];
 
-    if (!currentItem) throw new Error(`Item "${params.item_key}" not found in cart`);
+    if (!currentItem) throw ToolError.notFound(`Item "${params.item_key}" not found in cart`);
 
     const currentQty = currentItem.quantity ?? 1;
     const delta = params.quantity - currentQty;
