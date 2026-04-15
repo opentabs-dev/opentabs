@@ -1,4 +1,4 @@
-import { isAuthenticated, waitForAuth } from './reddit-api.js';
+import { clearSessionCache, isAuthenticated, waitForAuth } from './reddit-api.js';
 import { deleteThing } from './tools/delete-thing.js';
 import { editText } from './tools/edit-text.js';
 import { getCommentThread } from './tools/get-comment-thread.js';
@@ -66,6 +66,10 @@ class RedditPlugin extends OpenTabsPlugin {
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
     return waitForAuth();
+  }
+
+  override teardown(): void {
+    clearSessionCache();
   }
 }
 

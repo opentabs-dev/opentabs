@@ -214,7 +214,7 @@ const redditPost = async <T>(path: string, body: Record<string, string>): Promis
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
     if (response.status === 401 || response.status === 403) {
-      cachedModhash = null;
+      clearSessionCache();
       throw ToolError.auth(`Reddit API HTTP ${response.status}: ${errorText}`);
     }
     if (response.status === 404) {
@@ -279,7 +279,7 @@ const redditOAuthPost = async <T>(path: string, body: Record<string, string>): P
   if (!response.ok) {
     const errorText = await response.text().catch(() => response.statusText);
     if (response.status === 401 || response.status === 403) {
-      cachedBearerToken = null;
+      clearSessionCache();
       throw ToolError.auth(`Reddit OAuth API HTTP ${response.status}: ${errorText}`);
     }
     if (response.status === 404) {
@@ -295,5 +295,15 @@ const redditOAuthPost = async <T>(path: string, body: Record<string, string>): P
   }
 };
 
-export { isAuthenticated, waitForAuth, redditGet, redditPost, redditOAuthPost };
+/**
+ * Clear all cached session credentials (modhash and bearer token).
+ * Called on teardown and when auth errors indicate stale credentials.
+ */
+const clearSessionCache = (): void => {
+  cachedModhash = null;
+  cachedBearerToken = null;
+  bearerTokenExpiry = 0;
+};
+
+export { isAuthenticated, waitForAuth, redditGet, redditPost, redditOAuthPost, clearSessionCache };
 export type { RedditListing };
