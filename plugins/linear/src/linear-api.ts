@@ -116,7 +116,7 @@ export const graphql = async <T extends Record<string, unknown>>(
       throw ToolError.timeout('Linear API request timed out');
     }
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new ToolError('Request was aborted', 'aborted');
+      throw ToolError.timeout('Request was aborted');
     }
     throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
       category: 'internal',
