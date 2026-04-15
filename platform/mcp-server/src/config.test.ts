@@ -491,6 +491,88 @@ describe('levenshtein', () => {
   });
 });
 
+describe('updateCheckIntervalMinutes', () => {
+  beforeEach(async () => {
+    process.env.OPENTABS_CONFIG_DIR = TEST_BASE_DIR;
+    await removeConfig();
+  });
+
+  test('defaults to 30 when not set', async () => {
+    const config = await loadConfig();
+    expect(config.updateCheckIntervalMinutes).toBe(30);
+  });
+
+  test('accepts a valid positive integer', async () => {
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        localPlugins: [],
+        permissions: {},
+        updateCheckIntervalMinutes: 60,
+      }),
+    );
+
+    const config = await loadConfig();
+    expect(config.updateCheckIntervalMinutes).toBe(60);
+  });
+
+  test('accepts 0 to disable periodic checks', async () => {
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        localPlugins: [],
+        permissions: {},
+        updateCheckIntervalMinutes: 0,
+      }),
+    );
+
+    const config = await loadConfig();
+    expect(config.updateCheckIntervalMinutes).toBe(0);
+  });
+
+  test('falls back to 30 for negative numbers', async () => {
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        localPlugins: [],
+        permissions: {},
+        updateCheckIntervalMinutes: -5,
+      }),
+    );
+
+    const config = await loadConfig();
+    expect(config.updateCheckIntervalMinutes).toBe(30);
+  });
+
+  test('falls back to 30 for non-integer values', async () => {
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        localPlugins: [],
+        permissions: {},
+        updateCheckIntervalMinutes: 10.5,
+      }),
+    );
+
+    const config = await loadConfig();
+    expect(config.updateCheckIntervalMinutes).toBe(30);
+  });
+
+  test('falls back to 30 for non-number values', async () => {
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        localPlugins: [],
+        permissions: {},
+        updateCheckIntervalMinutes: 'fast',
+      }),
+    );
+
+    const config = await loadConfig();
+    expect(config.updateCheckIntervalMinutes).toBe(30);
+  });
+});
+
 describe('KNOWN_CONFIG_KEYS', () => {
   test('contains all OpentabsConfig fields', () => {
     expect(KNOWN_CONFIG_KEYS).toContain('version');
