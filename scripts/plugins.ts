@@ -160,7 +160,7 @@ for (const pluginName of pluginDirs) {
   let success: boolean;
 
   if (mode === 'build') {
-    const skipNotify = { OPENTABS_SKIP_NOTIFY: '1' };
+    const skipNotify = { OPENTABS_SKIP_NOTIFY: '1', OPENTABS_SKIP_REGISTER: '1' };
     success =
       (await runInPlugin(pluginName, ['npm', 'install'])) &&
       (await runInPlugin(pluginName, ['npm', 'run', 'build'], skipNotify));

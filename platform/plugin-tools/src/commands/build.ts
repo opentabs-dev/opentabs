@@ -188,6 +188,7 @@ const toPortablePath = (absolutePath: string): string => {
  * Returns true if newly registered, false if already present.
  */
 const registerInConfig = async (projectDir: string): Promise<boolean> => {
+  if (process.env.OPENTABS_SKIP_REGISTER === '1') return false;
   const configPath = getConfigPath();
   if (
     !(await access(configPath).then(
