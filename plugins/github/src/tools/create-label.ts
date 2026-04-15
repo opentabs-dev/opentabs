@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { getMutationId, graphql, turboData } from '../github-api.js';
 import { labelSchema } from './schemas.js';
@@ -27,7 +27,7 @@ export const createLabel = defineTool({
       { q: 'is:issue is:open' },
     );
     const repoId = repoData?.repository?.id;
-    if (!repoId) throw new Error('Could not determine repository ID');
+    if (!repoId) throw ToolError.internal('Could not determine repository ID');
 
     const mutationId = await getMutationId('createRepositoryLabelMutation');
     await graphql(mutationId, {
