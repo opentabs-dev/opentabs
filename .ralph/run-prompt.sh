@@ -89,7 +89,7 @@ stream_filter() {
             elif .name == "Bash" then ((.input.description // .input.command // "") | .[0:80])
             elif .name == "Glob" then (.input.pattern // "")
             elif .name == "Grep" then (.input.pattern // "") + " " + (.input.path // "")
-            elif .name == "Task" then (.input.description // "")
+            elif .name == "Agent" then (.input.description // "")
             elif .name == "Skill" then (.input.skill // "")
             else (.input | tostring | .[0:60])
             end
@@ -125,4 +125,4 @@ CLAUDE_ARGS=(--dangerously-skip-permissions --output-format stream-json --verbos
 [ -n "$MODEL" ] && CLAUDE_ARGS+=(--model "$MODEL")
 
 cd "$REPO_ROOT"
-claude "${CLAUDE_ARGS[@]}" < <(echo "$PROMPT") 2>/dev/null | stream_filter
+claude "${CLAUDE_ARGS[@]}" < <(echo "$PROMPT") | stream_filter
