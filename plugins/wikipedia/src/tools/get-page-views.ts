@@ -43,7 +43,10 @@ export const getPageViews = defineTool({
       data = (await response.json()) as PageViewResponse;
     } catch (e) {
       if (e instanceof ToolError) throw e;
-      throw ToolError.notFound(`Page view data not found for "${params.title}" in the given date range`);
+      if (e instanceof SyntaxError) {
+        throw ToolError.internal(`Failed to parse Wikimedia API response for "${params.title}"`);
+      }
+      throw ToolError.internal(`Failed to fetch page view data for "${params.title}"`);
     }
 
     const items = data?.items ?? [];
