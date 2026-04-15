@@ -264,7 +264,7 @@ describe('create-opentabs-plugin CLI', () => {
       const buildEnv = { ...process.env, OPENTABS_CONFIG_DIR: configDir };
 
       // shell: true is required on Windows where npm is a .cmd script
-      const spawnOpts = { cwd: projectDir, env: buildEnv, shell: true } as const;
+      const spawnOpts = { cwd: projectDir, env: buildEnv, shell: process.platform === 'win32' } as const;
 
       // npm install
       const install = spawnSync('npm', ['install'], spawnOpts);
