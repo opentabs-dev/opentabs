@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './sqlpad-api.js';
+import { clearAuth, isAuthenticated, waitForAuth } from './sqlpad-api.js';
 
 // Account
 import { getCurrentUser } from './tools/get-current-user.js';
@@ -63,6 +63,10 @@ class SqlpadPlugin extends OpenTabsPlugin {
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
     return waitForAuth();
+  }
+
+  override teardown(): void {
+    clearAuth();
   }
 }
 
