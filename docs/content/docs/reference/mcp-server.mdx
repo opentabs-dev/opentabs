@@ -1,14 +1,14 @@
 ---
 title: MCP Server
 description: HTTP endpoints, WebSocket protocol, authentication, MCP capabilities, and client configuration for the OpenTabs server.
-lastUpdated: 2026-03-29
+lastUpdated: 2026-04-15
 ---
 
 Everything here describes the server that `opentabs start` runs on your machine. It's a single localhost HTTP process — port 9515 by default. AI clients connect to `/mcp`, the Chrome extension connects to `/ws`. No cloud, no relay, no accounts. Just a process running locally, bridging your AI agent and your browser.
 
 ## Connection Modes
 
-OpenTabs supports three ways for AI agents to use its tools — each trading context cost for discoverability.
+OpenTabs supports four ways for AI agents to use its tools — each trading context cost for discoverability.
 
 <Table>
   <Table.Header>
@@ -37,6 +37,12 @@ OpenTabs supports three ways for AI agents to use its tools — each trading con
       <Table.Cell>Zero MCP overhead</Table.Cell>
       <Table.Cell>No MCP connection. AI calls `opentabs tool list` and `opentabs tool call` via shell.</Table.Cell>
       <Table.Cell>Agents with Bash access (Claude Code). Minimal context footprint.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">Auto-start via stdio</Table.Cell>
+      <Table.Cell>All enabled tools in context</Table.Cell>
+      <Table.Cell>MCP client spawns `opentabs start --stdio` as a subprocess; bridge relays to running HTTP server.</Table.Cell>
+      <Table.Cell>Users who prefer not to manage a background server process.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -93,6 +99,25 @@ For Claude Code, add a line to your project's `CLAUDE.md`:
 ```
 Use `opentabs tool list` and `opentabs tool call <name> '<json>'` to interact with web apps via the browser.
 ```
+
+### Auto-start via stdio
+
+No manual `opentabs start` required. Configure your MCP client to spawn `opentabs start --stdio` directly — the client manages the process lifecycle.
+
+For Claude Code, add to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "opentabs": {
+      "command": "opentabs",
+      "args": ["start", "--stdio"]
+    }
+  }
+}
+```
+
+The bridge connects to the HTTP server already running on the configured port (default 9515). The HTTP server must be running separately — `opentabs start --stdio` is a bridge, not a server.
 
 ---
 
@@ -278,9 +303,9 @@ Pass `Authorization: Bearer <secret>` to get the full payload:
     }
   ],
   "failedPlugins": [],
-  "toolCount": 59,
-  "browserToolCount": 40,
-  "pluginToolCount": 19,
+  "toolCount": 117,
+  "browserToolCount": 76,
+  "pluginToolCount": 41,
   "browserToolNames": ["browser_navigate_tab", "browser_click_element", "browser_screenshot_tab"],
   "disabledBrowserTools": ["browser_execute_script"],
   "skipPermissions": false,
