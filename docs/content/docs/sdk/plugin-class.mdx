@@ -109,12 +109,14 @@ These properties are optional — override them when your plugin needs URL exclu
   </Table.Body>
 </Table>
 
+Because the scaffolded `tsconfig.json` enables `noImplicitOverride`, implementations must use the `override` keyword — omitting it causes a TS4114 type error.
+
 **Example — excluding URLs:**
 
 ```typescript
 class MyPlugin extends OpenTabsPlugin {
   readonly urlPatterns = ['*://*.example.com/*'];
-  readonly excludePatterns = ['*://docs.example.com/*'];
+  override readonly excludePatterns = ['*://docs.example.com/*'];
   // ...
 }
 ```
@@ -124,7 +126,7 @@ class MyPlugin extends OpenTabsPlugin {
 ```typescript
 class MyPlugin extends OpenTabsPlugin {
   readonly urlPatterns = ['*://*.github.com/*'];
-  readonly homepage = 'https://github.com';
+  override readonly homepage = 'https://github.com';
   // ...
 }
 ```
@@ -135,7 +137,7 @@ class MyPlugin extends OpenTabsPlugin {
 import type { ConfigSchema } from '@opentabs-dev/plugin-sdk';
 
 class MyPlugin extends OpenTabsPlugin {
-  readonly configSchema: ConfigSchema = {
+  override readonly configSchema: ConfigSchema = {
     instanceUrl: { type: 'url', label: 'Instance URL', required: true },
   };
   // ...
