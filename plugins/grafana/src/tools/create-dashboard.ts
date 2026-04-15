@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../grafana-api.js';
 
@@ -30,7 +30,14 @@ export const createDashboard = defineTool({
     status: z.string().describe('Save status'),
   }),
   async handle(params) {
-    const panels = params.panels ? JSON.parse(params.panels) : [];
+    let panels: unknown = [];
+    if (params.panels) {
+      try {
+        panels = JSON.parse(params.panels);
+      } catch {
+        throw ToolError.validation('panels must be a valid JSON array');
+      }
+    }
 
     const result = await api<SaveDashboardResponse>('/dashboards/db', {
       method: 'POST',
