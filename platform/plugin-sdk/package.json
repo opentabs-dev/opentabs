@@ -32,7 +32,7 @@
     "generate:icons": "tsx scripts/generate-icon-names.ts"
   },
   "dependencies": {
-    "@opentabs-dev/shared": "^0.0.100"
+    "@opentabs-dev/shared": "*"
   },
   "peerDependencies": {
     "zod": "^4.0.0"

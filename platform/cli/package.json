@@ -36,11 +36,11 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@opentabs-dev/browser-extension": "^0.0.100",
-    "@opentabs-dev/mcp-server": "^0.0.100",
-    "@opentabs-dev/plugin-sdk": "^0.0.100",
-    "@opentabs-dev/plugin-tools": "^0.0.100",
-    "@opentabs-dev/shared": "^0.0.100",
+    "@opentabs-dev/browser-extension": "*",
+    "@opentabs-dev/mcp-server": "*",
+    "@opentabs-dev/plugin-sdk": "*",
+    "@opentabs-dev/plugin-tools": "*",
+    "@opentabs-dev/shared": "*",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1"
   }

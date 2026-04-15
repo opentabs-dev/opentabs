@@ -31,7 +31,7 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@opentabs-dev/cli": "^0.0.100",
+    "@opentabs-dev/cli": "*",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1"
   }
