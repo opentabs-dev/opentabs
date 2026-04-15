@@ -25,8 +25,13 @@ interface MinimaxAuth {
   token: string;
 }
 
+/** Cached webpack require function — set once on first successful probe. */
+let cachedRequire: ((id: string | number) => unknown) | null = null;
+
 /** Probe the webpack chunk to get the app's Axios require function. */
 const getWebpackRequire = (): ((id: string | number) => unknown) | null => {
+  if (cachedRequire) return cachedRequire;
+
   const cached = getAuthCache<{ hasAxios: true }>(CACHE_NS);
   const chunk =
     // biome-ignore lint/suspicious/noExplicitAny: webpack runtime global
@@ -46,7 +51,13 @@ const getWebpackRequire = (): ((id: string | number) => unknown) | null => {
     },
   ]);
   if (!req && cached) clearAuthCache(CACHE_NS);
+  if (req) cachedRequire = req;
   return req;
+};
+
+/** Reset the cached webpack require function (called on adapter teardown). */
+export const resetWebpackCache = (): void => {
+  cachedRequire = null;
 };
 
 /** Get the app's pre-configured Axios instance (module 33993, export ZP). */

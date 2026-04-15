@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './minimax-api.js';
+import { isAuthenticated, waitForAuth, resetWebpackCache } from './minimax-api.js';
 // Account
 import { getCurrentUser } from './tools/get-current-user.js';
 import { getMembershipInfo } from './tools/get-membership-info.js';
@@ -91,6 +91,10 @@ class MinimaxAgentPlugin extends OpenTabsPlugin {
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
     return waitForAuth();
+  }
+
+  override onDeactivate(): void {
+    resetWebpackCache();
   }
 }
 
