@@ -437,34 +437,38 @@ fixtureTest.describe('Strict CSP — connect-src blocks fetch', () => {
       // The adapter is injected via chrome.scripting.executeScript (bypasses CSP),
       // but isReady() calls fetch('/api/auth.check') which is subject to connect-src.
       await strictCspServer.control('set-connect-src', { connectSrcNone: true });
+      try {
+        // Open a tab to the strict-CSP server with connect-src 'none' active.
+        // openTestAppTab polls for adapter presence in __openTabs.adapters — the
+        // adapter injects because chrome.scripting.executeScript is privileged.
+        const page = await openTestAppTab(extensionContext, strictCspServer.url, mcpServer);
+        try {
+          // Verify the adapter is injected (chrome.scripting.executeScript bypasses CSP)
+          const adapterExists = await page.evaluate(() => {
+            const ot = (globalThis as Record<string, unknown>).__openTabs as
+              | { adapters?: Record<string, unknown> }
+              | undefined;
+            return ot?.adapters?.['e2e-test'] !== undefined;
+          });
+          expect(adapterExists).toBe(true);
 
-      // Open a tab to the strict-CSP server with connect-src 'none' active.
-      // openTestAppTab polls for adapter presence in __openTabs.adapters — the
-      // adapter injects because chrome.scripting.executeScript is privileged.
-      const page = await openTestAppTab(extensionContext, strictCspServer.url, mcpServer);
-
-      // Verify the adapter is injected (chrome.scripting.executeScript bypasses CSP)
-      const adapterExists = await page.evaluate(() => {
-        const ot = (globalThis as Record<string, unknown>).__openTabs as
-          | { adapters?: Record<string, unknown> }
-          | undefined;
-        return ot?.adapters?.['e2e-test'] !== undefined;
-      });
-      expect(adapterExists).toBe(true);
-
-      // Tool dispatch should return isError=true because isReady() returns false.
-      // The adapter's isReady() calls fetch('/api/auth.check'), which is blocked
-      // by connect-src 'none' — so the tab state stays 'unavailable'.
-      const failResult = await waitForToolResult(
-        mcpClient,
-        'e2e-test_echo',
-        { message: 'should-fail' },
-        { isError: true },
-        15_000,
-      );
-      expect(failResult.content.toLowerCase()).toMatch(/unavailable|not ready/);
-
-      await page.close();
+          // Tool dispatch should return isError=true because isReady() returns false.
+          // The adapter's isReady() calls fetch('/api/auth.check'), which is blocked
+          // by connect-src 'none' — so the tab state stays 'unavailable'.
+          const failResult = await waitForToolResult(
+            mcpClient,
+            'e2e-test_echo',
+            { message: 'should-fail' },
+            { isError: true },
+            15_000,
+          );
+          expect(failResult.content.toLowerCase()).toMatch(/unavailable|not ready/);
+        } finally {
+          await page.close();
+        }
+      } finally {
+        await strictCspServer.control('set-connect-src', { connectSrcNone: false }).catch(() => {});
+      }
     },
   );
 });
