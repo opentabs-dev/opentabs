@@ -57,23 +57,6 @@ const requireCsrf = (): string => {
   return token;
 };
 
-// --- Error classification ---
-
-const classifyError = async (response: Response, context: string): Promise<never> => {
-  const body = (await response.text().catch(() => '')).substring(0, 512);
-  const status = response.status;
-
-  if (status === 429) {
-    const retry = response.headers.get('Retry-After');
-    const ms = retry ? Number.parseInt(retry, 10) * 1000 || undefined : undefined;
-    throw ToolError.rateLimited(`Rate limited: ${context} — ${body}`, ms);
-  }
-  if (status === 401 || status === 403) throw ToolError.auth(`Auth error (${status}): ${context} — ${body}`);
-  if (status === 404) throw ToolError.notFound(`Not found: ${context} — ${body}`);
-  if (status === 422) throw ToolError.validation(`Validation error: ${context} — ${body}`);
-  throw ToolError.internal(`API error (${status}): ${context} — ${body}`);
-};
-
 const doFetch = async (url: string, init: FetchFromPageOptions): Promise<Response> => {
   try {
     return await fetchFromPage(url, init);
@@ -107,8 +90,6 @@ export const pageJson = async <T>(
     method: 'GET',
     headers: { Accept: 'application/json' },
   });
-
-  if (!response.ok) return classifyError(response, path);
 
   const data = (await response.json()) as PageJsonResponse;
   return (data.payload ?? data) as T;
@@ -258,8 +239,6 @@ export const graphql = async <T>(queryId: string, variables: Record<string, unkn
     body: JSON.stringify({ query: queryId, variables }),
   });
 
-  if (!response.ok) return classifyError(response, '/_graphql');
-
   const result = (await response.json()) as {
     data?: T;
     errors?: Array<{ type?: string; message?: string }>;
@@ -344,8 +323,6 @@ export const formPost = async <T>(
     },
     body: formData.toString(),
   });
-
-  if (!response.ok) return classifyError(response, postPath);
 
   const ct = response.headers.get('content-type') ?? '';
   if (ct.includes('json')) {

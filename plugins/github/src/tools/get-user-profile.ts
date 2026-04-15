@@ -26,10 +26,6 @@ export const getUserProfile = defineTool({
       headers: { Accept: 'application/vnd.github+json' },
       credentials: 'omit',
     });
-    if (!response.ok) {
-      if (response.status === 404) throw ToolError.notFound(`User not found: ${username}`);
-      throw ToolError.internal(`API error (${response.status}): /users/${username}`);
-    }
     const data = await response.json();
     return { user: mapUser(data as Record<string, unknown>) };
   },
