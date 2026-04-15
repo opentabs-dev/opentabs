@@ -4,6 +4,17 @@ import { graphqlMutation } from '../x-api.js';
 import { tweetSchema, mapTweet } from './schemas.js';
 import type { RawTweetResult } from './schemas.js';
 
+interface CreateTweetResponse {
+  data?: {
+    create_tweet?: {
+      tweet_results?: {
+        result?: RawTweetResult;
+      };
+    };
+  };
+  errors?: Array<{ message: string }>;
+}
+
 export const createTweet = defineTool({
   name: 'create_tweet',
   displayName: 'Create Tweet',
@@ -34,12 +45,12 @@ export const createTweet = defineTool({
       };
     }
 
-    const data = await graphqlMutation<Record<string, unknown>>('CreateTweet', variables);
+    const data = await graphqlMutation<CreateTweetResponse>('CreateTweet', variables);
 
-    const tweetResult = (data as any)?.data?.create_tweet?.tweet_results?.result as RawTweetResult | undefined;
+    const tweetResult = data.data?.create_tweet?.tweet_results?.result;
     if (!tweetResult) {
-      const errors = (data as any)?.errors;
-      const msg = Array.isArray(errors) ? errors.map((e: any) => e.message).join('; ') : undefined;
+      const errors = data.errors;
+      const msg = Array.isArray(errors) ? errors.map(e => e.message).join('; ') : undefined;
       throw ToolError.internal(
         msg ?? `CreateTweet returned unexpected response: ${JSON.stringify(data).slice(0, 500)}`,
       );
