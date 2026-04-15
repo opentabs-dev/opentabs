@@ -68,7 +68,7 @@ class PostHogPlugin extends OpenTabsPlugin {
       type: 'url' as const,
       label: 'PostHog URL',
       description:
-        'The URL of your self-hosted PostHog instance (e.g., https://posthog.example.com). Leave empty to use PostHog Cloud.',
+        'The URL of your self-hosted PostHog instance. Used to inject the adapter into your instance — leave empty to use PostHog Cloud.',
       required: false,
       placeholder: 'https://posthog.example.com',
     },
