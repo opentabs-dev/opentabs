@@ -1011,8 +1011,8 @@ test.describe('Multi-connection WebSocket support', () => {
       const dispatchStart = Date.now();
       const alphaDispatch = mcpClient.callTool('e2e-test_echo', { message: 'alpha-test', tabId: 6001 });
 
-      // Wait 500ms for the dispatch to be sent to Alpha, then disconnect Alpha
-      await new Promise(r => setTimeout(r, 500));
+      // Wait for the dispatch to actually arrive at Alpha before closing
+      await waitForWsMessage(wsAlpha, msg => msg.method === 'tool.dispatch', 10_000);
       wsAlpha.close();
       wsAlpha = undefined;
 
