@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { fetchSsrData, findSsrOperation } from '../tripadvisor-api.js';
 import { userProfileSchema, mapUserProfile, type RawMemberProfile } from './schemas.js';
@@ -16,7 +16,7 @@ export const getCurrentUser = defineTool({
     const ssrData = await fetchSsrData('/');
 
     const memberProfile = findSsrOperation(ssrData, 'memberProfile') as RawMemberProfile | null;
-    if (!memberProfile) throw new Error('Could not find member profile in SSR data.');
+    if (!memberProfile) throw ToolError.internal('Could not find member profile in SSR data.');
 
     const unread = findSsrOperation(ssrData, 'Inbox_unreadConversations') as boolean | null;
 
