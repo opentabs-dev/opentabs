@@ -51,7 +51,15 @@ const colorPermission = (perm: string): string => {
   return pc.red('off');
 };
 
-const CANONICAL_CONFIG_SECTIONS = ['localPlugins', 'permissions', 'settings'] as const;
+const CANONICAL_CONFIG_SECTIONS = [
+  'localPlugins',
+  'localPluginDirs',
+  'additionalAllowedDirectories',
+  'permissions',
+  'settings',
+] as const;
+
+const HIDDEN_CONFIG_KEYS = new Set(['telemetryNoticeShown', 'version']);
 
 /**
  * Normalize a raw config object for display: ensures expected sections always appear
@@ -62,12 +70,21 @@ const normalizeConfigForDisplay = (config: Record<string, unknown>): Record<stri
   const normalized: Record<string, unknown> = {};
   // Non-canonical keys (e.g., port) first, in their original config order
   for (const key of Object.keys(config)) {
-    if (!(CANONICAL_CONFIG_SECTIONS as readonly string[]).includes(key)) {
+    if (!(CANONICAL_CONFIG_SECTIONS as readonly string[]).includes(key) && !HIDDEN_CONFIG_KEYS.has(key)) {
       normalized[key] = config[key];
     }
   }
   // Canonical sections always appear in defined order with defaults for absent keys
   normalized.localPlugins = config.localPlugins ?? [];
+  // Only include localPluginDirs and additionalAllowedDirectories if non-empty
+  const localPluginDirs = config.localPluginDirs;
+  if (Array.isArray(localPluginDirs) && localPluginDirs.length > 0) {
+    normalized.localPluginDirs = localPluginDirs;
+  }
+  const additionalAllowedDirectories = config.additionalAllowedDirectories;
+  if (Array.isArray(additionalAllowedDirectories) && additionalAllowedDirectories.length > 0) {
+    normalized.additionalAllowedDirectories = additionalAllowedDirectories;
+  }
   normalized.permissions = config.permissions ?? {};
   normalized.settings = config.settings ?? {};
   return normalized;
@@ -138,6 +155,16 @@ const handleConfigShow = async (options: ConfigShowOptions & { port?: number }):
               console.log(`      ${toolName}: ${colorPermission(String(toolPerm))}`);
             }
           }
+        }
+      } else if (key === 'localPluginDirs' && Array.isArray(value)) {
+        console.log(`  ${pc.cyan('localPluginDirs')}`);
+        for (const p of value) {
+          console.log(`    - ${String(p)}`);
+        }
+      } else if (key === 'additionalAllowedDirectories' && Array.isArray(value)) {
+        console.log(`  ${pc.cyan('additionalAllowedDirectories')}`);
+        for (const p of value) {
+          console.log(`    - ${String(p)}`);
         }
       } else if (key === 'settings' && typeof value === 'object' && value !== null) {
         const entries = Object.entries(value as Record<string, unknown>);
