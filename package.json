@@ -55,7 +55,8 @@
     "storybook": "npm run --prefix platform/browser-extension storybook",
     "clean": "tsx scripts/clean.ts",
     "clean:all": "tsx scripts/clean.ts --all",
-    "prepare": "lefthook install || true"
+    "prepare": "lefthook install || true",
+    "postinstall": "biome migrate --write 2>/dev/null || true"
   },
   "overrides": {
     "vite": "$vite"
