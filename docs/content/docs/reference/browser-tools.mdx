@@ -1,10 +1,10 @@
 ---
 title: Browser Tools
 description: Built-in browser tools that give AI agents direct control over Chrome tabs, DOM, network, cookies, and more — independent of any plugin.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-04-15
 ---
 
-These are all the browser tools your AI agent gets automatically when OpenTabs is running — no plugins required. Tab control, DOM interaction, screenshots, network capture, cookies, console logs: forty tools that give Claude hands-on access to whatever's open in your browser, using your existing sessions.
+These are all the browser tools your AI agent gets automatically when OpenTabs is running — no plugins required. Tab control, DOM interaction, screenshots, network capture, cookies, console logs: seventy-six tools that give Claude hands-on access to whatever's open in your browser, using your existing sessions.
 
 ## Tab Management
 
@@ -39,6 +39,97 @@ These are all the browser tools your AI agent gets automatically when OpenTabs i
     <Table.Row>
       <Table.Cell className="font-medium">`browser_get_tab_info`</Table.Cell>
       <Table.Cell>Get detailed information about a tab: loading status, URL, title, favicon, active/incognito status.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Tab Groups
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_list_tab_groups`</Table.Cell>
+      <Table.Cell>List all Chrome tab groups across all connected browser profiles. Returns groupId, title, color, collapsed state, windowId, and connectionId for each group.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_create_tab_group`</Table.Cell>
+      <Table.Cell>Create a new Chrome tab group from one or more tab IDs. Optionally set a title and color. Returns the new groupId, title, color, and windowId.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_add_tabs_to_group`</Table.Cell>
+      <Table.Cell>Add one or more tabs to an existing Chrome tab group. Use `browser_list_tab_groups` to find group IDs.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_remove_tabs_from_group`</Table.Cell>
+      <Table.Cell>Remove one or more tabs from their current Chrome tab group (ungroup them). Tabs not in any group are silently ignored.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_update_tab_group`</Table.Cell>
+      <Table.Cell>Update a Chrome tab group's title, color, or collapsed state. At least one of title, color, or collapsed must be provided.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_list_tabs_in_group`</Table.Cell>
+      <Table.Cell>List all tabs in a specific Chrome tab group. Returns tab ID, title, URL, active status, and window ID for each tab.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Windows
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_list_windows`</Table.Cell>
+      <Table.Cell>List all open browser windows. Returns each window's id, state (normal/minimized/maximized/fullscreen), bounds, tab count, focused status, and incognito flag.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_create_window`</Table.Cell>
+      <Table.Cell>Create a new browser window. Optionally specify a URL, size, position, window state, and incognito mode.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_update_window`</Table.Cell>
+      <Table.Cell>Update a browser window's state, size, position, or focus. At least one property must be provided.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_close_window`</Table.Cell>
+      <Table.Cell>Close a browser window by its window ID. This closes all tabs in the window.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Downloads
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_download_file`</Table.Cell>
+      <Table.Cell>Download a file from a URL. Optionally specify a filename and whether to prompt the user with a Save As dialog. Returns a download ID for status tracking.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_list_downloads`</Table.Cell>
+      <Table.Cell>List recent downloads with optional filtering by filename, URL, or state. Returns entries with id, filename, url, state (in_progress/interrupted/complete), bytes received, and start time.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_get_download_status`</Table.Cell>
+      <Table.Cell>Get the current status of a download by its ID. Returns state, filename, url, bytes received, total bytes, start time, end time, and file path.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -163,6 +254,73 @@ These are all the browser tools your AI agent gets automatically when OpenTabs i
   </Table.Body>
 </Table>
 
+## History
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_search_history`</Table.Cell>
+      <Table.Cell>Search browser history by text query. Matches against page URLs and titles. Returns history entries with url, title, visitCount, and lastVisitTime. Optionally filter by date range.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_get_visits`</Table.Cell>
+      <Table.Cell>Get detailed visit information for a specific URL. Returns an array of visits with visitId, visitTime, referringVisitId, and transition type (link, typed, form_submit, reload, etc.).</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Bookmarks
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_search_bookmarks`</Table.Cell>
+      <Table.Cell>Search bookmarks by query string. Matches against bookmark titles and URLs. Returns matching bookmarks with id, title, url, parentId, and dateAdded.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_create_bookmark`</Table.Cell>
+      <Table.Cell>Create a new bookmark. Optionally specify a parentId to place it in a specific folder. Returns the created bookmark node with id, title, url, and dateAdded.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_list_bookmark_tree`</Table.Cell>
+      <Table.Cell>List the bookmark tree structure up to 3 levels deep. Returns bookmark folders and their children with id, title, url (for bookmarks), and children (for folders). Useful for finding folder IDs for `browser_create_bookmark`.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Session
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_get_recently_closed`</Table.Cell>
+      <Table.Cell>Get recently closed tabs and windows (up to 25). Returns sessions with type (tab or window), sessionId, closedAt, and details. Use the sessionId with `browser_restore_session`.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_restore_session`</Table.Cell>
+      <Table.Cell>Restore a recently closed tab or window by its session ID. Use `browser_get_recently_closed` to find session IDs.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
 ## Network Capture
 
 Network capture uses the Chrome DevTools Protocol (`chrome.debugger`) to intercept requests and responses.
@@ -194,6 +352,135 @@ Network capture uses the Chrome DevTools Protocol (`chrome.debugger`) to interce
     <Table.Row>
       <Table.Cell className="font-medium">`browser_disable_network_capture`</Table.Cell>
       <Table.Cell>Stop capturing and release the Chrome DevTools Protocol debugger session.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Network Interception
+
+Network interception uses the Chrome DevTools Protocol Fetch domain to pause and modify HTTP requests before they are sent.
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_intercept_requests`</Table.Cell>
+      <Table.Cell>Start intercepting HTTP requests for a tab. Paused requests can be fulfilled with custom responses (`browser_fulfill_request`), failed with an error (`browser_fail_request`), or released by stopping interception. Use `urlPatterns` to filter which requests to intercept. Paused requests block the page — handle them promptly.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_fulfill_request`</Table.Cell>
+      <Table.Cell>Fulfill a paused HTTP request with a custom response. The request must have been paused by `browser_intercept_requests`. Provide the requestId, HTTP status code, optional response headers, and optional body.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_fail_request`</Table.Cell>
+      <Table.Cell>Fail a paused HTTP request with a network error. Use to simulate network failures, blocked requests, or connection errors.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_stop_intercepting`</Table.Cell>
+      <Table.Cell>Stop intercepting HTTP requests for a tab. Any still-paused requests are automatically continued.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Emulation
+
+Emulation tools override the browser environment using the Chrome DevTools Protocol Emulation domain. Overrides persist until cleared with `browser_clear_emulation`.
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_emulate_device`</Table.Cell>
+      <Table.Cell>Emulate a device by overriding viewport dimensions, device scale factor, mobile flag, and user agent string.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_set_geolocation`</Table.Cell>
+      <Table.Cell>Override the geolocation reported by the browser for a tab.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_set_media_features`</Table.Cell>
+      <Table.Cell>Override CSS media features for a tab. Supports prefers-color-scheme, prefers-reduced-motion, prefers-contrast, and color-gamut.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_emulate_vision_deficiency`</Table.Cell>
+      <Table.Cell>Simulate a vision deficiency for a tab. Useful for accessibility testing. Set type to "none" to remove the simulation.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_clear_emulation`</Table.Cell>
+      <Table.Cell>Clear all emulation overrides for a tab — device metrics, user agent, geolocation, media features, and vision deficiency simulation.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## CSS & Styles
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_get_element_styles`</Table.Cell>
+      <Table.Cell>Get computed CSS styles and matched CSS rules for a DOM element. Returns computed style properties and matched rules with selectors, values, source URLs, and line numbers.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_force_pseudo_state`</Table.Cell>
+      <Table.Cell>Force CSS pseudo-class states (:hover, :focus, :active, :visited, :focus-within, :focus-visible) on a DOM element. Useful for inspecting hover and focus styles without manual interaction. Pass an empty array to clear forced states.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_get_css_coverage`</Table.Cell>
+      <Table.Cell>Start CSS rule usage tracking, wait for page activity, then report which CSS rules are used vs. unused. Returns per-stylesheet usage percentages and total page-wide coverage.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Network Throttling
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_throttle_network`</Table.Cell>
+      <Table.Cell>Simulate slow network conditions using the Chrome DevTools Protocol. Choose a preset (offline, slow-3g, 3g, 4g, wifi) or provide custom latency and throughput values.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_clear_network_throttle`</Table.Cell>
+      <Table.Cell>Remove network throttling for a tab, restoring normal network conditions.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
+## Site Data
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_clear_site_data`</Table.Cell>
+      <Table.Cell>Clear browsing data for a specific origin. Selectively clear cookies, localStorage, cache, IndexedDB, and/or service workers. Useful for resetting site state or debugging authentication issues.</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -302,6 +589,23 @@ These tools control and diagnose the OpenTabs Chrome extension itself. They use 
   </Table.Body>
 </Table>
 
+## Notifications
+
+<Table>
+  <Table.Header>
+    <Table.Row>
+      <Table.Head>Tool</Table.Head>
+      <Table.Head>Description</Table.Head>
+    </Table.Row>
+  </Table.Header>
+  <Table.Body>
+    <Table.Row>
+      <Table.Cell className="font-medium">`browser_notify`</Table.Cell>
+      <Table.Cell>Show a Chrome desktop notification. Use to alert the user about completed tasks, errors, or important events. The notification appears even when Chrome is in the background. If a URL is provided, clicking the notification opens that URL in a new tab.</Table.Cell>
+    </Table.Row>
+  </Table.Body>
+</Table>
+
 ## Summary
 
 <Table>
@@ -364,8 +668,68 @@ These tools control and diagnose the OpenTabs Chrome extension itself. They use 
       <Table.Cell>`extension_`</Table.Cell>
     </Table.Row>
     <Table.Row>
+      <Table.Cell>Tab Groups</Table.Cell>
+      <Table.Cell>6</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Windows</Table.Cell>
+      <Table.Cell>4</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Downloads</Table.Cell>
+      <Table.Cell>3</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>History</Table.Cell>
+      <Table.Cell>2</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Bookmarks</Table.Cell>
+      <Table.Cell>3</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Session</Table.Cell>
+      <Table.Cell>2</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Network Interception</Table.Cell>
+      <Table.Cell>4</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Emulation</Table.Cell>
+      <Table.Cell>5</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>CSS & Styles</Table.Cell>
+      <Table.Cell>3</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Network Throttling</Table.Cell>
+      <Table.Cell>2</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Site Data</Table.Cell>
+      <Table.Cell>1</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell>Notifications</Table.Cell>
+      <Table.Cell>1</Table.Cell>
+      <Table.Cell>`browser_`</Table.Cell>
+    </Table.Row>
+    <Table.Row>
       <Table.Cell className="font-medium">Total</Table.Cell>
-      <Table.Cell className="font-medium">40</Table.Cell>
+      <Table.Cell className="font-medium">76</Table.Cell>
       <Table.Cell></Table.Cell>
     </Table.Row>
   </Table.Body>
