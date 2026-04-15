@@ -82,6 +82,18 @@ beforeAll(
           return;
         }
 
+        if (url.pathname === '/error-501') {
+          res.writeHead(501);
+          res.end('Not Implemented');
+          return;
+        }
+
+        if (url.pathname === '/error-505') {
+          res.writeHead(505);
+          res.end('HTTP Version Not Supported');
+          return;
+        }
+
         if (url.pathname === '/error-503') {
           res.writeHead(503, { 'Retry-After': '60' });
           res.end('Service Unavailable');
@@ -351,6 +363,34 @@ describe('fetchFromPage', () => {
       expect(toolError.retryable).toBe(true);
       expect(toolError.retryAfterMs).toBe(60_000);
       expect(toolError.message).toContain('HTTP 503');
+    }
+  });
+
+  test('throws non-retryable ToolError with internal category on 501 status', async () => {
+    try {
+      await fetchFromPage(`${baseUrl}/error-501`);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.code).toBe('http_error');
+      expect(toolError.category).toBe('internal');
+      expect(toolError.retryable).toBe(false);
+      expect(toolError.message).toContain('HTTP 501');
+    }
+  });
+
+  test('throws non-retryable ToolError with internal category on 505 status', async () => {
+    try {
+      await fetchFromPage(`${baseUrl}/error-505`);
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(ToolError);
+      const toolError = error as ToolError;
+      expect(toolError.code).toBe('http_error');
+      expect(toolError.category).toBe('internal');
+      expect(toolError.retryable).toBe(false);
+      expect(toolError.message).toContain('HTTP 505');
     }
   });
 

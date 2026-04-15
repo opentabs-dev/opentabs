@@ -125,7 +125,11 @@ export const setLocalStorage = (key: string, value: string): void => {
 
   log.warn(`setLocalStorage: localStorage unavailable, using iframe fallback for key "${key}"`);
   withIframeFallback(s => {
-    s.setItem(key, value);
+    try {
+      s.setItem(key, value);
+    } catch (error) {
+      log.warn(`setLocalStorage: iframe fallback failed for key "${key}"`, error);
+    }
     return true;
   });
 };

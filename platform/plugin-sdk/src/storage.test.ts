@@ -340,6 +340,47 @@ describe('setLocalStorage', () => {
       }
     });
 
+    test('emits log.warn when iframe fallback setItem throws QuotaExceededError', () => {
+      const entries: LogEntry[] = [];
+      const restore = _setLogTransport(entry => entries.push(entry));
+      Object.defineProperty(globalThis, 'localStorage', { value: undefined, configurable: true, writable: true });
+      const mockIframe = {
+        style: {} as CSSStyleDeclaration,
+        contentWindow: {
+          localStorage: {
+            setItem: () => {
+              throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+            },
+          },
+        },
+      };
+      const createElementSpy = vi
+        .spyOn(document, 'createElement')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const appendChildSpy = vi
+        .spyOn(document.body, 'appendChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      const removeChildSpy = vi
+        .spyOn(document.body, 'removeChild')
+        .mockImplementation(() => mockIframe as unknown as HTMLIFrameElement);
+      try {
+        setLocalStorage('quota-iframe-key', 'value');
+        // Should have two warnings: 'using iframe fallback' + 'iframe fallback failed'
+        expect(entries.some(e => e.level === 'warning' && e.message.includes('quota-iframe-key'))).toBe(true);
+        expect(entries.some(e => e.level === 'warning' && e.message.includes('iframe fallback failed'))).toBe(true);
+      } finally {
+        restore();
+        createElementSpy.mockRestore();
+        appendChildSpy.mockRestore();
+        removeChildSpy.mockRestore();
+        Object.defineProperty(globalThis, 'localStorage', {
+          value: win.localStorage as unknown as Storage,
+          configurable: true,
+          writable: true,
+        });
+      }
+    });
+
     test('returns gracefully when iframe creation throws SecurityError', () => {
       Object.defineProperty(globalThis, 'localStorage', {
         value: undefined,

@@ -462,4 +462,29 @@ describe('waitUntil', () => {
       expect((error as DOMException).name).toBe('AbortError');
     }
   });
+
+  test('timeout message includes last predicate error when predicate always throws', async () => {
+    try {
+      await waitUntil(
+        () => {
+          throw new Error('predicate always fails');
+        },
+        { interval: 20, timeout: 100 },
+      );
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('timed out after 100ms');
+      expect((error as Error).message).toContain('predicate always fails');
+    }
+  });
+
+  test('timeout message has no error context when predicate never throws', async () => {
+    try {
+      await waitUntil(() => false, { interval: 10, timeout: 100 });
+      expect.unreachable('should have thrown');
+    } catch (error) {
+      expect((error as Error).message).toBe('waitUntil: timed out after 100ms waiting for predicate to return true');
+    }
+  });
 });
