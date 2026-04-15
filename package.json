@@ -67,7 +67,7 @@
     "@babel/preset-typescript": "^7.28.5",
     "@biomejs/biome": "2.4.11",
     "@opentabs-dev/shared": "*",
-    "@playwright/test": "1.59.1",
+    "@playwright/test": "1.58.2",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/cli": "^4.2.2",
     "@types/chrome": "^0.1.38",
