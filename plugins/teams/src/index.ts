@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isTeamsAuthenticated, waitForTeamsAuth } from './teams-api.js';
+import { clearCaches, isTeamsAuthenticated, waitForTeamsAuth } from './teams-api.js';
 import { addMember } from './tools/add-member.js';
 import { createChat } from './tools/create-chat.js';
 import { deleteMessage } from './tools/delete-message.js';
@@ -36,6 +36,10 @@ class TeamsPlugin extends OpenTabsPlugin {
     // User
     getCurrentUser,
   ];
+
+  override teardown(): void {
+    clearCaches();
+  }
 
   async isReady(): Promise<boolean> {
     if (isTeamsAuthenticated()) return true;

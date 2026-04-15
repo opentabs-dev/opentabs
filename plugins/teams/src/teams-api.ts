@@ -475,6 +475,12 @@ const handleApiResponse = async <T>(response: Response, method: string, endpoint
   return data as T;
 };
 
+/** Clear all module-level caches so the next API call re-discovers fresh values. */
+export const clearCaches = (): void => {
+  cachedEnterpriseChatServiceBase = null;
+  cachedSkypeJwt = null;
+};
+
 /** Classify HTTP errors into ToolError categories. Always throws. */
 const classifyHttpError = (
   status: number,
