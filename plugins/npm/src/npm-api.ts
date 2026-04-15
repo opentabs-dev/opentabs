@@ -4,10 +4,8 @@ import {
   getPageGlobal,
   getAuthCache,
   setAuthCache,
-  clearAuthCache,
   waitUntil,
   buildQueryString,
-  httpStatusToToolError,
 } from '@opentabs-dev/plugin-sdk';
 
 // --- Auth ---
@@ -86,14 +84,6 @@ export const spiferack = async <T>(
     headers,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-
-  if (!response.ok) {
-    // Clear auth cache on 401/403 in case CSRF rotated
-    if (response.status === 401 || response.status === 403) {
-      clearAuthCache('npm');
-    }
-    throw httpStatusToToolError(response, `npm API error on ${method} ${path}`);
-  }
 
   if (response.status === 204) return {} as T;
   return (await response.json()) as T;
