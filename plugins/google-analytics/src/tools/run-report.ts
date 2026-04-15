@@ -1,4 +1,4 @@
-import { defineTool } from '@opentabs-dev/plugin-sdk';
+import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { dataApi } from '../ga-api.js';
 import {
@@ -78,13 +78,25 @@ export const runReport = defineTool({
       body.offset = String(params.offset);
     }
     if (params.dimension_filter) {
-      body.dimensionFilter = JSON.parse(params.dimension_filter);
+      try {
+        body.dimensionFilter = JSON.parse(params.dimension_filter);
+      } catch {
+        throw ToolError.validation('dimension_filter must be valid JSON');
+      }
     }
     if (params.metric_filter) {
-      body.metricFilter = JSON.parse(params.metric_filter);
+      try {
+        body.metricFilter = JSON.parse(params.metric_filter);
+      } catch {
+        throw ToolError.validation('metric_filter must be valid JSON');
+      }
     }
     if (params.order_by) {
-      body.orderBys = JSON.parse(params.order_by);
+      try {
+        body.orderBys = JSON.parse(params.order_by);
+      } catch {
+        throw ToolError.validation('order_by must be valid JSON');
+      }
     }
 
     const data = await dataApi<RunReportResponse>(`/properties/${params.property_id}:runReport`, body);
