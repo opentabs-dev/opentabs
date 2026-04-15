@@ -5,7 +5,6 @@ import {
   getCookie,
   getAuthCache,
   setAuthCache,
-  clearAuthCache,
   waitUntil,
 } from '@opentabs-dev/plugin-sdk';
 
@@ -59,16 +58,6 @@ export const graphql = async <T>(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-
-  if (response.status === 401 || response.status === 403) {
-    clearAuthCache('tripadvisor');
-    throw ToolError.auth('Not authenticated — please log in to TripAdvisor.');
-  }
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw ToolError.internal(`TripAdvisor GraphQL error: ${response.status} ${text.slice(0, 200)}`);
-  }
 
   const results = (await response.json()) as Array<{ data: T }>;
   return results.map(r => r.data);
