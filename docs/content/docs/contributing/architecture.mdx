@@ -1,7 +1,7 @@
 ---
 title: Architecture
 description: How the MCP server, Chrome extension, and plugins work together to give AI agents access to web applications.
-lastUpdated: 2026-03-29
+lastUpdated: 2026-04-15
 ---
 
 OpenTabs is three things working together: an **MCP server** that discovers plugins and dispatches tool calls, a **Chrome extension** that injects adapters into browser tabs, and **plugins** that define what your agent can actually do. All communication uses JSON-RPC 2.0. Let me walk you through how each piece works and why I made the choices I did.
@@ -439,7 +439,7 @@ If you want to go deeper, these are the files I'd start with:
 - `platform/mcp-server/src/discovery.ts` — five-phase plugin discovery pipeline
 - `platform/mcp-server/src/registry.ts` — immutable plugin registry with O(1) lookups
 - `platform/mcp-server/src/extension-protocol.ts` — JSON-RPC dispatch to the extension, confirmation handling
-- `platform/mcp-server/src/permissions.ts` — permission evaluation and resolution
+- `platform/mcp-server/src/state.ts` — in-memory server state, plugin registry, and permission evaluation (`getToolPermission`)
 - `platform/browser-extension/src/background.ts` — extension service worker, adapter injection, message routing
 - `platform/browser-extension/src/offscreen/index.ts` — persistent WebSocket via offscreen document
 - `platform/plugin-sdk/src/index.ts` — `OpenTabsPlugin` base class, `defineTool`
