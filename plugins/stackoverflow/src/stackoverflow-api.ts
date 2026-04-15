@@ -67,9 +67,15 @@ export const api = async (
     });
   }
 
-  const body = await response.json();
+  const text = await response.text();
+  let body: Record<string, unknown> | null;
+  try {
+    body = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    body = null;
+  }
 
-  if (body.error_id) {
+  if (body && typeof body.error_id === 'number') {
     const msg = `${body.error_name}: ${body.error_message}`;
     if (body.error_id === 502) throw ToolError.rateLimited(msg);
     if (body.error_id === 401 || body.error_id === 403) throw ToolError.auth(msg);
@@ -82,16 +88,19 @@ export const api = async (
     throw ToolError.internal(`HTTP ${response.status}: ${endpoint}`);
   }
 
-  if (body.backoff) {
+  if (!body) {
+    throw ToolError.internal(`Invalid JSON response from ${endpoint}`);
+  }
+
+  if (typeof body.backoff === 'number') {
     throw ToolError.rateLimited(`API requested backoff of ${body.backoff}s for ${endpoint}`, body.backoff * 1000);
   }
 
-  return body as SEResponse;
+  return body as unknown as SEResponse;
 };
 
 export interface SEResponse {
-  // biome-ignore lint/suspicious/noExplicitAny: SE API returns untyped JSON
-  items: Record<string, any>[];
+  items: Record<string, unknown>[];
   has_more: boolean;
   quota_remaining: number;
 }
