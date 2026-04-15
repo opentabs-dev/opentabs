@@ -20,8 +20,11 @@ interface AnnotatedMapping {
 
 /** Extract the host (hostname:port when non-standard) from a Chrome match pattern. */
 const hostnameFromPattern = (pattern: string): string | undefined => {
-  const match = pattern.match(/^\*:\/\/([^/]+)\/\*$/);
-  return match?.[1];
+  const match = pattern.match(/^(?:\*|https?|wss?):\/\/([^*/]+)\//);
+  if (!match) return undefined;
+  const host = match[1];
+  if (!host || host.startsWith('*')) return undefined;
+  return host;
 };
 
 /** Normalize localhost variants (localhost, 127.0.0.1, [::1]) to a canonical form. */

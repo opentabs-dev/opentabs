@@ -69,7 +69,11 @@ const extensionGetLogs = defineBrowserTool({
       }
     }
 
-    mergedEntries.sort((a, b) => b.timestamp - a.timestamp);
+    mergedEntries.sort((a, b) => {
+      const at = typeof a.timestamp === 'number' ? a.timestamp : 0;
+      const bt = typeof b.timestamp === 'number' ? b.timestamp : 0;
+      return bt - at;
+    });
 
     return {
       entries: mergedEntries,

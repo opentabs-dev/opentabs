@@ -37,12 +37,16 @@ const MAX_CONCURRENT_DISPATCHES_PER_PLUGIN = 25;
 
 /**
  * Extract the host (hostname:port when non-standard) from a Chrome match pattern
- * (e.g., `*://localhost:3000/*` → `localhost:3000`, `*://example.com/*` → `example.com`).
- * Returns undefined if the pattern doesn't match the expected format.
+ * (e.g., `*://localhost:3000/*` → `localhost:3000`, `*://example.com/*` → `example.com`,
+ * `https://example.com/*` → `example.com`).
+ * Returns undefined if the pattern doesn't match or has a wildcard host.
  */
 const hostnameFromPattern = (pattern: string): string | undefined => {
-  const match = pattern.match(/^\*:\/\/([^/]+)\/\*$/);
-  return match?.[1];
+  const match = pattern.match(/^(?:\*|https?|wss?):\/\/([^*/]+)\//);
+  if (!match) return undefined;
+  const host = match[1];
+  if (!host || host.startsWith('*')) return undefined;
+  return host;
 };
 
 /** Normalize localhost variants (localhost, 127.0.0.1, [::1]) to a canonical form. */
