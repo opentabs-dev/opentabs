@@ -63,7 +63,7 @@ const buildUrl = (endpoint: string, query?: Record<string, string | number | boo
 const handleFetchError = (err: unknown, endpoint: string): never => {
   if (err instanceof DOMException && err.name === 'TimeoutError')
     throw ToolError.timeout(`API request timed out: ${endpoint}`);
-  if (err instanceof DOMException && err.name === 'AbortError') throw new ToolError('Request was aborted', 'aborted');
+  if (err instanceof DOMException && err.name === 'AbortError') throw ToolError.timeout('Request was aborted');
   throw new ToolError(`Network error: ${err instanceof Error ? err.message : String(err)}`, 'network_error', {
     category: 'internal',
     retryable: true,
