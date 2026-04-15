@@ -1,4 +1,4 @@
-import { ToolError, fetchFromPage, getPageGlobal, waitUntil } from '@opentabs-dev/plugin-sdk';
+import { ToolError, fetchFromPage, getPageGlobal, log, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 const GRAPHQL_URL = 'https://one.newrelic.com/graphql';
 
@@ -43,11 +43,16 @@ export const graphql = async <T>(query: string, variables: Record<string, unknow
     errors?: Array<{ message: string; path?: string[] }>;
   };
 
-  if (json.errors?.length && !json.data) {
+  if (json.errors?.length) {
     const msg = json.errors.map(e => e.message).join('; ');
-    if (msg.includes('NOT_FOUND')) throw ToolError.notFound(msg);
-    if (msg.includes('FORBIDDEN') || msg.includes('Api-Key')) throw ToolError.auth(msg);
-    throw ToolError.internal(msg);
+
+    if (!json.data) {
+      if (msg.includes('NOT_FOUND')) throw ToolError.notFound(msg);
+      if (msg.includes('FORBIDDEN') || msg.includes('Api-Key')) throw ToolError.auth(msg);
+      throw ToolError.internal(msg);
+    }
+
+    log.warn('GraphQL partial errors', { errors: json.errors.map(e => e.message) });
   }
 
   return json.data as T;
