@@ -10,7 +10,7 @@ import {
   sendInvocationStart,
 } from './extension-protocol.js';
 import { log } from './logger.js';
-import type { DispatchCallbacks, RequestHandlerExtra } from './mcp-tool-dispatch.js';
+import type { DispatchCallbacks, RequestHandlerExtra, ToolCallResult } from './mcp-tool-dispatch.js';
 import {
   formatStructuredError,
   formatZodError,
@@ -21,6 +21,20 @@ import {
   REVIEW_GUIDANCE,
   sanitizeOutput,
 } from './mcp-tool-dispatch.js';
+
+/**
+ * Test helper: assert the content part at `idx` is text-typed and return it
+ * narrowed. Most dispatcher tests assert on text output; this avoids repeating
+ * the union-narrow pattern at every call site.
+ */
+const textPart = (result: ToolCallResult, idx = 0): { type: 'text'; text: string } => {
+  const part = result.content[idx];
+  if (!part || part.type !== 'text') {
+    throw new Error(`Expected text content part at index ${idx}, got: ${JSON.stringify(part)}`);
+  }
+  return part;
+};
+
 import type { CachedBrowserTool, RegisteredPlugin, ServerState, ToolLookupEntry } from './state.js';
 import {
   appendAuditEntry,
@@ -332,12 +346,10 @@ describe('handleBrowserToolCall', () => {
     const result = await handleBrowserToolCall(state, 'browser_test_tool', {}, bt, extra, callbacks);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('currently disabled');
-    expect(result.content[0]?.text).toContain('In the OpenTabs side panel: toggle the tool on');
-    expect(result.content[0]?.text).toContain('opentabs config set plugin-permission.browser-tool auto');
-    expect(result.content[0]?.text).toContain(
-      'opentabs config set tool-permission.browser-tool.browser_test_tool auto',
-    );
+    expect(textPart(result).text).toContain('currently disabled');
+    expect(textPart(result).text).toContain('In the OpenTabs side panel: toggle the tool on');
+    expect(textPart(result).text).toContain('opentabs config set plugin-permission.browser-tool auto');
+    expect(textPart(result).text).toContain('opentabs config set tool-permission.browser-tool.browser_test_tool auto');
   });
 
   test('permission auto executes immediately', async () => {
@@ -366,7 +378,7 @@ describe('handleBrowserToolCall', () => {
     const result = await handleBrowserToolCall(state, 'browser_test_tool', {}, bt, extra, callbacks);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('denied by the user');
+    expect(textPart(result).text).toContain('denied by the user');
     expect(sendConfirmationRequest).toHaveBeenCalledWith(state, 'browser_test_tool', 'browser', {});
   });
 
@@ -444,7 +456,7 @@ describe('handleBrowserToolCall', () => {
     const result = await handleBrowserToolCall(state, 'browser_test_tool', {}, bt, extra, callbacks);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('extension is not connected');
+    expect(textPart(result).text).toContain('extension is not connected');
   });
 
   test('Zod validation failure returns isError with formatted message', async () => {
@@ -457,7 +469,7 @@ describe('handleBrowserToolCall', () => {
     const result = await handleBrowserToolCall(state, 'browser_test_tool', { url: 123 }, bt, extra, callbacks);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid arguments');
+    expect(textPart(result).text).toContain('Invalid arguments');
   });
 
   test('successful execution returns sanitized output (dangerous keys stripped)', async () => {
@@ -488,7 +500,7 @@ describe('handleBrowserToolCall', () => {
     const result = await handleBrowserToolCall(state, 'browser_test_tool', {}, bt, extra, callbacks);
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toBe('Browser tool error: tab crashed');
+    expect(textPart(result).text).toBe('Browser tool error: tab crashed');
   });
 
   test('audit entry recorded on success', async () => {
@@ -573,6 +585,23 @@ describe('handleBrowserToolCall', () => {
       false,
     );
   });
+
+  test('uses tool.formatResult when defined to emit non-text content parts', async () => {
+    vi.mocked(getToolPermission).mockReturnValue('auto');
+    const handler = vi.fn().mockResolvedValue({ image: 'AAAA' });
+    const formatResult = vi.fn().mockReturnValue([{ type: 'image' as const, data: 'AAAA', mimeType: 'image/png' }]);
+    const state = createMockState();
+    const bt = createMockBrowserTool({ schema: z.object({}), handler });
+    bt.tool.formatResult = formatResult;
+    const extra = createMockExtra();
+    const callbacks = createMockCallbacks();
+
+    const result = await handleBrowserToolCall(state, 'browser_test_tool', {}, bt, extra, callbacks);
+
+    expect(result.isError).toBeUndefined();
+    expect(formatResult).toHaveBeenCalledWith({ image: 'AAAA' });
+    expect(result.content).toEqual([{ type: 'image', data: 'AAAA', mimeType: 'image/png' }]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -610,7 +639,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    const text = result.content[0]?.text ?? '';
+    const text = textPart(result).text;
     expect(text).toContain('"testplugin" (v2.0.0) has not been reviewed yet');
     expect(text).toContain('plugin_inspect');
     expect(text).toContain('plugin_mark_reviewed');
@@ -643,7 +672,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    const text = result.content[0]?.text ?? '';
+    const text = textPart(result).text;
     expect(text).toContain('"testplugin" has been updated from v2.0.0 to v3.0.0 and needs re-review');
     expect(text).toContain('plugin_inspect');
     expect(text).toContain('plugin_mark_reviewed');
@@ -660,7 +689,7 @@ describe('handlePluginToolCall', () => {
     const result = await handleBrowserToolCall(state, 'browser_test_tool', {}, bt, extra, callbacks);
 
     expect(result.isError).toBe(true);
-    const text = result.content[0]?.text ?? '';
+    const text = textPart(result).text;
     expect(text).toContain('currently disabled');
     expect(text).not.toContain('plugin_inspect');
     expect(text).not.toContain('review');
@@ -686,7 +715,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('denied by the user');
+    expect(textPart(result).text).toContain('denied by the user');
     expect(sendConfirmationRequest).toHaveBeenCalledWith(state, 'test_action', 'testplugin', {});
   });
 
@@ -816,8 +845,8 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('has not been reviewed yet');
-    expect(result.content[0]?.text).toContain('plugin_inspect');
+    expect(textPart(result).text).toContain('has not been reviewed yet');
+    expect(textPart(result).text).toContain('plugin_inspect');
   });
 
   test('schema compilation failure (validate is null) returns error', async () => {
@@ -842,7 +871,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('schema compilation failed');
+    expect(textPart(result).text).toContain('schema compilation failed');
   });
 
   test('validator throws returns "validation failed unexpectedly"', async () => {
@@ -868,7 +897,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('validation failed unexpectedly');
+    expect(textPart(result).text).toContain('validation failed unexpectedly');
   });
 
   test('validation failure returns "Invalid arguments" with errors', async () => {
@@ -893,8 +922,8 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid arguments');
-    expect(result.content[0]?.text).toContain('missing required field "channel"');
+    expect(textPart(result).text).toContain('Invalid arguments');
+    expect(textPart(result).text).toContain('missing required field "channel"');
   });
 
   test('concurrency limit exceeded returns error', async () => {
@@ -917,8 +946,8 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Too many concurrent dispatches');
-    expect(result.content[0]?.text).toContain('testplugin');
+    expect(textPart(result).text).toContain('Too many concurrent dispatches');
+    expect(textPart(result).text).toContain('testplugin');
   });
 
   test('extension not connected returns error', async () => {
@@ -940,7 +969,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Extension not connected');
+    expect(textPart(result).text).toContain('Extension not connected');
   });
 
   test('successful dispatch returns sanitized output', async () => {
@@ -963,8 +992,8 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0]?.text).toContain('"id"');
-    expect(result.content[0]?.text).toContain('"123"');
+    expect(textPart(result).text).toContain('"id"');
+    expect(textPart(result).text).toContain('"123"');
   });
 
   test('successful dispatch sanitizes dangerous keys from output', async () => {
@@ -1039,7 +1068,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Tab closed:');
+    expect(textPart(result).text).toContain('Tab closed:');
   });
 
   test('DispatchError with code -32002 prefixes "Tab unavailable:"', async () => {
@@ -1064,7 +1093,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Tab unavailable:');
+    expect(textPart(result).text).toContain('Tab unavailable:');
   });
 
   test('DispatchError with data.code (ToolError) formats structured error', async () => {
@@ -1126,7 +1155,7 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toBe('[SOME_ERROR] something wrong');
+    expect(textPart(result).text).toBe('[SOME_ERROR] something wrong');
   });
 
   test('generic non-dispatch error returns "Tool dispatch error:" message', async () => {
@@ -1150,8 +1179,8 @@ describe('handlePluginToolCall', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Tool dispatch error:');
-    expect(result.content[0]?.text).toContain('network failure');
+    expect(textPart(result).text).toContain('Tool dispatch error:');
+    expect(textPart(result).text).toContain('network failure');
   });
 
   test('activeDispatches counter increments and decrements correctly', async () => {
@@ -1624,7 +1653,7 @@ describe('handlePluginInspect', () => {
     const result = await handlePluginInspect(state, { plugin: 'test-plugin' });
 
     expect(result.isError).toBeUndefined();
-    const parsed = JSON.parse(result.content[0]?.text ?? '') as Record<string, unknown>;
+    const parsed = JSON.parse(textPart(result).text) as Record<string, unknown>;
     expect(parsed.plugin).toBe('test-plugin');
     expect(parsed.version).toBe('1.2.3');
     expect(parsed.npmPackage).toBe('opentabs-plugin-test');
@@ -1641,8 +1670,8 @@ describe('handlePluginInspect', () => {
     const result = await handlePluginInspect(state, { plugin: 'nonexistent' });
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('not found');
-    expect(result.content[0]?.text).toContain('test-plugin');
+    expect(textPart(result).text).toContain('not found');
+    expect(textPart(result).text).toContain('test-plugin');
   });
 
   test('returns error for missing plugin name', async () => {
@@ -1651,7 +1680,7 @@ describe('handlePluginInspect', () => {
     const result = await handlePluginInspect(state, {});
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('non-empty string');
+    expect(textPart(result).text).toContain('non-empty string');
   });
 
   test('returns error for empty plugin name', async () => {
@@ -1660,7 +1689,7 @@ describe('handlePluginInspect', () => {
     const result = await handlePluginInspect(state, { plugin: '' });
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('non-empty string');
+    expect(textPart(result).text).toContain('non-empty string');
   });
 
   test('generates review token via generateReviewToken', async () => {
@@ -1678,7 +1707,7 @@ describe('handlePluginInspect', () => {
 
     const result = await handlePluginInspect(state, { plugin: 'test-plugin' });
 
-    const parsed = JSON.parse(result.content[0]?.text ?? '') as Record<string, unknown>;
+    const parsed = JSON.parse(textPart(result).text) as Record<string, unknown>;
     expect(typeof parsed.reviewGuidance).toBe('string');
     expect(parsed.reviewGuidance as string).toContain('Data exfiltration');
     expect(parsed.reviewGuidance as string).toContain('Code execution vectors');
@@ -1691,7 +1720,7 @@ describe('handlePluginInspect', () => {
     const result = await handlePluginInspect(state, { plugin: 'test-plugin' });
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('no adapter IIFE');
+    expect(textPart(result).text).toContain('no adapter IIFE');
   });
 
   test('omits npmPackage when not set', async () => {
@@ -1700,7 +1729,7 @@ describe('handlePluginInspect', () => {
 
     const result = await handlePluginInspect(state, { plugin: 'test-plugin' });
 
-    const parsed = JSON.parse(result.content[0]?.text ?? '') as Record<string, unknown>;
+    const parsed = JSON.parse(textPart(result).text) as Record<string, unknown>;
     expect(parsed.npmPackage).toBeUndefined();
   });
 
@@ -1710,7 +1739,7 @@ describe('handlePluginInspect', () => {
 
     const result = await handlePluginInspect(state, { plugin: 'test-plugin' });
 
-    const parsed = JSON.parse(result.content[0]?.text ?? '') as Record<string, unknown>;
+    const parsed = JSON.parse(textPart(result).text) as Record<string, unknown>;
     expect(parsed.author).toBeUndefined();
   });
 });
@@ -1738,11 +1767,11 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0]?.text).toContain('test-plugin');
-    expect(result.content[0]?.text).toContain('v1.2.3');
-    expect(result.content[0]?.text).toContain('reviewed');
-    expect(result.content[0]?.text).toContain('"auto"');
-    expect(result.content[0]?.text).toContain(
+    expect(textPart(result).text).toContain('test-plugin');
+    expect(textPart(result).text).toContain('v1.2.3');
+    expect(textPart(result).text).toContain('reviewed');
+    expect(textPart(result).text).toContain('"auto"');
+    expect(textPart(result).text).toContain(
       'Note: This tool should only be called after the user has explicitly confirmed',
     );
 
@@ -1829,8 +1858,8 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid or expired review token');
-    expect(result.content[0]?.text).toContain('plugin_inspect');
+    expect(textPart(result).text).toContain('Invalid or expired review token');
+    expect(textPart(result).text).toContain('plugin_inspect');
     expect(consumeReviewToken).not.toHaveBeenCalled();
   });
 
@@ -1848,7 +1877,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid or expired review token');
+    expect(textPart(result).text).toContain('Invalid or expired review token');
   });
 
   test('fails with used token', async () => {
@@ -1865,7 +1894,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid or expired review token');
+    expect(textPart(result).text).toContain('Invalid or expired review token');
   });
 
   test('fails with wrong plugin', async () => {
@@ -1882,7 +1911,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid or expired review token');
+    expect(textPart(result).text).toContain('Invalid or expired review token');
   });
 
   test('fails with wrong version', async () => {
@@ -1899,7 +1928,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Invalid or expired review token');
+    expect(textPart(result).text).toContain('Invalid or expired review token');
   });
 
   test('fails for unknown plugin', async () => {
@@ -1914,8 +1943,8 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('not found');
-    expect(result.content[0]?.text).toContain('test-plugin');
+    expect(textPart(result).text).toContain('not found');
+    expect(textPart(result).text).toContain('test-plugin');
   });
 
   test('fails with permission "off"', async () => {
@@ -1931,7 +1960,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"ask" or "auto"');
+    expect(textPart(result).text).toContain('"ask" or "auto"');
   });
 
   test('fails with missing plugin name', async () => {
@@ -1945,7 +1974,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"plugin" must be a non-empty string');
+    expect(textPart(result).text).toContain('"plugin" must be a non-empty string');
   });
 
   test('fails with missing version', async () => {
@@ -1959,7 +1988,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"version" must be a non-empty string');
+    expect(textPart(result).text).toContain('"version" must be a non-empty string');
   });
 
   test('fails with missing reviewToken', async () => {
@@ -1973,7 +2002,7 @@ describe('handlePluginMarkReviewed', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"reviewToken" must be a non-empty string');
+    expect(textPart(result).text).toContain('"reviewToken" must be a non-empty string');
   });
 
   test('sets permission to "ask" when requested', async () => {
@@ -1991,7 +2020,7 @@ describe('handlePluginMarkReviewed', () => {
     expect(result.isError).toBeUndefined();
     expect(state.pluginPermissions['test-plugin']?.permission).toBe('ask');
     expect(state.pluginPermissions['test-plugin']?.reviewedVersion).toBe('1.2.3');
-    expect(result.content[0]?.text).toContain('"ask"');
+    expect(textPart(result).text).toContain('"ask"');
   });
 
   test('preserves existing per-tool permission overrides', async () => {
@@ -2163,8 +2192,8 @@ describe('handlePluginToolCall — instance parameter', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('No open tab found for instance "staging"');
-    expect(result.content[0]?.text).toContain('staging');
+    expect(textPart(result).text).toContain('No open tab found for instance "staging"');
+    expect(textPart(result).text).toContain('staging');
   });
 
   test('unknown instance returns error listing valid instances', async () => {
@@ -2203,9 +2232,9 @@ describe('handlePluginToolCall — instance parameter', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Unknown instance "nonexistent"');
-    expect(result.content[0]?.text).toContain('production');
-    expect(result.content[0]?.text).toContain('staging');
+    expect(textPart(result).text).toContain('Unknown instance "nonexistent"');
+    expect(textPart(result).text).toContain('production');
+    expect(textPart(result).text).toContain('staging');
   });
 
   test('tabId takes precedence over instance', async () => {
@@ -2487,7 +2516,7 @@ describe('handlePluginToolCall — instance parameter', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('No open tab found for instance "alpha"');
+    expect(textPart(result).text).toContain('No open tab found for instance "alpha"');
   });
 });
 
