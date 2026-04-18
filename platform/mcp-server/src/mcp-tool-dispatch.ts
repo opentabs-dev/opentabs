@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises';
 import type { PluginPermissionConfig, ToolPermission } from '@opentabs-dev/shared';
 import { toErrorMessage } from '@opentabs-dev/shared';
 import type { ZodError } from 'zod';
+import type { ToolContentPart } from './browser-tools/definition.js';
 import { savePluginPermissions } from './config.js';
 import { buildConfigStatePayload, sendToExtension } from './extension-handlers.js';
 import {
@@ -151,7 +152,7 @@ const formatZodError = (err: ZodError): string => {
 
 /** Result shape returned by both handleBrowserToolCall and handlePluginToolCall */
 interface ToolCallResult {
-  content: Array<{ type: 'text'; text: string }>;
+  content: ToolContentPart[];
   isError?: boolean;
 }
 
@@ -288,9 +289,10 @@ const handleBrowserToolCall = async (
   try {
     const result = await cachedBt.tool.handler(parseResult.data, state);
     const cleaned = sanitizeOutput(result);
-    return {
-      content: [{ type: 'text' as const, text: JSON.stringify(cleaned, null, 2) }],
-    };
+    const content = cachedBt.tool.formatResult
+      ? cachedBt.tool.formatResult(cleaned)
+      : [{ type: 'text' as const, text: JSON.stringify(cleaned, null, 2) }];
+    return { content };
   } catch (err) {
     btSuccess = false;
     const msg = toErrorMessage(err);
