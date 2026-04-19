@@ -2,6 +2,9 @@
  * `opentabs tool` command — discover and invoke tools from the running server.
  */
 
+import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DEFAULT_HOST, toErrorMessage } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
@@ -109,10 +112,60 @@ const handleToolList = async (options: ToolListOptions): Promise<void> => {
   }
 };
 
+interface ToolCallContentPart {
+  type: string;
+  text?: string;
+  data?: string;
+  mimeType?: string;
+}
+
 interface ToolCallResult {
-  content: Array<{ type: string; text: string }>;
+  content: ToolCallContentPart[];
   isError?: boolean;
 }
+
+/** Map a MIME type to a conventional file extension for saved image files */
+const extForMime = (mimeType: string): string => {
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/jpeg') return 'jpg';
+  if (mimeType === 'image/webp') return 'webp';
+  if (mimeType === 'image/gif') return 'gif';
+  return 'bin';
+};
+
+/**
+ * Render an MCP tool-call content array for display at the terminal.
+ * Text parts are returned verbatim. Image parts are written to disk via the
+ * injected `saveImage` callback and summarised as a line referencing the
+ * saved path. Unknown or malformed parts are reported rather than silently
+ * dropped, so the user sees that something non-text came back.
+ */
+const renderToolCallContent = (
+  content: ToolCallContentPart[],
+  saveImage: (data: string, mimeType: string, index: number) => string,
+): string => {
+  const lines: string[] = [];
+  content.forEach((part, i) => {
+    if (part.type === 'text') {
+      lines.push(part.text ?? '');
+      return;
+    }
+    if (part.type === 'image') {
+      if (typeof part.data !== 'string' || typeof part.mimeType !== 'string') {
+        lines.push(`[malformed image content part at index ${i}]`);
+        return;
+      }
+      const path = saveImage(part.data, part.mimeType, i);
+      const bytes = Math.floor((part.data.length * 3) / 4);
+      lines.push(`[image: type=${part.mimeType}, ~${bytes} bytes, saved to ${path}]`);
+      return;
+    }
+    lines.push(`[unsupported content part at index ${i}: type=${part.type}]`);
+  });
+  return lines.join('\n');
+};
+
+export { renderToolCallContent };
 
 const handleToolCall = async (
   name: string,
@@ -171,22 +224,35 @@ const handleToolCall = async (
 
   const result = (await res.json()) as ToolCallResult;
 
-  // Extract text content from the result
-  const texts = result.content.filter(c => c.type === 'text').map(c => c.text);
-  const output = texts.join('\n');
+  // Save image content parts to tmpdir so their paths can be reported to the user
+  const saveImage = (data: string, mimeType: string, index: number): string => {
+    const ext = extForMime(mimeType);
+    const filename = `opentabs-${name}-${Date.now()}-${index}.${ext}`;
+    const path = join(tmpdir(), filename);
+    writeFileSync(path, Buffer.from(data, 'base64'));
+    return path;
+  };
+
+  const output = renderToolCallContent(result.content, saveImage);
 
   if (result.isError) {
     console.error(output);
     process.exit(1);
   }
 
-  // Print result to stdout — try to pretty-print if it's valid JSON
-  try {
-    const parsed: unknown = JSON.parse(output);
-    console.log(JSON.stringify(parsed, null, 2));
-  } catch {
-    console.log(output);
+  // Pretty-print text-only output if it parses as JSON. Mixed or image-bearing
+  // output is not JSON-parseable and is printed verbatim.
+  const textOnly = result.content.length === 1 && result.content[0]?.type === 'text';
+  if (textOnly) {
+    try {
+      const parsed: unknown = JSON.parse(output);
+      console.log(JSON.stringify(parsed, null, 2));
+      return;
+    } catch {
+      // fall through to plain print
+    }
   }
+  console.log(output);
 };
 
 const handleToolSchema = async (name: string, options: { port?: number }): Promise<void> => {
