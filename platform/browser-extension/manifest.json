@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OpenTabs",
-  "version": "0.0.102",
+  "version": "0.0.103",
   "description": "Enable AI agents to interact with web applications through browser-authenticated sessions",
   "icons": {
     "16": "icons/icon-16.png",
@@ -40,5 +40,7 @@
     "sessions",
     "browsingData"
   ],
-  "host_permissions": ["<all_urls>"]
+  "host_permissions": [
+    "<all_urls>"
+  ]
 }
