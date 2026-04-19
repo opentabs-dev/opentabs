@@ -421,8 +421,8 @@ test.describe('Side panel npm search', () => {
   test('uninstall plugin via three-dot menu and confirmation dialog', async () => {
     test.skip(!slackArtifactsAvailable, 'published @opentabs-dev/opentabs-plugin-slack is missing build artifacts');
     test.skip(
-      process.platform === 'darwin' && !!process.env.CI,
-      'npm global install into isolated prefix is unreliable on macOS CI runners — discovery finds 0 plugins',
+      process.platform === 'darwin',
+      'npm global install into isolated prefix is unreliable on macOS — discovery finds 0 plugins',
     );
     test.slow();
 
