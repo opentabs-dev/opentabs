@@ -224,12 +224,20 @@ const handleToolCall = async (
 
   const result = (await res.json()) as ToolCallResult;
 
-  // Save image content parts to tmpdir so their paths can be reported to the user
+  // Save image content parts to tmpdir so their paths can be reported to the user.
+  // A failed write (e.g. full disk, permissions) must not crash the CLI — wrap the
+  // fs call so the caller gets a readable error pointing at the target path.
   const saveImage = (data: string, mimeType: string, index: number): string => {
     const ext = extForMime(mimeType);
     const filename = `opentabs-${name}-${Date.now()}-${index}.${ext}`;
     const path = join(tmpdir(), filename);
-    writeFileSync(path, Buffer.from(data, 'base64'));
+    try {
+      writeFileSync(path, Buffer.from(data, 'base64'));
+    } catch (err) {
+      throw new Error(
+        `Failed to save image content part (mimeType=${mimeType}, target=${path}): ${toErrorMessage(err)}`,
+      );
+    }
     return path;
   };
 
