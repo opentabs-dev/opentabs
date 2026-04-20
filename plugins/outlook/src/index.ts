@@ -4,8 +4,18 @@
 // succeed silently instead of logging a console violation.
 if (typeof window !== 'undefined') {
   try {
-    const tt = (window as unknown as { trustedTypes?: { createPolicy?: (name: string, rules: Record<string, (s: string) => string>) => void } }).trustedTypes;
-    tt?.createPolicy?.('default', { createScript: (s: string) => s });
+    const tt = (window as Window & {
+      trustedTypes?: TrustedTypePolicyFactory & { defaultPolicy?: TrustedTypePolicy | null };
+    }).trustedTypes;
+    if (tt && !tt.defaultPolicy) {
+      tt.createPolicy('default', {
+        createScript: (s: string) => {
+          // Only allow the empty-string probe used by zod's allowsEval feature-detect.
+          if (s !== '') throw new TypeError('Blocked Trusted Types script conversion');
+          return s;
+        },
+      });
+    }
   } catch {
     // 'default' policy already exists, or Trusted Types not supported — safe to ignore.
   }
