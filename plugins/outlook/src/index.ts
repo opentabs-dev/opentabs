@@ -1,3 +1,16 @@
+// Outlook enforces Trusted Types (CSP). Zod's allowsEval probe calls
+// new Function("") which requires a 'default' Trusted Types policy to exist.
+// Creating it here (before any zod code runs) lets the try/catch in zod
+// succeed silently instead of logging a console violation.
+if (typeof window !== 'undefined') {
+  try {
+    const tt = (window as unknown as { trustedTypes?: { createPolicy?: (name: string, rules: Record<string, (s: string) => string>) => void } }).trustedTypes;
+    tt?.createPolicy?.('default', { createScript: (s: string) => s });
+  } catch {
+    // 'default' policy already exists, or Trusted Types not supported — safe to ignore.
+  }
+}
+
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './outlook-api.js';

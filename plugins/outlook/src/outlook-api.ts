@@ -161,7 +161,7 @@ const getAuth = (): OutlookAuth | null => {
 export const isAuthenticated = (): boolean => getAuth() !== null;
 
 export const waitForAuth = (): Promise<boolean> =>
-  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
+  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 30000 }).then(
     () => true,
     () => false,
   );
