@@ -1,7 +1,8 @@
-// Outlook enforces Trusted Types (CSP). Zod's allowsEval probe calls
-// new Function("") which requires a 'default' Trusted Types policy to exist.
-// Creating it here (before any zod code runs) lets the try/catch in zod
-// succeed silently instead of logging a console violation.
+// Outlook on cloud.microsoft enforces Trusted Types (CSP). Zod's allowsEval
+// feature-detect calls new Function("") the first time a zod parser runs
+// (lazy, memoized via cached()). This policy just needs to exist before that
+// first runtime call — import statements are hoisted regardless, but the probe
+// only fires when a tool handler first invokes a zod schema at runtime.
 if (typeof window !== 'undefined') {
   try {
     const tt = (window as Window & {
