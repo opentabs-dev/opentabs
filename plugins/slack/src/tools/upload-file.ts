@@ -1,4 +1,4 @@
-import { slackApi } from '../slack-api.js';
+import { getAuth } from '../slack-api.js';
 import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
@@ -73,43 +73,51 @@ export const uploadFile = defineTool({
       }
     }
 
-    const uploadResponse = await slackApi<{
-      upload_url?: string;
-      file_id?: string;
-    }>('files.getUploadURLExternal', {
-      filename: params.filename,
-      length: contentBytes.byteLength,
-      ...(params.filetype ? { filetype: params.filetype } : {}),
-    });
-
-    if (!uploadResponse.upload_url || !uploadResponse.file_id) {
-      throw ToolError.internal('Failed to obtain upload URL from Slack');
+    // Use the V1 files.upload API via a same-origin multipart form POST.
+    // The V2 flow (getUploadURLExternal + fetch to files.slack.com +
+    // completeUploadExternal) fails because the adapter runs in MAIN world
+    // and the upload URL is on a different origin, blocked by CORS.
+    const auth = getAuth();
+    if (!auth) {
+      throw ToolError.auth('Not authenticated — no Slack session token found');
     }
 
-    const uploadUrl = new URL(uploadResponse.upload_url);
-    if (uploadUrl.protocol !== 'https:') {
-      throw ToolError.validation('Upload URL must use HTTPS');
-    }
-    const SLACK_DOMAINS = ['slack.com', 'slack-edge.com'];
-    if (!SLACK_DOMAINS.some(d => uploadUrl.hostname === d || uploadUrl.hostname.endsWith(`.${d}`))) {
-      throw ToolError.validation('Upload URL domain is not a trusted Slack domain');
+    if (!auth.workspaceUrl.startsWith('https://')) {
+      throw ToolError.validation('HTTPS required for Slack API calls');
     }
 
-    const uploadSignal = AbortSignal.timeout(30_000);
-    let uploadResult: Response;
+    const formData = new FormData();
+    formData.append('token', auth.token);
+    formData.append('channels', params.channel);
+    formData.append('filename', params.filename);
+
+    const fileBlob = new Blob([contentBytes]);
+    formData.append('file', fileBlob, params.filename);
+
+    if (params.title) {
+      formData.append('title', params.title);
+    }
+    if (params.initial_comment) {
+      formData.append('initial_comment', params.initial_comment);
+    }
+    if (params.filetype) {
+      formData.append('filetype', params.filetype);
+    }
+
+    const signal = AbortSignal.timeout(30_000);
+    let response: Response;
     try {
-      uploadResult = await fetch(uploadResponse.upload_url, {
+      response = await fetch(`${auth.workspaceUrl}/api/files.upload`, {
         method: 'POST',
-        body: contentBytes,
+        body: formData,
         credentials: 'include',
-        redirect: 'error',
-        signal: uploadSignal,
+        signal,
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === 'TimeoutError') {
         throw ToolError.timeout('upload-file: file upload timed out after 30000ms');
       }
-      if (uploadSignal.aborted) {
+      if (signal.aborted) {
         throw new ToolError('upload-file: file upload aborted', 'aborted');
       }
       throw new ToolError(
@@ -118,21 +126,35 @@ export const uploadFile = defineTool({
         { category: 'internal', retryable: true },
       );
     }
-    if (!uploadResult.ok) {
-      throw ToolError.internal(`File upload HTTP ${uploadResult.status}`);
+
+    if (response.status === 429) {
+      throw ToolError.rateLimited('Slack API rate limited (429) during file upload');
     }
 
-    const fileTitle = params.title ?? params.filename;
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      throw ToolError.internal(`File upload HTTP ${response.status}: ${errorText}`);
+    }
 
-    await slackApi('files.completeUploadExternal', {
-      files: [{ id: uploadResponse.file_id, title: fileTitle }],
-      channel_id: params.channel,
-      initial_comment: params.initial_comment,
-    });
+    let data: Record<string, unknown>;
+    try {
+      data = (await response.json()) as Record<string, unknown>;
+    } catch {
+      throw ToolError.internal('Failed to parse file upload response');
+    }
+
+    if (data.ok !== true) {
+      const error = typeof data.error === 'string' ? data.error : 'unknown_error';
+      throw ToolError.internal(`Slack API error during file upload: ${error}`);
+    }
+
+    const file = data.file as Record<string, unknown> | undefined;
+    const fileId = typeof file?.id === 'string' ? file.id : '';
+    const fileTitle = params.title ?? params.filename;
 
     return {
       file: {
-        id: uploadResponse.file_id,
+        id: fileId,
         title: fileTitle,
       },
     };
