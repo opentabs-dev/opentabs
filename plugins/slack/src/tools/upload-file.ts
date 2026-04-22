@@ -1,5 +1,5 @@
 import { getAuth } from '../slack-api.js';
-import { ToolError, defineTool } from '@opentabs-dev/plugin-sdk';
+import { ToolError, defineTool, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 
 export const uploadFile = defineTool({
@@ -73,10 +73,7 @@ export const uploadFile = defineTool({
       }
     }
 
-    // Use the V1 files.upload API via a same-origin multipart form POST.
-    // The V2 flow (getUploadURLExternal + fetch to files.slack.com +
-    // completeUploadExternal) fails because the adapter runs in MAIN world
-    // and the upload URL is on a different origin, blocked by CORS.
+    // V1 files.upload: same-origin multipart form POST via getAuth() credentials.
     const auth = getAuth();
     if (!auth) {
       throw ToolError.auth('Not authenticated — no Slack session token found');
@@ -128,12 +125,24 @@ export const uploadFile = defineTool({
     }
 
     if (response.status === 429) {
-      throw ToolError.rateLimited('Slack API rate limited (429) during file upload');
+      const retryAfterHeader = response.headers.get('Retry-After');
+      const retryMs = retryAfterHeader !== null ? parseRetryAfterMs(retryAfterHeader) : undefined;
+      throw ToolError.rateLimited(
+        `Slack API rate limited (429) during file upload${retryAfterHeader ? `. Retry after ${retryAfterHeader} seconds` : ''}`,
+        retryMs,
+      );
     }
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => response.statusText);
-      throw ToolError.internal(`File upload HTTP ${response.status}: ${errorText}`);
+      const errorMsg = `File upload HTTP ${response.status}: ${errorText}`;
+      if (response.status === 401 || response.status === 403) {
+        throw ToolError.auth(errorMsg);
+      } else if (response.status === 404) {
+        throw ToolError.notFound(errorMsg);
+      } else {
+        throw ToolError.internal(errorMsg);
+      }
     }
 
     let data: Record<string, unknown>;
@@ -145,11 +154,29 @@ export const uploadFile = defineTool({
 
     if (data.ok !== true) {
       const error = typeof data.error === 'string' ? data.error : 'unknown_error';
-      throw ToolError.internal(`Slack API error during file upload: ${error}`);
+      if (
+        ['not_authed', 'invalid_auth', 'account_inactive', 'token_revoked', 'token_expired', 'missing_scope'].includes(
+          error,
+        )
+      ) {
+        throw ToolError.auth(`Slack API error: ${error}`);
+      } else if (['channel_not_found', 'not_in_channel'].includes(error)) {
+        throw ToolError.notFound(`Slack API error: ${error}`);
+      } else if (error === 'ratelimited') {
+        throw ToolError.rateLimited(`Slack API error: ${error}`);
+      } else if (['invalid_arguments', 'too_many_attachments'].includes(error)) {
+        throw ToolError.validation(`Slack API error: ${error}`);
+      } else {
+        throw ToolError.internal(`Slack API error: ${error}`);
+      }
     }
 
-    const file = data.file as Record<string, unknown> | undefined;
-    const fileId = typeof file?.id === 'string' ? file.id : '';
+    const file =
+      typeof data.file === 'object' && data.file !== null ? (data.file as Record<string, unknown>) : undefined;
+    if (typeof file?.id !== 'string' || file.id.length === 0) {
+      throw ToolError.internal('Slack files.upload response missing file.id');
+    }
+    const fileId = file.id;
     const fileTitle = params.title ?? params.filename;
 
     return {
