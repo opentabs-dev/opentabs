@@ -28,16 +28,18 @@ const base = import.meta.dirname;
 
 const bgPath = join(base, 'dist/background.js');
 const offscreenPath = join(base, 'dist/offscreen/index.js');
+const tokenInterceptorPath = join(base, 'dist/token-interceptor.js');
 const tsbuildinfo = join(base, 'tsconfig.tsbuildinfo');
 
 const entries = [
   { entrypoint: bgPath, outfile: bgPath, label: 'background' },
   { entrypoint: offscreenPath, outfile: offscreenPath, label: 'offscreen' },
+  { entrypoint: tokenInterceptorPath, outfile: tokenInterceptorPath, label: 'token-interceptor' },
 ];
 
 // Delete stale bundle artifacts and tsbuildinfo so tsc re-emits fresh entry
 // points with resolvable import statements for esbuild to bundle.
-for (const f of [bgPath, offscreenPath, tsbuildinfo]) {
+for (const f of [bgPath, offscreenPath, tokenInterceptorPath, tsbuildinfo]) {
   try {
     unlinkSync(f);
   } catch {
