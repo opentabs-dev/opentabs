@@ -127,10 +127,8 @@ export const uploadFile = defineTool({
     if (response.status === 429) {
       const retryAfterHeader = response.headers.get('Retry-After');
       const retryMs = retryAfterHeader !== null ? parseRetryAfterMs(retryAfterHeader) : undefined;
-      throw ToolError.rateLimited(
-        `Slack API rate limited (429) during file upload${retryAfterHeader ? `. Retry after ${retryAfterHeader} seconds` : ''}`,
-        retryMs,
-      );
+      const retryHint = retryMs !== undefined ? `. Retry after ${Math.ceil(retryMs / 1000)}s` : '';
+      throw ToolError.rateLimited(`Slack API rate limited (429) during file upload${retryHint}`, retryMs);
     }
 
     if (!response.ok) {
@@ -140,6 +138,8 @@ export const uploadFile = defineTool({
         throw ToolError.auth(errorMsg);
       } else if (response.status === 404) {
         throw ToolError.notFound(errorMsg);
+      } else if (response.status === 400) {
+        throw ToolError.validation(errorMsg);
       } else {
         throw ToolError.internal(errorMsg);
       }
