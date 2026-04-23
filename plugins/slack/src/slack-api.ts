@@ -508,4 +508,4 @@ const slackApi = async <T extends Record<string, unknown>>(
   return data as T & { ok: true };
 };
 
-export { isSlackAuthenticated, waitForSlackAuth, slackApi };
+export { getAuth, isSlackAuthenticated, waitForSlackAuth, slackApi };
