@@ -1,46 +1,30 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { driveApi, driveApiRaw, resolveDocumentId } from '../google-docs-api.js';
+import { driveApi, resolveDocumentId } from '../google-docs-api.js';
 import { COMMENT_LIST_FIELDS, commentSchema, mapComment, type RawComment } from './schemas.js';
 
-/**
- * Decode HTML entities that appear in quoted_text anchors from the Drive API.
- * For example, `&quot;` → `"`, `&amp;` → `&`, `&#39;` → `'`.
- */
-const unescapeHtmlEntities = (text: string): string =>
-  text
-    .replaceAll('&quot;', '"')
-    .replaceAll('&amp;', '&')
-    .replaceAll('&#39;', "'")
-    .replaceAll('&lt;', '<')
-    .replaceAll('&gt;', '>');
-
-/** Collapse runs of whitespace into a single space for anchor matching. */
-const normalizeWhitespace = (text: string): string => text.replace(/\s+/g, ' ').trim();
+const KIX_PATTERN = /kix\.[a-z0-9]{12,}/g;
 
 /**
- * Check whether a comment's anchor text still exists in the current document body.
- * Comments anchored to text that has been deleted or rewritten are considered orphaned
- * and are hidden by the Google Docs UI.
+ * Fetch the set of `kix.*` named-range IDs that exist in the current document.
+ *
+ * Google Docs assigns a `kix.<id>` named range to every comment anchor position.
+ * When the anchored text is deleted, the named range is removed from the document.
+ * The server-rendered page HTML embeds these IDs, so a same-origin fetch + regex
+ * extraction gives us the complete set of live anchor positions — no text matching,
+ * no fuzzy logic, just a structural ID lookup.
+ *
+ * Returns null on failure so the caller can skip orphan filtering gracefully.
  */
-const isAnchoredInDocument = (quotedText: string, normalizedDocText: string): boolean => {
-  if (!quotedText) return true;
-  const anchor = normalizeWhitespace(unescapeHtmlEntities(quotedText));
-  if (!anchor) return true;
-  return normalizedDocText.includes(anchor);
-};
-
-/**
- * Fetch the current document body as plain text via the Drive export API.
- * This endpoint returns the complete document content including tables, headers,
- * and footers — unlike DOCS_modelChunk parsing which misses structured content.
- * Returns null if the export fails, signaling the caller to skip orphan filtering.
- */
-const fetchDocumentPlainText = async (documentId: string): Promise<string | null> => {
+const fetchLiveAnchorIds = async (documentId: string): Promise<Set<string> | null> => {
   try {
-    return await driveApiRaw(`/files/${encodeURIComponent(documentId)}/export`, {
-      params: { mimeType: 'text/plain' },
-    });
+    const resp = await fetch(
+      `${window.location.origin}/document/d/${encodeURIComponent(documentId)}/edit`,
+      { credentials: 'include' },
+    );
+    if (!resp.ok) return null;
+    const html = await resp.text();
+    return new Set(html.match(KIX_PATTERN) ?? []);
   } catch {
     return null;
   }
@@ -134,12 +118,11 @@ export const listComments = defineTool({
     }
 
     if (!includeOrphaned) {
-      const docText = await fetchDocumentPlainText(documentId);
-      if (docText) {
-        const normalizedDocText = normalizeWhitespace(docText);
-        comments = comments.filter(c => isAnchoredInDocument(c.quoted_text, normalizedDocText));
+      const liveAnchors = await fetchLiveAnchorIds(documentId);
+      if (liveAnchors) {
+        comments = comments.filter(c => c.anchor !== '' && liveAnchors.has(c.anchor));
       }
-      // If text export fails (null), skip orphan filtering rather than
+      // If the page fetch fails, skip orphan filtering rather than
       // dropping all comments — graceful degradation.
     }
 

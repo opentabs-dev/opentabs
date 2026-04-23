@@ -142,6 +142,7 @@ export const commentSchema = z.object({
     .boolean()
     .describe('Whether the comment thread is resolved (closed). Resolved threads no longer need attention.'),
   quoted_text: z.string().describe('The document text this comment is anchored to'),
+  anchor: z.string().describe('Named range ID (kix.*) that positions this comment in the document'),
   replies: z.array(replySchema).describe('Replies in this comment thread'),
 });
 
@@ -202,6 +203,7 @@ export const mapComment = (comment: RawComment) => ({
   modified_time: comment.modifiedTime ?? '',
   resolved: comment.resolved ?? false,
   quoted_text: comment.quotedFileContent?.value ?? '',
+  anchor: comment.anchor ?? '',
   replies: (comment.replies ?? []).map(mapReply),
 });
 
