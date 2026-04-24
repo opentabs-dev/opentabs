@@ -112,6 +112,14 @@ const handleToolList = async (options: ToolListOptions): Promise<void> => {
   }
 };
 
+/**
+ * Loose content-part shape for defensive parsing of tool-call responses.
+ * Diverges intentionally from the server's strict `ToolContentPart` discriminated
+ * union (in `@opentabs-dev/shared` once exported, currently in mcp-server's
+ * browser-tools/definition.ts): `type` is widened to `string` and the variant
+ * fields are optional so a server emitting an unknown or partial part does not
+ * crash the CLI before it can report it.
+ */
 interface ToolCallContentPart {
   type: string;
   text?: string;
@@ -147,7 +155,11 @@ const renderToolCallContent = (
   const lines: string[] = [];
   content.forEach((part, i) => {
     if (part.type === 'text') {
-      lines.push(part.text ?? '');
+      if (typeof part.text !== 'string') {
+        lines.push(`[malformed text content part at index ${i}]`);
+        return;
+      }
+      lines.push(part.text);
       return;
     }
     if (part.type === 'image') {
@@ -225,11 +237,14 @@ const handleToolCall = async (
   const result = (await res.json()) as ToolCallResult;
 
   // Save image content parts to tmpdir so their paths can be reported to the user.
-  // A failed write (e.g. full disk, permissions) must not crash the CLI — wrap the
-  // fs call so the caller gets a readable error pointing at the target path.
+  // The tool name is user-supplied and could contain path separators or characters
+  // that are invalid on the host OS, so sanitize it before composing the filename
+  // to prevent path traversal and unwritable paths. A failed write (e.g. full disk,
+  // permissions) is wrapped so the caller gets a readable error rather than a crash.
+  const safeName = name.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 64) || 'tool';
   const saveImage = (data: string, mimeType: string, index: number): string => {
     const ext = extForMime(mimeType);
-    const filename = `opentabs-${name}-${Date.now()}-${index}.${ext}`;
+    const filename = `opentabs-${safeName}-${Date.now()}-${index}.${ext}`;
     const path = join(tmpdir(), filename);
     try {
       writeFileSync(path, Buffer.from(data, 'base64'));
