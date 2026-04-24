@@ -1,7 +1,7 @@
 ---
 title: Utilities
 description: API reference for all SDK utility functions — DOM, Fetch, Storage, Page State, and Timing helpers for plugin authors.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-04-24
 ---
 
 I wrote these utilities because the same boilerplate kept showing up in every plugin: wait for this element, fetch that URL with session cookies, read this localStorage key. Rather than copy-paste the same patterns, they're first-class utilities in the SDK. They all run in the browser page context and are exported from `@opentabs-dev/plugin-sdk`.
@@ -16,6 +16,7 @@ import {
   getCookie,
   getAuthCache, setAuthCache, clearAuthCache, findLocalStorageEntry,
   getPageGlobal, getCurrentUrl, getPageTitle,
+  getConfig,
   retry, sleep, waitUntil,
   log,
   notifyReadinessChanged,
@@ -769,6 +770,30 @@ Returns the current page title (`document.title`).
 ```typescript
 function getPageTitle(): string;
 ```
+
+---
+
+## Config Utilities
+
+Read resolved plugin settings that the user provided via the plugin's `configSchema`.
+
+### `getConfig(key)`
+
+Returns the resolved value for a plugin setting by its field key. The platform resolves settings from `config.json` `settings.<pluginShortName>` at injection time and injects them into the MAIN world via `globalThis.__openTabs.pluginConfig` before the adapter IIFE runs. `getConfig` reads from that injected object.
+
+```typescript
+function getConfig(key: string): string | number | boolean | undefined;
+```
+
+```typescript
+import { getConfig } from '@opentabs-dev/plugin-sdk';
+
+const instanceUrl = getConfig('instanceUrl') as string | undefined;
+```
+
+Keys must match field names declared in the plugin's `configSchema`. Returns `undefined` if the field is not set or the settings object has not been injected (e.g., in unit tests outside the adapter runtime).
+
+See [Configuration](/docs/reference/configuration#settings) for how users set values in `config.json`.
 
 ---
 
