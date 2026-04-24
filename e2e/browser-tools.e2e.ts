@@ -1156,7 +1156,7 @@ test.describe('browser_get_tab_info', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('browser_screenshot_tab', () => {
-  test('captures a base64 PNG screenshot', async ({
+  test('returns a single PNG image content part', async ({
     mcpServer,
     testServer,
     extensionContext: _extensionContext,
@@ -1165,27 +1165,38 @@ test.describe('browser_screenshot_tab', () => {
     await initAndListTools(mcpServer, mcpClient);
     const tabId = await openTestServerTab(mcpClient, testServer);
 
-    // Poll until screenshot returns a valid PNG (page fully rendered)
-    let data: Record<string, unknown> = {};
+    // Poll until screenshot returns a valid PNG image content part (page fully rendered).
+    // The tool emits `[{type:'image', data:<base64 PNG>, mimeType:'image/png'}]`, so we
+    // assert on the raw contentParts array rather than the joined text content.
+    let parts: Array<{ type: string; data?: string; mimeType?: string }> = [];
     await waitFor(
       async () => {
         try {
           const r = await mcpClient.callTool('browser_screenshot_tab', { tabId });
           if (r.isError) return false;
-          data = parseToolResult(r.content);
-          return typeof data.image === 'string' && data.image.startsWith('iVBOR');
+          parts = r.contentParts;
+          const first = parts[0];
+          return (
+            parts.length === 1 &&
+            first?.type === 'image' &&
+            typeof first.data === 'string' &&
+            first.data.startsWith('iVBOR')
+          );
         } catch {
           return false;
         }
       },
       10_000,
       300,
-      'screenshot returns valid PNG',
+      'screenshot returns valid PNG image content part',
     );
 
-    expect(typeof data.image).toBe('string');
+    expect(parts).toHaveLength(1);
+    expect(parts[0]?.type).toBe('image');
+    expect(parts[0]?.mimeType).toBe('image/png');
     // PNG files encoded in base64 start with 'iVBOR' (the base64 encoding of the PNG header)
-    expect((data.image as string).startsWith('iVBOR')).toBe(true);
+    expect(typeof parts[0]?.data).toBe('string');
+    expect((parts[0]?.data as string).startsWith('iVBOR')).toBe(true);
 
     // Clean up
     await mcpClient.callTool('browser_close_tab', { tabId });
