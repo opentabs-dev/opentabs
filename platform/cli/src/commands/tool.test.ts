@@ -43,4 +43,14 @@ describe('renderToolCallContent', () => {
     expect(saveImage).not.toHaveBeenCalled();
     expect(out).toContain('malformed');
   });
+
+  test('malformed text part (missing text) is reported, not silently emitted as empty line', () => {
+    const saveImage = vi.fn();
+    // type=text but no text field — flag it the same way image malformations are flagged,
+    // so a server-side bug producing this shape doesn't disappear into a blank line.
+    const out = renderToolCallContent([{ type: 'text' }], saveImage);
+    expect(out).toContain('malformed');
+    expect(out).toContain('text');
+    expect(saveImage).not.toHaveBeenCalled();
+  });
 });
