@@ -11,7 +11,7 @@
     "chrome-extension",
     "cli"
   ],
-  "version": "0.0.103",
+  "version": "0.0.104",
   "license": "MIT",
   "engines": {
     "node": ">= 22.0.0"
@@ -36,11 +36,11 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@opentabs-dev/browser-extension": "^0.0.103",
-    "@opentabs-dev/mcp-server": "^0.0.103",
-    "@opentabs-dev/plugin-sdk": "^0.0.103",
-    "@opentabs-dev/plugin-tools": "^0.0.103",
-    "@opentabs-dev/shared": "^0.0.103",
+    "@opentabs-dev/browser-extension": "^0.0.104",
+    "@opentabs-dev/mcp-server": "^0.0.104",
+    "@opentabs-dev/plugin-sdk": "^0.0.104",
+    "@opentabs-dev/plugin-tools": "^0.0.104",
+    "@opentabs-dev/shared": "^0.0.104",
     "commander": "^14.0.3",
     "picocolors": "^1.1.1"
   }

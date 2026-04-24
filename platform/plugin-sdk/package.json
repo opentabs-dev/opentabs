@@ -11,7 +11,7 @@
     "plugin-sdk",
     "opentabs-plugin"
   ],
-  "version": "0.0.103",
+  "version": "0.0.104",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -36,7 +36,7 @@
     "generate:icons": "tsx scripts/generate-icon-names.ts"
   },
   "dependencies": {
-    "@opentabs-dev/shared": "^0.0.103"
+    "@opentabs-dev/shared": "^0.0.104"
   },
   "peerDependencies": {
     "zod": "^4.0.0"

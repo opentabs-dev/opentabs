@@ -11,7 +11,7 @@
     "manifest-v3",
     "browser-automation"
   ],
-  "version": "0.0.103",
+  "version": "0.0.104",
   "license": "MIT",
   "publishConfig": {
     "access": "public"
@@ -37,7 +37,7 @@
     "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {
-    "@opentabs-dev/shared": "^0.0.103",
+    "@opentabs-dev/shared": "^0.0.104",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
