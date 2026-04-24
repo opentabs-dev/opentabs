@@ -1,7 +1,7 @@
 ---
 title: Utilities
 description: API reference for all SDK utility functions — DOM, Fetch, Storage, Page State, and Timing helpers for plugin authors.
-lastUpdated: 2026-03-10
+lastUpdated: 2026-04-24
 ---
 
 I wrote these utilities because the same boilerplate kept showing up in every plugin: wait for this element, fetch that URL with session cookies, read this localStorage key. Rather than copy-paste the same patterns, they're first-class utilities in the SDK. They all run in the browser page context and are exported from `@opentabs-dev/plugin-sdk`.
@@ -16,6 +16,8 @@ import {
   getCookie,
   getAuthCache, setAuthCache, clearAuthCache, findLocalStorageEntry,
   getPageGlobal, getCurrentUrl, getPageTitle,
+  getConfig,
+  getPreScriptValue,
   retry, sleep, waitUntil,
   log,
   notifyReadinessChanged,
@@ -769,6 +771,88 @@ Returns the current page title (`document.title`).
 ```typescript
 function getPageTitle(): string;
 ```
+
+---
+
+## Config Utilities
+
+Read resolved plugin settings that the user provided via the plugin's `configSchema`.
+
+### `getConfig(key)`
+
+Returns the resolved value for a plugin setting by its field key. The platform resolves settings from `config.json` `settings.<pluginShortName>` at injection time and injects them into the MAIN world via `globalThis.__openTabs.pluginConfig` before the adapter IIFE runs. `getConfig` reads from that injected object.
+
+```typescript
+function getConfig(key: string): string | number | boolean | undefined;
+```
+
+```typescript
+import { getConfig } from '@opentabs-dev/plugin-sdk';
+
+const instanceUrl = getConfig('instanceUrl') as string | undefined;
+```
+
+Keys must match field names declared in the plugin's `configSchema`. Returns `undefined` if the field is not set or the settings object has not been injected (e.g., in unit tests outside the adapter runtime).
+
+See [Configuration](/docs/reference/configuration#settings) for how users set values in `config.json`.
+
+---
+
+## Pre-Script Utilities
+
+Pre-scripts run at `document_start` in MAIN world strictly before any page script. This lets plugins observe or patch page runtime state — auth tokens in outbound fetch/XHR, CSRF nonces, early globals — that the page would otherwise hide before ordinary adapters load.
+
+### `definePreScript(fn)`
+
+<Alert status="warning">
+  `definePreScript` must be imported from the subpath export `@opentabs-dev/plugin-sdk/pre-script`, **not** from the main barrel `@opentabs-dev/plugin-sdk`. The subpath export exists so bundlers do not pull the full SDK into the pre-script IIFE.
+</Alert>
+
+```typescript
+function definePreScript(fn: (ctx: PreScriptContext) => void): void;
+```
+
+Registers the pre-script callback with the IIFE wrapper. Calling it outside the wrapper (for example, in unit tests) is a safe no-op.
+
+The `PreScriptContext` surface available inside the callback:
+
+- `set(key: string, value: PreScriptValue): void` — stashes a JSON-serializable value in the plugin's pre-script namespace (`globalThis.__openTabs.preScript[<pluginName>][key]`). The plugin name is injected at build time so plugins cannot write to each other's namespaces.
+- `log` — console logger with `debug`, `info`, `warn`, `error`. Logs go to the browser console only; the extension log relay is not yet installed at `document_start`.
+
+Pre-scripts have no access to `chrome.*` APIs and no access to the main SDK (no DOM helpers, no fetch utilities).
+
+```typescript
+import { definePreScript } from '@opentabs-dev/plugin-sdk/pre-script';
+
+export default definePreScript(({ set, log }) => {
+  const real = window.fetch;
+  window.fetch = async (input, init) => {
+    const auth = (init?.headers as Record<string, string>)?.Authorization;
+    if (auth) set('authToken', auth);
+    return real(input, init);
+  };
+});
+```
+
+### `getPreScriptValue(key)`
+
+Reads a value stashed by the plugin's pre-script. Exported from the main SDK barrel.
+
+```typescript
+function getPreScriptValue<T>(key: string): T | undefined;
+```
+
+```typescript
+import { getPreScriptValue } from '@opentabs-dev/plugin-sdk';
+
+const token = getPreScriptValue<string>('authToken');
+```
+
+`undefined` is a normal branch, not an error. It occurs when:
+
+- The plugin has no pre-script declared.
+- The adapter was injected into a tab that was already open when the plugin registered (pre-scripts only fire on future navigations).
+- The pre-script ran but did not call `set(key, ...)` for this key.
 
 ---
 
