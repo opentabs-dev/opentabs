@@ -637,7 +637,24 @@ Provide a clear, honest summary to the user:
 3. Any concerns or red flags found
 4. Your recommendation: enable or keep disabled
 
-Do not downplay concerns. If anything is suspicious, say so clearly.`;
+Do not downplay concerns. If anything is suspicious, say so clearly.
+
+If preScriptSource is present, REVIEW IT WITH SPECIAL SCRUTINY:
+- Pre-scripts run at document_start in MAIN world, strictly before any page
+  JavaScript — they have earlier execution than the adapter and can observe
+  state the adapter cannot (e.g., auth tokens in the first outbound fetch,
+  early globals the page may later hide).
+- Pre-scripts cannot call chrome.* APIs and have no tool runtime, but they
+  CAN monkey-patch window.fetch, window.XMLHttpRequest, window.WebSocket,
+  document.cookie, Request/Response headers, and any global the page exposes.
+- A malicious pre-script can silently exfiltrate bearer tokens, CSRF
+  nonces, session cookies, or request bodies by installing its own fetch
+  wrapper that forwards to an attacker-controlled endpoint.
+- Verify: (1) every set(key, value) call stashes only data the plugin
+  legitimately needs, (2) no network calls escape the page's own origin
+  other than those originally made by the page, (3) no data is written
+  to document.cookie, localStorage, or any global the page didn't already
+  expose.`;
 
 /**
  * Handle the plugin_inspect platform tool.
@@ -701,6 +718,9 @@ const handlePluginInspect = async (state: ServerState, args: Record<string, unkn
 
   const lineCount = adapterSource.split('\n').length;
   const byteSize = Buffer.byteLength(adapterSource, 'utf-8');
+  const preScriptSource = plugin.preScript;
+  const preScriptLineCount = preScriptSource ? preScriptSource.split('\n').length : undefined;
+  const preScriptByteSize = preScriptSource ? Buffer.byteLength(preScriptSource, 'utf-8') : undefined;
   const reviewToken = generateReviewToken(state, pluginName, plugin.version);
 
   const response = {
@@ -710,6 +730,9 @@ const handlePluginInspect = async (state: ServerState, args: Record<string, unkn
     ...(plugin.npmPackageName ? { npmPackage: plugin.npmPackageName } : {}),
     lineCount,
     byteSize,
+    ...(preScriptSource ? { preScriptSource } : {}),
+    ...(preScriptLineCount !== undefined ? { preScriptLineCount } : {}),
+    ...(preScriptByteSize !== undefined ? { preScriptByteSize } : {}),
     reviewToken,
     reviewGuidance: REVIEW_GUIDANCE,
     adapterSource,
