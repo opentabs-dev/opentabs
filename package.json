@@ -42,7 +42,7 @@
     "storybook:build": "npm run --prefix platform/browser-extension storybook:build",
     "check:everything": "npm run check && npm run test:e2e && npm run check:docs && npm run check:plugins",
     "test": "vitest run",
-    "test:e2e": "cd plugins/e2e-test && npm ci && rm -f tsconfig.tsbuildinfo && OPENTABS_CONFIG_DIR=/tmp/opentabs-e2e-prebuild npm run build && cd ../.. && npx playwright test",
+    "test:e2e": "cd plugins/e2e-test && npm ci && rm -f tsconfig.tsbuildinfo && OPENTABS_CONFIG_DIR=/tmp/opentabs-e2e-prebuild npm run build && cd ../.. && tsx scripts/build-prescript-test.ts && npx playwright test",
     "test:e2e:windows": "bash e2e/windows/run.sh",
     "dev:docs": "npm run --prefix docs dev",
     "build:docs": "npm run --prefix docs build",

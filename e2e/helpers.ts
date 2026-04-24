@@ -4,7 +4,8 @@
  * own copies.
  */
 
-import { execSync } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,6 +17,7 @@ import {
   copyE2eTestPlugin,
   createMcpClient,
   launchExtensionContext,
+  ROOT,
   readPluginToolNames,
   startMcpServer,
   startTestServer,
@@ -587,3 +589,124 @@ export const expandHiddenTools = async (page: Page): Promise<void> => {
     await hiddenToggles.nth(i).click();
   }
 };
+
+// ---------------------------------------------------------------------------
+// Pre-script mock server
+// ---------------------------------------------------------------------------
+
+/** Result returned by startMockPreScriptServer. */
+export interface MockPreScriptServer {
+  /** Base URL of the mock server (e.g. http://127.0.0.1:12345). */
+  url: string;
+  /** Expected bearer token embedded in the mock page's bootstrap script. */
+  expectedToken: string;
+  /** Kill the mock server process. */
+  kill: () => Promise<void>;
+}
+
+/**
+ * Spawn the pre-script mock server (e2e/prescript-mock-server.ts) on an
+ * ephemeral port. Resolves once the server is listening and the expected token
+ * has been fetched from /control/server-info.
+ *
+ * Used by pre-script E2E tests that need a page simulating the PR #69
+ * Outlook/MSAL failure mode (fetch-before-override bootstrap).
+ */
+export const startMockPreScriptServer = (): Promise<MockPreScriptServer> =>
+  new Promise<MockPreScriptServer>((resolve, reject) => {
+    const serverScript = path.join(ROOT, 'e2e', 'prescript-mock-server.ts');
+
+    const proc: ChildProcess = spawn('node', ['--import', 'tsx/esm', serverScript], {
+      cwd: ROOT,
+      env: { ...process.env, PORT: '0' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    const logs: string[] = [];
+    let resolved = false;
+
+    const killProc = (): Promise<void> => {
+      if (proc.exitCode !== null) return Promise.resolve();
+      return new Promise<void>(res => {
+        const fallback = setTimeout(() => {
+          try {
+            proc.kill('SIGKILL');
+          } catch {
+            /* already dead */
+          }
+        }, 200);
+        proc.once('exit', () => {
+          clearTimeout(fallback);
+          res();
+        });
+        try {
+          proc.kill('SIGTERM');
+        } catch {
+          clearTimeout(fallback);
+          res();
+        }
+      });
+    };
+
+    const onData = (chunk: Buffer): void => {
+      const text = chunk.toString();
+      for (const line of text.split('\n')) {
+        if (line.trim()) logs.push(line.trim());
+      }
+
+      if (!resolved) {
+        const m = text.match(/Listening on (http:\/\/127\.0\.0\.1:\d+)/);
+        if (m) {
+          resolved = true;
+          // m[1] is always defined when the regex matches (capture group 1)
+          const serverUrl = m[1] as string;
+
+          // Fetch the expected token from /control/server-info.
+          fetch(`${serverUrl}/control/server-info`, { signal: AbortSignal.timeout(5_000) })
+            .then(r => r.json())
+            .then((info: unknown) => {
+              const token = (info as Record<string, unknown>).token;
+              if (typeof token !== 'string') {
+                throw new Error(`/control/server-info returned unexpected shape: ${JSON.stringify(info)}`);
+              }
+              resolve({ url: serverUrl, expectedToken: token, kill: killProc });
+            })
+            .catch((err: unknown) => {
+              void killProc();
+              reject(new Error(`Failed to fetch /control/server-info: ${String(err)}`));
+            });
+        }
+      }
+    };
+
+    const startupDeadline = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        void killProc();
+        reject(new Error(`startMockPreScriptServer: timed out after 10s.\nLogs:\n${logs.join('\n')}`));
+      }
+    }, 10_000);
+
+    proc.stdout?.on('data', onData);
+    proc.stderr?.on('data', onData);
+
+    proc.on('error', (err: Error) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(startupDeadline);
+        reject(err);
+      }
+    });
+
+    proc.on('exit', (code: number | null) => {
+      clearTimeout(startupDeadline);
+      if (!resolved) {
+        resolved = true;
+        reject(
+          new Error(
+            `startMockPreScriptServer: process exited early with code ${String(code)}.\nLogs:\n${logs.join('\n')}`,
+          ),
+        );
+      }
+    });
+  });

@@ -1032,12 +1032,15 @@ const formatTimestamp = (): string => {
  * sourceMappingURL comment) so the manifest can carry it for change detection.
  */
 const bundlePreScript = async (preScriptEntry: string, outDir: string, pluginName: string): Promise<string> => {
-  const wrapperPath = join(outDir, `_pre_script_entry_${crypto.randomUUID()}.ts`);
-  const relativeImport = `./${relative(outDir, preScriptEntry).replace(/\.ts$/, '.js')}`;
+  const setupPath = join(outDir, `_pre_script_setup_${crypto.randomUUID()}.ts`);
   const name = JSON.stringify(pluginName);
   const logPrefix = JSON.stringify(`[opentabs:${pluginName}:pre-script]`);
 
-  const wrapperCode = `declare global {
+  // Setup code is injected before the user module via esbuild's inject option.
+  // This runs synchronously at document_start — no async imports needed.
+  // _preScriptRunner self-destructs after being called once, so definePreScript()
+  // can only capture values on the first invocation.
+  const setupCode = `declare global {
   var __openTabs: {
     _preScriptRunner?: (fn: (ctx: {
       set(key: string, value: unknown): void;
@@ -1055,14 +1058,14 @@ const bundlePreScript = async (preScriptEntry: string, outDir: string, pluginNam
 if (!globalThis.__openTabs) {
   (globalThis as Record<string, unknown>).__openTabs = {};
 }
-const ot = globalThis.__openTabs!;
-if (!ot.preScript) {
-  ot.preScript = {};
+const _ot = globalThis.__openTabs!;
+if (!_ot.preScript) {
+  _ot.preScript = {};
 }
 
 // Reset this plugin's pre-script bucket on every load. Each navigation gets
 // a clean slate so stale values from the previous page don't leak.
-ot.preScript[${name}] = {};
+_ot.preScript[${name}] = {};
 
 // Plugin-scoped logger. Pre-script logs go directly to console — the
 // extension's ISOLATED-world log relay hasn't loaded yet at document_start.
@@ -1075,11 +1078,13 @@ const _log = {
 };
 
 // Install _preScriptRunner so definePreScript() in the user module can invoke
-// the callback synchronously at document_start.
-ot._preScriptRunner = (fn) => {
+// the callback synchronously. Self-destructs after first call so it cannot
+// be called again after the pre-script has loaded.
+_ot._preScriptRunner = (fn) => {
+  delete _ot._preScriptRunner;
   const ctx = {
     set(key: string, value: unknown) {
-      ot.preScript![${name}]![key] = value;
+      _ot.preScript![${name}]![key] = value;
     },
     log: _log,
   };
@@ -1089,24 +1094,17 @@ ot._preScriptRunner = (fn) => {
     console.error(_logPrefix, 'pre-script threw:', e);
   }
 };
-
-// Import the user module. definePreScript() inside it calls _preScriptRunner
-// synchronously, so the callback runs before the import resolves.
-try {
-  await import(${JSON.stringify(relativeImport)});
-} catch (e) {
-  console.error(_logPrefix, 'pre-script load error:', e);
-} finally {
-  // Clean up _preScriptRunner so it isn't callable after initial load.
-  delete ot._preScriptRunner;
-}
 `;
 
-  await writeFile(wrapperPath, wrapperCode, 'utf-8');
+  await writeFile(setupPath, setupCode, 'utf-8');
 
   try {
     await esbuild({
-      entryPoints: [wrapperPath],
+      // The user module is the entry point. The setup code is injected before it
+      // via esbuild's inject option, which adds an implicit import of setupPath
+      // at the top of every bundled file — setup runs first, then the user module.
+      entryPoints: [preScriptEntry],
+      inject: [setupPath],
       outfile: join(outDir, PRE_SCRIPT_FILENAME),
       format: 'iife',
       platform: 'browser',
@@ -1116,7 +1114,7 @@ try {
       plugins: [stripNodeBuiltins],
     });
   } finally {
-    await unlink(wrapperPath).catch(() => {});
+    await unlink(setupPath).catch(() => {});
   }
 
   const iifeRaw = await readFile(join(outDir, PRE_SCRIPT_FILENAME), 'utf-8');
@@ -1437,7 +1435,7 @@ const handleBuild = async (options: { watch?: boolean }): Promise<void> => {
         filename === ADAPTER_FILENAME ||
         filename === PRE_SCRIPT_FILENAME ||
         filename.startsWith('_adapter_entry_') ||
-        filename.startsWith('_pre_script_entry_')
+        filename.startsWith('_pre_script_setup_')
       )
         return;
       if (debounceTimer) clearTimeout(debounceTimer);
