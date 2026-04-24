@@ -1061,12 +1061,23 @@ interface McpClient {
   initialize: () => Promise<void>;
   /** List all registered tools via `tools/list`. */
   listTools: () => Promise<Array<{ name: string; description: string; inputSchema?: unknown }>>;
-  /** Call a tool via `tools/call` and return the concatenated text content. */
+  /**
+   * Call a tool via `tools/call` and return the concatenated text content
+   * plus the raw content-part array. `content` joins every text part; image,
+   * audio, and other non-text parts are not included in `content` (their
+   * payloads are not text). Tests that need to assert on non-text parts
+   * (e.g. screenshot returns an `image` content part) should read
+   * `contentParts` directly.
+   */
   callTool: (
     name: string,
     args?: Record<string, unknown>,
     options?: { timeout?: number },
-  ) => Promise<{ content: string; isError: boolean }>;
+  ) => Promise<{
+    content: string;
+    isError: boolean;
+    contentParts: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+  }>;
   /** Call a tool with a progressToken and capture all progress notifications from the SSE stream. */
   callToolWithProgress: (
     name: string,
@@ -1258,15 +1269,18 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
       // Handle JSON-RPC error responses (e.g. dispatch timeout)
       if (res.error) {
         const err = res.error as { message: string };
-        return { content: err.message, isError: true };
+        return { content: err.message, isError: true, contentParts: [] };
       }
 
       const result = res.result as {
-        content: Array<{ type: string; text: string }>;
+        content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
         isError?: boolean;
       };
-      const text = result.content.map(c => c.text).join('');
-      return { content: text, isError: result.isError === true };
+      const text = result.content
+        .filter(c => c.type === 'text' && typeof c.text === 'string')
+        .map(c => c.text as string)
+        .join('');
+      return { content: text, isError: result.isError === true, contentParts: result.content };
     },
 
     callToolWithProgress: async (name, args = {}, options) => {
