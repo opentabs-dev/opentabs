@@ -24,6 +24,7 @@ import {
   DEFAULT_PORT,
   getConfigDir,
   getConfigPath,
+  PRE_SCRIPT_FILENAME,
   parsePluginPackageJson,
   pluginNameFromPackage,
   TOOLS_FILENAME,
@@ -623,6 +624,8 @@ interface PluginManifestOutput {
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
   iconDarkInactiveSvg?: string;
+  preScriptFile?: string;
+  preScriptHash?: string;
   tools: ManifestTool[];
 }
 
@@ -687,13 +690,19 @@ const resolveSdkVersion = async (projectDir: string): Promise<string> => {
 };
 
 /** Generate the full manifest (tools) for dist/tools.json */
-const generateManifest = (plugin: OpenTabsPlugin, sdkVersion: string, icons?: IconResult): PluginManifestOutput => ({
+const generateManifest = (
+  plugin: OpenTabsPlugin,
+  sdkVersion: string,
+  icons?: IconResult,
+  preScript?: { file: string; hash: string },
+): PluginManifestOutput => ({
   sdkVersion,
   ...(plugin.configSchema && Object.keys(plugin.configSchema).length > 0 ? { configSchema: plugin.configSchema } : {}),
   ...(icons?.iconSvg ? { iconSvg: icons.iconSvg } : {}),
   ...(icons?.iconInactiveSvg ? { iconInactiveSvg: icons.iconInactiveSvg } : {}),
   ...(icons?.iconDarkSvg ? { iconDarkSvg: icons.iconDarkSvg } : {}),
   ...(icons?.iconDarkInactiveSvg ? { iconDarkInactiveSvg: icons.iconDarkInactiveSvg } : {}),
+  ...(preScript ? { preScriptFile: preScript.file, preScriptHash: preScript.hash } : {}),
   tools: generateToolsManifest(plugin),
 });
 
@@ -741,6 +750,11 @@ interface OpenTabsRuntime {
   _readinessNonce?: string;
   _notifyReadinessChanged?: () => void;
   _navigationInterceptor?: NavigationInterceptor;
+  /** The currently-executing plugin adapter's name.
+   *  Set by each tool-handler wrap before calling user code so
+   *  getPreScriptValue() reads the correct per-plugin namespace. */
+  _pluginName?: string;
+  preScript?: Record<string, Record<string, unknown>>;
 }
 declare global {
   var __openTabs: OpenTabsRuntime | undefined;
@@ -855,6 +869,10 @@ for (const tool of plugin.tools) {
   const origHandle = tool.handle;
   tool.handle = async function(...handleArgs: [unknown, ...unknown[]]) {
     const startTime = performance.now();
+    // Pin the current plugin name so getPreScriptValue() in the SDK reads
+    // this plugin's bucket, not another adapter's.
+    const runtime = globalThis.__openTabs!;
+    runtime._pluginName = ${name};
     if (hasLifecycleHooks && typeof plugin.onToolInvocationStart === 'function') {
       try { plugin.onToolInvocationStart(tool.name); } catch (e) { console.warn('[OpenTabs] onToolInvocationStart failed:', e); }
     }
@@ -974,6 +992,91 @@ if (typeof plugin.onNavigate === 'function') {
     await esbuild({
       entryPoints: [wrapperPath],
       outfile: join(outDir, ADAPTER_FILENAME),
+      format: 'iife',
+      platform: 'browser',
+      bundle: true,
+      minify: false,
+      sourcemap: 'linked',
+      plugins: [stripNodeBuiltins],
+    });
+  } finally {
+    await unlink(wrapperPath).catch(() => {});
+  }
+};
+
+/**
+ * Bundle the plugin's optional pre-script into its own IIFE.
+ *
+ * The pre-script runs at `document_start` in MAIN world via
+ * `chrome.scripting.registerContentScripts`. It is strictly isolated from the
+ * adapter IIFE: no tools, no DOM helpers, no tool runtime. Its only output is
+ * values written via the `set` callback into
+ * `globalThis.__openTabs.preScript[pluginName]`, which the adapter later
+ * reads via `getPreScriptValue(key)`.
+ *
+ * The wrapper:
+ *   1. Ensures `globalThis.__openTabs` and `.preScript` exist.
+ *   2. Clears this plugin's bucket (pre-scripts re-run on full navigations).
+ *   3. Installs a `_preScriptRunner` that invokes the user's callback with a
+ *      plugin-name-bound `set`. Build-time string substitution guarantees
+ *      plugins cannot write to each other's buckets.
+ *   4. Imports the user's pre-script module — the import calls
+ *      `definePreScript(fn)`, which calls `_preScriptRunner(fn)`.
+ *   5. Removes `_preScriptRunner` so subsequent imports cannot hijack it.
+ */
+const bundlePreScript = async (sourceEntry: string, outDir: string, pluginName: string): Promise<void> => {
+  const wrapperPath = join(outDir, `_pre_script_entry_${crypto.randomUUID()}.ts`);
+  const relativeImport = `./${relative(outDir, sourceEntry).replace(/\.ts$/, '.js')}`;
+  const name = JSON.stringify(pluginName);
+
+  const wrapperCode = `type PreScriptCallback = (ctx: {
+  set(key: string, value: unknown): void;
+  log: { debug: (msg: string, ...args: unknown[]) => void; info: (msg: string, ...args: unknown[]) => void; warn: (msg: string, ...args: unknown[]) => void; error: (msg: string, ...args: unknown[]) => void };
+}) => void;
+
+interface OpenTabsPreScriptRuntime {
+  preScript?: Record<string, Record<string, unknown>>;
+  _preScriptRunner?: (fn: PreScriptCallback) => void;
+}
+declare global { var __openTabs: OpenTabsPreScriptRuntime | undefined; }
+
+const PLUGIN_NAME: string = ${name};
+const g = globalThis as { __openTabs?: OpenTabsPreScriptRuntime };
+if (!g.__openTabs) g.__openTabs = {};
+const ot = g.__openTabs;
+if (!ot.preScript) ot.preScript = {};
+// Reset this plugin's bucket on every page load — pre-scripts are observational
+// and should start each navigation with a clean slate.
+ot.preScript[PLUGIN_NAME] = {};
+
+const bucket = ot.preScript[PLUGIN_NAME];
+const prefix = '[opentabs:' + PLUGIN_NAME + ':pre-script]';
+const log = {
+  debug: (msg: string, ...args: unknown[]) => { console.debug(prefix, msg, ...args); },
+  info: (msg: string, ...args: unknown[]) => { console.info(prefix, msg, ...args); },
+  warn: (msg: string, ...args: unknown[]) => { console.warn(prefix, msg, ...args); },
+  error: (msg: string, ...args: unknown[]) => { console.error(prefix, msg, ...args); },
+};
+
+ot._preScriptRunner = (fn: PreScriptCallback) => {
+  const set = (key: string, value: unknown) => { bucket[key] = value; };
+  try { fn({ set, log }); } catch (e) { console.error(prefix, 'pre-script threw:', e); }
+};
+
+// Importing the user module triggers definePreScript(fn) → _preScriptRunner(fn).
+import(${JSON.stringify(relativeImport)}).then(() => {
+  delete ot._preScriptRunner;
+}).catch((e: unknown) => {
+  console.error(prefix, 'failed to load pre-script module:', e);
+  delete ot._preScriptRunner;
+});
+`;
+
+  await writeFile(wrapperPath, wrapperCode, 'utf-8');
+  try {
+    await esbuild({
+      entryPoints: [wrapperPath],
+      outfile: join(outDir, PRE_SCRIPT_FILENAME),
       format: 'iife',
       platform: 'browser',
       bundle: true,
@@ -1193,9 +1296,35 @@ const runBuild = async (projectDir: string): Promise<void> => {
   console.log(pc.dim('Resolving SDK version...'));
   const sdkVersion = await resolveSdkVersion(projectDir);
 
+  // Step 5b: Bundle pre-script (if declared) — runs at document_start in MAIN world
+  let preScriptInfo: { file: string; hash: string } | undefined;
+  const preScriptPath = pkgJson.opentabs.preScript;
+  if (preScriptPath) {
+    console.log(pc.dim('Bundling pre-script IIFE...'));
+    const preScriptSourceEntry = resolve(projectDir, preScriptPath);
+    const preScriptSourceExists = await access(preScriptSourceEntry).then(
+      () => true,
+      () => false,
+    );
+    if (!preScriptSourceExists) {
+      throw new Error(
+        `Declared preScript source not found: ${preScriptSourceEntry}. Check the "opentabs.preScript" field in package.json.`,
+      );
+    }
+    await bundlePreScript(preScriptSourceEntry, distDir, derivedName);
+    const preScriptOutPath = join(distDir, PRE_SCRIPT_FILENAME);
+    const preScriptRaw = await readFile(preScriptOutPath, 'utf-8');
+    const preScriptSmMatch = /\n\/\/# sourceMappingURL=[^\n]+\n?$/.exec(preScriptRaw);
+    const preScriptContent = preScriptSmMatch ? preScriptRaw.slice(0, -preScriptSmMatch[0].length) : preScriptRaw;
+    const preScriptHash = createHash('sha256').update(preScriptContent).digest('hex');
+    preScriptInfo = { file: PRE_SCRIPT_FILENAME, hash: preScriptHash };
+    const preScriptSize = (await stat(preScriptOutPath)).size;
+    console.log(`  Written: ${pc.bold(`dist/${PRE_SCRIPT_FILENAME}`)} (${formatBytes(preScriptSize)})`);
+  }
+
   // Step 6: Generate dist/tools.json (tool schemas + icons)
   console.log(pc.dim(`Generating ${TOOLS_FILENAME}...`));
-  const manifest = generateManifest(plugin, sdkVersion, icons);
+  const manifest = generateManifest(plugin, sdkVersion, icons, preScriptInfo);
   const toolsJsonPath = join(distDir, TOOLS_FILENAME);
   await writeFile(toolsJsonPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
   const toolCount = manifest.tools.length;

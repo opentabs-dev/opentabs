@@ -32,6 +32,9 @@ export const ADAPTER_SOURCE_MAP_FILENAME = 'adapter.iife.js.map';
 /** Filename of the tool manifest produced by `opentabs-plugin build` */
 export const TOOLS_FILENAME = 'tools.json';
 
+/** Filename of the bundled pre-script IIFE (when declared by a plugin) */
+export const PRE_SCRIPT_FILENAME = 'pre-script.iife.js';
+
 // ---------------------------------------------------------------------------
 // Config directory paths
 // ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ import {
   BROWSER_TOOLS_CATALOG,
   err,
   ok,
+  PRE_SCRIPT_FILENAME,
   parsePluginPackageJson,
   pluginNameFromPackage,
   TOOLS_FILENAME,
@@ -63,6 +64,10 @@ interface LoadedPlugin {
   readonly iconDarkInactiveSvg: string | undefined;
   /** Optional config schema from tools.json manifest */
   readonly configSchema: ConfigSchema | undefined;
+  /** Pre-script IIFE content (when plugin declares preScript in package.json) */
+  readonly preScript: string | undefined;
+  /** SHA-256 hex hash of the pre-script IIFE content (from manifest) */
+  readonly preScriptHash: string | undefined;
 }
 
 /**
@@ -398,6 +403,27 @@ const loadPlugin = async (dir: string, source: PluginSource): Promise<Result<Loa
   const iconDarkInactiveSvg =
     manifestObj && typeof manifestObj.iconDarkInactiveSvg === 'string' ? manifestObj.iconDarkInactiveSvg : undefined;
 
+  // Load optional pre-script IIFE. The plugin declares `preScript` in
+  // package.json's opentabs field; the build tool emits PRE_SCRIPT_FILENAME
+  // alongside the adapter. Absent preScriptFile → plugin has no pre-script.
+  let preScript: string | undefined;
+  let preScriptHash: string | undefined;
+  const declaredPreScriptFile =
+    manifestObj && typeof manifestObj.preScriptFile === 'string' ? manifestObj.preScriptFile : undefined;
+  const declaredPreScriptHash =
+    manifestObj && typeof manifestObj.preScriptHash === 'string' ? manifestObj.preScriptHash : undefined;
+  if (declaredPreScriptFile) {
+    const preScriptPath = join(dir, 'dist', PRE_SCRIPT_FILENAME);
+    try {
+      preScript = await readFile(preScriptPath, 'utf-8');
+      preScriptHash = declaredPreScriptHash;
+    } catch {
+      log.warn(
+        `Plugin "${pluginName}" declares preScriptFile in manifest but ${PRE_SCRIPT_FILENAME} is missing at ${preScriptPath} — pre-script disabled`,
+      );
+    }
+  }
+
   return ok({
     name: pluginName,
     version: pkg.version,
@@ -419,6 +445,8 @@ const loadPlugin = async (dir: string, source: PluginSource): Promise<Result<Loa
     iconDarkSvg,
     iconDarkInactiveSvg,
     configSchema,
+    preScript,
+    preScriptHash,
   });
 };
 

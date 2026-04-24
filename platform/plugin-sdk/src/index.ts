@@ -259,6 +259,12 @@ export { getConfig } from './config.js';
 export { getCurrentUrl, getPageGlobal, getPageTitle } from './page-state.js';
 
 // ---------------------------------------------------------------------------
+// SDK utilities — Pre-Script
+// ---------------------------------------------------------------------------
+
+export { getPreScriptValue } from './pre-script-reader.js';
+
+// ---------------------------------------------------------------------------
 // SDK utilities — Logging
 // ---------------------------------------------------------------------------
 

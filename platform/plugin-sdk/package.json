@@ -18,6 +18,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./pre-script": {
+      "types": "./dist/pre-script.d.ts",
+      "import": "./dist/pre-script.js"
     }
   },
   "types": "./dist/index.d.ts",

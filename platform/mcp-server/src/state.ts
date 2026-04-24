@@ -122,6 +122,10 @@ export interface RegisteredPlugin {
   iconDarkSvg?: string;
   /** Optional SVG icon for dark mode inactive state */
   iconDarkInactiveSvg?: string;
+  /** Pre-script IIFE content (when plugin declares preScript in package.json) */
+  preScript?: string;
+  /** SHA-256 hex hash of the pre-script IIFE content (from manifest) */
+  preScriptHash?: string;
   /** Config schema defining user-configurable settings for this plugin */
   configSchema?: ConfigSchema;
   /** Instance name → Chrome match pattern mapping for multi-instance url settings */

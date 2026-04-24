@@ -16,6 +16,7 @@ import {
   timeoutRace,
   writeAdapterFile,
   writeExecFile,
+  writePreScriptFile,
 } from './adapter-files.js';
 import type { McpCallbacks } from './extension-handlers.js';
 import {
@@ -62,25 +63,35 @@ const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
  * Write adapter IIFE files for all plugins in the registry.
  * Ensures the adapters/ directory exists, cleans up stale files for removed
  * plugins, and writes each plugin's IIFE to a content-hashed file.
- * Returns a Map of plugin name → adapter file path for successful writes.
+ * Also writes each plugin's optional pre-script IIFE to a sibling
+ * `{pluginName}-prescript-<hash8>.js` file.
+ * Returns a Map of plugin name → { adapterFile, preScriptFile? } for successful writes.
  *
  * Called eagerly during server startup (via reloadCore) so adapter files
  * exist on disk before the extension connects, and again from sendSyncFull
  * when the extension is connected.
  */
-const writeAllAdapterFiles = async (state: ServerState): Promise<Map<string, string>> => {
+const writeAllAdapterFiles = async (
+  state: ServerState,
+): Promise<Map<string, { adapterFile: string; preScriptFile?: string }>> => {
   const pluginList = Array.from(state.registry.plugins.values());
   await ensureAdaptersDir(state);
 
   const currentPluginNames = new Set(pluginList.map(p => p.name));
   await cleanupStaleAdapterFiles(currentPluginNames);
 
-  const writePromise = Promise.allSettled(pluginList.map(p => writeAdapterFile(p.name, p.iife, p.iifeSourceMap)));
+  const writePromise = Promise.allSettled(
+    pluginList.map(async p => {
+      const adapterFile = await writeAdapterFile(p.name, p.iife, p.iifeSourceMap);
+      const preScriptFile = p.preScript ? await writePreScriptFile(p.name, p.preScript) : undefined;
+      return { adapterFile, preScriptFile };
+    }),
+  );
   const timeout = timeoutRace<null>(null, ADAPTER_WRITE_TIMEOUT_MS);
   const writeResults = await Promise.race([writePromise, timeout.promise]);
   timeout.cancel();
 
-  const adapterFileMap = new Map<string, string>();
+  const pluginFileMap = new Map<string, { adapterFile: string; preScriptFile?: string }>();
   if (writeResults === null) {
     log.warn(
       `Adapter file writes did not complete within ${ADAPTER_WRITE_TIMEOUT_MS}ms. Pending plugins: ${pluginList.map(p => p.name).join(', ')}`,
@@ -91,12 +102,12 @@ const writeAllAdapterFiles = async (state: ServerState): Promise<Map<string, str
       if (result.status === 'rejected') {
         log.warn(`Failed to write adapter file for ${plugin?.name ?? 'unknown'}:`, result.reason);
       } else if (plugin) {
-        adapterFileMap.set(plugin.name, result.value);
+        pluginFileMap.set(plugin.name, result.value);
       }
     }
   }
 
-  return adapterFileMap;
+  return pluginFileMap;
 };
 
 /**
@@ -105,7 +116,7 @@ const writeAllAdapterFiles = async (state: ServerState): Promise<Map<string, str
  * then sends plugin metadata (without IIFE content) to the extension.
  */
 const sendSyncFull = async (state: ServerState): Promise<void> => {
-  const adapterFileMap = await writeAllAdapterFiles(state);
+  const pluginFileMap = await writeAllAdapterFiles(state);
   const pluginList = Array.from(state.registry.plugins.values());
 
   // Build the full config state payload to include server-owned fields
@@ -116,11 +127,14 @@ const sendSyncFull = async (state: ServerState): Promise<void> => {
 
   const plugins = pluginList.map(p => {
     const configPlugin = configPluginMap.get(p.name);
+    const files = pluginFileMap.get(p.name);
     return {
       ...serializePluginForExtension(state, p),
       sourcePath: p.sourcePath,
       adapterHash: p.adapterHash,
-      adapterFile: adapterFileMap.get(p.name),
+      adapterFile: files?.adapterFile,
+      ...(files?.preScriptFile ? { preScriptFile: files.preScriptFile } : {}),
+      ...(p.preScriptHash ? { preScriptHash: p.preScriptHash } : {}),
       source: configPlugin?.source ?? p.source,
       ...(configPlugin?.sdkVersion ? { sdkVersion: configPlugin.sdkVersion } : {}),
       ...(configPlugin?.update ? { update: configPlugin.update } : {}),
@@ -448,6 +462,7 @@ const sendPluginUpdate = async (
 
   await ensureAdaptersDir(state);
   const adapterFile = await writeAdapterFile(pluginName, iife, sourceMap);
+  const preScriptFile = plugin.preScript ? await writePreScriptFile(pluginName, plugin.preScript) : undefined;
 
   const userSettings = state.pluginSettings[pluginName];
   const { resolvedValues } = resolvePluginSettings(
@@ -467,6 +482,8 @@ const sendPluginUpdate = async (
       sourcePath: plugin.sourcePath,
       adapterHash: plugin.adapterHash,
       adapterFile,
+      ...(preScriptFile ? { preScriptFile } : {}),
+      ...(plugin.preScriptHash ? { preScriptHash: plugin.preScriptHash } : {}),
       ...(plugin.configSchema ? { configSchema: plugin.configSchema } : {}),
       ...(hasResolvedSettings ? { resolvedSettings: resolvedValues } : {}),
     },

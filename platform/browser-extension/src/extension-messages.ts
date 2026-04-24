@@ -263,6 +263,10 @@ export interface PluginMeta {
   sourcePath?: string;
   adapterHash?: string;
   adapterFile?: string;
+  /** Relative path (under extension root) to the bundled pre-script file registered via chrome.scripting.registerContentScripts. Undefined if the plugin has no pre-script. */
+  preScriptFile?: string;
+  /** SHA-256 hex of the pre-script content. Used to detect content changes and re-register only when necessary. */
+  preScriptHash?: string;
   resolvedSettings?: Record<string, unknown>;
   /** Instance name → Chrome match pattern mapping for multi-instance url settings */
   instanceMap?: Record<string, string>;

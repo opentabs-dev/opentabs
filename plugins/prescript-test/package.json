@@ -1,0 +1,37 @@
+{
+  "name": "@opentabs-dev/opentabs-plugin-prescript-test",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/adapter.iife.js",
+  "keywords": ["opentabs-plugin"],
+  "opentabs": {
+    "displayName": "PreScript POC",
+    "description": "POC plugin proving pre-script feature captures a bearer token before the page overwrites window.fetch.",
+    "urlPatterns": ["http://localhost/*", "http://127.0.0.1/*"],
+    "preScript": "src/pre-script.ts"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc && opentabs-plugin build"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
+  },
+  "dependencies": {
+    "@opentabs-dev/plugin-sdk": "file:../../platform/plugin-sdk"
+  },
+  "devDependencies": {
+    "@opentabs-dev/plugin-tools": "file:../../platform/plugin-tools",
+    "@opentabs-dev/shared": "file:../../platform/shared",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  }
+}

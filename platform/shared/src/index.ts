@@ -58,6 +58,7 @@ export {
   normalizePluginName,
   PLATFORM_PACKAGES,
   PLUGIN_PREFIX,
+  PRE_SCRIPT_FILENAME,
   pluginNameFromPackage,
   resolvePluginPackageCandidates,
   TOOLS_FILENAME,

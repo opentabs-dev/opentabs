@@ -36,6 +36,13 @@ interface PluginOpentabsField {
   readonly excludePatterns?: string[];
   readonly homepage?: string;
   readonly configSchema?: ConfigSchema;
+  /**
+   * Optional path to a TypeScript source file that runs at `document_start`
+   * in MAIN world before any page script. Relative to the plugin root
+   * (e.g., "src/pre-script.ts"). When declared, `opentabs-plugin build`
+   * bundles it separately and emits `dist/pre-script.iife.js`.
+   */
+  readonly preScript?: string;
 }
 
 /** A plugin's package.json with the required `opentabs` field */
@@ -217,6 +224,16 @@ const parsePluginPackageJson = (json: unknown, sourcePath: string): Result<Plugi
     parsedHomepage = homepage;
   }
 
+  // Parse preScript (optional) — relative path to a .ts file
+  const preScript = ot.preScript;
+  let parsedPreScript: string | undefined;
+  if (preScript !== undefined) {
+    if (typeof preScript !== 'string' || preScript.length === 0) {
+      return err(`Invalid package.json at ${sourcePath}: "opentabs.preScript" must be a non-empty string path`);
+    }
+    parsedPreScript = preScript;
+  }
+
   return ok({
     name,
     version,
@@ -228,6 +245,7 @@ const parsePluginPackageJson = (json: unknown, sourcePath: string): Result<Plugi
       ...(parsedExcludePatterns ? { excludePatterns: parsedExcludePatterns } : {}),
       ...(parsedHomepage ? { homepage: parsedHomepage } : {}),
       ...(parsedConfigSchema ? { configSchema: parsedConfigSchema } : {}),
+      ...(parsedPreScript ? { preScript: parsedPreScript } : {}),
     },
   });
 };

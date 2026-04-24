@@ -88,6 +88,7 @@ import { cleanupAdaptersInMatchingTabs, injectPluginIntoMatchingTabs } from './i
 import { JSONRPC_INTERNAL_ERROR, JSONRPC_INVALID_PARAMS, JSONRPC_METHOD_NOT_FOUND } from './json-rpc-errors.js';
 import { forwardToSidePanel, sendTabStateNotification, sendToServer } from './messaging.js';
 import { getAllPluginMeta, removePlugin, removePluginsBatch, storePluginsBatch } from './plugin-storage.js';
+import { removePreScript, syncPreScripts, upsertPreScript } from './pre-script-registration.js';
 import { checkRateLimit } from './rate-limiter.js';
 import { consumeServerResponse } from './server-request.js';
 import {
@@ -169,6 +170,8 @@ interface ValidatedPluginPayload {
   sourcePath?: string;
   adapterHash?: string;
   adapterFile?: string;
+  preScriptFile?: string;
+  preScriptHash?: string;
   resolvedSettings?: Record<string, unknown>;
   instanceMap?: Record<string, string>;
   iconSvg?: string;
@@ -218,6 +221,8 @@ const toPluginMeta = (p: ValidatedPluginPayload): PluginMeta => ({
   sourcePath: p.sourcePath,
   adapterHash: p.adapterHash,
   adapterFile: p.adapterFile,
+  preScriptFile: p.preScriptFile,
+  preScriptHash: p.preScriptHash,
   resolvedSettings: p.resolvedSettings,
   instanceMap: p.instanceMap,
   iconSvg: p.iconSvg,
@@ -341,6 +346,8 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
     sourcePath: typeof obj.sourcePath === 'string' ? obj.sourcePath : undefined,
     adapterHash: typeof obj.adapterHash === 'string' ? obj.adapterHash : undefined,
     adapterFile: typeof obj.adapterFile === 'string' ? obj.adapterFile : undefined,
+    preScriptFile: typeof obj.preScriptFile === 'string' ? obj.preScriptFile : undefined,
+    preScriptHash: typeof obj.preScriptHash === 'string' ? obj.preScriptHash : undefined,
     resolvedSettings: parseResolvedSettings(obj.resolvedSettings),
     instanceMap: parseInstanceMap(obj.instanceMap),
     iconSvg: typeof obj.iconSvg === 'string' ? obj.iconSvg : undefined,
@@ -426,6 +433,13 @@ const handleSyncFull = async (params: Record<string, unknown>): Promise<void> =>
   const metas: PluginMeta[] = uniquePlugins.map(toPluginMeta);
 
   await storePluginsBatch(metas);
+
+  // Register pre-scripts via chrome.scripting.registerContentScripts so they
+  // fire at document_start in MAIN world on future navigations to matching
+  // tabs. Scripts for plugins no longer in the registry are unregistered.
+  // Already-open tabs are unaffected — they would need reload to activate
+  // a newly-registered pre-script.
+  await syncPreScripts(metas);
 
   // Inject all plugins into matching tabs in parallel — each plugin's
   // injection is independent and involves cross-process IPC, so parallelizing
@@ -561,6 +575,9 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
   const meta = toPluginMeta(validated);
 
   await storePluginsBatch([meta]);
+  // Re-register (or register for the first time) the pre-script so matching
+  // tabs injected on future navigations get the updated content.
+  await upsertPreScript(meta);
   // Force re-injection so the new IIFE overwrites the stale adapter code
   // already present in matching tabs. Without this, injectPluginIntoMatchingTabs
   // skips tabs where the adapter is already injected, leaving old code running.
@@ -651,6 +668,10 @@ const handlePluginUninstall = async (params: Record<string, unknown>, id: string
       console.warn(`[opentabs] Failed to clean up adapters for ${pluginName}:`, err);
     }
   }
+
+  // Always attempt to remove any registered pre-script for this plugin —
+  // safe even if none was registered.
+  await removePreScript(pluginName);
 
   await removePlugin(pluginName);
   clearPluginTabState(pluginName);

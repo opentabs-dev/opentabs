@@ -90,6 +90,36 @@ const writeAdapterFile = async (pluginName: string, iife: string, sourceMap?: st
 };
 
 /**
+ * Write a plugin's pre-script IIFE to the extension's adapters/ directory.
+ * Uses a distinct filename pattern ({pluginName}-prescript-{hash8}.js) so
+ * `chrome.scripting.registerContentScripts` receives a fresh path on each
+ * version change (Chrome caches scripts by URL). Cleans up old pre-script
+ * versions for the same plugin.
+ *
+ * Returns the relative path (e.g., "adapters/outlook-prescript-a1b2c3d4.js")
+ * for the extension to pass into `registerContentScripts`.
+ */
+const writePreScriptFile = async (pluginName: string, preScript: string): Promise<string> => {
+  const adaptersDir = getAdaptersDir();
+  const contentHash = createHash('sha256').update(preScript).digest('hex').slice(0, 8);
+  const baseName = `${pluginName}-prescript-${contentHash}`;
+
+  await atomicWrite(join(adaptersDir, `${baseName}.js`), preScript);
+
+  let entries: string[];
+  try {
+    entries = await readdir(adaptersDir);
+  } catch {
+    entries = [];
+  }
+  const preScriptRegex = new RegExp(`^${escapeRegex(pluginName)}-prescript-[0-9a-f]{8}\\.js$`);
+  const oldFiles = entries.filter(f => preScriptRegex.test(f) && f !== `${baseName}.js`);
+  await Promise.allSettled(oldFiles.map(f => unlink(join(adaptersDir, f))));
+
+  return `adapters/${baseName}.js`;
+};
+
+/**
  * Remove stale adapter .js files from the adapters directory that do not
  * correspond to any plugin in the current set. Called from writeAllAdapterFiles
  * (and transitively from sendSyncFull and reloadCore) before writing new adapter files.
@@ -105,8 +135,13 @@ const cleanupStaleAdapterFiles = async (currentPluginNames: Set<string>): Promis
   }
 
   // Strip the content hash suffix (-[0-9a-f]{8}) from hashed filenames
-  // to recover the plugin name for staleness checks.
-  const stripHash = (name: string): string => name.replace(/-[0-9a-f]{8}$/, '');
+  // to recover the plugin name for staleness checks. Pre-script files have
+  // the form `<plugin>-prescript-<hash8>` — strip both the hash and the
+  // `-prescript` segment to recover the plugin name.
+  const stripHash = (name: string): string => {
+    const withoutHash = name.replace(/-[0-9a-f]{8}$/, '');
+    return withoutHash.replace(/-prescript$/, '');
+  };
 
   const staleFiles = entries.filter(f => {
     if (f.endsWith('.js.tmp') || f.endsWith('.js.map.tmp')) return false;
@@ -250,4 +285,5 @@ export {
   timeoutRace,
   writeAdapterFile,
   writeExecFile,
+  writePreScriptFile,
 };
