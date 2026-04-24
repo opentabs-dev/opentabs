@@ -17,12 +17,7 @@ definePreScript(({ set, log }) => {
 
   const patchedFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     // Resolve the URL string for storage
-    const url =
-      typeof input === 'string'
-        ? input
-        : input instanceof URL
-          ? input.href
-          : (input as Request).url;
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
 
     // Extract any Authorization: Bearer header from whichever HeadersInit shape was passed
     const headers = init?.headers;

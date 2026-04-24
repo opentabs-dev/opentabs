@@ -18,10 +18,9 @@ const KIX_PATTERN = /kix\.[a-z0-9]{12,}/g;
  */
 const fetchLiveAnchorIds = async (documentId: string): Promise<Set<string> | null> => {
   try {
-    const resp = await fetch(
-      `${window.location.origin}/document/d/${encodeURIComponent(documentId)}/edit`,
-      { credentials: 'include' },
-    );
+    const resp = await fetch(`${window.location.origin}/document/d/${encodeURIComponent(documentId)}/edit`, {
+      credentials: 'include',
+    });
     if (!resp.ok) return null;
     const html = await resp.text();
     return new Set(html.match(KIX_PATTERN) ?? []);
