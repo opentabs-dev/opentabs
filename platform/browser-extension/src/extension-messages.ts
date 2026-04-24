@@ -270,5 +270,9 @@ export interface PluginMeta {
   iconInactiveSvg?: string;
   iconDarkSvg?: string;
   iconDarkInactiveSvg?: string;
+  /** Relative path to the pre-script IIFE within the extension bundle (e.g. 'adapters/<name>-prescript-<hash8>.js'). */
+  preScriptFile?: string;
+  /** SHA-256 hash of the pre-script IIFE content. */
+  preScriptHash?: string;
   tools: WireToolDef[];
 }
