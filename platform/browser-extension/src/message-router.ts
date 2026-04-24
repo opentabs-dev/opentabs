@@ -84,10 +84,16 @@ import {
 import { notifyConfirmationRequest } from './confirmation-badge.js';
 import { isValidPluginName, RELOAD_FLUSH_DELAY_MS, WS_CONNECTED_KEY } from './constants.js';
 import type { PluginMeta } from './extension-messages.js';
-import { cleanupAdaptersInMatchingTabs, injectPluginIntoMatchingTabs } from './iife-injection.js';
+import { cleanupAdaptersInMatchingTabs, injectPluginIntoMatchingTabs, queryMatchingTabIds } from './iife-injection.js';
 import { JSONRPC_INTERNAL_ERROR, JSONRPC_INVALID_PARAMS, JSONRPC_METHOD_NOT_FOUND } from './json-rpc-errors.js';
 import { forwardToSidePanel, sendTabStateNotification, sendToServer } from './messaging.js';
-import { getAllPluginMeta, removePlugin, removePluginsBatch, storePluginsBatch } from './plugin-storage.js';
+import {
+  getAllPluginMeta,
+  getPluginMeta,
+  removePlugin,
+  removePluginsBatch,
+  storePluginsBatch,
+} from './plugin-storage.js';
 import { removePreScript, syncPreScripts, upsertPreScript } from './pre-script-registration.js';
 import { checkRateLimit } from './rate-limiter.js';
 import { consumeServerResponse } from './server-request.js';
@@ -566,10 +572,35 @@ const handlePluginUpdate = async (params: Record<string, unknown>): Promise<void
   const validated = validatePluginPayload(params);
   if (!validated) return;
 
+  const previous = await getPluginMeta(validated.name);
   const meta = toPluginMeta(validated);
 
   await storePluginsBatch([meta]);
   await upsertPreScript(meta);
+
+  const hashChanged =
+    meta.preScriptFile !== undefined &&
+    previous?.preScriptFile !== undefined &&
+    previous.preScriptHash !== meta.preScriptHash;
+
+  if (hashChanged) {
+    // Pre-script content changed for an already-registered plugin. Chrome's
+    // registered scripts only fire on FUTURE navigations, so tabs currently
+    // open with the stale pre-script must be reloaded for the new pre-script
+    // to take effect. First-time registrations (previous.preScriptFile was
+    // undefined) are NOT auto-reloaded — forcing a reload on first install
+    // would surprise the user mid-task; the new registration applies on the
+    // user's next navigation.
+    const matchingTabIds = await queryMatchingTabIds(meta.urlPatterns, meta.excludePatterns);
+    for (const tabId of matchingTabIds) {
+      try {
+        await chrome.tabs.reload(tabId);
+      } catch (e) {
+        console.warn(`[opentabs] failed to reload tab ${tabId} after pre-script hash change:`, e);
+      }
+    }
+  }
+
   // Force re-injection so the new IIFE overwrites the stale adapter code
   // already present in matching tabs. Without this, injectPluginIntoMatchingTabs
   // skips tabs where the adapter is already injected, leaving old code running.
