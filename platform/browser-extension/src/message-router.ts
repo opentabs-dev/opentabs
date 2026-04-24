@@ -332,6 +332,9 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
         })
     : [];
 
+  const isAdapterPath = (v: unknown): v is string =>
+    typeof v === 'string' && v.startsWith('adapters/') && v.endsWith('.js');
+
   return {
     name: obj.name,
     version: typeof obj.version === 'string' ? obj.version : '0.0.0',
@@ -345,14 +348,14 @@ const validatePluginPayload = (raw: unknown): ValidatedPluginPayload | null => {
         : 'off',
     sourcePath: typeof obj.sourcePath === 'string' ? obj.sourcePath : undefined,
     adapterHash: typeof obj.adapterHash === 'string' ? obj.adapterHash : undefined,
-    adapterFile: typeof obj.adapterFile === 'string' ? obj.adapterFile : undefined,
+    adapterFile: isAdapterPath(obj.adapterFile) ? obj.adapterFile : undefined,
     resolvedSettings: parseResolvedSettings(obj.resolvedSettings),
     instanceMap: parseInstanceMap(obj.instanceMap),
     iconSvg: typeof obj.iconSvg === 'string' ? obj.iconSvg : undefined,
     iconInactiveSvg: typeof obj.iconInactiveSvg === 'string' ? obj.iconInactiveSvg : undefined,
     iconDarkSvg: typeof obj.iconDarkSvg === 'string' ? obj.iconDarkSvg : undefined,
     iconDarkInactiveSvg: typeof obj.iconDarkInactiveSvg === 'string' ? obj.iconDarkInactiveSvg : undefined,
-    preScriptFile: typeof obj.preScriptFile === 'string' ? obj.preScriptFile : undefined,
+    preScriptFile: isAdapterPath(obj.preScriptFile) ? obj.preScriptFile : undefined,
     preScriptHash: typeof obj.preScriptHash === 'string' ? obj.preScriptHash : undefined,
     tools,
   };
