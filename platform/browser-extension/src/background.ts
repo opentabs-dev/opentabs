@@ -11,7 +11,8 @@ import {
 import type { InternalMessage } from './extension-messages.js';
 import { injectPluginsIntoTab, reinjectStoredPlugins } from './iife-injection.js';
 import { loadLastSeenUrlsFromStorage } from './last-seen-urls.js';
-import { invalidatePluginCache } from './plugin-storage.js';
+import { getAllPluginMeta, invalidatePluginCache } from './plugin-storage.js';
+import { syncPreScripts } from './pre-script-registration.js';
 import { initSidePanelToggle } from './side-panel-toggle.js';
 import { checkTabChanged, checkTabRemoved } from './tab-state.js';
 
@@ -142,6 +143,10 @@ chrome.runtime.onInstalled.addListener(() => {
     await ensureOffscreenDocument();
     await setupKeepaliveAlarm();
     await reinjectStoredPlugins();
+    // persistAcrossSessions does not survive extension updates — resync
+    // the registered content-script set from the durable plugin metadata.
+    const metas = Object.values(await getAllPluginMeta());
+    await syncPreScripts(metas);
   })().catch((err: unknown) => console.warn('[opentabs] onInstalled failed:', err));
 });
 
@@ -151,6 +156,10 @@ chrome.runtime.onStartup.addListener(() => {
     await ensureOffscreenDocument();
     await setupKeepaliveAlarm();
     await reinjectStoredPlugins();
+    // persistAcrossSessions does not survive extension updates — resync
+    // the registered content-script set from the durable plugin metadata.
+    const metas = Object.values(await getAllPluginMeta());
+    await syncPreScripts(metas);
   })().catch((err: unknown) => console.warn('[opentabs] onStartup failed:', err));
 });
 
@@ -158,7 +167,12 @@ ensureConnectionId()
   .then(() => ensureOffscreenDocument())
   .catch((err: unknown) => console.warn('[opentabs] offscreen creation failed:', err));
 setupKeepaliveAlarm().catch((err: unknown) => console.warn('[opentabs] keepalive alarm failed:', err));
-reinjectStoredPlugins().catch((err: unknown) => console.warn('[opentabs] plugin reinjection failed:', err));
+reinjectStoredPlugins()
+  .then(async () => {
+    const metas = Object.values(await getAllPluginMeta());
+    await syncPreScripts(metas);
+  })
+  .catch((err: unknown) => console.warn('[opentabs] plugin reinjection failed:', err));
 initConfirmationBadge();
 initNotificationClickHandler();
 
