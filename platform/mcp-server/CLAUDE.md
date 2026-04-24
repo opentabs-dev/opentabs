@@ -115,6 +115,20 @@ The server resolves plugin settings between discovery Phase 4 (merge) and Phase 
 
 **`config.setPluginSettings`**: JSON-RPC method routed in `extension-protocol.ts` for the side panel's `bg:setPluginSettings` relay.
 
+## Pre-Scripts
+
+Plugins can bundle a pre-script IIFE (`dist/pre-script.iife.js`) that runs at `document_start` in MAIN world before any page script. The MCP server threads this through the entire dispatch chain to the extension.
+
+**Loader** (`loader.ts`): When `tools.json` declares `preScriptFile`, the loader reads `dist/pre-script.iife.js` from disk and stores its content as `preScript` on `LoadedPlugin` (and thus `RegisteredPlugin`). `preScriptHash` is read directly from the manifest. Both fields are `undefined` when the plugin has no pre-script.
+
+**Adapter files** (`adapter-files.ts`): `writePreScriptFile(pluginName, preScript)` writes a content-hashed file at `adapters/<plugin>-prescript-<hash8>.js` (distinct from the adapter `adapters/<plugin>-<hash8>.js`). `cleanupStaleAdapterFiles` strips both the hash suffix and the `-prescript` infix when computing the base name for known plugins, so pre-script files for installed plugins are never deleted on re-sync.
+
+**Extension protocol** (`extension-protocol.ts`): Both `sync.full` and `plugin.update` messages include `preScriptFile` and `preScriptHash` as optional fields via conditional spreads. The extension uses `preScriptFile` to register the content script and `preScriptHash` to detect changes that require tab reloads.
+
+**File watcher** (`file-watcher.ts`): In dev mode, `handleToolsJsonChange` re-reads `pre-script.iife.js` from disk and updates `updatedFields.preScript` / `updatedFields.preScriptHash` when `tools.json` changes, ensuring `plugin.update` carries the new hash when a plugin is rebuilt in watch mode.
+
+**Plugin inspect** (`mcp-tool-dispatch.ts`): `plugin_inspect` includes `preScriptSource`, `preScriptLineCount`, and `preScriptByteSize` when the plugin has a pre-script. These fields are omitted entirely when `plugin.preScript` is `undefined`. The `REVIEW_GUIDANCE` constant includes a pre-script section instructing reviewers to scrutinize pre-script code with particular attention given its elevated execution context (MAIN world, before all page scripts, no CSP restrictions).
+
 ## MCP Tool Design Guidelines
 
 - **Tool descriptions must be accurate and informative** — descriptions are shown to AI agents, so clarity is critical for proper tool usage

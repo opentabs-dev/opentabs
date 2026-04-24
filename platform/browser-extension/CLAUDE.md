@@ -176,3 +176,20 @@ The `debugger` permission in the manifest is required for network capture via th
 **Unreviewed icon**: Plugin cards display a `ShieldQuestion` icon (from lucide-react) next to the plugin name when the plugin's current version has not been reviewed (`reviewed: false` in the sync payload). The icon has a tooltip ("This plugin version has not been reviewed") and uses `text-muted-foreground` color. Browser tools never show this icon. The `reviewed` boolean is computed server-side by comparing `reviewedVersion` against the installed version and included in `ConfigStatePlugin`.
 
 **Unreviewed plugin confirmation dialog**: When a user changes an unreviewed plugin's permission from `'off'` to `'ask'` or `'auto'`, a Dialog modal intercepts the change. The dialog explains the plugin hasn't been reviewed, suggests asking the AI agent to review the adapter code, and offers "Cancel" (no change) and "Enable Anyway" (sets permission + marks as user-accepted by writing `reviewedVersion`). The dialog does not appear for reviewed plugins, browser tools, changes to `'off'`, or changes between `'ask'`/`'auto'`. The dialog is implemented inline in `PluginCard.tsx` using the retro Dialog primitive with `pendingPermission` state.
+
+### Pre-Script Registration
+
+`src/pre-script-registration.ts` manages `chrome.scripting.registerContentScripts` for plugins that declare a pre-script.
+
+**Exported functions**:
+- `syncPreScripts(metas: PluginMeta[]): Promise<void>` — reconciles the full set of registered pre-scripts to match the given plugin list. Unregisters stale `opentabs-pre-*` IDs not in the expected set, then upserts each plugin's pre-script in parallel. Called from `background.ts` after `reinjectStoredPlugins` on `onInstalled`, `onStartup`, and the top-level startup chain.
+- `upsertPreScript(meta: PluginMeta): Promise<void>` — registers or re-registers one plugin's pre-script. Returns early (no-op) if `meta.preScriptFile` is undefined. Validates the filename against `SAFE_PRE_SCRIPT_FILENAME` before registering.
+- `removePreScript(pluginName: string): Promise<void>` — unregisters the pre-script for a plugin. Safe to call when no registration exists (swallows the Chrome error). Called from `handlePluginUninstall` in `message-router.ts`.
+
+**Filename validation**: `upsertPreScript` validates `meta.preScriptFile` against the regex `/^adapters\/[a-z0-9][a-z0-9-]*-prescript-[0-9a-f]{8}\.js$/` before calling `chrome.scripting.registerContentScripts`. Any value that doesn't match this pattern is rejected with `console.warn` and no registration is made. This is the trust boundary against a compromised MCP server sending a path-traversal payload.
+
+**Registration ID**: Each plugin's pre-script is registered as `opentabs-pre-<pluginName>` (e.g., `opentabs-pre-prescript-test`). This prefix is the only scanner key used in `getRegisteredPreScriptIds` — unrelated content script registrations are never touched.
+
+**Re-sync on startup**: `background.ts` calls `syncPreScripts` after `reinjectStoredPlugins` on both `chrome.runtime.onInstalled` and `chrome.runtime.onStartup`. This compensates for `persistAcrossSessions: true` being unreliable — Chrome may drop registrations across browser restarts, so re-syncing on every startup ensures pre-scripts are always registered.
+
+**Auto-reload on hash change**: In `handlePluginUpdate` (`message-router.ts`), the previous `PluginMeta` is read before the update is stored. After `upsertPreScript` completes, if `meta.preScriptHash` differs from the previous value AND both the new and previous metas have a `preScriptFile`, all tabs matching the plugin's URL patterns are reloaded via `queryMatchingTabIds` + `chrome.tabs.reload`. This ensures already-open tabs pick up the new pre-script without requiring manual reload. Tabs are NOT reloaded on the first install (when the plugin gains a pre-script for the first time) — only on subsequent hash changes.

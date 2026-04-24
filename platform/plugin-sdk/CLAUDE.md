@@ -150,6 +150,56 @@ class MyPlugin extends OpenTabsPlugin {
 }
 ```
 
+## Pre-Script
+
+A pre-script runs at `document_start` in MAIN world via `chrome.scripting.registerContentScripts`, strictly before any page script. It lets plugins observe or patch page runtime state — auth tokens in outbound fetch/XHR, CSRF nonces, early globals — that the page would otherwise hide before ordinary adapters load.
+
+### Authoring a pre-script
+
+Import `definePreScript` from the **subpath export only** — never from the main SDK barrel:
+
+```typescript
+import { definePreScript } from '@opentabs-dev/plugin-sdk/pre-script';
+
+export default definePreScript(({ set, log }) => {
+  const real = window.fetch;
+  window.fetch = async (input, init) => {
+    const auth = (init?.headers as Record<string, string>)?.Authorization;
+    if (auth) set('authToken', auth);
+    return real(input, init);
+  };
+});
+```
+
+**`definePreScript(fn: (ctx: PreScriptContext) => void): void`** — registers the callback with the IIFE wrapper. Calling it outside the wrapper (e.g., in tests) is a safe no-op.
+
+**`PreScriptContext`**:
+- `set(key: string, value: PreScriptValue): void` — stashes a JSON-serializable value in the plugin's pre-script namespace (`globalThis.__openTabs.preScript[<pluginName>][key]`). The plugin name is injected at build time; plugins cannot write to each other's namespaces.
+- `log` — console logger with `debug`, `info`, `warn`, `error`. Logs go to the browser console only (the extension log relay is not yet installed at `document_start`).
+
+**Constraints**: Pre-scripts have no access to `chrome.*` APIs and no access to the main SDK (no DOM helpers, no fetch utilities, no tool infrastructure). The only surface is `definePreScript`.
+
+The subpath export exists so bundlers do not pull the full SDK into the pre-script IIFE. `definePreScript` is intentionally absent from the main barrel.
+
+### Reading pre-script values in the adapter
+
+**`getPreScriptValue<T>(key: string): T | undefined`** — reads a value stashed by the plugin's pre-script. Exported from the main SDK barrel:
+
+```typescript
+import { getPreScriptValue } from '@opentabs-dev/plugin-sdk';
+
+const token = getPreScriptValue<string>('authToken');
+```
+
+**`undefined` is a normal branch, not an error.** It occurs when:
+- The plugin has no pre-script declared.
+- The adapter was injected into a tab that was already open when the plugin registered (pre-scripts only fire on future navigations).
+- The pre-script ran but did not call `set(key, ...)` for this key.
+
+### Build integration
+
+When `package.json` declares `opentabs.preScript` pointing to a source file (e.g., `"src/pre-script.ts"`), `opentabs-plugin build` bundles it as a separate IIFE (`dist/pre-script.iife.js`) using esbuild's `inject` option to run setup code synchronously before the entry point. The build also computes a SHA-256 hash of the output (first 8 hex digits) and records it in `dist/tools.json` as `preScriptFile` and `preScriptHash`.
+
 ## Why Resources and Prompts Are Not Supported
 
 The MCP spec defines resources (read-only data sources) and prompts (parameterized message templates) alongside tools. OpenTabs intentionally does not support these primitives:

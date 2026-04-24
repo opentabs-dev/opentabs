@@ -13,6 +13,15 @@ platform/shared/src/
 └── cross-platform.ts # Cross-platform utilities (uses Node.js APIs — never import in browser contexts)
 ```
 
+## Constants
+
+Key constants exported from `src/constants.ts`:
+
+- **`ADAPTER_FILENAME`** (`'adapter.iife.js'`) — the adapter IIFE built by `opentabs-plugin build` and loaded by the MCP server.
+- **`PRE_SCRIPT_FILENAME`** (`'pre-script.iife.js'`) — the pre-script IIFE bundled when `package.json` declares `opentabs.preScript`.
+- **`TOOLS_FILENAME`** (`'tools.json'`) — the plugin manifest (tool schemas, preScriptFile/preScriptHash) emitted by the build.
+- **`PLUGIN_PREFIX`** (`'opentabs-plugin-'`) — the npm package name prefix for auto-discovery.
+
 ## Config Schema Types
 
 The plugin settings system uses these types, all defined in `manifest.ts` and re-exported from `index.ts`:
