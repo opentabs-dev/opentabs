@@ -39,9 +39,9 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.28.0",
     "@opentabs-dev/shared": "^0.0.104",
-    "ajv": "^8.18.0",
+    "ajv": "^8.20.0",
     "open": "^11.0.0",
-    "posthog-node": "^5.29.2",
+    "posthog-node": "^5.30.4",
     "ws": "^8.20.0",
     "zod": "^4.3.6"
   }
