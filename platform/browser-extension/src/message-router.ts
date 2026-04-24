@@ -191,6 +191,7 @@ interface ValidatedPluginPayload {
 interface ServerOnlyPluginFields {
   source: 'npm' | 'local';
   reviewed: boolean;
+  hasPreScript: boolean;
   npmPackageName?: string;
   sdkVersion?: string;
   update?: { latestVersion: string; updateCommand: string };
@@ -202,6 +203,7 @@ interface ServerOnlyPluginFields {
 const extractServerOnlyFields = (raw: Record<string, unknown> | undefined): ServerOnlyPluginFields => ({
   source: raw?.source === 'npm' || raw?.source === 'local' ? raw.source : 'local',
   reviewed: raw?.reviewed === true,
+  hasPreScript: raw?.hasPreScript === true,
   ...(typeof raw?.npmPackageName === 'string' ? { npmPackageName: raw.npmPackageName } : {}),
   ...(typeof raw?.sdkVersion === 'string' ? { sdkVersion: raw.sdkVersion } : {}),
   ...(raw?.update && typeof raw.update === 'object'

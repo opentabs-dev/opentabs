@@ -2,7 +2,7 @@
 
 import type { ToolPermission } from '@opentabs-dev/shared';
 import * as AccordionPrimitive from '@radix-ui/react-accordion';
-import { ChevronDown, Settings, ShieldQuestionMark } from 'lucide-react';
+import { ChevronDown, FileCode, Settings, ShieldQuestionMark } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { PluginState, WireToolDef } from '../bridge.js';
@@ -256,6 +256,14 @@ const PluginCard = ({
                   <ShieldQuestionMark className="inline-block h-3.5 w-3.5 align-middle text-muted-foreground" />
                 </Tooltip.Trigger>
                 <Tooltip.Content>This plugin version has not been reviewed</Tooltip.Content>
+              </Tooltip>
+            )}
+            {plugin.hasPreScript && (
+              <Tooltip>
+                <Tooltip.Trigger asChild>
+                  <FileCode className="inline-block h-3.5 w-3.5 align-middle text-muted-foreground" />
+                </Tooltip.Trigger>
+                <Tooltip.Content>This plugin runs a pre-script at document_start in MAIN world</Tooltip.Content>
               </Tooltip>
             )}
           </div>

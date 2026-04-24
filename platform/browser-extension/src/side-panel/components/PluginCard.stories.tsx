@@ -17,6 +17,7 @@ const mockPlugin = (overrides?: Partial<PluginState>): PluginState => ({
   homepage: 'https://app.slack.com',
   sdkVersion: '0.0.3',
   reviewed: true,
+  hasPreScript: false,
   tabs: [{ tabId: 1, url: 'https://app.slack.com/client/T123', title: 'Slack', ready: true }],
   tools: [
     {

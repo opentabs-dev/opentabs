@@ -167,6 +167,7 @@ const serializePluginForExtension = (
   iconDarkSvg?: string;
   iconDarkInactiveSvg?: string;
   instanceMap?: Record<string, string>;
+  hasPreScript: boolean;
   tools: {
     name: string;
     displayName: string;
@@ -197,6 +198,7 @@ const serializePluginForExtension = (
     ...(plugin.iconDarkSvg ? { iconDarkSvg: plugin.iconDarkSvg } : {}),
     ...(plugin.iconDarkInactiveSvg ? { iconDarkInactiveSvg: plugin.iconDarkInactiveSvg } : {}),
     ...(plugin.instanceMap ? { instanceMap: plugin.instanceMap } : {}),
+    hasPreScript: plugin.preScript !== undefined,
     tools: plugin.tools.map(t => ({
       name: t.name,
       displayName: t.displayName,

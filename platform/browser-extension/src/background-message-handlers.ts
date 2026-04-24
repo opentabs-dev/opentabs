@@ -234,7 +234,11 @@ const handleBgGetFullState: MessageHandler = (_message, sendResponse) => {
       // → explicit overrides for permission (with meta fallback), tools (merged
       // with permission state), tabState (live), tabs (live), hasLastSeenUrl
       // (extension-computed). Later spreads override earlier ones.
-      const serverOnlyDefaults: Pick<ConfigStatePlugin, 'source' | 'reviewed'> = { source: 'local', reviewed: false };
+      const serverOnlyDefaults: Pick<ConfigStatePlugin, 'source' | 'reviewed' | 'hasPreScript'> = {
+        source: 'local',
+        reviewed: false,
+        hasPreScript: false,
+      };
       const { tools: _metaTools, adapterHash: _adapterHash, adapterFile: _adapterFile, ...metaFields } = meta;
       return {
         ...metaFields,
