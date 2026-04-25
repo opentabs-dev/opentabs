@@ -37,6 +37,7 @@ const config: KnipConfig = {
         'src/**/*.test.ts',
         'src/**/*.stories.tsx',
         'esbuild-plugin-babel.d.ts',
+        '.storybook/globals.d.ts',
       ],
       ignoreDependencies: [
         // Required at runtime by rolldown-vite (aliased as "vite") for Storybook builds
