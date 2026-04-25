@@ -224,8 +224,12 @@ const decodeJwtPayload = (jwt: string): Record<string, unknown> => {
   const parts = jwt.split('.');
   if (parts.length < 2) return {};
   try {
-    const base64 = parts[1]?.replace(/-/g, '+').replace(/_/g, '/') ?? '';
-    return JSON.parse(atob(base64)) as Record<string, unknown>;
+    // base64url payloads are emitted without `=` padding; restore it before
+    // calling atob, which throws InvalidCharacterError on lengths not
+    // divisible by 4.
+    const raw = parts[1]?.replace(/-/g, '+').replace(/_/g, '/') ?? '';
+    const padded = raw + '='.repeat((4 - (raw.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
   } catch {
     return {};
   }

@@ -38,8 +38,12 @@ definePreScript(({ set, log }) => {
     const parts = jwt.split('.');
     if (parts.length < 2) return null;
     try {
-      const b64 = (parts[1] ?? '').replace(/-/g, '+').replace(/_/g, '/');
-      return JSON.parse(atob(b64)) as Record<string, unknown>;
+      // base64url payloads are emitted without `=` padding; restore it before
+      // calling atob, which throws InvalidCharacterError on lengths not
+      // divisible by 4.
+      const raw = (parts[1] ?? '').replace(/-/g, '+').replace(/_/g, '/');
+      const padded = raw + '='.repeat((4 - (raw.length % 4)) % 4);
+      return JSON.parse(atob(padded)) as Record<string, unknown>;
     } catch {
       return null;
     }
@@ -70,16 +74,13 @@ definePreScript(({ set, log }) => {
       if (!Number.isFinite(expiresOn) || expiresOn <= Date.now() / 1000) return;
 
       const captured: CapturedToken = { secret, expiresOn };
-      // Consumer (`teams.live.com`) and enterprise (`teams.microsoft.com`)
-      // use distinct scope hosts; route into separate slots so the adapter
-      // can pick the correct one based on its detected environment.
-      if (target.includes('api.fl.spaces.skype.com')) {
-        set('consumerToken', captured);
-        log.debug('[teams] captured consumer Skype access token');
-      } else {
-        set('enterpriseToken', captured);
-        log.debug('[teams] captured enterprise Skype access token');
-      }
+      // Route by current page hostname so the slot we write matches the
+      // adapter's detectEnvironment() (which also keys off hostname).
+      // Routing on the cached value's `target` host could disagree with
+      // detectEnvironment if MSAL ever caches a token for the other audience.
+      const slot = window.location.hostname === 'teams.live.com' ? 'consumerToken' : 'enterpriseToken';
+      set(slot, captured);
+      log.debug(`[teams] captured ${slot}`);
       return;
     }
 
@@ -89,7 +90,8 @@ definePreScript(({ set, log }) => {
       const signInName = String(claims.preferred_username ?? claims.upn ?? claims.email ?? '');
       if (signInName) {
         set('signInName', signInName);
-        log.debug(`[teams] captured sign-in name from ID token: ${signInName}`);
+        // Don't log the value — preferred_username / upn / email is PII.
+        log.debug('[teams] captured sign-in name from ID token');
       }
     }
   };
@@ -107,15 +109,23 @@ definePreScript(({ set, log }) => {
   }
 
   // 2. Hook setItem — picks up token refreshes and fresh logins.
-  const realSetItem = Storage.prototype.setItem;
-  Storage.prototype.setItem = function patchedSetItem(key: string, value: string) {
-    try {
-      if (this === localStorage) inspect(value);
-    } catch {
-      // Never break the page if our observer throws.
-    }
-    return realSetItem.call(this, key, value);
-  };
+  // Idempotent: if the prototype is already patched (re-injection during
+  // dev hot reload, future iframe-realm reuse, etc.), skip rather than
+  // stack wrappers (which would walk an N-deep call chain on every write).
+  const PATCH_MARKER = '__opentabsTeamsSetItemPatched';
+  const proto = Storage.prototype as Storage & Record<string, unknown>;
+  if (!proto[PATCH_MARKER]) {
+    const realSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function patchedSetItem(key: string, value: string) {
+      try {
+        if (this === localStorage) inspect(value);
+      } catch {
+        // Never break the page if our observer throws.
+      }
+      return realSetItem.call(this, key, value);
+    };
+    proto[PATCH_MARKER] = true;
+  }
 
   log.info('[teams] MSAL cache observer installed');
 });
