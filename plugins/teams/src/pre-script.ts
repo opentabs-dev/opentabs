@@ -4,25 +4,19 @@ import { definePreScript } from '@opentabs-dev/plugin-sdk/pre-script';
  * Pre-script for the Teams plugin.
  *
  * Runs at document_start in MAIN world, strictly before any page script.
+ * Observes MSAL's localStorage cache writes — `Storage.prototype.setItem`
+ * plus an initial scan of existing entries — and stashes the Skype-API
+ * access token and ID-token-derived sign-in name for the adapter to read.
  *
- * Captures the MSAL-issued Skype-API access token and the MSAL ID token
- * claims by observing the cache layer MSAL writes through —
- * `Storage.prototype.setItem` plus an initial scan of existing
- * `localStorage` entries. The pre-script inspects each entry's *value*
- * (`credentialType`, `target`, `secret`, `expiresOn`) rather than its
- * *key* shape, so it is agnostic to the cache key layout (which Microsoft
- * has already changed twice — v1 dash-separated `<scope>--` suffix → v2
- * pipe-separated `|<scopes>|`).
+ * Recognition is by entry *value* (`credentialType`, `target`, `secret`,
+ * `expiresOn`), not key shape, so it is agnostic to MSAL's cache key
+ * layout.
  *
- * Why setItem / scan instead of `window.fetch` interception:
- * In Microsoft Teams enterprise web v2, the Skype-scoped access token
- * (`aud=https://api.spaces.skype.com`) is never sent through main-world
- * fetch — it only flows through MSAL's internal cache and is consumed
- * directly by the plugin to call `/api/authsvc/v1.0/authz`. Verified
- * empirically across `fetch`, `XMLHttpRequest`, `WebSocket`,
- * `sendBeacon`, and `chrome.debugger`'s Network domain (which sees
- * Service Worker and worker traffic as well). Hooking `setItem` is the
- * earliest deterministic point at which the token is observable.
+ * The Skype-scoped access token (`aud=https://api.spaces.skype.com`) does
+ * not flow through main-world `fetch`, `XMLHttpRequest`, `WebSocket`, or
+ * `sendBeacon` in Teams enterprise web v2 — it is consumed directly by
+ * the plugin to call `/api/authsvc/v1.0/authz`. Hooking `setItem` is the
+ * earliest deterministic observation point.
  *
  * Adapter reads via `getPreScriptValue` keys:
  *   - `consumerToken`     → { secret, expiresOn } for `teams.live.com`
@@ -55,22 +49,27 @@ definePreScript(({ set, log }) => {
    */
   const inspect = (value: string): void => {
     if (typeof value !== 'string' || value.length < 32) return;
-    let parsed: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      parsed = JSON.parse(value) as Record<string, unknown>;
+      parsed = JSON.parse(value);
     } catch {
       return;
     }
+    // MSAL credential entries are JSON objects. Anything else (null, primitives,
+    // arrays) is unrelated cache content; bail before property access so a stray
+    // `null` value can't throw and abort the initial-scan loop.
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+    const entry = parsed as Record<string, unknown>;
 
-    const credentialType = String(parsed.credentialType ?? '').toLowerCase();
-    const secret = typeof parsed.secret === 'string' ? parsed.secret : '';
+    const credentialType = String(entry.credentialType ?? '').toLowerCase();
+    const secret = typeof entry.secret === 'string' ? entry.secret : '';
     if (!secret) return;
 
     if (credentialType === 'accesstoken') {
-      const target = String(parsed.target ?? '');
+      const target = String(entry.target ?? '');
       if (!SKYPE_HOST_PATTERN.test(target)) return;
 
-      const expiresOn = Number.parseInt(String(parsed.expiresOn ?? '0'), 10);
+      const expiresOn = Number.parseInt(String(entry.expiresOn ?? '0'), 10);
       if (!Number.isFinite(expiresOn) || expiresOn <= Date.now() / 1000) return;
 
       const captured: CapturedToken = { secret, expiresOn };
