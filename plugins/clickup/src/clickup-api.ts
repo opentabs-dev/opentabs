@@ -43,7 +43,7 @@ const installWsInterceptor = (): void => {
   g.__cu_ws_interceptor_installed = true;
 
   const OrigSend = WebSocket.prototype.send;
-  WebSocket.prototype.send = function (data: string | ArrayBufferLike | Blob | ArrayBufferView) {
+  WebSocket.prototype.send = function (data: string | Blob | BufferSource) {
     if (typeof data === 'string') {
       try {
         const parsed = JSON.parse(data) as { method?: string; token?: string; teamId?: string };
