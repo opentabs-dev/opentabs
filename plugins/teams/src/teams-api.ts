@@ -1,4 +1,10 @@
-import { ToolError, findLocalStorageEntry, parseRetryAfterMs, waitUntil } from '@opentabs-dev/plugin-sdk';
+import {
+  ToolError,
+  findLocalStorageEntry,
+  getPreScriptValue,
+  parseRetryAfterMs,
+  waitUntil,
+} from '@opentabs-dev/plugin-sdk';
 
 // ---------------------------------------------------------------------------
 // Environment detection
@@ -19,22 +25,16 @@ const detectEnvironment = (): TeamsEnvironment => {
 };
 
 interface EnvConfig {
-  msalClientId: string;
-  msalScopeSuffix: string;
   authzUrl: string;
   chatServiceBase: string | null; // null = discover from localStorage
 }
 
 const CONSUMER_CONFIG: EnvConfig = {
-  msalClientId: '4b3e8f46-56d3-427f-b1e2-d239b2ea6bca',
-  msalScopeSuffix: 'service::api.fl.spaces.skype.com::mbi_ssl--',
   authzUrl: 'https://teams.live.com/api/auth/v1.0/authz/consumer',
   chatServiceBase: 'https://teams.live.com/api/chatsvc/consumer',
 };
 
 const ENTERPRISE_CONFIG: EnvConfig = {
-  msalClientId: '5e3ce6c0-2b1f-4285-8d4b-75ee78787346',
-  msalScopeSuffix: 'https://api.spaces.skype.com/.default--',
   authzUrl: 'https://teams.microsoft.com/api/authsvc/v1.0/authz',
   chatServiceBase: null, // Discovered at runtime from regionGtms
 };
@@ -44,37 +44,51 @@ const getConfig = (): EnvConfig => {
 };
 
 // ---------------------------------------------------------------------------
-// MSAL token discovery
+// Skype API access token (captured by pre-script)
 // ---------------------------------------------------------------------------
 
-interface MsalAccessToken {
+interface CapturedToken {
   secret: string;
-  expiresOn: string;
-  cachedAt: string;
+  expiresOn: number;
 }
 
 /**
- * Find an MSAL access token in localStorage by matching the client ID and
- * scope suffix in the key.
+ * Read a value the pre-script stashed under the `teams` plugin namespace.
+ *
+ * `getPreScriptValue` from the SDK depends on `globalThis.__openTabs._pluginName`
+ * being bound, but the adapter IIFE only binds that during tool dispatch —
+ * `isReady()` runs before any tool is dispatched, so the SDK helper would
+ * return `undefined` there. We try the SDK helper first (which gives
+ * forward-compat with any future SDK changes), then fall back to a direct
+ * namespace read against the documented path.
  */
-const findMsalToken = (clientId: string, scopeSuffix: string): MsalAccessToken | null => {
-  const entry = findLocalStorageEntry(key => key.includes(clientId) && key.endsWith(scopeSuffix));
-  if (!entry) return null;
-  try {
-    const parsed = JSON.parse(entry.value) as Record<string, unknown>;
-    if (typeof parsed.secret === 'string' && parsed.secret.length > 0) {
-      return parsed as unknown as MsalAccessToken;
-    }
-  } catch {
-    // Malformed entry
-  }
-  return null;
+const readPreScriptValue = <T>(key: string): T | undefined => {
+  const viaSdk = getPreScriptValue<T>(key);
+  if (viaSdk !== undefined) return viaSdk;
+  const ns = (globalThis as { __openTabs?: { preScript?: Record<string, Record<string, unknown>> } }).__openTabs
+    ?.preScript?.teams;
+  return ns?.[key] as T | undefined;
 };
 
-/** Find the MSAL token for the current environment. */
-const findEnvMsalToken = (): MsalAccessToken | null => {
-  const config = getConfig();
-  return findMsalToken(config.msalClientId, config.msalScopeSuffix);
+/**
+ * Read the MSAL-issued Skype API access token captured by the pre-script.
+ * The pre-script (plugins/teams/src/pre-script.ts) observes MSAL cache
+ * writes via `Storage.prototype.setItem` and an initial `localStorage`
+ * scan, recognising entries by their value shape (`credentialType`,
+ * `target`, `secret`, `expiresOn`). The adapter only reads the captured
+ * value here — it never inspects MSAL key shapes, so the path is
+ * resilient to future MSAL cache key layout changes.
+ */
+const getSkypeAccessToken = (): string | null => {
+  const key = detectEnvironment() === 'consumer' ? 'consumerToken' : 'enterpriseToken';
+  const captured = readPreScriptValue<CapturedToken>(key);
+  if (!captured || typeof captured.secret !== 'string' || captured.secret.length === 0) {
+    return null;
+  }
+  if (typeof captured.expiresOn !== 'number' || captured.expiresOn <= Date.now() / 1000) {
+    return null;
+  }
+  return captured.secret;
 };
 
 // ---------------------------------------------------------------------------
@@ -140,11 +154,11 @@ const getSkypeJwt = async (): Promise<string> => {
   }
 
   const config = getConfig();
-  const msalToken = findEnvMsalToken();
-  if (!msalToken) {
+  const accessToken = getSkypeAccessToken();
+  if (!accessToken) {
     const env = detectEnvironment();
     throw ToolError.auth(
-      `Not authenticated — no MSAL Skype API token found for ${env} Teams. Please log in to Microsoft Teams.`,
+      `Not authenticated — no Skype API access token captured for ${env} Teams. If you just installed this plugin, reload the Teams tab so the pre-script can intercept the token.`,
     );
   }
 
@@ -153,7 +167,7 @@ const getSkypeJwt = async (): Promise<string> => {
     response = await fetch(config.authzUrl, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${msalToken.secret}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       credentials: 'include',
@@ -210,35 +224,25 @@ const decodeJwtPayload = (jwt: string): Record<string, unknown> => {
   const parts = jwt.split('.');
   if (parts.length < 2) return {};
   try {
-    const base64 = parts[1]?.replace(/-/g, '+').replace(/_/g, '/') ?? '';
-    return JSON.parse(atob(base64)) as Record<string, unknown>;
+    // base64url payloads are emitted without `=` padding; restore it before
+    // calling atob, which throws InvalidCharacterError on lengths not
+    // divisible by 4.
+    const raw = parts[1]?.replace(/-/g, '+').replace(/_/g, '/') ?? '';
+    const padded = raw + '='.repeat((4 - (raw.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
   } catch {
     return {};
   }
 };
 
 /**
- * Find the sign-in email from the MSAL ID token stored in localStorage.
- * Enterprise authz responses do not include the email, so we read it from
- * the cached ID token instead.
+ * Read the sign-in email captured by the pre-script. The pre-script
+ * decodes the MSAL ID token's JWT and stashes
+ * `preferred_username` / `upn` / `email` under `signInName`.
+ * Enterprise authz responses do not include the email, so we depend on
+ * the ID token claims for it.
  */
-const findSignInName = (): string => {
-  const config = getConfig();
-  const entry = findLocalStorageEntry(
-    key => key.includes(config.msalClientId) && key.toLowerCase().includes('-idtoken-'),
-  );
-  if (!entry) return '';
-  try {
-    const parsed = JSON.parse(entry.value) as { secret?: string };
-    if (parsed.secret) {
-      const claims = decodeJwtPayload(parsed.secret);
-      return String(claims.preferred_username ?? claims.upn ?? claims.email ?? '');
-    }
-  } catch {
-    // Malformed entry
-  }
-  return '';
-};
+const findSignInName = (): string => readPreScriptValue<string>('signInName') ?? '';
 
 /**
  * Get the current user's Skype identity (MRI and sign-in email) by performing
@@ -247,17 +251,17 @@ const findSignInName = (): string => {
  */
 export const getSkypeIdentity = async (): Promise<SkypeIdentity> => {
   const config = getConfig();
-  const msalToken = findEnvMsalToken();
-  if (!msalToken) {
+  const accessToken = getSkypeAccessToken();
+  if (!accessToken) {
     const env = detectEnvironment();
     throw ToolError.auth(
-      `Not authenticated — no MSAL Skype API token found for ${env} Teams. Please log in to Microsoft Teams.`,
+      `Not authenticated — no Skype API access token captured for ${env} Teams. If you just installed this plugin, reload the Teams tab so the pre-script can intercept the token.`,
     );
   }
 
   const response = await fetch(config.authzUrl, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${msalToken.secret}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     credentials: 'include',
     signal: AbortSignal.timeout(15_000),
   });
@@ -294,11 +298,14 @@ export const getSkypeIdentity = async (): Promise<SkypeIdentity> => {
 // Authentication detection
 // ---------------------------------------------------------------------------
 
-export const isTeamsAuthenticated = (): boolean => findEnvMsalToken() !== null;
+export const isTeamsAuthenticated = (): boolean => getSkypeAccessToken() !== null;
 
 /**
- * Wait for MSAL to populate the auth tokens after SPA hydration.
- * Polls at 500ms intervals for up to 8 seconds (Teams is a heavy SPA).
+ * Wait for the pre-script to capture the Skype API access token. On a
+ * tab where MSAL has already cached the token, the initial localStorage
+ * scan in the pre-script captures it synchronously at document_start;
+ * on a fresh login it lands as soon as MSAL writes the cache entry.
+ * Polls at 500ms intervals for up to 8 seconds.
  */
 export const waitForTeamsAuth = (): Promise<boolean> =>
   waitUntil(() => isTeamsAuthenticated(), { interval: 500, timeout: 8000 }).then(
