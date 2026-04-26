@@ -3,7 +3,22 @@ import { z } from 'zod';
 import type { BrowserToolDefinition } from './browser-tools/definition.js';
 import { annotateTools, GATEWAY_TOOLS, handleCallTool, handleListTools } from './mcp-gateway.js';
 import { PLATFORM_TOOL_NAMES, rebuildCachedBrowserTools } from './mcp-setup.js';
-import type { DispatchCallbacks, RequestHandlerExtra } from './mcp-tool-dispatch.js';
+import type { DispatchCallbacks, RequestHandlerExtra, ToolCallResult } from './mcp-tool-dispatch.js';
+
+/**
+ * Test helper: assert the content part at `idx` is text-typed and return it
+ * narrowed. handleCallTool returns a union content type since the dispatcher
+ * may emit non-text parts; gateway-level tests still expect text for errors
+ * and JSON tool output.
+ */
+const textPart = (result: ToolCallResult, idx = 0): { type: 'text'; text: string } => {
+  const part = result.content[idx];
+  if (!part || part.type !== 'text') {
+    throw new Error(`Expected text content part at index ${idx}, got: ${JSON.stringify(part)}`);
+  }
+  return part;
+};
+
 import { buildRegistry } from './registry.js';
 import type { RegisteredPlugin } from './state.js';
 import { createState } from './state.js';
@@ -236,7 +251,7 @@ describe('handleCallTool', () => {
     const result = await handleCallTool(state, {}, createMockExtra(), createMockCallbacks());
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"tool" must be a non-empty string');
+    expect(textPart(result).text).toContain('"tool" must be a non-empty string');
   });
 
   test('returns error when tool field is empty string', async () => {
@@ -245,7 +260,7 @@ describe('handleCallTool', () => {
     const result = await handleCallTool(state, { tool: '' }, createMockExtra(), createMockCallbacks());
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"tool" must be a non-empty string');
+    expect(textPart(result).text).toContain('"tool" must be a non-empty string');
   });
 
   test('returns error when tool field is not a string', async () => {
@@ -254,7 +269,7 @@ describe('handleCallTool', () => {
     const result = await handleCallTool(state, { tool: 123 }, createMockExtra(), createMockCallbacks());
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('"tool" must be a non-empty string');
+    expect(textPart(result).text).toContain('"tool" must be a non-empty string');
   });
 
   test('returns error for unknown tool name', async () => {
@@ -263,7 +278,7 @@ describe('handleCallTool', () => {
     const result = await handleCallTool(state, { tool: 'nonexistent_tool' }, createMockExtra(), createMockCallbacks());
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('not found');
+    expect(textPart(result).text).toContain('not found');
   });
 
   test('routes browser tool call to browser dispatch', async () => {
@@ -286,7 +301,7 @@ describe('handleCallTool', () => {
     );
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0]?.text).toContain('browser-ok');
+    expect(textPart(result).text).toContain('browser-ok');
   });
 
   test('routes plugin tool call and returns "Extension not connected" without extension', async () => {
@@ -302,7 +317,7 @@ describe('handleCallTool', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain('Extension not connected');
+    expect(textPart(result).text).toContain('Extension not connected');
   });
 
   test('passes arguments through to the dispatch handler', async () => {
