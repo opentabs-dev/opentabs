@@ -1,3 +1,27 @@
+// Outlook on cloud.microsoft enforces Trusted Types (CSP). Zod's allowsEval
+// feature-detect calls new Function("") the first time a zod parser runs
+// (lazy, memoized via cached()). This policy just needs to exist before that
+// first runtime call — import statements are hoisted regardless, but the probe
+// only fires when a tool handler first invokes a zod schema at runtime.
+if (typeof window !== 'undefined') {
+  try {
+    const tt = (window as Window & {
+      trustedTypes?: TrustedTypePolicyFactory & { defaultPolicy?: TrustedTypePolicy | null };
+    }).trustedTypes;
+    if (tt && !tt.defaultPolicy) {
+      tt.createPolicy('default', {
+        createScript: (s: string) => {
+          // Only allow the empty-string probe used by zod's allowsEval feature-detect.
+          if (s !== '') throw new TypeError('Blocked Trusted Types script conversion');
+          return s;
+        },
+      });
+    }
+  } catch {
+    // 'default' policy already exists, or Trusted Types not supported — safe to ignore.
+  }
+}
+
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './outlook-api.js';
