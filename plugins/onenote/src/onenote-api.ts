@@ -66,6 +66,18 @@ const getAuth = (): OneNoteAuth | null => {
   const cached = getAuthCache<OneNoteAuth>('onenote');
   if (cached && cached.expiresOn > Math.floor(Date.now() / 1000)) return cached;
 
+  // Check token captured by the document_start content script interceptor —
+  // works even when MSAL tokens are encrypted at rest (Protected Token Cache).
+  const earlyCapture = (window as unknown as { __opentabs_auth?: { token: string } }).__opentabs_auth;
+  if (earlyCapture?.token) {
+    const auth: OneNoteAuth = {
+      token: earlyCapture.token,
+      expiresOn: Math.floor(Date.now() / 1000) + 3600,
+    };
+    setAuthCache('onenote', auth);
+    return auth;
+  }
+
   const token = extractMsalToken();
   if (!token) return null;
 

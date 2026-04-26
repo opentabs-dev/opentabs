@@ -40,5 +40,21 @@
     "sessions",
     "browsingData"
   ],
-  "host_permissions": ["<all_urls>"]
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://outlook.cloud.microsoft/*",
+        "*://outlook.live.com/*",
+        "*://outlook.office.com/*",
+        "*://outlook.office365.com/*",
+        "*://onenote.cloud.microsoft/*",
+        "*://www.onenote.com/*",
+        "*://onenote.com/*"
+      ],
+      "js": ["dist/token-interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
 }
