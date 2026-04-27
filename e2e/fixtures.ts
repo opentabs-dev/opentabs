@@ -1078,12 +1078,22 @@ interface McpClient {
     isError: boolean;
     contentParts: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
   }>;
-  /** Call a tool with a progressToken and capture all progress notifications from the SSE stream. */
+  /**
+   * Call a tool with a progressToken and capture all progress notifications
+   * from the SSE stream. Returns the same content / contentParts shape as
+   * `callTool` so callers observe a single contract regardless of whether
+   * the response arrives over JSON or SSE.
+   */
   callToolWithProgress: (
     name: string,
     args?: Record<string, unknown>,
     options?: { timeout?: number },
-  ) => Promise<{ content: string; isError: boolean; progressNotifications: ProgressNotification[] }>;
+  ) => Promise<{
+    content: string;
+    isError: boolean;
+    progressNotifications: ProgressNotification[];
+    contentParts: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
+  }>;
   /** Close the MCP session by sending a DELETE request. */
   close: () => Promise<void>;
   /** Reset the session so the next initialize() creates a fresh session. */
@@ -1326,14 +1336,22 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
         const json = (await res.json()) as Record<string, unknown>;
         if (json.error) {
           const err = json.error as { message: string };
-          return { content: err.message, isError: true, progressNotifications };
+          return { content: err.message, isError: true, progressNotifications, contentParts: [] };
         }
         const result = json.result as {
-          content: Array<{ type: string; text: string }>;
+          content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
           isError?: boolean;
         };
-        const text = result.content.map(c => c.text).join('');
-        return { content: text, isError: result.isError === true, progressNotifications };
+        const text = result.content
+          .filter(c => c.type === 'text' && typeof c.text === 'string')
+          .map(c => c.text as string)
+          .join('');
+        return {
+          content: text,
+          isError: result.isError === true,
+          progressNotifications,
+          contentParts: result.content,
+        };
       }
 
       // SSE response — parse all messages, extracting progress notifications
@@ -1377,15 +1395,23 @@ const createMcpClient = (port: number, secret?: string): McpClient => {
 
       if (toolResult.error) {
         const err = toolResult.error as { message: string };
-        return { content: err.message, isError: true, progressNotifications };
+        return { content: err.message, isError: true, progressNotifications, contentParts: [] };
       }
 
       const result = toolResult.result as {
-        content: Array<{ type: string; text: string }>;
+        content: Array<{ type: string; text?: string; data?: string; mimeType?: string }>;
         isError?: boolean;
       };
-      const text = result.content.map(c => c.text).join('');
-      return { content: text, isError: result.isError === true, progressNotifications };
+      const text = result.content
+        .filter(c => c.type === 'text' && typeof c.text === 'string')
+        .map(c => c.text as string)
+        .join('');
+      return {
+        content: text,
+        isError: result.isError === true,
+        progressNotifications,
+        contentParts: result.content,
+      };
     },
 
     close: async () => {
