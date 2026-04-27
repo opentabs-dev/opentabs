@@ -26,11 +26,11 @@ const screenshotTab = defineBrowserTool({
   handler: async (args, state) => dispatchToExtension(state, 'browser.screenshotTab', { tabId: args.tabId }),
   formatResult: result => {
     const data = (result as { image?: unknown } | null)?.image;
-    if (typeof data !== 'string') {
+    if (typeof data !== 'string' || data.length === 0) {
       const payloadType = result === null ? 'null' : Array.isArray(result) ? 'array' : typeof result;
       const keys = result !== null && typeof result === 'object' && !Array.isArray(result) ? Object.keys(result) : [];
       throw new Error(
-        `browser_screenshot_tab: extension returned unexpected payload (expected {image: string}, got type=${payloadType}${keys.length > 0 ? `, keys=[${keys.join(',')}]` : ''})`,
+        `browser_screenshot_tab: extension returned unexpected payload (expected {image: non-empty string}, got type=${payloadType}${keys.length > 0 ? `, keys=[${keys.join(',')}]` : ''})`,
       );
     }
     return [{ type: 'image', data, mimeType: 'image/png' }];

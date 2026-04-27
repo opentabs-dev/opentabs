@@ -20,4 +20,13 @@ describe('screenshotTab.formatResult', () => {
     );
     expect(() => screenshotTab.formatResult?.({ image: 12345, secret: 'leakme' })).not.toThrow(/leakme/);
   });
+
+  test('rejects an empty-string image payload as a malformed capture', () => {
+    // An empty `image` field would otherwise pass the `typeof === 'string'` check
+    // and emit a zero-byte image content part — handing clients a "successful"
+    // response that decodes to nothing. Fail fast instead.
+    expect(() => screenshotTab.formatResult?.({ image: '' })).toThrow(
+      /browser_screenshot_tab: extension returned unexpected payload \(expected \{image: non-empty string\}/,
+    );
+  });
 });
