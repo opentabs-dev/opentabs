@@ -1168,13 +1168,28 @@ test.describe('browser_screenshot_tab', () => {
     // Poll until screenshot returns a valid PNG image content part (page fully rendered).
     // The tool emits `[{type:'image', data:<base64 PNG>, mimeType:'image/png'}]`, so we
     // assert on the raw contentParts array rather than the joined text content.
-    let parts: Array<{ type: string; data?: string; mimeType?: string }> = [];
+    //
+    // Local literal-union for `type` (rather than the wider `string` on the McpClient
+    // contract) so a future drift — e.g. a new content kind landing in this tool's
+    // response, or `mimeType` becoming optional — is caught at compile time. We
+    // deliberately don't import `ToolContentPart` from the MCP server source: these
+    // E2E tests treat the server as a black-box subprocess over JSON-RPC and assert
+    // on the observable wire shape, so depending on a server-internal type would
+    // couple the test harness to server internals rather than the wire contract.
+    type ScreenshotPart = { type: 'image' | 'text'; data?: string; mimeType?: string; text?: string };
+    let parts: ScreenshotPart[] = [];
     await waitFor(
       async () => {
         try {
           const r = await mcpClient.callTool('browser_screenshot_tab', { tabId });
           if (r.isError) return false;
-          parts = r.contentParts;
+          // Defensive default: callTool guarantees contentParts is an array (see
+          // fixtures.test.ts), but if that contract ever drifts the poll would
+          // otherwise swallow a TypeError in the catch and silently retry to
+          // timeout with a misleading failure message. The cast narrows the
+          // server-wide `type: string` to the literal union this test expects;
+          // non-image/text parts would still trip the assertions below.
+          parts = (r.contentParts ?? []) as ScreenshotPart[];
           const first = parts[0];
           return (
             parts.length === 1 &&

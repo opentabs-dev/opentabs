@@ -46,6 +46,53 @@ describe('createMcpClient', () => {
     vi.restoreAllMocks();
   });
 
+  describe('callTool', () => {
+    test('preserves the full contentParts array (text + image) and joins only text into `content`', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          jsonrpc: '2.0',
+          id: 1,
+          result: {
+            content: [
+              { type: 'text', text: 'narrative ' },
+              { type: 'image', data: 'IMG', mimeType: 'image/png' },
+            ],
+            isError: false,
+          },
+        }),
+      );
+
+      const client = createMcpClient(0);
+      const r = await client.callTool('foo');
+
+      expect(r.isError).toBe(false);
+      expect(r.content).toBe('narrative ');
+      expect(r.contentParts).toHaveLength(2);
+      expect(r.contentParts[1]).toEqual({ type: 'image', data: 'IMG', mimeType: 'image/png' });
+    });
+
+    test('error response: contentParts is always an array (never undefined)', async () => {
+      // The contract this test pins: `contentParts` is the array consumers can
+      // safely index into without undefined-handling. The polling logic in the
+      // E2E suites relies on it.
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          jsonrpc: '2.0',
+          id: 1,
+          error: { code: -32000, message: 'dispatch timeout' },
+        }),
+      );
+
+      const client = createMcpClient(0);
+      const r = await client.callTool('foo');
+
+      expect(r.isError).toBe(true);
+      expect(r.content).toBe('dispatch timeout');
+      expect(Array.isArray(r.contentParts)).toBe(true);
+      expect(r.contentParts).toEqual([]);
+    });
+  });
+
   describe('callToolWithProgress', () => {
     test('JSON response: joins only text parts into `content` and preserves all parts in `contentParts`', async () => {
       // Mixed-content tool result: text + image + text. The SSE/JSON helper
