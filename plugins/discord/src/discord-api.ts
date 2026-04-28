@@ -31,15 +31,29 @@ const getTokenFromWebpack = (): string | null => {
       [Symbol()],
       {},
       (require: { c: Record<string, { exports?: Record<string, unknown> }> }) => {
-        for (const mod of Object.values(require.c)) {
-          const exports = mod?.exports;
-          if (!exports) continue;
-          const def = (exports.default ?? exports) as Record<string, unknown>;
-          if (typeof def?.getToken !== 'function') continue;
-          const result: unknown = (def.getToken as () => unknown)();
-          if (typeof result === 'string' && result.length > 0) {
-            token = result;
-            break;
+        // Guard: require.c can become null/undefined mid-iteration when the
+        // push mutates Discord's internal chunk array. Snapshot the values
+        // before iterating so a concurrent modification doesn't crash the loop.
+        let modules: { exports?: Record<string, unknown> }[];
+        try {
+          modules = Object.values(require.c ?? {});
+        } catch {
+          return;
+        }
+        for (const mod of modules) {
+          try {
+            const exports = mod?.exports;
+            if (!exports) continue;
+            const def = (exports.default ?? exports) as Record<string, unknown>;
+            if (typeof def?.getToken !== 'function') continue;
+            const result: unknown = (def.getToken as () => unknown)();
+            if (typeof result === 'string' && result.length > 0) {
+              token = result;
+              break;
+            }
+          } catch {
+            // Individual module access can throw; skip and continue.
+            continue;
           }
         }
       },
