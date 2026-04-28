@@ -184,10 +184,30 @@ const cleanupStaleAdapterFiles = async (currentPluginNames: Set<string>): Promis
 
 /**
  * Write a dynamic exec script to the adapters/ directory.
- * Wraps the user's code in an IIFE that captures the result (sync or async)
+ * Wraps the user's code in an IIFE that evaluates it expression-first
+ * (Chrome DevTools console / Node REPL semantics) and captures the result
  * into namespaced keys on globalThis.__openTabs for the extension to read back.
  * Each execution uses keys derived from its UUID (`__execResult_<uuid>` and
  * `__execAsync_<uuid>`) so concurrent executions on the same tab do not collide.
+ *
+ * Two-path evaluation:
+ * 1. Expression path — user code is wrapped in `(async () => (CODE))()` and
+ *    evaluated via indirect `(0, eval)`. This returns the value of any
+ *    expression directly: bare values, IIFEs, `await EXPR`, object literals.
+ *    Indirect eval runs in global scope so wrapper-local vars are not visible.
+ * 2. Statement fallback — triggered only on SyntaxError from path 1 (e.g.,
+ *    multi-statement bodies, `return` at the top level). User code is wrapped
+ *    in `(async () => { CODE })()` via `new Function` and invoked. Any other
+ *    error (ReferenceError, TypeError, user-thrown) propagates from path 1
+ *    without retrying, to avoid double-executing side effects.
+ *
+ * The __startedKey sentinel is set synchronously before the try block so the
+ * extension-side poller can distinguish "IIFE hasn't executed yet" from
+ * "async result pending".
+ *
+ * The file is injected via chrome.scripting.executeScript({ files }), which
+ * runs as extension-origin code and bypasses page CSP entirely — both eval
+ * and new Function work even on pages with a strict CSP.
  *
  * Returns the filename (relative to adapters/) for the extension to inject.
  */
@@ -200,24 +220,6 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
   const asyncKey = `__execAsync_${execId}`;
   const startedKey = `__execStarted_${execId}`;
 
-  // Wrap user code to capture async results and errors.
-  // The wrapper stores results at namespaced keys on globalThis.__openTabs
-  // so concurrent executions do not collide. The extension reads the
-  // namespaced key matching this execution's UUID and cleans it up.
-  //
-  // The __startedKey sentinel is set synchronously at the top of the IIFE
-  // before the try block, so the polling function can distinguish between
-  // "IIFE hasn't executed yet" (keep polling) and "sync code produced no
-  // result" (genuine failure).
-  //
-  // User code is placed inline inside an async function expression so that
-  // `await` works in user code. The async function always returns a Promise,
-  // so results are always delivered via .then(). Using .then(onFulfilled,
-  // onRejected) instead of .then().catch() handles rejections in one
-  // microtask hop instead of two, tightening the timing window.
-  //
-  // The file is injected via chrome.scripting.executeScript({ files }), which
-  // runs as extension-origin code and bypasses page CSP entirely.
   const wrapped = [
     '(function() {',
     '  var __ot = globalThis.__openTabs = globalThis.__openTabs || {};',
@@ -225,10 +227,17 @@ const writeExecFile = async (state: ServerState, execId: string, code: string): 
     `  var __asyncKey = ${JSON.stringify(asyncKey)};`,
     `  var __startedKey = ${JSON.stringify(startedKey)};`,
     '  __ot[__startedKey] = true;',
+    `  var __src = ${JSON.stringify(code)};`,
+    '  var __run = (async function() {',
+    '    try {',
+    '      return await (0, eval)("(async () => (" + __src + "))()");',
+    '    } catch (e) {',
+    '      if (!(e instanceof SyntaxError)) throw e;',
+    '      return await (new Function("return (async () => { " + __src + " })()"))();',
+    '    }',
+    '  });',
     '  try {',
-    '    (async function() {',
-    code,
-    '    })().then(',
+    '    __run().then(',
     '      function(v) { __ot[__resultKey] = { value: v }; },',
     '      function(e) { __ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }; }',
     '    );',

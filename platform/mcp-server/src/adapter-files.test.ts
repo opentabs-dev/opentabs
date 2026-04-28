@@ -64,34 +64,41 @@ describe('writeExecFile', () => {
     await ensureAdaptersDir(state);
   });
 
-  test('wraps user code inline in an IIFE without eval', async () => {
+  test('emits an expression-first wrapper with SyntaxError-only fallback', async () => {
     const state = createState();
     const filename = await writeExecFile(state, 'test-1', 'return 42');
 
     expect(filename).toBe(`${EXEC_FILE_PREFIX}test-1.js`);
 
     const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
-    // Starts with IIFE wrapper
+    // Outer IIFE structure is intact
     expect(content.startsWith('(function() {')).toBe(true);
     expect(content.endsWith('})();')).toBe(true);
-    // User code is placed inline in an inner async function (no eval/new Function)
-    expect(content).toContain('(async function() {');
-    expect(content).toContain('return 42');
-    expect(content).not.toContain('new Function');
+    // User code is stored as a JSON string in __src (not placed inline)
+    expect(content).toContain('var __src = ');
+    expect(content).toContain('"return 42"');
+    // Expression path uses indirect eval (global scope, no wrapper lexicals exposed)
+    expect(content).toContain('(0, eval)');
+    // Statement fallback uses new Function (to permit top-level `return`)
+    expect(content).toContain('new Function(');
+    // Fallback is guarded by SyntaxError check only
+    expect(content).toContain('e instanceof SyntaxError');
     // Contains the namespaced result capture mechanism
     expect(content).toContain('__execResult_test-1');
     expect(content).toContain('__openTabs');
   });
 
-  test('places user code inline preserving its content verbatim', async () => {
+  test('stores user code JSON-encoded in __src, safely escaping quotes', async () => {
     const state = createState();
     const code = 'return "hello\\nworld"';
     const filename = await writeExecFile(state, 'escape-test', code);
 
     const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
-    // User code appears verbatim (not JSON-escaped) inside the inner function
-    expect(content).toContain(code);
-    expect(content).not.toContain('new Function');
+    // User code is stored as a JSON string in __src — quotes and backslashes are escaped
+    expect(content).toContain(`var __src = ${JSON.stringify(code)};`);
+    // Expression and fallback paths are present
+    expect(content).toContain('(0, eval)');
+    expect(content).toContain('new Function(');
   });
 
   test('handles async code with promise support in wrapper', async () => {
@@ -103,24 +110,67 @@ describe('writeExecFile', () => {
     // asyncKey variable is declared (for cleanup reference) but not set on __ot
     expect(content).toContain('__execAsync_async-test');
     expect(content).not.toContain('__ot[__asyncKey] = true');
-    // Uses .then(onFulfilled, onRejected) for direct rejection handling
-    expect(content).toContain('})().then(');
+    // Uses __run().then(onFulfilled, onRejected) for direct rejection handling
+    expect(content).toContain('__run().then(');
     expect(content).toContain('function(v) { __ot[__resultKey] = { value: v }; }');
     expect(content).toContain('function(e) { __ot[__resultKey] = { error:');
   });
 
-  test('user code is placed inline in the inner function body', async () => {
+  test('injection-like user code is safely contained inside the JSON __src string', async () => {
     const state = createState();
     const code = '});alert(1);//';
     const filename = await writeExecFile(state, 'inline-test', code);
 
     const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
-    // User code is inlined verbatim — no eval-like wrapping
-    expect(content).toContain(code);
-    expect(content).not.toContain('new Function');
+    // User code is stored JSON-encoded in __src — cannot break out of the string
+    expect(content).toContain(`var __src = ${JSON.stringify(code)};`);
     // The outer IIFE wrapper is intact
     expect(content.startsWith('(function() {')).toBe(true);
     expect(content.endsWith('})();')).toBe(true);
+    // Expression and fallback paths are present
+    expect(content).toContain('(0, eval)');
+    expect(content).toContain('new Function(');
+  });
+
+  test('__startedKey sentinel is set synchronously before any try block', async () => {
+    const state = createState();
+    const filename = await writeExecFile(state, 'started-test', '42');
+
+    const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
+    // __startedKey must appear before the first 'try {' so the extension poller
+    // can distinguish "IIFE hasn't run yet" from "result pending"
+    const startedPos = content.indexOf('__ot[__startedKey] = true;');
+    const tryPos = content.indexOf('try {');
+    expect(startedPos).toBeGreaterThanOrEqual(0);
+    expect(tryPos).toBeGreaterThanOrEqual(0);
+    expect(startedPos).toBeLessThan(tryPos);
+  });
+
+  test('all three namespaced keys are emitted using the execId', async () => {
+    const state = createState();
+    const execId = 'uuid-abc-123';
+    const filename = await writeExecFile(state, execId, 'document.title');
+
+    const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
+    expect(content).toContain(`__execResult_${execId}`);
+    expect(content).toContain(`__execAsync_${execId}`);
+    expect(content).toContain(`__execStarted_${execId}`);
+  });
+
+  test('result is stored as { value } on success path', async () => {
+    const state = createState();
+    const filename = await writeExecFile(state, 'value-shape-test', '42');
+
+    const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
+    expect(content).toContain('__ot[__resultKey] = { value: v }');
+  });
+
+  test('error is stored as { error: message } on rejection path', async () => {
+    const state = createState();
+    const filename = await writeExecFile(state, 'error-shape-test', 'throw new Error("oops")');
+
+    const content = await readFile(join(getAdaptersDir(), filename), 'utf-8');
+    expect(content).toContain('__ot[__resultKey] = { error: e instanceof Error ? e.message : String(e) }');
   });
 
   test('creates the adapters directory via ensureAdaptersDir if needed', async () => {
