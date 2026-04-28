@@ -154,7 +154,7 @@ These are all the browser tools your AI agent gets automatically when OpenTabs i
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_execute_script`</Table.Cell>
-      <Table.Cell>Execute arbitrary JavaScript in a tab's MAIN world with full DOM access. Script runs via the extension API, which is not subject to the page's Content Security Policy. Supports async code and returns JSON-serializable values.</Table.Cell>
+      <Table.Cell>Execute arbitrary JavaScript in a tab's MAIN world with full DOM access. Script runs via the extension API, which is not subject to the page's Content Security Policy. Evaluated like the Chrome DevTools console or Node REPL — a single expression (including IIFEs and `await`) returns its value directly; multi-statement code uses function-body semantics with `return`. Returns JSON-serializable values.</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`browser_screenshot_tab`</Table.Cell>
