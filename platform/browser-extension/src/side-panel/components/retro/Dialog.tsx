@@ -31,6 +31,7 @@ const DialogContent = ({ className, children, ref, ...props }: ComponentProps<ty
       {...props}>
       <VisuallyHidden>
         <DialogPrimitive.Title />
+        <DialogPrimitive.Description />
       </VisuallyHidden>
       <div className="relative flex flex-col">{children}</div>
     </DialogPrimitive.Content>
