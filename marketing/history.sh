@@ -8,9 +8,10 @@
 #   history.sh exists <post_id>
 #     exits 0 if post_id already in state.json, 1 otherwise
 #
-#   history.sh add <comment_id> <post_id> <subreddit> <post_title> <comment_text>
+#   history.sh add <comment_id> <post_id> <subreddit> <post_title> <comment_text> [kind]
 #     appends an entry to state.json atomically
 #     comment_text is truncated to 200 chars for the preview field
+#     kind defaults to "promo"; pass "helpful" for pure-help (no promotion) comments
 #
 # post_id is the Reddit fullname, e.g. "t3_abc123".
 
@@ -21,7 +22,7 @@ STATE_FILE="$SCRIPT_DIR/state.json"
 
 usage() {
   echo "usage: history.sh exists <post_id>" >&2
-  echo "       history.sh add <comment_id> <post_id> <subreddit> <post_title> <comment_text>" >&2
+  echo "       history.sh add <comment_id> <post_id> <subreddit> <post_title> <comment_text> [kind]" >&2
   exit 2
 }
 
@@ -48,8 +49,13 @@ cmd_add() {
   local subreddit="${3:-}"
   local post_title="${4:-}"
   local comment_text="${5:-}"
+  local kind="${6:-promo}"
   if [[ -z "$comment_id" || -z "$post_id" || -z "$subreddit" || -z "$post_title" || -z "$comment_text" ]]; then
     usage
+  fi
+  if [[ "$kind" != "promo" && "$kind" != "helpful" ]]; then
+    echo "kind must be 'promo' or 'helpful', got '$kind'" >&2
+    exit 2
   fi
   ensure_state
 
@@ -67,19 +73,21 @@ cmd_add() {
     --arg post_title "$post_title" \
     --arg comment_text "$comment_text" \
     --arg posted_at "$posted_at" \
+    --arg kind "$kind" \
     '.comments_posted += [{
       comment_id: $comment_id,
       post_id: $post_id,
       subreddit: $subreddit,
       post_title: $post_title,
       comment_preview: ($comment_text | .[0:200]),
-      posted_at: $posted_at
+      posted_at: $posted_at,
+      kind: $kind
     }]' "$STATE_FILE" > "$tmp"
 
   mv "$tmp" "$STATE_FILE"
   trap - EXIT
 
-  echo "recorded $post_id"
+  echo "recorded $post_id ($kind)"
 }
 
 case "${1:-}" in
