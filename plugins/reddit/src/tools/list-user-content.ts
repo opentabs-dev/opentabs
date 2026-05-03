@@ -34,8 +34,8 @@ const contentItemSchema = z.object({
   created_utc: z.number().describe('Creation timestamp'),
   permalink: z.string().describe('Reddit permalink'),
   title: z.string().nullable().describe('Post title (null for comments)'),
-  selftext: z.string().nullable().describe('Post body (null for comments)'),
-  body: z.string().nullable().describe('Comment body (null for posts)'),
+  selftext: z.string().nullable().describe('Post body (null for comments, null when include_body is false)'),
+  body: z.string().nullable().describe('Comment body (null for posts, null when include_body is false)'),
   link_title: z.string().nullable().describe('Parent post title (for comments)'),
   link_id: z.string().nullable().describe('Parent post fullname, e.g. t3_abc123 (for comments)'),
   parent_id: z.string().nullable().describe('Parent comment/post fullname (for comments)'),
@@ -62,12 +62,19 @@ export const listUserContent = defineTool({
       .describe('Time period for "top" and "controversial" sort'),
     limit: z.number().int().min(1).max(100).optional().describe('Number of results (default 25, max 100)'),
     after: z.string().optional().describe('Pagination cursor for the next page'),
+    include_body: z
+      .boolean()
+      .optional()
+      .describe(
+        'Whether to include post/comment body text (selftext/body). Defaults to false — titles, link_ids, and metadata only. Set true when you need to read item contents.',
+      ),
   }),
   output: z.object({
     items: z.array(contentItemSchema).describe('User content items'),
     after: z.string().nullable().describe('Pagination cursor for next page'),
   }),
   handle: async params => {
+    const includeBody = params.include_body ?? false;
     const queryParams: Record<string, string> = {
       limit: String(params.limit ?? 25),
     };
@@ -91,8 +98,8 @@ export const listUserContent = defineTool({
         created_utc: child.data.created_utc,
         permalink: child.data.permalink,
         title: child.data.title ?? null,
-        selftext: child.data.selftext ?? null,
-        body: child.data.body ?? null,
+        selftext: includeBody ? (child.data.selftext ?? null) : null,
+        body: includeBody ? (child.data.body ?? null) : null,
         link_title: child.data.link_title ?? null,
         link_id: child.data.link_id ?? null,
         parent_id: child.data.parent_id ?? null,

@@ -38,6 +38,12 @@ export const searchPosts = defineTool({
       .describe('Time period filter (default "all")'),
     limit: z.number().int().min(1).max(100).optional().describe('Number of results (default 25, max 100)'),
     after: z.string().optional().describe('Pagination cursor for the next page'),
+    include_body: z
+      .boolean()
+      .optional()
+      .describe(
+        'Whether to include post body text (selftext) and external URL. Defaults to false — titles and metadata only. Set true when you need to read post contents (doubles-to-triples the response size).',
+      ),
   }),
   output: z.object({
     posts: z
@@ -50,9 +56,9 @@ export const searchPosts = defineTool({
           subreddit: z.string().describe('Subreddit name'),
           score: z.number().describe('Post score'),
           num_comments: z.number().describe('Number of comments'),
-          url: z.string().describe('Post URL'),
+          url: z.string().nullable().describe('Post URL — null when include_body is false'),
           permalink: z.string().describe('Reddit permalink'),
-          selftext: z.string().describe('Self post body'),
+          selftext: z.string().nullable().describe('Self post body — null when include_body is false'),
           is_self: z.boolean().describe('Whether this is a text post'),
           created_utc: z.number().describe('Creation timestamp'),
         }),
@@ -62,6 +68,7 @@ export const searchPosts = defineTool({
   }),
   handle: async params => {
     const base = params.subreddit ? `/r/${params.subreddit}` : '';
+    const includeBody = params.include_body ?? false;
     const queryParams: Record<string, string> = {
       q: params.query,
       limit: String(params.limit ?? 25),
@@ -82,9 +89,9 @@ export const searchPosts = defineTool({
         subreddit: child.data.subreddit,
         score: child.data.score,
         num_comments: child.data.num_comments,
-        url: child.data.url,
+        url: includeBody ? child.data.url : null,
         permalink: child.data.permalink,
-        selftext: child.data.selftext ?? '',
+        selftext: includeBody ? (child.data.selftext ?? '') : null,
         is_self: child.data.is_self,
         created_utc: child.data.created_utc,
       })),
