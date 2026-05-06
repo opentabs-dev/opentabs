@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/opentabs-dev-opentabs-badge.png)](https://mseep.ai/app/opentabs-dev-opentabs)
+
 <div align="center">
 
 <a href="https://opentabs.dev">
