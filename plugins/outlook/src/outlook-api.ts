@@ -1,3 +1,4 @@
+import { config as zodConfig } from 'zod';
 import {
   ToolError,
   buildQueryString,
@@ -10,13 +11,160 @@ import {
 } from '@opentabs-dev/plugin-sdk';
 import type { FetchFromPageOptions } from '@opentabs-dev/plugin-sdk';
 
+// Outlook on cloud.microsoft enforces Trusted Types, which blocks zod's JIT
+// eval probe (`new Function("")`). Disabling JIT here — before any z.object()
+// schema is instantiated — prevents the CSP violation entirely.
+if (typeof window !== 'undefined' && 'trustedTypes' in window) {
+  zodConfig({ jitless: true });
+}
+
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
-const OUTLOOK_API_BASE = 'https://outlook.office.com/api/v2.0';
+const OUTLOOK_CLOUD_BASE = 'https://outlook.cloud.microsoft/ows/v1.0';
+const OUTLOOK_REST_BASE = 'https://outlook.office.com/api/v2.0';
 
 // Outlook enterprise MSAL client ID
 const MSAL_CLIENT_ID = '9199bf20-a13f-4107-85dc-02114787ef48';
 // Consumer fallback
 const MSAL_CLIENT_ID_CONSUMER = '2821b473-fe24-4c86-ba16-62834d6e80c3';
+
+// Token captured by intercepting Outlook's own fetch calls (used when MSAL
+// tokens are encrypted at rest by the Protected Token Cache on cloud.microsoft).
+let interceptedToken: OutlookAuth | null = null;
+
+/**
+ * Search window globals for an MSAL PublicClientApplication instance and acquire
+ * a token silently. MSAL keeps decrypted tokens in memory even when localStorage
+ * entries are encrypted (ProtectedTokenCache). This works regardless of injection timing.
+ */
+const tryAcquireMsalToken = async (): Promise<OutlookAuth | null> => {
+  try {
+    const scopes = [
+      ['https://graph.microsoft.com/Mail.Read'],
+      ['https://graph.microsoft.com/Mail.ReadWrite'],
+      ['https://outlook.office.com/Mail.Read'],
+      ['https://outlook.office.com/Mail.ReadWrite'],
+    ];
+
+    // Search window for MSAL-like objects (PublicClientApplication has acquireTokenSilent + getAllAccounts)
+    const candidates: unknown[] = [];
+    for (const key of Object.keys(window)) {
+      try {
+        const val = (window as unknown as Record<string, unknown>)[key];
+        if (val && typeof val === 'object' && typeof (val as Record<string, unknown>).acquireTokenSilent === 'function' && typeof (val as Record<string, unknown>).getAllAccounts === 'function') {
+          candidates.push(val);
+        }
+      } catch { /* skip non-enumerable */ }
+    }
+
+    for (const msal of candidates) {
+      const app = msal as { getAllAccounts: () => unknown[]; acquireTokenSilent: (req: unknown) => Promise<{ accessToken: string } | undefined> };
+      const accounts = app.getAllAccounts();
+      if (!accounts.length) continue;
+      for (const scopeSet of scopes) {
+        try {
+          const result = await app.acquireTokenSilent({ scopes: scopeSet, account: accounts[0] });
+          if (result?.accessToken) {
+            const apiBase = (scopeSet[0] ?? '').includes('graph.microsoft.com') ? GRAPH_API_BASE : OUTLOOK_REST_BASE;
+            console.warn('[opentabs-outlook] Acquired token via MSAL acquireTokenSilent, apiBase:', apiBase);
+            return { token: result.accessToken, apiBase };
+          }
+        } catch { /* try next scope set */ }
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+};
+
+const decodeJwt = (token: string): Record<string, unknown> => {
+  try {
+    const part = token.split('.')[1] ?? '';
+    return JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+  } catch { return {}; }
+};
+
+const jwtScopes = (token: string): string => {
+  const p = decodeJwt(token);
+  return ((p['scp'] ?? p['scope'] ?? '') as string);
+};
+
+const jwtAud = (token: string): string => {
+  return ((decodeJwt(token)['aud'] ?? '') as string);
+};
+
+const captureToken = (url: string, authHeader: string): void => {
+  if (interceptedToken) return;
+  if (!authHeader.startsWith('Bearer ')) return;
+  const isGraph = url.includes('graph.microsoft.com');
+  const isOutlookCloud = url.includes('outlook.cloud.microsoft') || url.startsWith('/owa/');
+  const isOutlookOffice = url.includes('outlook.office.com');
+  if (!isGraph && !isOutlookCloud && !isOutlookOffice) return;
+  const token = authHeader.slice(7);
+  // Skip Graph tokens that lack mail scopes — they cause 403 on mail endpoints.
+  if (isGraph && !hasMailScope(jwtScopes(token))) return;
+  const aud = jwtAud(token);
+  const apiBase = isGraph
+    ? GRAPH_API_BASE
+    : aud.includes('outlook.office.com')
+      ? OUTLOOK_REST_BASE
+      : OUTLOOK_CLOUD_BASE;
+  interceptedToken = { token, apiBase };
+  setAuthCache('outlook', interceptedToken);
+  console.warn('[opentabs-outlook] Captured Bearer token via interceptor, apiBase:', apiBase);
+};
+
+/**
+ * Intercept both window.fetch and XMLHttpRequest to capture Bearer tokens from
+ * Outlook's own API calls. Outlook may capture window.fetch before our adapter
+ * is injected, so XHR interception is the reliable fallback.
+ */
+const installFetchInterceptor = (): void => {
+  // fetch interceptor — catches calls made after our injection
+  try {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      try {
+        const url = input instanceof Request ? input.url : String(input);
+        const hdrs = init?.headers ?? (input instanceof Request ? input.headers : undefined);
+        let authHeader: string | null = null;
+        if (hdrs instanceof Headers) authHeader = hdrs.get('Authorization');
+        else if (hdrs && typeof hdrs === 'object') authHeader = (hdrs as Record<string, string>)['Authorization'] ?? null;
+        if (authHeader) captureToken(url, authHeader);
+      } catch { /* never block real fetch */ }
+      return originalFetch(input, init);
+    };
+  } catch { /* ignore */ }
+
+  // XHR prototype patch — intercepts ALL XHR instances regardless of when the
+  // constructor reference was captured, because all instances share the same prototype.
+  try {
+    const proto = XMLHttpRequest.prototype;
+    const originalOpen = proto.open;
+    const originalSetRequestHeader = proto.setRequestHeader;
+
+    proto.open = function (this: XMLHttpRequest & { _otUrl?: string }, method: string, url: string, ...rest: unknown[]) {
+      this._otUrl = url;
+      return (originalOpen as Function).apply(this, [method, url, ...rest]);
+    };
+
+    proto.setRequestHeader = function (this: XMLHttpRequest & { _otUrl?: string }, name: string, value: string) {
+      try {
+        if (name.toLowerCase() === 'authorization' && this._otUrl) captureToken(this._otUrl, value);
+      } catch { /* ignore */ }
+      return originalSetRequestHeader.call(this, name, value);
+    };
+  } catch { /* ignore */ }
+};
+
+if (typeof window !== 'undefined') {
+  installFetchInterceptor();
+  // Proactively acquire token via MSAL in-memory cache so it's ready before the first tool call.
+  tryAcquireMsalToken().then(auth => {
+    if (auth && !interceptedToken) {
+      interceptedToken = auth;
+      setAuthCache('outlook', auth);
+    }
+  }).catch(() => { /* ignore */ });
+}
 
 interface OutlookAuth {
   token: string;
@@ -35,6 +183,39 @@ const MAIL_SCOPES = ['mail.read', 'mail.readwrite', 'mail.send'];
 const hasMailScope = (target: string): boolean => {
   const lower = target.toLowerCase();
   return MAIL_SCOPES.some(scope => lower.includes(scope));
+};
+
+/**
+ * Search the newer MSAL "partitioned" cache format used by cloud.microsoft.
+ * Keys follow the pattern: msal.2|{accountId}|{authority}|accesstoken|{clientId}|{tenantId}|{scopes}||
+ * Unlike the old format, there is no separate token-keys index — each token is stored directly.
+ */
+const findMsalPartitionedToken = (clientId: string, scopeMatch: string): OutlookAuth | null => {
+  const clientIdSegment = `|accesstoken|${clientId}|`;
+
+  const result = findLocalStorageEntry(key => {
+    if (!key.startsWith('msal.2|')) return false;
+    if (!key.includes(clientIdSegment)) return false;
+    return key.toLowerCase().includes(scopeMatch);
+  });
+
+  if (!result) return null;
+
+  try {
+    const parsed = JSON.parse(result.value);
+    if (!parsed.secret) return null;
+
+    const expiresOn = Number.parseInt(parsed.expiresOn ?? parsed.extended_expires_on, 10);
+    if (expiresOn && expiresOn * 1000 < Date.now()) return null;
+
+    const target: string = parsed.target ?? '';
+    if (scopeMatch === 'graph.microsoft.com' && !hasMailScope(target)) return null;
+
+    const apiBase = scopeMatch === 'graph.microsoft.com' ? GRAPH_API_BASE : OUTLOOK_REST_BASE;
+    return { token: parsed.secret, apiBase };
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -76,7 +257,7 @@ const findMsalV2Token = (clientId: string, scopeMatch: string): OutlookAuth | nu
         continue;
       }
 
-      const apiBase = scopeMatch === 'graph.microsoft.com' ? GRAPH_API_BASE : OUTLOOK_API_BASE;
+      const apiBase = scopeMatch === 'graph.microsoft.com' ? GRAPH_API_BASE : OUTLOOK_REST_BASE;
       return { token: parsed.secret, apiBase };
     } catch {
       // skip invalid entries
@@ -126,6 +307,17 @@ const getAuth = (): OutlookAuth | null => {
   const cached = getAuthCache<OutlookAuth>('outlook');
   if (cached) return cached;
 
+  // Check token captured by the document_start content script (token-interceptor.js),
+  // which patches fetch/XHR before Outlook's code runs.
+  const earlyCapture = (window as unknown as { __opentabs_auth?: OutlookAuth }).__opentabs_auth;
+  if (earlyCapture) {
+    setAuthCache('outlook', earlyCapture);
+    return earlyCapture;
+  }
+
+  if (interceptedToken) return interceptedToken;
+  console.warn('[opentabs-outlook] getAuth() searching localStorage, total keys:', localStorage.length);
+
   // 1. Enterprise MSAL v2 — Graph API token
   let auth = findMsalV2Token(MSAL_CLIENT_ID, 'graph.microsoft.com');
 
@@ -154,11 +346,38 @@ const getAuth = (): OutlookAuth | null => {
     }
   }
 
+  // 6. Newer MSAL partitioned format (cloud.microsoft): keys are msal.2|{account}|...|accesstoken|{clientId}|...
+  if (!auth) auth = findMsalPartitionedToken(MSAL_CLIENT_ID, 'outlook.office.com');
+  if (!auth) auth = findMsalPartitionedToken(MSAL_CLIENT_ID, 'graph.microsoft.com');
+  if (!auth) auth = findMsalPartitionedToken(MSAL_CLIENT_ID_CONSUMER, 'outlook.office.com');
+  if (!auth) auth = findMsalPartitionedToken(MSAL_CLIENT_ID_CONSUMER, 'graph.microsoft.com');
+
+  if (!auth) {
+    // Diagnostic: log all localStorage keys containing 'msal' to understand token format
+    const msalKeys: string[] = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.toLowerCase().includes('msal')) msalKeys.push(k);
+      }
+    } catch { /* ignore */ }
+    console.warn('[opentabs-outlook] No MSAL token found. MSAL-related localStorage keys:', msalKeys);
+  } else {
+    console.warn('[opentabs-outlook] MSAL token found, apiBase:', auth.apiBase);
+  }
+
   if (auth) setAuthCache('outlook', auth);
   return auth;
 };
 
-export const isAuthenticated = (): boolean => getAuth() !== null;
+export const isAuthenticated = (): boolean => {
+  // During OAuth redirect the #code= fragment is present but MSAL tokens are
+  // not yet in localStorage. Return false early so the platform's 30s re-poll
+  // catches the token once the handshake completes, rather than burning the
+  // 5s isReady window on token searches that will all fail.
+  if (typeof window !== 'undefined' && window.location.hash.includes('code=')) return false;
+  return getAuth() !== null;
+};
 
 export const waitForAuth = (): Promise<boolean> =>
   waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
@@ -172,6 +391,7 @@ export const waitForAuth = (): Promise<boolean> =>
  * Normalizing to camelCase lets all mappers work with both APIs.
  */
 const toCamelCase = (str: string): string => str.charAt(0).toLowerCase() + str.slice(1);
+const toPascalCase = (str: string): string => str.charAt(0).toUpperCase() + str.slice(1);
 
 const normalizeKeys = (obj: unknown): unknown => {
   if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
@@ -181,6 +401,21 @@ const normalizeKeys = (obj: unknown): unknown => {
     // Skip OData metadata keys like @odata.context
     const newKey = key.startsWith('@') ? key : toCamelCase(key);
     result[newKey] = normalizeKeys(value);
+  }
+  return result;
+};
+
+/**
+ * Recursively convert camelCase keys to PascalCase for Outlook REST API request bodies.
+ * Outlook REST API v2.0 expects PascalCase keys (Subject, Body, ToRecipients, etc.).
+ */
+const normalizeKeysForRequest = (obj: unknown): unknown => {
+  if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(normalizeKeysForRequest);
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    const newKey = key.startsWith('@') ? key : toPascalCase(key);
+    result[newKey] = normalizeKeysForRequest(value);
   }
   return result;
 };
@@ -200,7 +435,7 @@ const sendRequest = async <T>(
     headers?: Record<string, string>;
   },
 ): Promise<T | null> => {
-  const isOutlookApi = auth.apiBase === OUTLOOK_API_BASE;
+  const isOutlookApi = auth.apiBase === OUTLOOK_REST_BASE;
 
   // Outlook REST API uses different $select field names, so drop $select
   // and let it return all fields. The normalizeKeys step handles casing.
@@ -222,7 +457,9 @@ const sendRequest = async <T>(
 
   if (options.body) {
     headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(options.body);
+    // Outlook REST API v2.0 expects PascalCase keys in request bodies.
+    const bodyToSend = isOutlookApi ? normalizeKeysForRequest(options.body) : options.body;
+    init.body = JSON.stringify(bodyToSend);
   }
 
   let response: Response;
@@ -297,6 +534,15 @@ export const api = async <T>(
   } = {},
 ): Promise<T> => {
   let auth = getAuth();
+  if (!auth) {
+    // localStorage tokens are encrypted — try MSAL in-memory acquireTokenSilent
+    const msalAuth = await tryAcquireMsalToken();
+    if (msalAuth) {
+      interceptedToken = msalAuth;
+      setAuthCache('outlook', msalAuth);
+      auth = msalAuth;
+    }
+  }
   if (!auth) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
 
   const result = await sendRequest<T>(auth, endpoint, options);
@@ -304,7 +550,9 @@ export const api = async <T>(
 
   // 401/403 — clear stale cache, re-acquire token from MSAL, and retry once
   clearAuthCache('outlook');
-  auth = getAuth();
+  interceptedToken = null;
+  auth = getAuth() ?? (await tryAcquireMsalToken());
+  if (auth) { interceptedToken = auth; setAuthCache('outlook', auth); }
   if (!auth) throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
 
   const retry = await sendRequest<T>(auth, endpoint, options);
