@@ -86,37 +86,28 @@ export const updateTransaction = defineTool({
       }
     }
 
-    const updatedTransaction = {
+    // Spread `...existing` so every wire field the server stores round-trips
+    // untouched. Earlier versions reconstructed the row and nulled fields like
+    // `imported_date`, `matched_transaction_id`, and `provider_cleansed_payee`
+    // — the server accepted those nulls for `imported_date` specifically,
+    // breaking YNAB's bank-feed dedup and causing duplicate imports on accounts
+    // with frequent edits. Server-computed fields (cash_amount, credit_amount,
+    // credit_amount_adjusted, subcategory_credit_amount_preceding) are
+    // preserved from `existing`; the server recomputes them anyway.
+    const updatedTransaction: typeof existing = {
+      ...existing,
       id: params.transaction_id,
       is_tombstone: false,
       entities_account_id: params.account_id,
       entities_payee_id: payeeId,
       entities_subcategory_id: params.category_id ?? existing.entities_subcategory_id ?? null,
-      entities_scheduled_transaction_id: existing.entities_scheduled_transaction_id ?? null,
       date: params.date ?? existing.date ?? '',
-      date_entered_from_schedule: null,
       amount: params.amount !== undefined ? toMilliunits(params.amount) : (existing.amount ?? 0),
-      cash_amount: 0,
-      credit_amount: 0,
-      credit_amount_adjusted: 0,
-      subcategory_credit_amount_preceding: 0,
       memo: params.memo ?? existing.memo ?? null,
       cleared: resolveCleared(params.cleared, existing.cleared),
       // YNAB's wire format calls this "accepted"; the public tool surface uses "approved".
       accepted: params.approved ?? existing.accepted ?? false,
-      check_number: null,
       flag: resolveFlag(params.flag_color, existing.flag),
-      transfer_account_id: existing.transfer_account_id ?? null,
-      transfer_transaction_id: null,
-      transfer_subtransaction_id: null,
-      matched_transaction_id: null,
-      ynab_id: existing.ynab_id ?? null,
-      imported_payee: existing.imported_payee ?? null,
-      imported_date: null,
-      original_imported_payee: existing.original_imported_payee ?? null,
-      provider_cleansed_payee: null,
-      source: existing.source ?? null,
-      debt_transaction_type: null,
     };
 
     changedEntities.be_transaction_groups = [

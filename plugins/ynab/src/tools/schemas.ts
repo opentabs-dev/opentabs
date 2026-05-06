@@ -135,6 +135,22 @@ export const transactionSchema = z.object({
   original_imported_payee: z
     .string()
     .describe('Raw payee string from the bank feed before any cleansing (empty if manually entered)'),
+  imported_date: z
+    .string()
+    .describe('Date the bank feed delivered this transaction (YYYY-MM-DD, empty if manually entered)'),
+  ynab_id: z
+    .string()
+    .describe(
+      'YNAB-internal identifier encoding (amount, date, sequence) for feed dedup. Empty for manually-entered transactions.',
+    ),
+  matched_transaction_id: z
+    .string()
+    .describe(
+      'If this transaction was manually entered and later matched to an imported feed row, the imported row ID',
+    ),
+  source: z
+    .string()
+    .describe('How this transaction entered YNAB (e.g. "Imported" for bank feed, empty for manual entry)'),
   deleted: z.boolean().describe('Whether the transaction is deleted'),
 });
 
@@ -279,23 +295,39 @@ export interface RawPayee {
   is_tombstone?: boolean;
 }
 
+// Every field in YNAB's wire format for be_transactions. Keeping the interface
+// complete lets `update-transaction` preserve import metadata (imported_date,
+// matched_transaction_id, etc.) by spreading `...existing` rather than
+// reconstructing the row and nulling fields the server won't recover.
 export interface RawTransaction {
   id?: string;
   date?: string;
+  date_entered_from_schedule?: string | null;
   amount?: number;
+  cash_amount?: number;
+  credit_amount?: number;
+  credit_amount_adjusted?: number;
+  subcategory_credit_amount_preceding?: number;
   memo?: string | null;
   cleared?: string;
   accepted?: boolean;
+  check_number?: string | null;
   flag?: string | null;
   entities_account_id?: string;
   entities_payee_id?: string | null;
   entities_subcategory_id?: string | null;
   entities_scheduled_transaction_id?: string | null;
   transfer_account_id?: string | null;
+  transfer_transaction_id?: string | null;
+  transfer_subtransaction_id?: string | null;
+  matched_transaction_id?: string | null;
   imported_payee?: string | null;
+  imported_date?: string | null;
   original_imported_payee?: string | null;
+  provider_cleansed_payee?: string | null;
   ynab_id?: string | null;
   source?: string | null;
+  debt_transaction_type?: string | null;
   is_tombstone?: boolean;
 }
 
@@ -898,6 +930,10 @@ export const mapTransaction = (t: RawTransaction, lookups?: EntityLookups) => ({
   transfer_account_id: t.transfer_account_id ?? '',
   imported_payee: t.imported_payee ?? '',
   original_imported_payee: t.original_imported_payee ?? '',
+  imported_date: t.imported_date ?? '',
+  ynab_id: t.ynab_id ?? '',
+  matched_transaction_id: t.matched_transaction_id ?? '',
+  source: t.source ?? '',
   deleted: t.is_tombstone === true,
 });
 
