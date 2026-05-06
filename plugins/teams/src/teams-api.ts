@@ -144,15 +144,31 @@ const getChatServiceBase = (): string => {
 let cachedSkypeJwt: { token: string; expiresAt: number } | null = null;
 
 /**
- * Exchange the MSAL Skype API token for a Skype JWT via the authz endpoint.
- * Works for both consumer and enterprise environments.
- * The JWT is cached until 60 seconds before expiration.
+ * Get a Skype JWT for the current environment. Three sources, in priority order:
+ *
+ * 1. Adapter-local cache (avoids redundant lookups within one tool invocation).
+ * 2. `skypeJwt` pre-script slot — set by the authsvc fetch interceptor when
+ *    Teams itself calls authsvc during startup or token refresh. This is the
+ *    primary path for Teams v2, where MSAL tokens are stored encrypted and
+ *    cannot be read from localStorage directly.
+ * 3. Authsvc exchange — Teams calls authsvc with its MSAL Skype API token. This
+ *    path works for classic Teams where the MSAL token is captured in plaintext
+ *    from localStorage by the pre-script. Not used for Teams v2 (the MSAL token
+ *    is encrypted there).
  */
 const getSkypeJwt = async (): Promise<string> => {
   if (cachedSkypeJwt && Date.now() < cachedSkypeJwt.expiresAt - 60_000) {
     return cachedSkypeJwt.token;
   }
 
+  // Pre-captured JWT from the authsvc fetch interceptor (Teams v2 path).
+  const preCapture = readPreScriptValue<{ secret: string; expiresOn: number }>('skypeJwt');
+  if (preCapture?.secret && preCapture.expiresOn > Date.now() / 1000 + 60) {
+    cachedSkypeJwt = { token: preCapture.secret, expiresAt: preCapture.expiresOn * 1000 };
+    return preCapture.secret;
+  }
+
+  // Classic Teams fallback: exchange MSAL Skype token via authsvc ourselves.
   const config = getConfig();
   const accessToken = getSkypeAccessToken();
   if (!accessToken) {
@@ -298,14 +314,28 @@ export const getSkypeIdentity = async (): Promise<SkypeIdentity> => {
 // Authentication detection
 // ---------------------------------------------------------------------------
 
-export const isTeamsAuthenticated = (): boolean => getSkypeAccessToken() !== null;
+/**
+ * Check if a Loki token (Teams v2 readiness signal) is present and valid.
+ * The Loki token indicates the user is logged into Teams v2 but cannot be
+ * used for Skype API calls — the actual Skype JWT is captured separately
+ * via the authsvc fetch interceptor.
+ */
+const hasValidLokiToken = (): boolean => {
+  const token = readPreScriptValue<{ secret: string; expiresOn: number }>('lokiToken');
+  return !!(token?.secret && token.expiresOn > Date.now() / 1000);
+};
+
+export const isTeamsAuthenticated = (): boolean =>
+  // Classic Teams: MSAL Skype API token captured from localStorage.
+  getSkypeAccessToken() !== null ||
+  // Teams v2: Loki token present (user is logged in; Skype JWT captured separately).
+  hasValidLokiToken();
 
 /**
- * Wait for the pre-script to capture the Skype API access token. On a
- * tab where MSAL has already cached the token, the initial localStorage
- * scan in the pre-script captures it synchronously at document_start;
- * on a fresh login it lands as soon as MSAL writes the cache entry.
- * Polls at 500ms intervals for up to 8 seconds.
+ * Wait for the pre-script to capture an auth signal. On classic Teams the MSAL
+ * Skype token is captured at document_start; on Teams v2 the Loki token lands
+ * as Teams writes it to sessionStorage during startup. Polls at 500ms intervals
+ * for up to 8 seconds.
  */
 export const waitForTeamsAuth = (): Promise<boolean> =>
   waitUntil(() => isTeamsAuthenticated(), { interval: 500, timeout: 8000 }).then(
