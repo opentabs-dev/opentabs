@@ -158,7 +158,14 @@ const getAuth = (): OutlookAuth | null => {
   return auth;
 };
 
-export const isAuthenticated = (): boolean => getAuth() !== null;
+export const isAuthenticated = (): boolean => {
+  // During OAuth redirect the #code= fragment is present but MSAL tokens are
+  // not yet in localStorage. Return false early so the platform's 30s re-poll
+  // catches the token once the handshake completes, rather than burning the
+  // 5s isReady window on token searches that will all fail.
+  if (typeof window !== 'undefined' && window.location.hash.includes('code=')) return false;
+  return getAuth() !== null;
+};
 
 export const waitForAuth = (): Promise<boolean> =>
   waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
