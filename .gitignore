@@ -28,3 +28,4 @@ marketing/state.json
 marketing/*-state.json
 .playwright-browsers/
 .extension-hash
+docs/superpowers/

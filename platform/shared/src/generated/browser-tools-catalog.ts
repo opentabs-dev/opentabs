@@ -447,7 +447,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_screenshot_tab',
     description:
-      'Capture a screenshot of the visible area of a browser tab as a base64-encoded PNG image. The tab is automatically focused before capture. By default returns the image as a base64 string without the data URI prefix. When `filePath` is provided, the PNG bytes are written to that absolute path and a `{savedTo, bytes}` summary is returned instead — useful when the caller needs the screenshot as an on-disk artefact rather than an inline payload.',
+      'Capture a screenshot of the visible area of a browser tab as a PNG. The tab is automatically focused before capture. Returns an MCP image content part (`{type: "image", data: <base64 PNG>, mimeType: "image/png"}`) so MCP clients decode the image directly without parsing JSON-stringified base64.',
     summary: 'Capture a screenshot of a tab',
     icon: 'camera',
     group: 'Page Inspection',
