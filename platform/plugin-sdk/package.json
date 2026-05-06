@@ -39,10 +39,10 @@
     "@opentabs-dev/shared": "^0.0.106"
   },
   "peerDependencies": {
-    "zod": "^4.0.0"
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "happy-dom": "^20.8.9",
-    "lucide-react": "^1.11.0"
+    "lucide-react": "^1.14.0"
   }
 }
