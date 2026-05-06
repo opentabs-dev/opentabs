@@ -14,7 +14,7 @@
 [![License: MIT](https://img.shields.io/github/license/opentabs-dev/opentabs?style=flat-square&color=FFDB33)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/opentabs-dev/opentabs?style=flat-square&color=FFDB33)](https://github.com/opentabs-dev/opentabs/stargazers)
 
-[Docs](https://opentabs.dev/docs) &nbsp;&middot;&nbsp; [Plugins](plugins/) &nbsp;&middot;&nbsp; [Discord](https://discord.gg/b8Hjpz4B)
+[Docs](https://opentabs.dev/docs) &nbsp;&middot;&nbsp; [Plugins](plugins/) &nbsp;&middot;&nbsp; [Discord](https://discord.gg/vDQDRz6S)
 
 </div>
 
@@ -90,7 +90,7 @@ npm run dev       # tsc watch + MCP server + extension
 npm run check     # build + type-check + lint + knip + test
 ```
 
-[Development Setup guide](https://opentabs.dev/docs/contributing/dev-setup) &nbsp;&middot;&nbsp; [Discord](https://discord.gg/b8Hjpz4B)
+[Development Setup guide](https://opentabs.dev/docs/contributing/dev-setup) &nbsp;&middot;&nbsp; [Discord](https://discord.gg/vDQDRz6S)
 
 ## License
 
