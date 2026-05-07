@@ -336,11 +336,15 @@ const handleHealth = async (
       Object.entries(p.configSchema).some(
         ([key, def]) => def.required === true && (userSettings[key] === undefined || userSettings[key] === null),
       );
+    const permConfig = state.pluginPermissions[p.name];
+    const permission = permConfig?.permission ?? 'off';
     return {
       name: p.name,
       displayName: p.displayName,
       toolCount: p.tools.length,
       tools: p.tools.map(t => prefixedToolName(p.name, t.name)),
+      urlPatterns: p.urlPatterns,
+      permission,
       tabState: tabInfo?.state ?? 'closed',
       tabs: tabInfo?.tabs ?? [],
       source: p.source,

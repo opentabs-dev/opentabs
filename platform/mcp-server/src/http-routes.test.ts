@@ -284,7 +284,15 @@ interface HealthResponse {
   extensionConnections: number;
   mcpClients: number;
   plugins: number;
-  pluginDetails: { name: string; displayName: string; toolCount: number; tabState: string; source: string }[];
+  pluginDetails: {
+    name: string;
+    displayName: string;
+    toolCount: number;
+    urlPatterns: string[];
+    permission: 'off' | 'ask' | 'auto';
+    tabState: string;
+    source: string;
+  }[];
   toolCount: number;
   browserToolCount: number;
   pluginToolCount: number;

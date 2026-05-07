@@ -660,14 +660,13 @@ const startConfigWatching = (state: ServerState, callbacks: FileWatcherCallbacks
     log.warn(`Config watcher: Could not watch config dir at ${configDir}:`, err);
     log.info(`Config watcher: Watching ${configDir} via mtime polling fallback`);
 
-    // fs.watch() failed (e.g., EMFILE from inotify limits). If mtime polling is
-    // running at the default slow interval, restart it at the fast interval so
-    // config.json changes are still detected promptly.
+    // fs.watch() failed (e.g., EMFILE from inotify limits). Start or restart
+    // mtime polling at the fast interval so config.json changes are detected.
     if (fw.mtimePollTimerId !== null) {
       clearInterval(fw.mtimePollTimerId);
       fw.mtimePollTimerId = null;
-      startMtimePolling(state, callbacks, MTIME_FAST_POLL_INTERVAL_MS);
     }
+    startMtimePolling(state, callbacks, MTIME_FAST_POLL_INTERVAL_MS);
   }
 };
 
