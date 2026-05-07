@@ -220,6 +220,73 @@ test.describe('Config watcher — production mode auto-discovery', () => {
     }
   });
 
+  test('rapid config.json writes are debounced into a single reload in production mode', async () => {
+    let configDir: string | undefined;
+    let server: McpServer | undefined;
+    let client: McpClient | undefined;
+    try {
+      // Start with empty config (no plugins)
+      configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-cwp-debounce-'));
+      writeTestConfig(configDir, { localPlugins: [], tools: {} });
+
+      // Start server in production mode (no --dev flag)
+      server = await startMcpServer(configDir, false, undefined, undefined, true);
+      client = createMcpClient(server.port, server.secret);
+      await client.initialize();
+
+      // Wait for config watcher to be set up
+      await waitForLog(server, 'Config watcher: Watching', 10_000);
+
+      // Record how many reload-trigger log lines exist before our writes
+      const reloadLogBefore = server.logs.filter(l =>
+        l.includes('config.json changed \u2014 triggering reload'),
+      ).length;
+
+      // Write config.json 5 times in rapid succession (every 20ms).
+      // Each write changes the content slightly so the watcher detects a real change.
+      // All 5 writes happen within 80ms — well within the 200ms debounce window.
+      const absPluginPath = path.resolve(E2E_TEST_PLUGIN_DIR);
+      const prefixedToolNames = readPluginToolNames();
+      const tools: Record<string, boolean> = {};
+      for (const t of prefixedToolNames) {
+        tools[t] = true;
+      }
+
+      for (let i = 0; i < 5; i++) {
+        // First 4 writes use empty localPlugins; last write adds the plugin
+        // so we can verify the final state matches the last write.
+        const localPlugins = i === 4 ? [absPluginPath] : [];
+        const writeTools = i === 4 ? tools : {};
+        writeTestConfig(configDir, { localPlugins, tools: writeTools });
+        if (i < 4) {
+          await new Promise(r => setTimeout(r, 20));
+        }
+      }
+
+      // Wait 2 seconds for debounced reloads to complete
+      await new Promise(r => setTimeout(r, 2_000));
+
+      // Count new reload-trigger log lines — should be <= 2 (debounce consolidated most writes)
+      const reloadLogAfter = server.logs.filter(l => l.includes('config.json changed \u2014 triggering reload')).length;
+      const reloadCount = reloadLogAfter - reloadLogBefore;
+      expect(reloadCount).toBeGreaterThanOrEqual(1);
+      expect(reloadCount).toBeLessThanOrEqual(2);
+
+      // Final state must reflect the last write (plugin tools present)
+      await waitForToolList(
+        client,
+        list => list.some(t => t.name.startsWith('e2e-test_')),
+        15_000,
+        300,
+        'e2e-test plugin tools to appear after debounced config writes',
+      );
+    } finally {
+      await client?.close();
+      await server?.kill();
+      if (configDir) cleanupTestConfigDir(configDir);
+    }
+  });
+
   test('adding a plugin path to config.json auto-discovers plugin tools in production mode', async () => {
     let configDir: string | undefined;
     let server: McpServer | undefined;
