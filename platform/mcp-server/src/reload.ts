@@ -251,8 +251,8 @@ const resetStaleReviewedVersions = (state: ServerState): void => {
 /**
  * Shared reload core: discovery, state swap, pruning, and extension sync.
  * Callers notify MCP clients of tool list changes after this returns.
- * In dev mode, file watchers and config watching are started after discovery.
- * In production mode, no watchers are created — restart to reload.
+ * Config watching runs in all modes — users expect config.json edits to take effect without restart.
+ * Plugin file watchers and plugin dir watchers are dev-only (for active plugin development).
  */
 const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs): Promise<void> => {
   // Always stop existing watchers (cleans up handles from previous hot reload iteration)
@@ -374,33 +374,34 @@ const reloadCore = async ({ state, sessionServers, transports }: ReloadCoreArgs)
     log.error('Failed to load auth secret, keeping previous secret:', err);
   }
 
-  // File watchers, config watching, and mtime polling are dev-only features.
-  // Production mode discovers plugins once at startup; restart to reload.
+  // Config watching runs in all modes — users expect config.json edits to take effect without restart.
+  const callbacks = createFileWatcherCallbacks(state, sessionServers, transports);
+  startConfigWatching(state, callbacks);
+
+  // Detect config.json writes that occurred during the async reload above.
+  // stopFileWatching() cancelled any pending debounce timers, so those writes
+  // never triggered a follow-up reload. startConfigWatching() records the current
+  // file mtime, so the mtime poll also cannot detect them (it only sees future changes).
+  // Compare the mtime startConfigWatching() just recorded with the pre-reload mtime:
+  // if it advanced, config.json was written during the reload and state.pluginPermissions
+  // reflects stale data — trigger a follow-up reload to apply the latest config.
+  if (
+    prevConfigMtime !== null &&
+    state.fileWatching.configLastSeenMtime !== null &&
+    state.fileWatching.configLastSeenMtime > prevConfigMtime
+  ) {
+    log.info('Config changed during reload — triggering follow-up reload to apply latest changes');
+    callbacks.onConfigChanged();
+  }
+
+  // Plugin file watchers and plugin dir watchers are dev-only (for active plugin development).
   if (isDev()) {
-    const callbacks = createFileWatcherCallbacks(state, sessionServers, transports);
     const failedPaths = state.registry.failures.map(f => f.path);
     startFileWatching(state, callbacks, failedPaths);
-    startConfigWatching(state, callbacks);
 
     // Watch localPluginDirs parent directories for new plugin subdirectories
     const resolvedPluginDirs = state.localPluginDirs.map(d => resolveLocalPath(d, getConfigDir()));
     startPluginDirWatching(state, resolvedPluginDirs, callbacks);
-
-    // Detect config.json writes that occurred during the async reload above.
-    // stopFileWatching() cancelled any pending debounce timers, so those writes
-    // never triggered a follow-up reload. startConfigWatching() records the current
-    // file mtime, so the mtime poll also cannot detect them (it only sees future changes).
-    // Compare the mtime startConfigWatching() just recorded with the pre-reload mtime:
-    // if it advanced, config.json was written during the reload and state.pluginPermissions
-    // reflects stale data — trigger a follow-up reload to apply the latest config.
-    if (
-      prevConfigMtime !== null &&
-      state.fileWatching.configLastSeenMtime !== null &&
-      state.fileWatching.configLastSeenMtime > prevConfigMtime
-    ) {
-      log.info('Config changed during reload — triggering follow-up reload to apply latest changes');
-      callbacks.onConfigChanged();
-    }
   }
 
   if (isExtensionConnected(state)) {
