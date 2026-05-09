@@ -5,11 +5,13 @@ import { changeUserName } from './tools/change-user-name.js';
 import { cloneApp } from './tools/clone-app.js';
 import { createApp } from './tools/create-app.js';
 import { createFolder } from './tools/create-folder.js';
+import { createResource } from './tools/create-resource.js';
 import { createResourceFolder } from './tools/create-resource-folder.js';
 import { deleteFolder } from './tools/delete-folder.js';
 import { deleteResourceFolder } from './tools/delete-resource-folder.js';
 import { getApp } from './tools/get-app.js';
 import { getAppDocs } from './tools/get-app-docs.js';
+import { getAppState } from './tools/get-app-state.js';
 import { getCurrentUser } from './tools/get-current-user.js';
 import { getOrganization } from './tools/get-organization.js';
 import { getSourceControlSettings } from './tools/get-source-control-settings.js';
@@ -37,6 +39,7 @@ import { listWorkflows } from './tools/list-workflows.js';
 import { lookupApp } from './tools/lookup-app.js';
 import { moveResourceToFolder } from './tools/move-resource-to-folder.js';
 import { renameFolder } from './tools/rename-folder.js';
+import { savePage } from './tools/save-page.js';
 
 class RetoolPlugin extends OpenTabsPlugin {
   readonly name = 'retool';
@@ -65,6 +68,7 @@ class RetoolPlugin extends OpenTabsPlugin {
     // Apps
     listApps,
     getApp,
+    getAppState,
     lookupApp,
     getAppDocs,
     listAppTags,
@@ -72,12 +76,14 @@ class RetoolPlugin extends OpenTabsPlugin {
     listPageSaves,
     createApp,
     cloneApp,
+    savePage,
     // Folders
     createFolder,
     renameFolder,
     deleteFolder,
     // Resources
     listResources,
+    createResource,
     createResourceFolder,
     deleteResourceFolder,
     moveResourceToFolder,
