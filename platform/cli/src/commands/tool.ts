@@ -2,6 +2,7 @@
  * `opentabs tool` command — discover and invoke tools from the running server.
  */
 
+import { readFile } from 'node:fs/promises';
 import { DEFAULT_HOST, toErrorMessage } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
@@ -114,21 +115,69 @@ interface ToolCallResult {
   isError?: boolean;
 }
 
+interface ParamsSource {
+  json: string;
+  origin: string;
+}
+
+export const readParamsSource = async (
+  jsonArg: string | undefined,
+  params: string | undefined,
+  paramsFile: string | undefined,
+): Promise<ParamsSource | undefined> => {
+  const sources: string[] = [];
+  if (jsonArg !== undefined) sources.push('[json]');
+  if (params !== undefined) sources.push('--params');
+  if (paramsFile !== undefined) sources.push('--params-file');
+
+  if (sources.length > 1) {
+    console.error(pc.red(`Specify only one of: ${sources.join(', ')}`));
+    process.exit(2);
+  }
+
+  if (paramsFile !== undefined) {
+    if (paramsFile === '-') {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string));
+      }
+      return { json: Buffer.concat(chunks).toString('utf8'), origin: 'stdin' };
+    }
+    try {
+      const json = await readFile(paramsFile, 'utf8');
+      return { json, origin: paramsFile };
+    } catch (err: unknown) {
+      console.error(pc.red(`Failed to read params file ${paramsFile}: ${toErrorMessage(err)}`));
+      process.exit(2);
+    }
+  }
+
+  if (params !== undefined) return { json: params, origin: '--params' };
+  if (jsonArg !== undefined) return { json: jsonArg, origin: '[json]' };
+  return undefined;
+};
+
 const handleToolCall = async (
   name: string,
   jsonArg: string | undefined,
-  options: { port?: number; params?: string; instance?: string; tabId?: number },
+  options: { port?: number; params?: string; paramsFile?: string; instance?: string; tabId?: number },
 ): Promise<void> => {
   const port = resolvePort(options);
 
-  // Parse arguments from positional JSON or --params flag (flag takes precedence)
-  const rawJson = options.params ?? jsonArg;
+  const source = await readParamsSource(jsonArg, options.params, options.paramsFile);
   let args: Record<string, unknown> = {};
-  if (rawJson) {
+  if (source) {
     try {
-      args = JSON.parse(rawJson) as Record<string, unknown>;
-    } catch {
-      console.error(pc.red(`Invalid JSON: ${rawJson}`));
+      args = JSON.parse(source.json) as Record<string, unknown>;
+    } catch (err: unknown) {
+      const location =
+        source.origin === 'stdin'
+          ? 'on stdin'
+          : source.origin === '--params' || source.origin === '[json]'
+            ? ''
+            : `in ${source.origin}`;
+      const prefix = location ? `Invalid JSON ${location}` : 'Invalid JSON';
+      console.error(pc.red(`${prefix}: ${toErrorMessage(err)}`));
       process.exit(2);
     }
   }
@@ -263,6 +312,10 @@ Examples:
     .argument('<name>', 'Tool name (e.g., slack_send_message, browser_list_tabs)')
     .argument('[json]', 'Tool arguments as a JSON string')
     .option('--params <json>', 'Tool arguments as JSON (alternative to positional arg)')
+    .option(
+      '--params-file <path>',
+      'Read tool arguments as JSON from a file path (use - for stdin). Bypasses the argv size limit.',
+    )
     .option('--instance <name>', 'Target a named instance (for multi-instance plugins)')
     .option('--tab-id <id>', 'Target a specific browser tab by ID', Number.parseInt)
     .option('--port <number>', 'Server port', parsePort)
@@ -273,7 +326,9 @@ Examples:
   $ opentabs tool call slack_send_message '{"channel":"C123","text":"hi"}'
   $ opentabs tool call browser_list_tabs
   $ opentabs tool call slack_send_message --params '{"channel":"C123"}'
-  $ opentabs tool call slack_read_messages --instance work --tab-id 42`,
+  $ opentabs tool call slack_read_messages --instance work --tab-id 42
+  $ opentabs tool call my-plugin_upload_photo --params-file payload.json
+  $ cat payload.json | opentabs tool call my-plugin_upload_photo --params-file -`,
     )
     .action((name: string, jsonArg: string | undefined, _options: unknown, command: Command) =>
       handleToolCall(name, jsonArg, command.optsWithGlobals()),
