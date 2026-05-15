@@ -1,17 +1,15 @@
-import {
-  ToolError,
-  fetchJSON,
-  fetchText,
-  buildQueryString,
-  getAuthCache,
-  setAuthCache,
-  clearAuthCache,
-  waitUntil,
-} from '@opentabs-dev/plugin-sdk';
+import { ToolError, buildQueryString, fetchJSON, fetchText, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 // --- Auth ---
-
-const AUTH_CACHE_KEY = 'datadog';
+//
+// Datadog stores its CSRF token in localStorage at `dd-csrf-token` as a
+// JSON-encoded `{ token, timestamp }` object. The host app rotates the token
+// periodically. Read it fresh from localStorage on every call — caching it
+// (e.g. via `setAuthCache`) means once Datadog rotates the token the cached
+// copy goes stale and writes return 401 (logs-analytics) or 403 (spans events
+// search) until the cache is cleared. The localStorage read is cheap; the
+// cache is unnecessary because localStorage is already the source of truth
+// and persists across adapter re-injection.
 
 interface DatadogAuth {
   csrfToken: string;
@@ -29,15 +27,8 @@ const getCsrfToken = (): string | null => {
 };
 
 const getAuth = (): DatadogAuth | null => {
-  const cached = getAuthCache<DatadogAuth>(AUTH_CACHE_KEY);
-  if (cached?.csrfToken) return cached;
-
   const csrfToken = getCsrfToken();
-  if (!csrfToken) return null;
-
-  const auth: DatadogAuth = { csrfToken };
-  setAuthCache(AUTH_CACHE_KEY, auth);
-  return auth;
+  return csrfToken ? { csrfToken } : null;
 };
 
 export const isAuthenticated = (): boolean => getAuth() !== null;
@@ -53,10 +44,7 @@ export const waitForAuth = async (): Promise<boolean> => {
 
 const requireAuth = (): DatadogAuth => {
   const auth = getAuth();
-  if (!auth) {
-    clearAuthCache(AUTH_CACHE_KEY);
-    throw ToolError.auth('Not authenticated — please log in to Datadog.');
-  }
+  if (!auth) throw ToolError.auth('Not authenticated — please log in to Datadog.');
   return auth;
 };
 
