@@ -155,12 +155,21 @@ const getDriveIdSync = (): string | null => {
 
 /** Encode a sharing URL into a Graph `/shares` share id (unpadded base64url with a `u!` prefix). */
 const encodeShareId = (sharingUrl: string): string => {
-  const base64 = btoa(unescape(encodeURIComponent(sharingUrl)));
+  const bytes = new TextEncoder().encode(sharingUrl);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
   return `u!${base64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-')}`;
 };
 
-/** Per-tab cache — the current drive does not change within a page session. */
-let cachedDriveId: string | null = null;
+/**
+ * Per-tab cache keyed by the page URL. The Office apps are SPAs — same-tab
+ * navigation to a different presentation changes `getCurrentUrl()` without
+ * reloading the adapter, so a single-slot cache would silently return the
+ * wrong drive. Comparing the URL on every read invalidates the cache exactly
+ * when the presentation identity changes.
+ */
+let cached: { url: string; driveId: string } | null = null;
 
 /**
  * Resolve the current drive id. Uses the synchronous sources first, then falls
@@ -169,15 +178,16 @@ let cachedDriveId: string | null = null;
  * through `requireAuth`.
  */
 const resolveDriveId = async (token: string): Promise<string | null> => {
-  if (cachedDriveId) return cachedDriveId;
+  const currentUrl = getCurrentUrl();
+  if (cached && cached.url === currentUrl) return cached.driveId;
   const sync = getDriveIdSync();
   if (sync) {
-    cachedDriveId = sync;
+    cached = { url: currentUrl, driveId: sync };
     return sync;
   }
   if (isSharePoint()) {
     try {
-      const shareId = encodeShareId(getCurrentUrl());
+      const shareId = encodeShareId(currentUrl);
       const response = await fetch(`${GRAPH_BASE}/shares/${shareId}/driveItem?$select=id,parentReference`, {
         headers: { Authorization: `Bearer ${token}` },
         signal: AbortSignal.timeout(30_000),
@@ -186,7 +196,7 @@ const resolveDriveId = async (token: string): Promise<string | null> => {
         const item = (await response.json()) as { parentReference?: { driveId?: string } };
         const driveId = item.parentReference?.driveId;
         if (driveId) {
-          cachedDriveId = driveId;
+          cached = { url: currentUrl, driveId };
           return driveId;
         }
       }

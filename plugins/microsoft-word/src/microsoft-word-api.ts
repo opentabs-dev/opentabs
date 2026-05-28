@@ -134,12 +134,21 @@ interface DocumentContext {
   itemId: string;
 }
 
-/** Per-tab cache — the open document does not change within a page session. */
-let cachedContext: DocumentContext | null = null;
+/**
+ * Per-tab cache keyed by the page URL. The Office apps are SPAs — same-tab
+ * navigation to a different document changes `getCurrentUrl()` without
+ * reloading the adapter, so a single-slot cache would silently return the
+ * wrong drive/item. Comparing the URL on every read invalidates the cache
+ * exactly when the document identity changes.
+ */
+let cached: { url: string; ctx: DocumentContext } | null = null;
 
 /** Encode a sharing URL into a Graph `/shares` share id (unpadded base64url with a `u!` prefix). */
 const encodeShareId = (sharingUrl: string): string => {
-  const base64 = btoa(unescape(encodeURIComponent(sharingUrl)));
+  const bytes = new TextEncoder().encode(sharingUrl);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
   return `u!${base64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-')}`;
 };
 
@@ -152,13 +161,15 @@ const encodeShareId = (sharingUrl: string): string => {
  * Returns null when no document context is available (e.g. a file-browser page).
  */
 export const resolveDocumentContext = async (): Promise<DocumentContext | null> => {
-  if (cachedContext) return cachedContext;
-  const url = new URL(getCurrentUrl());
+  const currentUrl = getCurrentUrl();
+  if (cached && cached.url === currentUrl) return cached.ctx;
+  const url = new URL(currentUrl);
   const driveId = url.searchParams.get('driveId');
   const docId = url.searchParams.get('docId');
   if (driveId && docId) {
-    cachedContext = { driveId, itemId: docId };
-    return cachedContext;
+    const ctx = { driveId, itemId: docId };
+    cached = { url: currentUrl, ctx };
+    return ctx;
   }
   if (url.hostname.endsWith('.sharepoint.com') && url.pathname.includes('/:w:/')) {
     const item = await api<{ id?: string; parentReference?: { driveId?: string } }>(
@@ -167,8 +178,9 @@ export const resolveDocumentContext = async (): Promise<DocumentContext | null> 
     );
     const resolvedDriveId = item.parentReference?.driveId;
     if (resolvedDriveId && item.id) {
-      cachedContext = { driveId: resolvedDriveId, itemId: item.id };
-      return cachedContext;
+      const ctx = { driveId: resolvedDriveId, itemId: item.id };
+      cached = { url: currentUrl, ctx };
+      return ctx;
     }
   }
   return null;

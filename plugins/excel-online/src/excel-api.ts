@@ -122,12 +122,21 @@ interface WorkbookContext {
   itemId: string;
 }
 
-/** Per-tab cache — the open workbook does not change within a page session. */
-let cachedContext: WorkbookContext | null = null;
+/**
+ * Per-tab cache keyed by the page URL. The Office apps are SPAs — same-tab
+ * navigation to a different workbook changes `getCurrentUrl()` without
+ * reloading the adapter, so a single-slot cache would silently return the
+ * wrong drive/item. Comparing the URL on every read invalidates the cache
+ * exactly when the workbook identity changes.
+ */
+let cached: { url: string; ctx: WorkbookContext } | null = null;
 
 /** Encode a sharing URL into a Graph `/shares` share id (unpadded base64url with a `u!` prefix). */
 const encodeShareId = (sharingUrl: string): string => {
-  const base64 = btoa(unescape(encodeURIComponent(sharingUrl)));
+  const bytes = new TextEncoder().encode(sharingUrl);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
   return `u!${base64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-')}`;
 };
 
@@ -153,17 +162,20 @@ const resolveViaShares = async (sharingUrl: string): Promise<WorkbookContext> =>
  * the Graph `/shares` endpoint.
  */
 export const resolveWorkbookContext = async (): Promise<WorkbookContext> => {
-  if (cachedContext) return cachedContext;
-  const url = new URL(getCurrentUrl());
+  const currentUrl = getCurrentUrl();
+  if (cached && cached.url === currentUrl) return cached.ctx;
+  const url = new URL(currentUrl);
   const driveId = url.searchParams.get('driveId');
   const docId = url.searchParams.get('docId');
   if (driveId && docId) {
-    cachedContext = { driveId, itemId: docId };
-    return cachedContext;
+    const ctx = { driveId, itemId: docId };
+    cached = { url: currentUrl, ctx };
+    return ctx;
   }
   if (url.hostname.endsWith('.sharepoint.com')) {
-    cachedContext = await resolveViaShares(url.href);
-    return cachedContext;
+    const ctx = await resolveViaShares(url.href);
+    cached = { url: currentUrl, ctx };
+    return ctx;
   }
   throw ToolError.validation('No workbook is currently open. Please open an Excel workbook in the browser first.');
 };
