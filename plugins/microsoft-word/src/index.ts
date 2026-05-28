@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './microsoft-word-api.js';
+import { isAuthenticated, isSharePointDocument, waitForAuth } from './microsoft-word-api.js';
 import { appendToDocument } from './tools/append-to-document.js';
 import { copyItem } from './tools/copy-item.js';
 import { createDocument } from './tools/create-document.js';
@@ -33,7 +33,7 @@ class MicrosoftWordPlugin extends OpenTabsPlugin {
   readonly name = 'microsoft-word';
   readonly description = 'OpenTabs plugin for Microsoft Word Online';
   override readonly displayName = 'Microsoft Word';
-  readonly urlPatterns = ['*://word.cloud.microsoft/*'];
+  readonly urlPatterns = ['*://word.cloud.microsoft/*', '*://*.sharepoint.com/:w:/*'];
   override readonly homepage = 'https://word.cloud.microsoft';
   readonly tools: ToolDefinition[] = [
     // Account
@@ -73,6 +73,11 @@ class MicrosoftWordPlugin extends OpenTabsPlugin {
 
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
+    // On SharePoint/OneDrive-hosted documents the Graph token is captured
+    // asynchronously by the pre-script and may not have arrived yet. Report the
+    // document page as ready so the plugin activates on load; tool handlers
+    // surface a clear auth error if the token has not been captured.
+    if (isSharePointDocument()) return true;
     return waitForAuth();
   }
 }

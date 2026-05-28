@@ -1,6 +1,6 @@
 import { defineTool, getCurrentUrl, getPageTitle } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api } from '../microsoft-word-api.js';
+import { api, resolveDocumentContext } from '../microsoft-word-api.js';
 import { type RawDriveItem, driveItemSchema, mapDriveItem } from './schemas.js';
 
 export const getActiveDocument = defineTool({
@@ -18,11 +18,11 @@ export const getActiveDocument = defineTool({
   }),
   handle: async () => {
     const url = getCurrentUrl();
-    const parsed = new URL(url);
-    const docId = parsed.searchParams.get('docId');
-    const driveId = parsed.searchParams.get('driveId');
+    // Resolve the open document's drive/item ids — from the URL query on the
+    // standalone app, or via Graph /shares on SharePoint/OneDrive-hosted files.
+    const context = await resolveDocumentContext();
 
-    if (!docId || !driveId) {
+    if (!context) {
       // Not on a document page — try to get info from page title
       const title = getPageTitle();
       return {
@@ -43,12 +43,11 @@ export const getActiveDocument = defineTool({
       };
     }
 
-    // Fetch full metadata using the docId from the URL
-    const data = await api<RawDriveItem>(`/drives/${driveId}/items/${docId}`);
+    const data = await api<RawDriveItem>(`/drives/${context.driveId}/items/${context.itemId}`);
 
     return {
       item: mapDriveItem(data),
-      drive_id: driveId,
+      drive_id: context.driveId,
     };
   },
 });
