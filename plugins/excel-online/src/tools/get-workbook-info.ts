@@ -1,6 +1,6 @@
-import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
+import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { api, getWorkbookContext } from '../excel-api.js';
+import { api, resolveWorkbookContext } from '../excel-api.js';
 import { workbookInfoSchema } from './schemas.js';
 
 export const getWorkbookInfo = defineTool({
@@ -14,10 +14,7 @@ export const getWorkbookInfo = defineTool({
   input: z.object({}),
   output: z.object({ workbook: workbookInfoSchema }),
   handle: async () => {
-    const ctx = getWorkbookContext();
-    if (!ctx) {
-      throw ToolError.validation('No workbook is currently open. Please open an Excel workbook in the browser first.');
-    }
+    const ctx = await resolveWorkbookContext();
 
     const data = await api<{ id?: string; name?: string }>(
       `/drives/${ctx.driveId}/items/${encodeURIComponent(ctx.itemId)}`,
