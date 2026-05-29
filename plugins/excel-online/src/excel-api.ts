@@ -10,7 +10,6 @@ import {
 } from '@opentabs-dev/plugin-sdk';
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
-const MSAL_CLIENT_ID = '2821b473-fe24-4c86-ba16-62834d6e80c3';
 /** localStorage key the pre-script mirrors the captured Graph token to. */
 const LS_TOKEN_KEY = '__opentabs_excel_graph_token';
 
@@ -70,13 +69,19 @@ const getCapturedToken = (): string | null => {
   return null;
 };
 
-/** A plaintext Graph access token from the standalone app's localStorage. */
+/**
+ * A plaintext Graph access token from MSAL's localStorage cache.
+ *
+ * Used on the standalone `excel.cloud.microsoft` app, where MSAL.js stores
+ * `secret` plaintext. Enterprise SharePoint pages encrypt the `data` field
+ * (their entries have no `secret`), so the predicate naturally skips them and
+ * the pre-script's captured token is used instead. We match by key shape
+ * rather than hardcoding a client ID — consumer vs enterprise tenants use
+ * different IDs, and any plaintext Graph AT in storage is fair game.
+ */
 const getLocalStorageToken = (): string | null => {
   const entry = findLocalStorageEntry(
-    key =>
-      key.includes('accesstoken') &&
-      /(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(key) &&
-      key.includes(MSAL_CLIENT_ID),
+    key => key.includes('accesstoken') && /(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(key),
   );
   if (!entry) return null;
 
@@ -182,6 +187,18 @@ export const resolveWorkbookContext = async (): Promise<WorkbookContext> => {
 
 // --- API caller ---
 
+/**
+ * Trailing guidance appended to AUTH_ERROR messages on SharePoint/OneDrive
+ * pages. MSAL's encrypted cache means we can't recover in-place — the only
+ * reliable path is to clear MSAL state and reload, which the
+ * `excel-online_reauthenticate` tool does.
+ */
+const SP_REAUTH_HINT = 'Call `excel-online_reauthenticate` to recover.';
+
+const authError = (msg: string): never => {
+  throw ToolError.auth(isSharePointWorkbook() ? `${msg} ${SP_REAUTH_HINT}` : msg);
+};
+
 export const api = async <T>(
   endpoint: string,
   options: {
@@ -191,7 +208,7 @@ export const api = async <T>(
   } = {},
 ): Promise<T> => {
   const token = getToken();
-  if (!token) throw ToolError.auth('Not authenticated — please log in to Microsoft 365.');
+  if (!token) authError('Not authenticated — please log in to Microsoft 365.');
 
   const qs = options.query ? buildQueryString(options.query) : '';
   const url = qs ? `${GRAPH_BASE}${endpoint}?${qs}` : `${GRAPH_BASE}${endpoint}`;
@@ -227,8 +244,8 @@ export const api = async <T>(
   if (!response.ok) {
     const errorBody = (await response.text().catch(() => '')).substring(0, 512);
 
-    if (response.status === 401) throw ToolError.auth(`Auth error (401): ${errorBody}`);
-    if (response.status === 403) throw ToolError.auth(`Forbidden (403): ${errorBody}`);
+    if (response.status === 401) authError(`Auth error (401): ${errorBody}`);
+    if (response.status === 403) authError(`Forbidden (403): ${errorBody}`);
     if (response.status === 404) throw ToolError.notFound(`Not found: ${endpoint} — ${errorBody}`);
     if (response.status === 429) {
       const retryAfter = response.headers.get('Retry-After');

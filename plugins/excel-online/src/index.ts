@@ -26,6 +26,7 @@ import { listCharts } from './tools/list-charts.js';
 import { listNamedItems } from './tools/list-named-items.js';
 import { listTables } from './tools/list-tables.js';
 import { listWorksheets } from './tools/list-worksheets.js';
+import { reauthenticate } from './tools/reauthenticate.js';
 import { sortRange } from './tools/sort-range.js';
 import { updateRange } from './tools/update-range.js';
 import { updateWorksheet } from './tools/update-worksheet.js';
@@ -39,6 +40,7 @@ class ExcelOnlinePlugin extends OpenTabsPlugin {
   readonly tools: ToolDefinition[] = [
     // Account
     getCurrentUser,
+    reauthenticate,
     // Workbook
     getWorkbookInfo,
     calculateWorkbook,
