@@ -1,7 +1,12 @@
 name: PR Labels
 
+# Use pull_request_target so the workflow runs in the base repo's context with a
+# read-write token — pull_request grants only a read-only token to PRs from
+# forks, which makes labeling fail with "Resource not accessible by integration"
+# on every external contribution. This is safe here because the job only reads PR
+# metadata and applies labels; it never checks out or executes the PR's code.
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize]
 
 permissions:
