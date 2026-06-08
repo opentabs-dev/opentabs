@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawResourceFolder, mapResourceFolder, resourceFolderSchema } from './schemas.js';
+import { mapResourceFolder, type RawResourceFolder, resourceFolderSchema } from './schemas.js';
 
 export const createResourceFolder = defineTool({
   name: 'create_resource_folder',

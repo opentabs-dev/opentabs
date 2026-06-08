@@ -6,10 +6,16 @@
  *   tsx scripts/plugins.ts --check                        # Type-check + lint + format:check each plugin
  *   tsx scripts/plugins.ts --build --filter=slack,discord  # Build only named plugins
  *   tsx scripts/plugins.ts --build --affected              # Build only plugins with outdated SDK
+ *   tsx scripts/plugins.ts --check --changed=origin/main   # Check only plugins changed vs a git ref
  *   tsx scripts/plugins.ts --build --filter=slack --affected # Intersection: named AND affected
+ *
+ * `--changed[=<ref>]` restricts the set to plugins with files modified relative
+ * to <ref> (default: origin/main). This is how CI scopes a contributor's PR to
+ * the plugins they actually touched, so an unrelated plugin's pre-existing
+ * failure cannot block the PR. When run with no changed plugins, it exits 0.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEFAULT_HOST, DEFAULT_PORT, getConfigDir, getConfigPath, platformExec } from '@opentabs-dev/shared';
@@ -48,6 +54,35 @@ if (filterArg) {
     process.exit(1);
   }
   pluginDirs = pluginDirs.filter(d => names.has(d));
+}
+
+// --changed[=<ref>]: only plugins with files changed relative to a git ref
+// (default origin/main). Used by CI to scope a PR to the plugins it touches.
+// An explicit --changed=<ref> takes precedence over a bare --changed, so a
+// wrapper npm script can supply a default that CI overrides with the PR base.
+const changedArgs = process.argv.filter(a => a === '--changed' || a.startsWith('--changed='));
+const changedArg = changedArgs.find(a => a.includes('=')) ?? changedArgs[0];
+if (changedArg) {
+  const baseRef = changedArg.includes('=') ? changedArg.slice('--changed='.length) : 'origin/main';
+  const diff = spawnSync('git', ['diff', '--name-only', `${baseRef}...HEAD`], {
+    cwd: repoRoot,
+    encoding: 'utf-8',
+  });
+  if (diff.status !== 0) {
+    console.error(`Could not compute changed files against "${baseRef}": ${diff.stderr.trim()}`);
+    process.exit(1);
+  }
+  const changedPlugins = new Set<string>();
+  for (const line of diff.stdout.split('\n')) {
+    const match = line.match(/^plugins\/([^/]+)\//);
+    if (match?.[1]) changedPlugins.add(match[1]);
+  }
+  pluginDirs = pluginDirs.filter(d => changedPlugins.has(d));
+  if (pluginDirs.length === 0) {
+    console.log(`No plugins changed relative to ${baseRef} — nothing to ${mode}.`);
+    process.exit(0);
+  }
+  console.log(`Changed plugins relative to ${baseRef}: ${pluginDirs.join(', ')}`);
 }
 
 // --affected: only plugins whose installed SDK version differs from current

@@ -1,5 +1,5 @@
-import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ConfigSchema, ToolDefinition } from '@opentabs-dev/plugin-sdk';
+import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './retool-api.js';
 import { addComponent } from './tools/add-component.js';
 import { addQuery } from './tools/add-query.js';
@@ -16,8 +16,8 @@ import { getApp } from './tools/get-app.js';
 import { getAppDocs } from './tools/get-app-docs.js';
 import { getAppState } from './tools/get-app-state.js';
 import { getCurrentUser } from './tools/get-current-user.js';
-import { getResource } from './tools/get-resource.js';
 import { getOrganization } from './tools/get-organization.js';
+import { getResource } from './tools/get-resource.js';
 import { getSourceControlSettings } from './tools/get-source-control-settings.js';
 import { getWorkflow } from './tools/get-workflow.js';
 import { getWorkflowReleases } from './tools/get-workflow-releases.js';

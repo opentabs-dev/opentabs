@@ -2,7 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { handleToolsJsonChange, startConfigWatching, startFileWatching, stopFileWatching } from './file-watcher.js';
+import {
+  handleToolsJsonChange,
+  resolveMtimePollInterval,
+  startConfigWatching,
+  startFileWatching,
+  stopFileWatching,
+} from './file-watcher.js';
 import { log } from './logger.js';
 import { buildRegistry } from './registry.js';
 import type { RegisteredPlugin, ServerState } from './state.js';
@@ -568,5 +574,36 @@ describe('FSWatcher error event handlers', () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Error on dist watcher'));
 
     warnSpy.mockRestore();
+  });
+});
+
+describe('resolveMtimePollInterval — OPENTABS_MTIME_POLL_MS override', () => {
+  const original = process.env.OPENTABS_MTIME_POLL_MS;
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.OPENTABS_MTIME_POLL_MS;
+    else process.env.OPENTABS_MTIME_POLL_MS = original;
+  });
+
+  test('defaults to 30s when the env var is unset', () => {
+    delete process.env.OPENTABS_MTIME_POLL_MS;
+    expect(resolveMtimePollInterval()).toBe(30_000);
+  });
+
+  test('honors a valid positive override (the value test harnesses rely on)', () => {
+    process.env.OPENTABS_MTIME_POLL_MS = '500';
+    expect(resolveMtimePollInterval()).toBe(500);
+  });
+
+  test('falls back to the default for non-numeric values', () => {
+    process.env.OPENTABS_MTIME_POLL_MS = 'fast';
+    expect(resolveMtimePollInterval()).toBe(30_000);
+  });
+
+  test('falls back to the default for zero or negative values', () => {
+    process.env.OPENTABS_MTIME_POLL_MS = '0';
+    expect(resolveMtimePollInterval()).toBe(30_000);
+    process.env.OPENTABS_MTIME_POLL_MS = '-100';
+    expect(resolveMtimePollInterval()).toBe(30_000);
   });
 });

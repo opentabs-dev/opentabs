@@ -29,33 +29,61 @@ const runCli = (
   stdinPayload?: Buffer,
 ): Promise<{ stdout: string; stderr: string; code: number; spawnError: string | undefined }> =>
   new Promise(resolve => {
-    const child = spawn('node', [CLI, ...args], {
-      env,
-      timeout: 30_000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    let child: ReturnType<typeof spawn>;
+    // When argv exceeds the OS limit (ARG_MAX), spawn() throws synchronously on
+    // some platforms (macOS) and emits an async 'error' event on others. Both
+    // paths are the expected outcome for the oversize-argv regression guard, so
+    // capture the synchronous throw and resolve with it.
+    try {
+      child = spawn('node', [CLI, ...args], {
+        env,
+        timeout: 30_000,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      resolve({ stdout: '', stderr: '', code: -1, spawnError: code ?? (err as Error).message });
+      return;
+    }
 
     let stdout = '';
     let stderr = '';
     let spawnError: string | undefined;
+    let settled = false;
 
-    child.stdout.on('data', (d: Buffer) => {
+    const settle = (code: number) => {
+      if (settled) return;
+      settled = true;
+      resolve({ stdout, stderr, code, spawnError });
+    };
+
+    child.stdout?.on('data', (d: Buffer) => {
       stdout += d.toString('utf8');
     });
-    child.stderr.on('data', (d: Buffer) => {
+    child.stderr?.on('data', (d: Buffer) => {
       stderr += d.toString('utf8');
     });
+    // A spawn failure that surfaces asynchronously emits 'error' and may never
+    // emit 'close', so resolve here too — otherwise the promise would hang
+    // until the test timeout.
     child.on('error', (err: NodeJS.ErrnoException) => {
       spawnError = err.code ?? err.message;
+      settle(-1);
     });
     child.on('close', code => {
-      resolve({ stdout, stderr, code: code ?? -1, spawnError });
+      settle(code ?? -1);
     });
 
-    if (stdinPayload !== undefined) {
-      child.stdin.end(stdinPayload);
-    } else {
-      child.stdin.end();
+    // Writing to stdin of a process that failed to spawn throws synchronously;
+    // ignore it — the spawn-failure paths above already captured the error.
+    try {
+      if (stdinPayload !== undefined) {
+        child.stdin?.end(stdinPayload);
+      } else {
+        child.stdin?.end();
+      }
+    } catch {
+      // Spawn failed before stdin was usable — handled via the error paths.
     }
   });
 

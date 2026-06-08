@@ -37,8 +37,26 @@ import { log } from './logger.js';
 import { buildRegistry } from './registry.js';
 import type { FileWatcherEntry, RegisteredPlugin, ServerState } from './state.js';
 
-/** Polling interval for mtime-based fallback detection (ms) */
-const MTIME_POLL_INTERVAL_MS = 30_000;
+/**
+ * Resolve the mtime-poll fallback interval (ms).
+ *
+ * fs.watch() can miss events — on Linux when the inotify instance limit is
+ * exhausted under high parallelism, and on macOS when FSEvents goes stale in
+ * long-running processes. The mtime poll is the safety net that detects those
+ * missed changes. `OPENTABS_MTIME_POLL_MS` overrides the default so test
+ * harnesses can shorten the interval and surface missed events quickly.
+ *
+ * Evaluated at use-site (not module load) so the override is honored regardless
+ * of when the env var is set, and so it can be exercised in unit tests.
+ */
+const DEFAULT_MTIME_POLL_INTERVAL_MS = 30_000;
+
+const resolveMtimePollInterval = (): number => {
+  const raw = process.env.OPENTABS_MTIME_POLL_MS;
+  if (raw === undefined) return DEFAULT_MTIME_POLL_INTERVAL_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MTIME_POLL_INTERVAL_MS;
+};
 
 /** Fast polling interval when fs.watch() fails (e.g., EMFILE from inotify limits) */
 const MTIME_FAST_POLL_INTERVAL_MS = 200;
@@ -691,7 +709,7 @@ const startMtimePolling = (state: ServerState, callbacks: FileWatcherCallbacks, 
   }
 
   const gen = fw.generation;
-  const pollInterval = intervalMs ?? MTIME_POLL_INTERVAL_MS;
+  const pollInterval = intervalMs ?? resolveMtimePollInterval();
 
   fw.mtimePollTimerId = setInterval(() => {
     // Bail out if a new generation started (hot reload happened)
@@ -891,4 +909,11 @@ const stopFileWatching = (state: ServerState): void => {
 };
 
 export type { FileWatcherCallbacks };
-export { handleToolsJsonChange, startConfigWatching, startFileWatching, startPluginDirWatching, stopFileWatching };
+export {
+  handleToolsJsonChange,
+  resolveMtimePollInterval,
+  startConfigWatching,
+  startFileWatching,
+  startPluginDirWatching,
+  stopFileWatching,
+};

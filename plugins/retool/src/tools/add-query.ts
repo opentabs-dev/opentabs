@@ -39,14 +39,24 @@ export const addQuery = defineTool({
     const appState = data.page.data.appState;
     if (!appState) throw ToolError.notFound('App state not found');
 
-    const resResp = await api<{ resources: Array<{ name: string; displayName: string; uuid: string }> }>('/api/resources');
+    const resResp = await api<{ resources: Array<{ name: string; displayName: string; uuid: string }> }>(
+      '/api/resources',
+    );
     const resource = resResp.resources.find(
       r => r.displayName === params.resource_name || r.name === params.resource_name || r.uuid === params.resource_name,
     );
     const resourceInternalName = resource?.name ?? params.resource_name;
 
     const parsed = JSON.parse(appState) as unknown[];
-    injectQuery(parsed, params.query_id, resourceInternalName, params.query_type, params.query_string, params.run_on_page_load ?? false, params.additional_properties ?? {});
+    injectQuery(
+      parsed,
+      params.query_id,
+      resourceInternalName,
+      params.query_type,
+      params.query_string,
+      params.run_on_page_load ?? false,
+      params.additional_properties ?? {},
+    );
     const newAppState = JSON.stringify(parsed);
 
     const saveResp = await api<{ save: { id: number } }>(`/api/pages/uuids/${params.page_uuid}/save`, {

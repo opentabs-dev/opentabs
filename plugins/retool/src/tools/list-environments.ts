@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawEnvironment, environmentSchema, mapEnvironment } from './schemas.js';
+import { environmentSchema, mapEnvironment, type RawEnvironment } from './schemas.js';
 
 export const listEnvironments = defineTool({
   name: 'list_environments',

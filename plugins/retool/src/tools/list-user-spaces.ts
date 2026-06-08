@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawUserSpace, mapUserSpace, userSpaceSchema } from './schemas.js';
+import { mapUserSpace, type RawUserSpace, userSpaceSchema } from './schemas.js';
 
 export const listUserSpaces = defineTool({
   name: 'list_user_spaces',

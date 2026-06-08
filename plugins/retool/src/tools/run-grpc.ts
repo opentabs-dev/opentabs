@@ -13,7 +13,9 @@ export const runGrpc = defineTool({
   input: z.object({
     resource_name: z
       .string()
-      .describe('Resource display name (e.g., "brex.proto.billing_lifecycle.servicing.v1.services.PaymentPlanService") or internal UUID'),
+      .describe(
+        'Resource display name (e.g., "brex.proto.billing_lifecycle.servicing.v1.services.PaymentPlanService") or internal UUID',
+      ),
     method_name: z.string().describe('gRPC method name (e.g., "ListPlanGroups", "SimulatePlan")'),
     body: z.string().describe('JSON request body for the gRPC method'),
     metadata: z.record(z.string(), z.string()).optional().describe('Optional gRPC metadata headers'),
@@ -23,16 +25,15 @@ export const runGrpc = defineTool({
     error: z.string().nullable().describe('Error message if call failed'),
   }),
   handle: async params => {
-    const resResp = await api<{ resources: Array<{ name: string; displayName: string; uuid: string }> }>('/api/resources');
+    const resResp = await api<{ resources: Array<{ name: string; displayName: string; uuid: string }> }>(
+      '/api/resources',
+    );
     const resource = resResp.resources.find(
       r => r.displayName === params.resource_name || r.name === params.resource_name || r.uuid === params.resource_name,
     );
     if (!resource) throw ToolError.notFound(`Resource "${params.resource_name}" not found`);
 
     const serviceName = resource.displayName;
-    const metadataArray = params.metadata
-      ? Object.entries(params.metadata).map(([k, v]) => [k, v])
-      : [];
 
     const result = await api<Record<string, unknown>>('/api/playground/query', {
       method: 'POST',

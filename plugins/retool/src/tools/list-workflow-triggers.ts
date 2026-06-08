@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawWorkflowTrigger, mapWorkflowTrigger, workflowTriggerSchema } from './schemas.js';
+import { mapWorkflowTrigger, type RawWorkflowTrigger, workflowTriggerSchema } from './schemas.js';
 
 export const listWorkflowTriggers = defineTool({
   name: 'list_workflow_triggers',

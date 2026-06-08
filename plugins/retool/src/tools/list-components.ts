@@ -136,9 +136,7 @@ function extractPlugin(record: unknown[]): {
   return { type, subtype, container, position, properties: props };
 }
 
-function extractPosition(
-  pos: unknown[],
-): { row: number; col: number; width: number; height: number } | null {
+function extractPosition(pos: unknown[]): { row: number; col: number; width: number; height: number } | null {
   if (!Array.isArray(pos) || !isTransitRecord(pos)) return null;
   const map = pos[1] as unknown[];
   const vIdx = map.indexOf('v');

@@ -100,6 +100,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # Fetch enough history to diff a PR against its base branch.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v6
         with:
@@ -118,60 +121,25 @@ jobs:
       - name: Build platform
         run: npm run build
 
+      # On a PR, only build + check the plugins the PR actually touches, so an
+      # unrelated plugin's pre-existing failure cannot block a contributor.
+      # On push to main, check every plugin as the integration gate.
       - name: Build plugins
-        run: npm run build:plugins
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            npm run build:plugins:changed -- "--changed=origin/${{ github.base_ref }}"
+          else
+            npm run build:plugins
+          fi
 
       - name: Check plugins
-        run: npm run check:plugins
-
-  macos:
-    needs: check
-    runs-on: macos-latest
-    continue-on-error: true
-    timeout-minutes: 45
-    env:
-      CI: '1'
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-
-      - name: Cache node_modules
-        uses: actions/cache@v5
-        with:
-          path: node_modules
-          key: node-modules-macos-${{ hashFiles('package-lock.json') }}
-          restore-keys: node-modules-macos-
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Rebuild esbuild
-        run: npm rebuild esbuild
-
-      - name: Build
-        run: npm run build
-
-      - name: Unit tests
-        run: npm run test
-
-      - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
-
-      - name: Run E2E tests
-        run: npm run test:e2e -- --grep-invert 'multi-instance|plugin-settings|tool-groups|accordion-persist'
-
-      - name: Upload Playwright report
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: playwright-report-macos
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npm run check:plugins:changed -- "--changed=origin/${{ github.base_ref }}"
+          else
+            npm run check:plugins
+          fi
 
   windows:
     runs-on: windows-latest

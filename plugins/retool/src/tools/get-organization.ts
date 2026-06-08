@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawOrganization, mapOrganization, organizationSchema } from './schemas.js';
+import { mapOrganization, organizationSchema, type RawOrganization } from './schemas.js';
 
 export const getOrganization = defineTool({
   name: 'get_organization',

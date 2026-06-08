@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawGrid, gridSchema, mapGrid } from './schemas.js';
+import { gridSchema, mapGrid, type RawGrid } from './schemas.js';
 
 export const listGrids = defineTool({
   name: 'list_grids',

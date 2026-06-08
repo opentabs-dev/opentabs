@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawFolder, type RawWorkflow, folderSchema, mapFolder, mapWorkflow, workflowSchema } from './schemas.js';
+import { folderSchema, mapFolder, mapWorkflow, type RawFolder, type RawWorkflow, workflowSchema } from './schemas.js';
 
 export const listWorkflows = defineTool({
   name: 'list_workflows',

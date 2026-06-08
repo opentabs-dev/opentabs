@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawBranch, branchSchema, mapBranch } from './schemas.js';
+import { branchSchema, mapBranch, type RawBranch } from './schemas.js';
 
 export const listBranches = defineTool({
   name: 'list_branches',

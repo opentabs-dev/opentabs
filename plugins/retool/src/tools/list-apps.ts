@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawApp, type RawFolder, appSchema, folderSchema, mapApp, mapFolder } from './schemas.js';
+import { appSchema, folderSchema, mapApp, mapFolder, type RawApp, type RawFolder } from './schemas.js';
 
 export const listApps = defineTool({
   name: 'list_apps',

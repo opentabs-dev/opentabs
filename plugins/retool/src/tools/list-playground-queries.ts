@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawPlaygroundQuery, mapPlaygroundQuery, playgroundQuerySchema } from './schemas.js';
+import { mapPlaygroundQuery, playgroundQuerySchema, type RawPlaygroundQuery } from './schemas.js';
 
 export const listPlaygroundQueries = defineTool({
   name: 'list_playground_queries',

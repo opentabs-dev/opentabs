@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawWorkflowRelease, mapWorkflowRelease, workflowReleaseSchema } from './schemas.js';
+import { mapWorkflowRelease, type RawWorkflowRelease, workflowReleaseSchema } from './schemas.js';
 
 export const getWorkflowReleases = defineTool({
   name: 'get_workflow_releases',

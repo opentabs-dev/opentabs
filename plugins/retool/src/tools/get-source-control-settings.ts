@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawSourceControlSettings, mapSourceControlSettings, sourceControlSettingsSchema } from './schemas.js';
+import { mapSourceControlSettings, type RawSourceControlSettings, sourceControlSettingsSchema } from './schemas.js';
 
 export const getSourceControlSettings = defineTool({
   name: 'get_source_control_settings',

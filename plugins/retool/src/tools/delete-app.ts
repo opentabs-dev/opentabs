@@ -1,11 +1,12 @@
-import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
+import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
 
 export const deleteApp = defineTool({
   name: 'delete_app',
   displayName: 'Delete App',
-  description: 'Delete (trash) a Retool app by UUID. The app is moved to the trash folder and can be recovered from there.',
+  description:
+    'Delete (trash) a Retool app by UUID. The app is moved to the trash folder and can be recovered from there.',
   summary: 'Delete a Retool app',
   icon: 'trash',
   group: 'Apps',

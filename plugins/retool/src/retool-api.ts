@@ -1,5 +1,5 @@
-import { ToolError, buildQueryString, fetchJSON, getCookie, waitUntil } from '@opentabs-dev/plugin-sdk';
 import type { FetchFromPageOptions } from '@opentabs-dev/plugin-sdk';
+import { buildQueryString, fetchJSON, getCookie, ToolError, waitUntil } from '@opentabs-dev/plugin-sdk';
 
 /** Extract XSRF token from the `xsrfToken` cookie. */
 const getXsrfToken = (): string | null => getCookie('xsrfToken');

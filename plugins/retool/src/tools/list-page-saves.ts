@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawPageSave, mapPageSave, pageSaveSchema } from './schemas.js';
+import { mapPageSave, pageSaveSchema, type RawPageSave } from './schemas.js';
 
 export const listPageSaves = defineTool({
   name: 'list_page_saves',

@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawAgent, agentSchema, mapAgent } from './schemas.js';
+import { agentSchema, mapAgent, type RawAgent } from './schemas.js';
 
 export const listAgents = defineTool({
   name: 'list_agents',

@@ -11,7 +11,9 @@ export const runQuery = defineTool({
   icon: 'play',
   group: 'Queries',
   input: z.object({
-    resource_name: z.string().describe('Resource display name (e.g., "Billing Lifecycle (readonly / replica)") or internal UUID'),
+    resource_name: z
+      .string()
+      .describe('Resource display name (e.g., "Billing Lifecycle (readonly / replica)") or internal UUID'),
     query: z.string().describe('SQL query to execute'),
   }),
   output: z.object({
@@ -19,7 +21,9 @@ export const runQuery = defineTool({
     error: z.string().nullable().describe('Error message if query failed'),
   }),
   handle: async params => {
-    const resResp = await api<{ resources: Array<{ name: string; displayName: string; uuid: string }> }>('/api/resources');
+    const resResp = await api<{ resources: Array<{ name: string; displayName: string; uuid: string }> }>(
+      '/api/resources',
+    );
     const resource = resResp.resources.find(
       r => r.displayName === params.resource_name || r.name === params.resource_name || r.uuid === params.resource_name,
     );

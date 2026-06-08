@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawResource, mapResource, resourceSchema } from './schemas.js';
+import { mapResource, type RawResource, resourceSchema } from './schemas.js';
 
 export const listResources = defineTool({
   name: 'list_resources',

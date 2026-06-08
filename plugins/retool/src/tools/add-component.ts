@@ -46,7 +46,13 @@ export const addComponent = defineTool({
     if (!appState) throw ToolError.notFound('App state not found');
 
     const parsed = JSON.parse(appState) as unknown[];
-    const modified = injectComponent(parsed, params.component_id, params.component_type, params.properties, params.position);
+    const modified = injectComponent(
+      parsed,
+      params.component_id,
+      params.component_type,
+      params.properties,
+      params.position,
+    );
     const newAppState = JSON.stringify(modified);
 
     const saveResp = await api<{ save: { id: number } }>(`/api/pages/uuids/${params.page_uuid}/save`, {

@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../retool-api.js';
-import { type RawUser, mapUser, userSchema } from './schemas.js';
+import { mapUser, type RawUser, userSchema } from './schemas.js';
 
 export const changeUserName = defineTool({
   name: 'change_user_name',
