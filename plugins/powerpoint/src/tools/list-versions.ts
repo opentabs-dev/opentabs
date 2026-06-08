@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api, getCurrentDriveId } from '../powerpoint-api.js';
-import { type GraphCollection, type RawVersion, mapVersion, versionSchema } from './schemas.js';
+import { type GraphCollection, mapVersion, type RawVersion, versionSchema } from './schemas.js';
 
 export const listVersions = defineTool({
   name: 'list_versions',
@@ -17,7 +17,7 @@ export const listVersions = defineTool({
     versions: z.array(versionSchema).describe('Version history entries'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const data = await api<GraphCollection<RawVersion>>(`/drives/${driveId}/items/${params.item_id}/versions`);
     return { versions: (data.value ?? []).map(mapVersion) };
   },

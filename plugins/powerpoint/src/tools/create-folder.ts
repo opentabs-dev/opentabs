@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api, getCurrentDriveId } from '../powerpoint-api.js';
-import { type RawDriveItem, driveItemSchema, mapDriveItem } from './schemas.js';
+import { driveItemSchema, mapDriveItem, type RawDriveItem } from './schemas.js';
 
 export const createFolder = defineTool({
   name: 'create_folder',
@@ -19,7 +19,7 @@ export const createFolder = defineTool({
     item: driveItemSchema.describe('Created folder details'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const parentPath = params.parent_folder_id ? `items/${params.parent_folder_id}` : 'root';
     const data = await api<RawDriveItem>(`/drives/${driveId}/${parentPath}/children`, {
       method: 'POST',

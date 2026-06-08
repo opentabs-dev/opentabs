@@ -1,6 +1,6 @@
-import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './powerpoint-api.js';
+import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
+import { isAuthenticated, isPowerPointTab, isSharePoint, waitForAuth } from './powerpoint-api.js';
 import { copyItem } from './tools/copy-item.js';
 import { createFolder } from './tools/create-folder.js';
 import { createPresentation } from './tools/create-presentation.js';
@@ -32,7 +32,7 @@ class PowerPointPlugin extends OpenTabsPlugin {
   readonly name = 'powerpoint';
   readonly description = 'OpenTabs plugin for Microsoft PowerPoint Online';
   override readonly displayName = 'PowerPoint Online';
-  readonly urlPatterns = ['*://powerpoint.cloud.microsoft/*'];
+  readonly urlPatterns = ['*://powerpoint.cloud.microsoft/*', '*://*.sharepoint.com/:p:/*'];
   override readonly homepage = 'https://powerpoint.cloud.microsoft';
   readonly tools: ToolDefinition[] = [
     // Account
@@ -70,7 +70,13 @@ class PowerPointPlugin extends OpenTabsPlugin {
   ];
 
   async isReady(): Promise<boolean> {
+    if (!isPowerPointTab()) return false;
     if (isAuthenticated()) return true;
+    // On SharePoint/OneDrive-hosted presentations the Graph token is captured
+    // asynchronously by the pre-script and may not have arrived yet. Report the
+    // presentation page as ready so the plugin activates on load; tool handlers
+    // surface a clear auth error if the token has not been captured.
+    if (isSharePoint()) return true;
     return waitForAuth();
   }
 }

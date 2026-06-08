@@ -19,7 +19,7 @@ export const copyItem = defineTool({
     success: z.boolean().describe('Whether the copy was initiated (runs asynchronously)'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const body = stripUndefined({
       name: params.name,
       parentReference: params.destination_folder_id ? { id: params.destination_folder_id } : undefined,

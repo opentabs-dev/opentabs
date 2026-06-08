@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api, getCurrentDriveId } from '../powerpoint-api.js';
-import { type RawPermission, mapPermission, permissionSchema } from './schemas.js';
+import { mapPermission, permissionSchema, type RawPermission } from './schemas.js';
 
 export const createSharingLink = defineTool({
   name: 'create_sharing_link',
@@ -23,7 +23,7 @@ export const createSharingLink = defineTool({
     permission: permissionSchema.describe('The created sharing permission'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const data = await api<RawPermission>(`/drives/${driveId}/items/${params.item_id}/createLink`, {
       method: 'POST',
       body: {

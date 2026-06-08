@@ -1,6 +1,6 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
-import { isAuthenticated, waitForAuth } from './excel-api.js';
+import { isAuthenticated, isSharePointWorkbook, waitForAuth } from './excel-api.js';
 import { addNamedItem } from './tools/add-named-item.js';
 import { addTableColumn } from './tools/add-table-column.js';
 import { addTableRow } from './tools/add-table-row.js';
@@ -26,6 +26,7 @@ import { listCharts } from './tools/list-charts.js';
 import { listNamedItems } from './tools/list-named-items.js';
 import { listTables } from './tools/list-tables.js';
 import { listWorksheets } from './tools/list-worksheets.js';
+import { reauthenticate } from './tools/reauthenticate.js';
 import { sortRange } from './tools/sort-range.js';
 import { updateRange } from './tools/update-range.js';
 import { updateWorksheet } from './tools/update-worksheet.js';
@@ -34,11 +35,12 @@ class ExcelOnlinePlugin extends OpenTabsPlugin {
   readonly name = 'excel-online';
   readonly description = 'OpenTabs plugin for Microsoft Excel Online';
   override readonly displayName = 'Excel Online';
-  readonly urlPatterns = ['*://excel.cloud.microsoft/*'];
+  readonly urlPatterns = ['*://excel.cloud.microsoft/*', '*://*.sharepoint.com/:x:/*'];
   override readonly homepage = 'https://excel.cloud.microsoft/';
   readonly tools: ToolDefinition[] = [
     // Account
     getCurrentUser,
+    reauthenticate,
     // Workbook
     getWorkbookInfo,
     calculateWorkbook,
@@ -75,6 +77,13 @@ class ExcelOnlinePlugin extends OpenTabsPlugin {
 
   async isReady(): Promise<boolean> {
     if (isAuthenticated()) return true;
+    // On SharePoint/OneDrive-hosted workbooks the Graph token is captured
+    // asynchronously by the pre-script from MSAL's token-endpoint responses
+    // and may not have arrived yet. Report the workbook page as ready so the
+    // plugin activates on load; tool handlers surface a clear auth error if
+    // the token has not been captured. Readiness checks must return promptly,
+    // so this does not wait on token capture.
+    if (isSharePointWorkbook()) return true;
     return waitForAuth();
   }
 }

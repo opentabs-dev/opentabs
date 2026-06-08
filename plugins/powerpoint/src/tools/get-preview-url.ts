@@ -17,7 +17,7 @@ export const getPreviewUrl = defineTool({
     url: z.string().describe('Embeddable preview URL'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const data = await api<{ getUrl?: string }>(`/drives/${driveId}/items/${params.item_id}/preview`, {
       method: 'POST',
       body: {},

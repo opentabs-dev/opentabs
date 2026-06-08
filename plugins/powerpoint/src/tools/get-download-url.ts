@@ -22,7 +22,7 @@ export const getDownloadUrl = defineTool({
     name: z.string().describe('File name'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
 
     if (params.format) {
       return {

@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api } from '../powerpoint-api.js';
-import { type GraphCollection, type RawDriveItem, driveItemSchema, mapDriveItem } from './schemas.js';
+import { driveItemSchema, type GraphCollection, mapDriveItem, type RawDriveItem } from './schemas.js';
 
 export const listSharedWithMe = defineTool({
   name: 'list_shared_with_me',

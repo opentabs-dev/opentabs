@@ -1,7 +1,7 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
 import { api, getCurrentDriveId } from '../powerpoint-api.js';
-import { type RawDrive, driveSchema, mapDrive } from './schemas.js';
+import { driveSchema, mapDrive, type RawDrive } from './schemas.js';
 
 export const getDrive = defineTool({
   name: 'get_drive',
@@ -15,7 +15,7 @@ export const getDrive = defineTool({
     drive: driveSchema.describe('Drive storage information'),
   }),
   handle: async () => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const data = await api<RawDrive>(`/drives/${driveId}`, {
       query: { $select: 'id,name,driveType,quota' },
     });

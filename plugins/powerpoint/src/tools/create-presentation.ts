@@ -1,7 +1,7 @@
-import { ToolError, defineTool, getAuthCache, parseRetryAfterMs } from '@opentabs-dev/plugin-sdk';
+import { defineTool, parseRetryAfterMs, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { GRAPH_BASE, getCurrentDriveId } from '../powerpoint-api.js';
-import { type RawDriveItem, driveItemSchema, mapDriveItem } from './schemas.js';
+import { GRAPH_BASE, requireAuth } from '../powerpoint-api.js';
+import { driveItemSchema, mapDriveItem, type RawDriveItem } from './schemas.js';
 
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
 
@@ -22,14 +22,11 @@ export const createPresentation = defineTool({
   }),
   handle: async params => {
     const name = params.name.endsWith('.pptx') ? params.name : `${params.name}.pptx`;
-    const driveId = getCurrentDriveId();
+    const { token, driveId } = await requireAuth();
     const parentPath = params.folder_id ? `items/${params.folder_id}` : 'root';
 
     // Use raw fetch because the api() helper only supports JSON request bodies.
     // This endpoint requires a binary PUT with the PPTX Content-Type.
-    const auth = getAuthCache<{ token: string }>('powerpoint');
-    if (!auth) throw ToolError.auth('Not authenticated — please log in to Microsoft 365.');
-
     const url = `${GRAPH_BASE}/drives/${driveId}/${parentPath}:/${encodeURIComponent(name)}:/content`;
 
     let response: Response;
@@ -37,7 +34,7 @@ export const createPresentation = defineTool({
       response = await fetch(url, {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${auth.token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': PPTX_MIME,
         },
         body: new Blob([], { type: PPTX_MIME }),

@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { api, getCurrentDriveId } from '../powerpoint-api.js';
 import {
   DRIVE_ITEM_SELECT,
-  type GraphCollection,
-  type RawDriveItem,
   driveItemSchema,
+  type GraphCollection,
   mapDriveItem,
+  type RawDriveItem,
 } from './schemas.js';
 
 export const listChildren = defineTool({
@@ -25,7 +25,7 @@ export const listChildren = defineTool({
     items: z.array(driveItemSchema).describe('Files and folders'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     const base = params.folder_id
       ? `/drives/${driveId}/items/${params.folder_id}/children`
       : `/drives/${driveId}/root/children`;

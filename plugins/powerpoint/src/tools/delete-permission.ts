@@ -17,7 +17,7 @@ export const deletePermission = defineTool({
     success: z.boolean().describe('Whether the permission was removed'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     await api(`/drives/${driveId}/items/${params.item_id}/permissions/${params.permission_id}`, {
       method: 'DELETE',
     });

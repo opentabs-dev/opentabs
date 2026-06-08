@@ -20,9 +20,11 @@
     "displayName": "Excel Online",
     "description": "OpenTabs plugin for Microsoft Excel Online",
     "urlPatterns": [
-      "*://excel.cloud.microsoft/*"
+      "*://excel.cloud.microsoft/*",
+      "*://*.sharepoint.com/:x:/*"
     ],
     "homepage": "https://excel.cloud.microsoft/",
+    "preScript": "src/pre-script.ts",
     "iconSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <rect x=\"1\" y=\"3\" width=\"22\" height=\"18\" rx=\"2\" fill=\"#217346\"/> <path d=\"M7.5 8L12 16M12 8L7.5 16\" stroke=\"white\" stroke-width=\"2\" stroke-linecap=\"round\"/> <rect x=\"15\" y=\"8\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"11\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"14\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> </svg>",
     "iconDarkSvg": "<svg viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"> <rect x=\"1\" y=\"3\" width=\"22\" height=\"18\" rx=\"2\" fill=\"#8cdeb1\"/> <path d=\"M7.5 8L12 16M12 8L7.5 16\" stroke=\"white\" stroke-width=\"2\" stroke-linecap=\"round\"/> <rect x=\"15\" y=\"8\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"11\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> <rect x=\"15\" y=\"14\" width=\"4\" height=\"2\" rx=\"0.5\" fill=\"white\" opacity=\"0.7\"/> </svg>"
   },

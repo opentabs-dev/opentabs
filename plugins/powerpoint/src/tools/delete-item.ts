@@ -16,7 +16,7 @@ export const deleteItem = defineTool({
     success: z.boolean().describe('Whether the deletion succeeded'),
   }),
   handle: async params => {
-    const driveId = getCurrentDriveId();
+    const driveId = await getCurrentDriveId();
     await api(`/drives/${driveId}/items/${params.item_id}`, { method: 'DELETE' });
     return { success: true };
   },

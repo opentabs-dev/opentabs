@@ -1,42 +1,73 @@
 import {
   ToolError,
   buildQueryString,
-  clearAuthCache,
   findLocalStorageEntry,
-  getAuthCache,
+  getCurrentUrl,
   getLocalStorage,
+  getPreScriptValue,
   parseRetryAfterMs,
-  setAuthCache,
   waitUntil,
 } from '@opentabs-dev/plugin-sdk';
-import type { FetchFromPageOptions } from '@opentabs-dev/plugin-sdk';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
 // Microsoft 365 consumer app MSAL client ID
 const MSAL_CLIENT_ID = '2821b473-fe24-4c86-ba16-62834d6e80c3';
+/** localStorage key the pre-script mirrors the captured Graph token to. */
+const LS_TOKEN_KEY = '__opentabs_word_graph_token';
 
-interface MsWordAuth {
+interface CapturedGraphToken {
   token: string;
+  /** Unix epoch seconds. */
+  exp: number;
 }
 
 /**
- * Extract the Microsoft Graph API access token from MSAL localStorage cache.
- * MSAL stores tokens with keys containing the client ID, account ID, and scope.
- * The Graph API token has 'graph.microsoft.com' in its scope key.
+ * Read a value the pre-script stashed under the `microsoft-word` namespace.
+ *
+ * `getPreScriptValue` depends on `globalThis.__openTabs._pluginName`, which the
+ * adapter only binds during tool dispatch — so it returns `undefined` in
+ * `isReady()`, which runs earlier. We try the SDK helper first (forward-compat),
+ * then fall back to a direct read against the documented namespace path.
  */
-const getAuth = (): MsWordAuth | null => {
-  const cached = getAuthCache<MsWordAuth>('microsoft-word');
-  if (cached) return cached;
+const readPreScriptValue = <T>(key: string): T | undefined => {
+  const viaSdk = getPreScriptValue<T>(key);
+  if (viaSdk !== undefined) return viaSdk;
+  const ns = (globalThis as { __openTabs?: { preScript?: Record<string, Record<string, unknown>> } }).__openTabs
+    ?.preScript?.['microsoft-word'];
+  return ns?.[key] as T | undefined;
+};
 
-  // Find the token keys entry for the MSAL client ID
-  const tokenKeysRaw = getLocalStorage(`msal.token.keys.${MSAL_CLIENT_ID}`);
-  if (!tokenKeysRaw) {
-    // Try finding any MSAL token keys entry dynamically
-    const entry = findLocalStorageEntry(key => key.startsWith('msal.token.keys.'));
-    if (!entry) return null;
+/** A captured token is usable if it has a non-empty value and is not about to expire. */
+const usableToken = (captured: CapturedGraphToken | undefined | null): string | null => {
+  if (!captured || typeof captured.token !== 'string' || captured.token.length === 0) return null;
+  if (typeof captured.exp !== 'number' || captured.exp <= Math.floor(Date.now() / 1000) + 30) return null;
+  return captured.token;
+};
+
+/**
+ * The Graph token captured by the pre-script (the path that works on
+ * SharePoint/OneDrive-hosted documents, where MSAL's cache is encrypted).
+ * Checked in the in-page namespace first, then the localStorage mirror.
+ */
+const getCapturedToken = (): string | null => {
+  const fromNamespace = usableToken(readPreScriptValue<CapturedGraphToken>('graph'));
+  if (fromNamespace) return fromNamespace;
+  try {
+    const raw = getLocalStorage(LS_TOKEN_KEY);
+    if (raw) return usableToken(JSON.parse(raw) as CapturedGraphToken);
+  } catch {
+    /* malformed or inaccessible — fall through */
   }
+  return null;
+};
 
+/**
+ * A plaintext Graph access token from the standalone `word.cloud.microsoft`
+ * app's MSAL localStorage cache, keyed by client id and scope.
+ */
+const getMsalToken = (): string | null => {
+  const tokenKeysRaw = getLocalStorage(`msal.token.keys.${MSAL_CLIENT_ID}`);
   const keysSource = tokenKeysRaw ?? findLocalStorageEntry(key => key.startsWith('msal.token.keys.'))?.value;
   if (!keysSource) return null;
 
@@ -46,50 +77,114 @@ const getAuth = (): MsWordAuth | null => {
   } catch {
     return null;
   }
-
   if (!tokenKeys.accessToken) return null;
 
-  // Find the Graph API access token (scope contains graph.microsoft.com)
   for (const key of tokenKeys.accessToken) {
     if (!/(?:^|[\s/])graph\.microsoft\.com(?:[/\s]|$)/.test(key)) continue;
     const raw = getLocalStorage(key);
     if (!raw) continue;
     try {
-      const parsed = JSON.parse(raw);
-      if (!parsed.secret) continue;
-
-      // Check expiration — MSAL stores expiresOn as epoch seconds string
-      const expiresOn = Number.parseInt(parsed.expiresOn, 10);
-      if (expiresOn && expiresOn * 1000 < Date.now()) continue;
-
-      const auth: MsWordAuth = { token: parsed.secret };
-      setAuthCache('microsoft-word', auth);
-      return auth;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof parsed.secret !== 'string' || parsed.secret.length === 0) continue;
+      // MSAL stores `expiresOn` as a unix-epoch-seconds string. A missing or
+      // unparseable value means we cannot prove the token is live — treat it as
+      // expired rather than risk returning a stale token.
+      const expiresOn = Number.parseInt(String(parsed.expiresOn ?? '0'), 10);
+      if (!(expiresOn > Math.floor(Date.now() / 1000))) continue;
+      return parsed.secret;
     } catch {
       // skip invalid token entries
     }
   }
-
   return null;
 };
+
+const getToken = (): string | null => getCapturedToken() ?? getMsalToken();
 
 /**
  * Get the raw Graph API access token.
  * Used by tools that need raw fetch (non-JSON body uploads).
  */
 export const getGraphToken = (): string => {
-  const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
-  return auth.token;
+  const token = getToken();
+  if (!token) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
+  return token;
 };
 
-export const isAuthenticated = (): boolean => getAuth() !== null;
+export const isAuthenticated = (): boolean => getToken() !== null;
 
 export const waitForAuth = (): Promise<boolean> =>
-  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 5000 }).then(
+  waitUntil(() => isAuthenticated(), { interval: 500, timeout: 8000 }).then(
     () => true,
     () => false,
   );
+
+/** True when the current tab is a SharePoint/OneDrive-hosted Word document. */
+export const isSharePointDocument = (): boolean => {
+  try {
+    const url = new URL(getCurrentUrl());
+    return url.hostname.endsWith('.sharepoint.com') && url.pathname.includes('/:w:/');
+  } catch {
+    return false;
+  }
+};
+
+interface DocumentContext {
+  driveId: string;
+  itemId: string;
+}
+
+/**
+ * Per-tab cache keyed by the page URL. The Office apps are SPAs — same-tab
+ * navigation to a different document changes `getCurrentUrl()` without
+ * reloading the adapter, so a single-slot cache would silently return the
+ * wrong drive/item. Comparing the URL on every read invalidates the cache
+ * exactly when the document identity changes.
+ */
+let cached: { url: string; ctx: DocumentContext } | null = null;
+
+/** Encode a sharing URL into a Graph `/shares` share id (unpadded base64url with a `u!` prefix). */
+const encodeShareId = (sharingUrl: string): string => {
+  const bytes = new TextEncoder().encode(sharingUrl);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
+  return `u!${base64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-')}`;
+};
+
+/**
+ * Resolve the open document's drive and item ids.
+ *
+ * The standalone `word.cloud.microsoft` app carries `driveId`/`docId` in the URL
+ * query. SharePoint/OneDrive-hosted documents identify the file by a sharing
+ * token in the path, resolved to `{driveId, itemId}` via Graph `/shares`.
+ * Returns null when no document context is available (e.g. a file-browser page).
+ */
+export const resolveDocumentContext = async (): Promise<DocumentContext | null> => {
+  const currentUrl = getCurrentUrl();
+  if (cached && cached.url === currentUrl) return cached.ctx;
+  const url = new URL(currentUrl);
+  const driveId = url.searchParams.get('driveId');
+  const docId = url.searchParams.get('docId');
+  if (driveId && docId) {
+    const ctx = { driveId, itemId: docId };
+    cached = { url: currentUrl, ctx };
+    return ctx;
+  }
+  if (url.hostname.endsWith('.sharepoint.com') && url.pathname.includes('/:w:/')) {
+    const item = await api<{ id?: string; parentReference?: { driveId?: string } }>(
+      `/shares/${encodeShareId(url.href)}/driveItem`,
+      { query: { $select: 'id,parentReference' } },
+    );
+    const resolvedDriveId = item.parentReference?.driveId;
+    if (resolvedDriveId && item.id) {
+      const ctx = { driveId: resolvedDriveId, itemId: item.id };
+      cached = { url: currentUrl, ctx };
+      return ctx;
+    }
+  }
+  return null;
+};
 
 /**
  * Make an authenticated request to the Microsoft Graph API.
@@ -103,18 +198,18 @@ export const api = async <T>(
     query?: Record<string, string | number | boolean | undefined>;
   } = {},
 ): Promise<T> => {
-  const auth = getAuth();
-  if (!auth) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
+  const token = getToken();
+  if (!token) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
 
   const qs = options.query ? buildQueryString(options.query) : '';
   const url = qs ? `${GRAPH_API_BASE}${endpoint}?${qs}` : `${GRAPH_API_BASE}${endpoint}`;
   const method = options.method ?? 'GET';
 
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${auth.token}`,
+    Authorization: `Bearer ${token}`,
   };
 
-  const init: FetchFromPageOptions = { method, headers };
+  const init: RequestInit = { method, headers };
 
   if (options.body) {
     headers['Content-Type'] = 'application/json';
@@ -150,7 +245,6 @@ export const api = async <T>(
   }
 
   if (response.status === 401 || response.status === 403) {
-    clearAuthCache('microsoft-word');
     throw ToolError.auth('Authentication expired — please refresh the page.');
   }
 
