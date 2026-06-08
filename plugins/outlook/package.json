@@ -1,6 +1,6 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-outlook",
-  "description": "OpenTabs plugin for Microsoft Outlook",
+  "description": "OpenTabs plugin for Microsoft Outlook — email and calendar",
   "publishConfig": {
     "access": "public"
   },
@@ -18,7 +18,7 @@
   ],
   "opentabs": {
     "displayName": "Microsoft Outlook",
-    "description": "OpenTabs plugin for Microsoft Outlook",
+    "description": "OpenTabs plugin for Microsoft Outlook — email and calendar",
     "urlPatterns": [
       "*://outlook.cloud.microsoft/*",
       "*://outlook.live.com/*",

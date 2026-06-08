@@ -23,6 +23,26 @@ interface OutlookAuth {
 }
 
 /**
+ * A request capability. Mail and calendar can require different Graph scopes, and
+ * a single token is not guaranteed to carry both — enterprise tenants commonly
+ * issue a narrowly-scoped Graph token alongside a broad Outlook REST token. The
+ * `api()` cascade discovers the working token empirically (trying every candidate
+ * on 401/403), so capability does not pre-filter candidates; it only selects an
+ * independent cache slot. Separate slots stop a mail call and a calendar call from
+ * evicting each other's winning token under one shared cache — which would make the
+ * two endpoints repeatedly re-cascade against each other. Calendar read and write
+ * are split so a mutating call never pins to a read-only token cached by a read.
+ */
+type Capability = 'mail' | 'calendar' | 'calendar-write';
+
+/** Per-capability auth cache key, keeping each token bucket separate. */
+const AUTH_CACHE_KEY: Record<Capability, string> = {
+  mail: 'outlook',
+  calendar: 'outlook-calendar',
+  'calendar-write': 'outlook-calendar-write',
+};
+
+/**
  * Enumerate every MSAL client id whose token-index key starts with `prefix`.
  * The SDK's `findLocalStorageEntry` returns only the first match, which silently
  * drops every additional client id present when a user has multiple Microsoft
@@ -178,7 +198,7 @@ const collectAuthCandidates = (): OutlookAuth[] => {
 };
 
 export const isAuthenticated = (): boolean => {
-  if (getAuthCache<OutlookAuth>('outlook')) return true;
+  if (getAuthCache<OutlookAuth>(AUTH_CACHE_KEY.mail)) return true;
   return collectAuthCandidates().length > 0;
 };
 
@@ -203,6 +223,26 @@ const normalizeKeys = (obj: unknown): unknown => {
     // Skip OData metadata keys like @odata.context
     const newKey = key.startsWith('@') ? key : toCamelCase(key);
     result[newKey] = normalizeKeys(value);
+  }
+  return result;
+};
+
+const toPascalCase = (str: string): string => str.charAt(0).toUpperCase() + str.slice(1);
+
+/**
+ * Recursively convert object keys to PascalCase.
+ * The Outlook REST API deserializes request bodies case-sensitively and requires
+ * PascalCase property names for both entities (Subject, Start/DateTime) and OData
+ * action parameters (Schedules, Comment). Graph uses camelCase. Request bodies are
+ * authored in camelCase and transformed here when the request targets the REST base;
+ * GET query options ($filter, $orderby) are case-insensitive on REST and unaffected.
+ */
+const pascalCaseKeys = (obj: unknown): unknown => {
+  if (obj === null || obj === undefined || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(pascalCaseKeys);
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+    result[toPascalCase(key)] = pascalCaseKeys(value);
   }
   return result;
 };
@@ -244,7 +284,8 @@ const sendRequest = async <T>(
 
   if (options.body) {
     headers['Content-Type'] = 'application/json';
-    init.body = JSON.stringify(options.body);
+    const body = isOutlookApi ? pascalCaseKeys(options.body) : options.body;
+    init.body = JSON.stringify(body);
   }
 
   let response: Response;
@@ -300,14 +341,23 @@ const sendRequest = async <T>(
     throw ToolError.internal(errorMsg);
   }
 
+  // Successful actions (cancel, RSVP, sendMail) often return 202/205 or a 200 with
+  // an empty body and no JSON. Only parse when the response actually carries JSON.
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/json')) return {} as T;
+
   const json = await response.json();
   return (isOutlookApi ? normalizeKeys(json) : json) as T;
 };
 
 /**
- * Make an authenticated request to Microsoft mail APIs, cascading through every
- * MSAL-cached candidate on 401/403 (cached winner first) and caching the first
- * that succeeds. Throws an auth error only after every candidate has been tried.
+ * Make an authenticated request to a Microsoft 365 API for the given capability,
+ * cascading through every MSAL-cached candidate on 401/403 (the capability's cached
+ * winner first) and caching the first that succeeds under that capability's slot.
+ * Mail requests default to the `mail` capability; calendar tools pass `calendar` or
+ * `calendar-write` so their winning token is cached separately and never thrashes a
+ * mail-only token. Automatically uses whichever API the resolved token supports
+ * (Graph or Outlook REST). Throws an auth error only after every candidate fails.
  */
 export const api = async <T>(
   endpoint: string,
@@ -317,12 +367,15 @@ export const api = async <T>(
     query?: Record<string, string | number | boolean | undefined>;
     headers?: Record<string, string>;
   } = {},
+  capability: Capability = 'mail',
 ): Promise<T> => {
-  const cached = getAuthCache<OutlookAuth>('outlook');
+  const cacheKey = AUTH_CACHE_KEY[capability];
+
+  const cached = getAuthCache<OutlookAuth>(cacheKey);
   if (cached) {
     const r = await sendRequest<T>(cached, endpoint, options);
     if (r !== null) return r;
-    clearAuthCache('outlook');
+    clearAuthCache(cacheKey);
   }
 
   const candidates = collectAuthCandidates();
@@ -339,7 +392,7 @@ export const api = async <T>(
   for (const auth of remaining) {
     const r = await sendRequest<T>(auth, endpoint, options);
     if (r !== null) {
-      setAuthCache('outlook', auth);
+      setAuthCache(cacheKey, auth);
       return r;
     }
   }

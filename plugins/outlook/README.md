@@ -19,7 +19,7 @@ npm install -g @opentabs-dev/opentabs-plugin-outlook
 1. Open [outlook.cloud.microsoft](https://outlook.cloud.microsoft) in Chrome and log in
 2. Open the OpenTabs side panel — the Microsoft Outlook plugin should appear as **ready**
 
-## Tools (15)
+## Tools (24)
 
 ### Account (1)
 
@@ -50,6 +50,20 @@ npm install -g @opentabs-dev/opentabs-plugin-outlook
 | Tool | Description | Type |
 |---|---|---|
 | `list_folders` | List mail folders | Read |
+
+### Calendar (9)
+
+| Tool | Description | Type |
+|---|---|---|
+| `list_calendars` | List calendars, including shared ones | Read |
+| `list_events` | List events in a calendar | Read |
+| `get_calendar_view` | View events in a date range (expands recurrences) | Read |
+| `get_event` | Get full event details | Read |
+| `get_schedule` | View others' free/busy availability | Read |
+| `create_event` | Create an event or meeting | Write |
+| `update_event` | Update an event | Write |
+| `delete_event` | Delete or cancel an event | Write |
+| `respond_to_event` | Accept, decline, or tentatively accept an invitation | Write |
 
 ## How It Works
 
