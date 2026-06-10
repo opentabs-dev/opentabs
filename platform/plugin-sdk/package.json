@@ -13,6 +13,11 @@
   ],
   "version": "0.0.109",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opentabs-dev/opentabs.git",
+    "directory": "platform/plugin-sdk"
+  },
   "type": "module",
   "exports": {
     ".": {
