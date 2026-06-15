@@ -28,7 +28,7 @@ vi.mock('../sanitize-error.js', () => ({
 
 vi.mock('../constants.js', () => ({
   ADAPTER_HASH_PROP: '__adapterHash',
-  buildWsUrl: (port: number) => `ws://localhost:${port}/ws`,
+  buildWsUrl: (port: number) => `ws://127.0.0.1:${port}/ws`,
   DEFAULT_LOG_LIMIT: 100,
   DEFAULT_SERVER_PORT: 9515,
   EXEC_MAX_ASYNC_WAIT_MS: 10000,

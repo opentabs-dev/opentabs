@@ -1,9 +1,11 @@
+import { createHash } from 'node:crypto';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Duplex } from 'node:stream';
 import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { CheckResult } from './doctor.js';
 import {
@@ -17,6 +19,7 @@ import {
   checkPlugins,
   checkRuntime,
   checkServerHealth,
+  checkWsHandshake,
   defaultMcpClientLocations,
   isCwdProjectDirectory,
 } from './doctor.js';
@@ -916,5 +919,105 @@ describe('checkMcpServerVersion', () => {
     expect(result.detail).toContain('v1.0.0');
     expect(result.detail).toContain('CLI is v1.2.3');
     expect(result.hint).toContain('npm install');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// checkWsHandshake
+// ---------------------------------------------------------------------------
+
+const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+
+/**
+ * Minimal raw WebSocket-upgrade server for handshake probing tests. The
+ * `behavior` controls how the server answers the /ws upgrade so each branch of
+ * checkWsHandshake can be exercised without the ws library.
+ */
+const createWsUpgradeServer = (
+  behavior: 'accept' | 'reject-401',
+): Promise<{ port: number; close: () => Promise<void> }> =>
+  new Promise(resolve => {
+    const openSockets = new Set<Duplex>();
+    const server = createServer((_req, res) => {
+      res.writeHead(404);
+      res.end();
+    });
+    server.on('upgrade', (req: IncomingMessage, socket: Duplex) => {
+      openSockets.add(socket);
+      socket.on('close', () => openSockets.delete(socket));
+      if (behavior === 'reject-401') {
+        // Mirror the server-node rejection path: a real HTTP 401 on the raw socket.
+        socket.write('HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Bearer\r\nConnection: close\r\n\r\n');
+        socket.end();
+        return;
+      }
+      const key = req.headers['sec-websocket-key'] ?? '';
+      const accept = createHash('sha1').update(`${key}${WS_GUID}`).digest('base64');
+      socket.write(
+        [
+          'HTTP/1.1 101 Switching Protocols',
+          'Upgrade: websocket',
+          'Connection: Upgrade',
+          `Sec-WebSocket-Accept: ${accept}`,
+          'Sec-WebSocket-Protocol: opentabs',
+          '',
+          '',
+        ].join('\r\n'),
+      );
+      // The probe closes after onopen; the raw server does not speak WebSocket
+      // framing, so force-destroy lingering sockets at teardown.
+    });
+    server.listen(0, () => {
+      const addr = server.address() as { port: number };
+      resolve({
+        port: addr.port,
+        close: () =>
+          new Promise<void>(res => {
+            for (const s of openSockets) s.destroy();
+            openSockets.clear();
+            server.close(() => res());
+          }),
+      });
+    });
+  });
+
+describe('checkWsHandshake', () => {
+  test('skips when no secret is available', async () => {
+    const result = await checkWsHandshake(19997, null);
+    expect(result.ok).toBe(false);
+    expect(result.label).toBe('WebSocket handshake');
+    expect(result.detail).toContain('skipped');
+  });
+
+  test('passes when the server accepts the upgrade', async () => {
+    const srv = await createWsUpgradeServer('accept');
+    try {
+      const result = await checkWsHandshake(srv.port, 'test-secret');
+      expect(result.ok).toBe(true);
+      expect(result.label).toBe('WebSocket handshake');
+      expect(result.detail).toContain('authenticated');
+    } finally {
+      await srv.close();
+    }
+  });
+
+  test('warns when the upgrade is rejected with 401', async () => {
+    const srv = await createWsUpgradeServer('reject-401');
+    try {
+      const result = await checkWsHandshake(srv.port, 'wrong-secret');
+      expect(result.ok).toBe(false);
+      expect(result.fatal).toBe(false);
+      expect(result.label).toBe('WebSocket handshake');
+      expect(result.hint).toContain('auth.json');
+    } finally {
+      await srv.close();
+    }
+  });
+
+  test('warns when nothing is listening on the port', async () => {
+    const result = await checkWsHandshake(19996, 'test-secret');
+    expect(result.ok).toBe(false);
+    expect(result.fatal).toBe(false);
+    expect(result.label).toBe('WebSocket handshake');
   });
 });

@@ -95,5 +95,15 @@ export const ADAPTER_HASH_PROP = '__adapterHash';
 export const VALID_PLUGIN_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** Validate a plugin name against the expected format */
 export const isValidPluginName = (name: string): boolean => VALID_PLUGIN_NAME.test(name);
-/** Build the WebSocket URL for the MCP server on the given port */
-export const buildWsUrl = (port: number): string => `ws://localhost:${port}/ws`;
+/**
+ * Build the WebSocket URL for the MCP server on the given port.
+ *
+ * Uses the loopback IP 127.0.0.1 rather than the hostname "localhost": the MCP
+ * server binds IPv4-only on 127.0.0.1, but "localhost" resolves to ::1 (IPv6)
+ * first on many systems (notably Linux). Dialing "localhost" there reaches an
+ * address nothing is listening on, so the offscreen WebSocket fails with
+ * ERR_CONNECTION_REFUSED while a client using an explicit 127.0.0.1 connects.
+ * Matching the server's bind address (DEFAULT_HOST in @opentabs-dev/shared)
+ * keeps the two consistent across platforms.
+ */
+export const buildWsUrl = (port: number): string => `ws://127.0.0.1:${port}/ws`;

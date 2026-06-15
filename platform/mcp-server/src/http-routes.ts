@@ -261,7 +261,8 @@ const handleWsUpgrade = (req: Request, server: ServerAdapter, state: ServerState
       }
     }
     if (!secretMatched) {
-      return new Response('Unauthorized', { status: 401 });
+      log.warn('Rejected WebSocket upgrade on /ws: auth secret missing or mismatched in Sec-WebSocket-Protocol');
+      return new Response('Unauthorized', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } });
     }
   } else {
     for (const part of parts) {

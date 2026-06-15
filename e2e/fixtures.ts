@@ -874,7 +874,7 @@ const createExtensionCopy = (
     // Patch the default server port in the offscreen document so it
     // connects to this test's port. The bundled code has:
     //   var DEFAULT_SERVER_PORT = 9515;
-    //   var buildWsUrl = (port) => `ws://localhost:${port}/ws`;
+    //   var buildWsUrl = (port) => `ws://127.0.0.1:${port}/ws`;
     //   var DEFAULT_MCP_SERVER_URL = buildWsUrl(DEFAULT_SERVER_PORT);
     // Replacing the port constant makes buildWsUrl produce the test URL.
     const offscreenPath = path.join(extensionDir, 'dist/offscreen/index.js');

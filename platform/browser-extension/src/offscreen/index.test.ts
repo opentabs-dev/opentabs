@@ -113,7 +113,7 @@ describe('ws:send handler', () => {
         return Promise.resolve({
           ok: true,
           status: 200,
-          json: () => Promise.resolve({ wsUrl: 'ws://localhost:9515/ws' }),
+          json: () => Promise.resolve({ wsUrl: 'ws://127.0.0.1:9515/ws' }),
         });
       }
       return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });

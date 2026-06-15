@@ -7,7 +7,7 @@
  *            caused by server hot reload where the TCP socket stays alive
  *            but the server-side handler has been replaced.
  *
- * The WebSocket URL defaults to ws://localhost:9515/ws. The port is
+ * The WebSocket URL defaults to ws://127.0.0.1:9515/ws. The port is
  * configurable via chrome.storage.local ('serverPort' key). The background
  * script reads the port and relays the constructed URL here because offscreen
  * documents do not have access to chrome.storage APIs.

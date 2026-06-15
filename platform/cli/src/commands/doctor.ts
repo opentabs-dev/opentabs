@@ -123,6 +123,74 @@ const checkExtensionConnected = (data: Record<string, unknown> | null): CheckRes
   );
 };
 
+/**
+ * Probe the WebSocket upgrade the extension's offscreen document performs.
+ *
+ * Connects to ws://host:port/ws with the same Sec-WebSocket-Protocol subprotocols
+ * the offscreen sends (['opentabs', '<secret>']). This isolates the handshake
+ * stage: a clean open proves the secret authenticates and the upgrade succeeds,
+ * so a "not connected" state points at the browser/extension side (extension not
+ * loaded, offscreen reading a stale bundled auth.json) rather than the server.
+ * A 401 close means the secret in auth.json no longer matches the server's.
+ */
+const checkWsHandshake = async (port: number, secret: string | null): Promise<CheckResult> => {
+  if (!secret) {
+    return warn('WebSocket handshake', 'skipped (no auth secret)', 'Run opentabs start to generate auth.json');
+  }
+
+  const wsUrl = `ws://${DEFAULT_HOST}:${port}/ws`;
+  return new Promise<CheckResult>(resolve => {
+    let settled = false;
+    const finish = (result: CheckResult): void => {
+      if (settled) return;
+      settled = true;
+      try {
+        ws.close();
+      } catch {
+        // Already closed
+      }
+      resolve(result);
+    };
+
+    const ws = new WebSocket(wsUrl, ['opentabs', secret]);
+    const timer = setTimeout(
+      () => finish(warn('WebSocket handshake', 'timed out', 'Check that the MCP server is healthy')),
+      3_000,
+    );
+
+    ws.onopen = () => {
+      clearTimeout(timer);
+      finish(pass('WebSocket handshake', 'authenticated (server accepts the secret in auth.json)'));
+    };
+
+    ws.onclose = event => {
+      clearTimeout(timer);
+      if (settled) return;
+      // 4001 (WS_CLOSE_AUTH_FAILED) is a post-open rejection; a bare upgrade 401
+      // surfaces as a generic close (1006) since the WebSocket never opened.
+      const authRejected = event.code === 4001;
+      finish(
+        warn(
+          'WebSocket handshake',
+          authRejected ? 'rejected: auth secret mismatch' : `closed before opening (code ${event.code})`,
+          'The secret in ~/.opentabs/extension/auth.json does not match the running server — restart opentabs start',
+        ),
+      );
+    };
+
+    ws.onerror = () => {
+      clearTimeout(timer);
+      finish(
+        warn(
+          'WebSocket handshake',
+          'failed (upgrade rejected or unreachable)',
+          'The secret in ~/.opentabs/extension/auth.json likely does not match the running server — restart opentabs start',
+        ),
+      );
+    };
+  });
+};
+
 const checkExtensionInstalled = async (): Promise<{ result: CheckResult; versionFile: string | null }> => {
   const extensionDir = getExtensionDir();
   const manifestPath = join(extensionDir, 'manifest.json');
@@ -507,6 +575,14 @@ const handleDoctor = async (options: DoctorOptions): Promise<void> => {
   // 7. Extension connected
   results.push(checkExtensionConnected(healthData));
 
+  // 7a. WebSocket handshake probe — only when the server is reachable but the
+  // extension is not connected. This isolates the handshake stage so a failure
+  // can be attributed to the server (auth mismatch) vs. the browser/extension
+  // side. When already connected, the handshake is proven and the probe is noise.
+  if (healthData && healthData.extensionConnected !== true) {
+    results.push(await checkWsHandshake(port, secret));
+  }
+
   // 8. Extension installed
   const { result: installedResult, versionFile } = await checkExtensionInstalled();
   results.push(installedResult);
@@ -582,6 +658,7 @@ export {
   checkPlugins,
   checkRuntime,
   checkServerHealth,
+  checkWsHandshake,
   defaultMcpClientLocations,
   isCwdProjectDirectory,
   registerDoctorCommand,
