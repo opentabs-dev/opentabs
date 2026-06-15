@@ -105,9 +105,9 @@ describe('ws:send handler', () => {
     // writable and configurable.
     (globalThis as Record<string, unknown>).WebSocket = MockWebSocket;
 
-    // Mock fetch: return a valid ws-info response so refreshWsUrl succeeds
-    // and connect() creates the MockWebSocket. Return 404 for auth.json
-    // (bootstrapFromAuthFile handles 404 gracefully — wsSecret stays null).
+    // Mock fetch: return a valid ws-info response so the transport's URL
+    // refresh succeeds and it creates the MockWebSocket. Return 404 for
+    // auth.json (the secret loader handles 404 gracefully — secret stays null).
     (globalThis as Record<string, unknown>).fetch = (url: unknown) => {
       if (typeof url === 'string' && url.includes('/ws-info')) {
         return Promise.resolve({
@@ -123,7 +123,7 @@ describe('ws:send handler', () => {
     // synchronously and starts the async IIFE that calls connect().
     await import('./index.js');
 
-    // Wait for the async IIFE (bootstrapFromAuthFile + connect) to settle.
+    // Wait for the async transport start (load secret + connect) to settle.
     // All mocked fetch calls return resolved Promises, so all microtasks
     // complete before setTimeout fires.
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -145,7 +145,7 @@ describe('ws:send handler', () => {
     // console.error should have been called with the offscreen prefix and method name
     expect(errorSpy).toHaveBeenCalledOnce();
     const firstCall = errorSpy.mock.calls[0] as [string, string | undefined, unknown] | undefined;
-    expect(firstCall?.[0]).toContain('[opentabs:offscreen]');
+    expect(firstCall?.[0]).toContain('[opentabs:transport]');
     expect(firstCall?.[1]).toBe('test.invoke');
 
     // sendResponse is still called — the WebSocket connection is not disrupted
