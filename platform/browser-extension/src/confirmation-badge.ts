@@ -1,4 +1,4 @@
-import { isSidePanelOpen } from './side-panel-toggle.js';
+import { isSidePanelOpen, openExtensionPanel } from './side-panel-toggle.js';
 
 /** Full params stored for each pending confirmation request */
 interface PendingConfirmationParams {
@@ -115,7 +115,7 @@ const initConfirmationBadge = (): void => {
         .getCurrent()
         .then(w => {
           if (w.id !== undefined) {
-            chrome.sidePanel.open({ windowId: w.id }).catch(() => {});
+            openExtensionPanel(w.id).catch(() => {});
           }
         })
         .catch(() => {});

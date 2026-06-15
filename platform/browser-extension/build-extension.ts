@@ -105,11 +105,20 @@ for (const { entrypoint, outfile, label } of entries) {
       bundle: true,
       platform: 'browser',
       format: 'esm',
-      minify: false,
+      // Keep Chrome output readable/unchanged; minify only Firefox so the build-time
+      // target gate removes Chrome-only dead branches before AMO/Firefox sees them.
+      minify: target === 'firefox',
+      // Firefox relies on build-time target gates to exclude Chrome-only APIs
+      // such as chrome.offscreen from the background bundle. minifySyntax folds
+      // those constant branches without changing the default Chrome output.
+      minifySyntax: target === 'firefox',
       // Write directly to the exact output path, overwriting the tsc-produced file.
       allowOverwrite: true,
       banner,
-      define: { __OPENTABS_TARGET__: JSON.stringify(target) },
+      define: {
+        __OPENTABS_TARGET__: JSON.stringify(target),
+        __OPENTABS_IS_FIREFOX__: JSON.stringify(target === 'firefox'),
+      },
       plugins: [stubNodeBuiltins],
     });
 

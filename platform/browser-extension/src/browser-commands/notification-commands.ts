@@ -1,3 +1,4 @@
+import { openExtensionPanel } from '../side-panel-toggle.js';
 import { sendErrorResult, sendSuccessResult } from './helpers.js';
 
 /** Map from notification ID to the URL to open on click */
@@ -58,7 +59,7 @@ export const initNotificationClickHandler = (): void => {
         .getCurrent()
         .then(w => {
           if (w.id !== undefined) {
-            chrome.sidePanel.open({ windowId: w.id }).catch(() => {});
+            openExtensionPanel(w.id).catch(() => {});
           }
         })
         .catch(() => {});

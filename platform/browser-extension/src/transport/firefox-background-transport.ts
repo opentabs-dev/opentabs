@@ -67,7 +67,20 @@ const loadInitialConfig = async (): Promise<{ url?: string; connectionId?: strin
       ? (stored[SERVER_PORT_KEY] as number)
       : undefined;
   const url = port ? buildWsUrl(port) : undefined;
-  const connectionId = typeof stored.connectionId === 'string' ? stored.connectionId : undefined;
+  let connectionId = typeof stored.connectionId === 'string' ? stored.connectionId : undefined;
+
+  // Firefox starts the transport directly from the background page. That can
+  // happen before background.ts' top-level ensureConnectionId() has finished,
+  // so make the transport host self-sufficient and guarantee the first WebSocket
+  // connection carries a stable installation identity.
+  if (!connectionId) {
+    connectionId = crypto.randomUUID();
+    await chrome.storage.local.set({ connectionId }).catch(() => {
+      // Storage may be temporarily unavailable during startup; still use the
+      // generated ID for this session and let background.ts retry persistence.
+    });
+  }
+
   return { url, connectionId };
 };
 
