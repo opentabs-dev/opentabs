@@ -38,8 +38,8 @@
     "@opentabs-dev/plugin-sdk": "^0.0.111",
     "@opentabs-dev/shared": "^0.0.111",
     "commander": "^14.0.3",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "picocolors": "^1.1.1",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   }
 }
