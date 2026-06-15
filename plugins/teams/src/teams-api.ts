@@ -35,7 +35,16 @@ const CONSUMER_CONFIG: EnvConfig = {
 };
 
 const ENTERPRISE_CONFIG: EnvConfig = {
-  authzUrl: 'https://teams.microsoft.com/api/authsvc/v1.0/authz',
+  get authzUrl() {
+    try {
+      if (typeof window !== 'undefined') {
+        return `${window.location.origin}/api/authsvc/v1.0/authz`;
+      }
+    } catch {
+      // fall through to default
+    }
+    return 'https://teams.microsoft.com/api/authsvc/v1.0/authz';
+  },
   chatServiceBase: null, // Discovered at runtime from regionGtms
 };
 
@@ -111,15 +120,15 @@ const discoverEnterpriseChatServiceBase = (): string => {
       const data = JSON.parse(entry.value) as {
         item?: { regionGtms?: { chatService?: string; chatServiceAfd?: string } };
       };
-      const chatService = data.item?.regionGtms?.chatService;
-      if (chatService) {
-        cachedEnterpriseChatServiceBase = chatService;
-        return chatService;
-      }
       const chatServiceAfd = data.item?.regionGtms?.chatServiceAfd;
       if (chatServiceAfd) {
         cachedEnterpriseChatServiceBase = chatServiceAfd;
         return chatServiceAfd;
+      }
+      const chatService = data.item?.regionGtms?.chatService;
+      if (chatService) {
+        cachedEnterpriseChatServiceBase = chatService;
+        return chatService;
       }
     } catch {
       // Fall through to default
