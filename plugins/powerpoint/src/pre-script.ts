@@ -185,25 +185,33 @@ definePreScript(({ set, log }) => {
     ) {
       const urlStr = typeof url === 'string' ? url : url.href;
       this[STATE] = { url: urlStr };
-      this.addEventListener('load', () => {
-        const state = this[STATE];
-        if (!state) return;
+      // `once` is essential: XHR instances are reusable, and we add a listener
+      // on every `open()`. Without it, a reused instance would accumulate a
+      // listener per request and re-run capture for every prior request on each
+      // subsequent response. With it, each request gets exactly one fire.
+      this.addEventListener(
+        'load',
+        () => {
+          const state = this[STATE];
+          if (!state) return;
 
-        // Secondary path: outbound Graph request carrying a Bearer header.
-        if (isGraphUrl(state.url) && state.bearer?.startsWith('Bearer ')) {
-          stash(state.bearer.slice('Bearer '.length), Math.floor(Date.now() / 1000) + 600);
-        }
-
-        // Primary path: AAD token-endpoint response body.
-        if (isTokenEndpointUrl(state.url)) {
-          try {
-            const text = this.responseText;
-            if (text) captureFromTokenResponse(JSON.parse(text));
-          } catch {
-            /* non-JSON or restricted responseText — ignore */
+          // Secondary path: outbound Graph request carrying a Bearer header.
+          if (isGraphUrl(state.url) && state.bearer?.startsWith('Bearer ')) {
+            stash(state.bearer.slice('Bearer '.length), Math.floor(Date.now() / 1000) + 600);
           }
-        }
-      });
+
+          // Primary path: AAD token-endpoint response body.
+          if (isTokenEndpointUrl(state.url)) {
+            try {
+              const text = this.responseText;
+              if (text) captureFromTokenResponse(JSON.parse(text));
+            } catch {
+              /* non-JSON or restricted responseText — ignore */
+            }
+          }
+        },
+        { once: true },
+      );
       // The two `open` overloads (with/without async/user/password) don't
       // unify when forwarding a rest tuple, so widen `origOpen` to a single
       // signature that accepts unknown trailing args.
