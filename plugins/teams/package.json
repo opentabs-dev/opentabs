@@ -21,7 +21,8 @@
     "description": "OpenTabs plugin for Microsoft Teams",
     "urlPatterns": [
       "*://teams.live.com/*",
-      "*://teams.microsoft.com/*"
+      "*://teams.microsoft.com/*",
+      "*://teams.cloud.microsoft/*"
     ],
     "homepage": "https://teams.live.com/v2/",
     "preScript": "src/pre-script.ts",
