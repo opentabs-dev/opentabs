@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "files": {
     "includes": [
       "**",
@@ -21,7 +21,8 @@
       "!.opencode",
       "!platform/browser-extension/side-panel/**/*.js",
       "!platform/browser-extension/side-panel/**/*.css",
-      "!**/*.css"
+      "!**/*.css",
+      "!**/*.svg"
     ]
   },
   "formatter": {
@@ -48,7 +49,7 @@
       "react": "recommended"
     },
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noDoubleEquals": "error",
         "noVar": "error",

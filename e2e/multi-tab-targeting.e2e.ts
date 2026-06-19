@@ -510,7 +510,7 @@ test.describe('Multi-tab targeting — mixed readiness', () => {
         if (result.isError) return false;
         const data = JSON.parse(result.content) as PluginTabsEntry[];
         const entry = data[0];
-        if (!entry || entry.tabs.length !== 2) return false;
+        if (entry?.tabs.length !== 2) return false;
         const readyCount = entry.tabs.filter(t => t.ready).length;
         const notReadyCount = entry.tabs.filter(t => !t.ready).length;
         return readyCount === 1 && notReadyCount === 1;
