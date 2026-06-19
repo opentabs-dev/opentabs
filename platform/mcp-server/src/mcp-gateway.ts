@@ -12,7 +12,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { log } from './logger.js';
 import type { McpServerInstance } from './mcp-setup.js';
 import { checkToolCallable, getAllToolsList, notifyToolListChanged, PLATFORM_TOOL_NAMES } from './mcp-setup.js';
-import type { DispatchCallbacks, RequestHandlerExtra } from './mcp-tool-dispatch.js';
+import type { DispatchCallbacks, RequestHandlerExtra, ToolCallResult } from './mcp-tool-dispatch.js';
 import {
   handleBrowserToolCall,
   handlePluginInspect,
@@ -102,7 +102,7 @@ const handleCallTool = async (
   args: Record<string, unknown>,
   extra: RequestHandlerExtra,
   callbacks: DispatchCallbacks,
-): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> => {
+): Promise<ToolCallResult> => {
   const toolName = args.tool;
   if (typeof toolName !== 'string' || toolName.length === 0) {
     return {

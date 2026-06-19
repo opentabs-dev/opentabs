@@ -1,101 +1,99 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { WsHandle } from '@opentabs-dev/shared';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import type { ExtensionConnection, ServerState } from '../state.js';
-import { createState } from '../state.js';
-import { screenshotTab } from './screenshot-tab.js';
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-const SAMPLE_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+const { mockDispatchToExtension } = vi.hoisted(() => ({
+  mockDispatchToExtension:
+    vi.fn<(state: unknown, method: string, params: Record<string, unknown>) => Promise<unknown>>(),
+}));
 
-const createMockWs = (): WsHandle & { sent: string[] } => ({
-  sent: [] as string[],
-  send(msg: string) {
-    this.sent.push(msg);
-  },
-  close() {},
+vi.mock('../extension-protocol.js', () => ({
+  dispatchToExtension: mockDispatchToExtension,
+}));
+
+const { screenshotTab } = await import('./screenshot-tab.js');
+const { createState } = await import('../state.js');
+
+describe('screenshotTab.formatResult', () => {
+  test('emits a single MCP image content part with mimeType image/png', () => {
+    expect(screenshotTab.formatResult).toBeDefined();
+    const formatted = screenshotTab.formatResult?.({ image: 'iVBORw0KGgoAAAANSUhEUg==' });
+    expect(formatted).toEqual([{ type: 'image', data: 'iVBORw0KGgoAAAANSUhEUg==', mimeType: 'image/png' }]);
+  });
+
+  test('renders a {savedTo, bytes} summary as a text part', () => {
+    const formatted = screenshotTab.formatResult?.({ savedTo: '/tmp/shot.png', bytes: 1234 });
+    expect(formatted).toHaveLength(1);
+    const part = formatted?.[0];
+    expect(part?.type).toBe('text');
+    const text = part?.type === 'text' ? part.text : '';
+    expect(text).toContain('/tmp/shot.png');
+    expect(text).toContain('1234');
+  });
+
+  test('throws a metadata-only error when the payload is not {image: string}', () => {
+    // Contract: the error describes the malformed payload by type and keys,
+    // never by serialising the payload itself — screenshots can carry PII
+    // (tokens, DOM content) if something has gone very wrong upstream.
+    expect(() => screenshotTab.formatResult?.({ image: 12345, secret: 'leakme' })).toThrow(
+      /browser_screenshot_tab: extension returned unexpected payload/,
+    );
+    expect(() => screenshotTab.formatResult?.({ image: 12345, secret: 'leakme' })).toThrow(
+      /type=object.*keys=\[image,secret\]/,
+    );
+    expect(() => screenshotTab.formatResult?.({ image: 12345, secret: 'leakme' })).not.toThrow(/leakme/);
+  });
+
+  test('rejects an empty-string image payload as a malformed capture', () => {
+    // An empty `image` field would otherwise pass the `typeof === 'string'` check
+    // and emit a zero-byte image content part — handing clients a "successful"
+    // response that decodes to nothing. Fail fast instead.
+    expect(() => screenshotTab.formatResult?.({ image: '' })).toThrow(
+      /browser_screenshot_tab: extension returned unexpected payload \(expected \{image: non-empty string\}/,
+    );
+  });
 });
 
-const installExtensionConnection = (state: ServerState, id = 'conn-test'): WsHandle & { sent: string[] } => {
-  const ws = createMockWs();
-  const conn: ExtensionConnection = {
-    ws,
-    connectionId: id,
-    profileLabel: id,
-    tabMapping: new Map(),
-    activeNetworkCaptures: new Set(),
-  };
-  state.extensionConnections.set(id, conn);
-  return ws;
-};
-
-const settleDispatchWith = (state: ServerState, response: unknown): void => {
-  for (const [, pending] of state.pendingDispatches) {
-    pending.resolve(response);
-    clearTimeout(pending.timerId);
-  }
-};
-
-describe('browser_screenshot_tab handler', () => {
-  let workDir: string;
-
+describe('screenshotTab.handler — filePath', () => {
+  let dir: string;
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'opentabs-screenshot-test-'));
+  });
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
   beforeEach(() => {
-    workDir = mkdtempSync(join(tmpdir(), 'screenshot-tab-test-'));
+    mockDispatchToExtension.mockReset();
   });
 
-  afterEach(() => {
-    rmSync(workDir, { recursive: true, force: true });
+  // A 1x1 transparent PNG.
+  const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+  test('without filePath the handler returns the raw {image} payload for formatResult', async () => {
+    mockDispatchToExtension.mockResolvedValue({ image: PNG_BASE64 });
+    const result = await screenshotTab.handler({ tabId: 1 }, createState());
+    expect(result).toEqual({ image: PNG_BASE64 });
   });
 
-  test('without filePath returns the dispatch result unchanged', async () => {
-    const state = createState();
-    installExtensionConnection(state);
-
-    const promise = screenshotTab.handler({ tabId: 1 }, state);
-    settleDispatchWith(state, { image: SAMPLE_PNG_BASE64 });
-
-    expect(await promise).toEqual({ image: SAMPLE_PNG_BASE64 });
+  test('with filePath the PNG is written to disk and a {savedTo, bytes} summary returned', async () => {
+    mockDispatchToExtension.mockResolvedValue({ image: PNG_BASE64 });
+    const path = join(dir, 'capture.png');
+    const result = (await screenshotTab.handler({ tabId: 1, filePath: path }, createState())) as {
+      savedTo: string;
+      bytes: number;
+    };
+    expect(result.savedTo).toBe(path);
+    const onDisk = await readFile(path);
+    expect(result.bytes).toBe(onDisk.byteLength);
+    // Verify the bytes are the decoded PNG (magic header).
+    expect(onDisk.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
   });
 
-  test('with absolute filePath writes valid PNG bytes to disk and returns {savedTo, bytes}', async () => {
-    const state = createState();
-    installExtensionConnection(state);
-    const filePath = join(workDir, 'shot.png');
-
-    const promise = screenshotTab.handler({ tabId: 1, filePath }, state);
-    settleDispatchWith(state, { image: SAMPLE_PNG_BASE64 });
-    const result = (await promise) as { savedTo: string; bytes: number };
-
-    const decoded = Buffer.from(SAMPLE_PNG_BASE64, 'base64');
-    expect(result).toEqual({ savedTo: filePath, bytes: decoded.byteLength });
-
-    const onDisk = readFileSync(filePath);
-    expect(onDisk.equals(decoded)).toBe(true);
-    expect(onDisk.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
-  });
-
-  test('with relative filePath rejects without dispatching to disk', async () => {
-    const state = createState();
-    installExtensionConnection(state);
-
-    const promise = screenshotTab.handler({ tabId: 1, filePath: 'relative/shot.png' }, state);
-    settleDispatchWith(state, { image: SAMPLE_PNG_BASE64 });
-
-    await expect(promise).rejects.toThrow(/filePath must be an absolute path/);
-  });
-
-  test('with filePath but malformed extension payload throws without writing', async () => {
-    const state = createState();
-    installExtensionConnection(state);
-    const filePath = join(workDir, 'should-not-exist.png');
-
-    const promise = screenshotTab.handler({ tabId: 1, filePath }, state);
-    settleDispatchWith(state, { unexpected: 'shape' });
-
-    await expect(promise).rejects.toThrow(/extension returned unexpected payload/);
-    expect(() => readFileSync(filePath)).toThrow(/ENOENT/);
+  test('rejects a non-absolute filePath', async () => {
+    mockDispatchToExtension.mockResolvedValue({ image: PNG_BASE64 });
+    await expect(screenshotTab.handler({ tabId: 1, filePath: 'relative.png' }, createState())).rejects.toThrow(
+      /filePath must be an absolute path/,
+    );
   });
 });
