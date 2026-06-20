@@ -46,7 +46,7 @@
     "@opentabs-dev/shared": "^0.0.112",
     "ajv": "^8.20.0",
     "open": "^11.0.0",
-    "posthog-node": "^5.37.0",
+    "posthog-node": "^5.38.2",
     "ws": "^8.21.0",
     "zod": "^4.4.3"
   }
