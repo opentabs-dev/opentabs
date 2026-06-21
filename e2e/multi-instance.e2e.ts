@@ -205,7 +205,7 @@ test.describe('Multi-instance — instance dispatch', () => {
       // Dispatch echo to alpha instance — should hit alphaServer
       await ctx.alphaServer.reset();
       await ctx.betaServer.reset();
-      const alphaResult = await ctx.client.callTool('e2e-test_echo', {
+      const alphaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-alpha',
         instance: 'alpha',
       });
@@ -225,7 +225,7 @@ test.describe('Multi-instance — instance dispatch', () => {
       // Now dispatch echo to beta instance — should hit betaServer
       await ctx.alphaServer.reset();
       await ctx.betaServer.reset();
-      const betaResult = await ctx.client.callTool('e2e-test_echo', {
+      const betaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-beta',
         instance: 'beta',
       });
@@ -266,7 +266,7 @@ test.describe('Multi-instance — unknown instance error', () => {
       await waitForReadyTabs(ctx.client, 1);
 
       // Call with a non-existent instance name
-      const result = await ctx.client.callTool('e2e-test_echo', {
+      const result = await ctx.client.callTool('e2e-test__echo', {
         message: 'should-fail',
         instance: 'gamma',
       });
@@ -305,7 +305,7 @@ test.describe('Multi-instance — per-tab getConfig', () => {
       await waitForReadyTabs(ctx.client, 2);
 
       // Call sdk_get_config targeting the alpha instance
-      const alphaConfigResult = await ctx.client.callTool('e2e-test_sdk_get_config', {
+      const alphaConfigResult = await ctx.client.callTool('e2e-test__sdk_get_config', {
         key: 'instanceUrl',
         instance: 'alpha',
       });
@@ -318,7 +318,7 @@ test.describe('Multi-instance — per-tab getConfig', () => {
       expect(alphaConfig.value).toBe(ctx.alphaServer.url);
 
       // Call sdk_get_config targeting the beta instance
-      const betaConfigResult = await ctx.client.callTool('e2e-test_sdk_get_config', {
+      const betaConfigResult = await ctx.client.callTool('e2e-test__sdk_get_config', {
         key: 'instanceUrl',
         instance: 'beta',
       });
@@ -351,7 +351,7 @@ test.describe('Multi-instance — tool schema injection', () => {
 
       // List tools and find an e2e-test tool
       const tools = await ctx.client.listTools();
-      const echoTool = tools.find(t => t.name === 'e2e-test_echo');
+      const echoTool = tools.find(t => t.name === 'e2e-test__echo');
       expect(echoTool).toBeDefined();
 
       const schema = echoTool?.inputSchema as {
@@ -398,11 +398,11 @@ test.describe('Multi-instance — concurrent dispatch no cross-routing', () => {
 
       // Fire concurrent echo calls — one to alpha, one to beta via Promise.all
       const [alphaResult, betaResult] = await Promise.all([
-        ctx.client.callTool('e2e-test_echo', {
+        ctx.client.callTool('e2e-test__echo', {
           message: 'from-alpha',
           instance: 'alpha',
         }),
-        ctx.client.callTool('e2e-test_echo', {
+        ctx.client.callTool('e2e-test__echo', {
           message: 'from-beta',
           instance: 'beta',
         }),
@@ -450,7 +450,7 @@ test.describe('Multi-instance — missing instance tab', () => {
       await waitForReadyTabs(ctx.client, 1);
 
       // Dispatch to beta instance — should fail because no beta tab is open
-      const result = await ctx.client.callTool('e2e-test_echo', {
+      const result = await ctx.client.callTool('e2e-test__echo', {
         message: 'should-fail',
         instance: 'beta',
       });

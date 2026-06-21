@@ -80,7 +80,7 @@ export const ArchitectureIllustration = () => (
       fontFamily="var(--font-mono), monospace"
       fill="var(--color-primary)"
       textAnchor="middle">
-      slack_send_message()
+      slack__send_message()
     </text>
 
     {/* Result chip */}
@@ -2263,7 +2263,7 @@ export const HowItWorks = () => (
         fontFamily="var(--font-mono), monospace"
         fill="var(--color-primary)"
         textAnchor="middle">
-        slack_send_message()
+        slack__send_message()
       </text>
       <text
         x="698"

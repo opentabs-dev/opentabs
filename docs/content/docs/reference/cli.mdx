@@ -209,7 +209,7 @@ opentabs audit [options]
     <Table.Row>
       <Table.Cell className="font-medium">`--tool <name>`</Table.Cell>
       <Table.Cell>—</Table.Cell>
-      <Table.Cell>Filter by tool name (e.g., `slack_send_message`).</Table.Cell>
+      <Table.Cell>Filter by tool name (e.g., `slack__send_message`).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`--since <duration>`</Table.Cell>
@@ -241,13 +241,13 @@ opentabs audit
 opentabs audit --limit 50 --plugin slack
 
 # Filter by tool name
-opentabs audit --tool slack_send_message
+opentabs audit --tool slack__send_message
 
 # Show invocations from the last hour
 opentabs audit --since 1h
 
 # Combine filters
-opentabs audit --tool slack_send_message --since 30m
+opentabs audit --tool slack__send_message --since 30m
 
 # Read from persistent disk log
 opentabs audit --file
@@ -876,7 +876,7 @@ opentabs tool schema <name> [options]
     <Table.Row>
       <Table.Cell className="font-medium">`<name>`</Table.Cell>
       <Table.Cell>Yes</Table.Cell>
-      <Table.Cell>Tool name (e.g., `slack_send_message`, `browser_list_tabs`).</Table.Cell>
+      <Table.Cell>Tool name (e.g., `slack__send_message`, `browser_list_tabs`).</Table.Cell>
     </Table.Row>
   </Table.Body>
 </Table>
@@ -884,7 +884,7 @@ opentabs tool schema <name> [options]
 Returns the tool's name, description, and full JSON Schema for its input parameters.
 
 ```bash
-opentabs tool schema slack_send_message
+opentabs tool schema slack__send_message
 opentabs tool schema browser_list_tabs
 ```
 
@@ -908,7 +908,7 @@ opentabs tool call <name> [json] [options]
     <Table.Row>
       <Table.Cell className="font-medium">`<name>`</Table.Cell>
       <Table.Cell>Yes</Table.Cell>
-      <Table.Cell>Tool name (e.g., `slack_send_message`, `browser_list_tabs`).</Table.Cell>
+      <Table.Cell>Tool name (e.g., `slack__send_message`, `browser_list_tabs`).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`[json]`</Table.Cell>
@@ -945,13 +945,13 @@ Results are printed to stdout as JSON. If the result is an error, it's printed t
 opentabs tool call browser_list_tabs
 
 # Call with JSON arguments
-opentabs tool call slack_send_message '{"channel":"C123","text":"hello"}'
+opentabs tool call slack__send_message '{"channel":"C123","text":"hello"}'
 
 # Use --params flag instead
-opentabs tool call slack_send_message --params '{"channel":"C123","text":"hello"}'
+opentabs tool call slack__send_message --params '{"channel":"C123","text":"hello"}'
 
 # Target a specific tab
-opentabs tool call slack_send_message '{"channel":"C123","text":"hi"}' --tab-id 42
+opentabs tool call slack__send_message '{"channel":"C123","text":"hi"}' --tab-id 42
 ```
 
 ---

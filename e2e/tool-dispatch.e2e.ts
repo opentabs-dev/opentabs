@@ -46,15 +46,15 @@ test.describe('Tool dispatch — full stack', () => {
     // List tools — e2e-test tools should be present
     const tools = await mcpClient.listTools();
     const toolNames = tools.map(t => t.name);
-    expect(toolNames).toContain('e2e-test_echo');
-    expect(toolNames).toContain('e2e-test_greet');
-    expect(toolNames).toContain('e2e-test_list_items');
-    expect(toolNames).toContain('e2e-test_get_status');
-    expect(toolNames).toContain('e2e-test_create_item');
-    expect(toolNames).toContain('e2e-test_failing_tool');
+    expect(toolNames).toContain('e2e-test__echo');
+    expect(toolNames).toContain('e2e-test__greet');
+    expect(toolNames).toContain('e2e-test__list_items');
+    expect(toolNames).toContain('e2e-test__get_status');
+    expect(toolNames).toContain('e2e-test__create_item');
+    expect(toolNames).toContain('e2e-test__failing_tool');
 
     // Call echo tool
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'hello from e2e' });
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'hello from e2e' });
     expect(output.ok).toBe(true);
     expect(output.message).toBe('hello from e2e');
 
@@ -77,7 +77,7 @@ test.describe('Tool dispatch — full stack', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', { name: 'Playwright' });
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', { name: 'Playwright' });
     expect(output.ok).toBe(true);
     expect(output.greeting).toBe('Hello, Playwright!');
 
@@ -92,7 +92,7 @@ test.describe('Tool dispatch — full stack', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_list_items', {});
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__list_items', {});
     expect(output.ok).toBe(true);
     expect(Array.isArray(output.items)).toBe(true);
     expect((output.items as unknown[]).length).toBeGreaterThan(0);
@@ -109,7 +109,7 @@ test.describe('Tool dispatch — full stack', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_list_items', { limit: 2, offset: 1 });
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__list_items', { limit: 2, offset: 1 });
     expect(output.ok).toBe(true);
     const items = output.items as Array<{ id: string; name: string }>;
     expect(items.length).toBe(2);
@@ -130,7 +130,7 @@ test.describe('Tool dispatch — full stack', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_get_status', {});
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__get_status', {});
     expect(output.ok).toBe(true);
     expect(output.authenticated).toBe(true);
     expect(typeof output.uptime).toBe('number');
@@ -147,7 +147,7 @@ test.describe('Tool dispatch — full stack', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_create_item', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__create_item', {
       name: 'Test Item',
       description: 'Created during E2E test',
     });
@@ -159,7 +159,7 @@ test.describe('Tool dispatch — full stack', () => {
     expect(typeof item.created_at).toBe('string');
 
     // Verify it was actually persisted
-    const listOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_list_items', { limit: 100 });
+    const listOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__list_items', { limit: 100 });
     const allItems = listOutput.items as Array<{ id: string; name: string }>;
     expect(allItems.some(i => i.name === 'Test Item')).toBe(true);
 
@@ -180,7 +180,7 @@ test.describe('Error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_failing_tool', {
+    const result = await mcpClient.callTool('e2e-test__failing_tool', {
       error_code: 'not_found',
       error_message: 'Item does not exist',
     });
@@ -198,7 +198,7 @@ test.describe('Error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_failing_tool', {});
+    const result = await mcpClient.callTool('e2e-test__failing_tool', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('This tool always fails');
 
@@ -220,7 +220,9 @@ test.describe('Error propagation', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // First verify echo works while authenticated
-    const okResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'before auth off' });
+    const okResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
+      message: 'before auth off',
+    });
     expect(okResult.message).toBe('before auth off');
 
     // Toggle auth off
@@ -229,7 +231,7 @@ test.describe('Error propagation', () => {
     // Poll until the tool returns an error (extension re-probes on next dispatch)
     const failResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after auth off' },
       { isError: true },
     );
@@ -241,7 +243,7 @@ test.describe('Error propagation', () => {
     // Poll until the tool succeeds again
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'auth restored' },
       { isError: false },
     );
@@ -268,7 +270,7 @@ test.describe('Error propagation', () => {
     // Poll until the tool returns an error
     const echoResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'should fail' },
       { isError: true },
     );
@@ -280,7 +282,7 @@ test.describe('Error propagation', () => {
     // Poll until the tool succeeds again
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'recovered' },
       { isError: false },
     );
@@ -307,7 +309,7 @@ test.describe('Tab state transitions', () => {
     await testServer.reset();
 
     // Don't open any tab to the test server.
-    const result = await mcpClient.callTool('e2e-test_echo', {
+    const result = await mcpClient.callTool('e2e-test__echo', {
       message: 'no tab',
     });
     expect(result.isError).toBe(true);
@@ -323,7 +325,7 @@ test.describe('Tab state transitions', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Tool should work (ready)
-    const readyOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'ready state' });
+    const readyOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'ready state' });
     expect(readyOutput.message).toBe('ready state');
 
     // Toggle auth off → isReady=false → unavailable
@@ -344,7 +346,7 @@ test.describe('Tab state transitions', () => {
     // Poll until the tool returns unavailable instead of fixed sleep
     const unavailResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'unavailable state' },
       { isError: true },
     );
@@ -366,7 +368,7 @@ test.describe('Tab state transitions', () => {
     // Poll until the tool succeeds instead of fixed READY_SETTLE_MS sleep
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'recovered state' },
       { isError: false },
     );
@@ -385,7 +387,7 @@ test.describe('Tab state transitions', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Tool works with tab open
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'tab open' });
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'tab open' });
     expect(okOutput.message).toBe('tab open');
 
     // Close the tab
@@ -394,7 +396,7 @@ test.describe('Tab state transitions', () => {
     // Poll until the tool fails (tab closed) instead of fixed sleep
     const closedResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'tab closed' },
       { isError: true },
     );
@@ -406,7 +408,7 @@ test.describe('Tab state transitions', () => {
     // Poll until the tool succeeds instead of fixed READY_SETTLE_MS sleep
     const reopenResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'tab reopened' },
       { isError: false },
     );
@@ -439,7 +441,7 @@ test.describe('Console.warn transparency logging', () => {
     });
 
     // Invoke a tool
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'console test',
     });
 
@@ -473,17 +475,17 @@ test.describe('Invocation recording', () => {
     await testServer.reset();
 
     // Make several tool calls
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'inv-1',
     });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', {
       name: 'Tester',
     });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_list_items', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__list_items', {
       limit: 3,
     });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_get_status', {});
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_create_item', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__get_status', {});
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__create_item', {
       name: 'Recorded',
     });
 
@@ -521,13 +523,13 @@ test.describe('Invocation recording', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
     await testServer.reset();
 
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'first',
     });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'second',
     });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'third',
     });
 
@@ -737,7 +739,7 @@ test.describe('stress', () => {
     // with setSlow (delays on the test server before checking auth). This
     // ensures the in-flight call is genuinely independent of auth changes
     // because slow_with_progress doesn't call the test server during execution.
-    const inFlightPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+    const inFlightPromise = mcpClient.callTool('e2e-test__slow_with_progress', {
       durationMs: 3000,
       steps: 2,
     });
@@ -755,7 +757,7 @@ test.describe('stress', () => {
     // Next call MUST fail — auth is off, isReady() returns false
     const failResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'should-fail' },
       { isError: true },
     );
@@ -766,7 +768,7 @@ test.describe('stress', () => {
 
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'recovered' },
       { isError: false },
     );
@@ -795,7 +797,7 @@ test.describe('stress', () => {
       // Verify tool call fails with isError=true within 10s
       const failResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: `churn-fail-${i}` },
         { isError: true },
         10_000,
@@ -807,7 +809,7 @@ test.describe('stress', () => {
 
       const okResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: `churn-ok-${i}` },
         { isError: false },
         15_000,
@@ -818,7 +820,7 @@ test.describe('stress', () => {
 
     // After all 5 cycles, verify final echo succeeds in under 3s (no accumulated recovery delay)
     const finalStart = Date.now();
-    const finalResult = await mcpClient.callTool('e2e-test_echo', { message: 'churn-final' });
+    const finalResult = await mcpClient.callTool('e2e-test__echo', { message: 'churn-final' });
     const finalElapsed = Date.now() - finalStart;
     expect(finalResult.isError).toBe(false);
     const finalOutput = parseToolResult(finalResult.content);
@@ -863,28 +865,30 @@ test.describe('Sequential tool calls', () => {
       );
     }
 
-    const echoOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'seq-1' });
+    const echoOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'seq-1' });
     expect(echoOutput.message).toBe('seq-1');
 
-    const greetOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', { name: 'Sequential' });
+    const greetOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', { name: 'Sequential' });
     expect(greetOutput.greeting).toBe('Hello, Sequential!');
 
-    const statusOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_get_status', {});
+    const statusOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__get_status', {});
     expect(statusOutput.version).toBe('1.0.0-test');
 
-    const createOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_create_item', { name: 'SeqItem' });
+    const createOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__create_item', {
+      name: 'SeqItem',
+    });
     expect((createOutput.item as Record<string, unknown>).name).toBe('SeqItem');
 
-    const listOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_list_items', { limit: 100 });
+    const listOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__list_items', { limit: 100 });
     const items = listOutput.items as Array<{ name: string }>;
     expect(items.some(i => i.name === 'SeqItem')).toBe(true);
 
     // Failing tool should fail without affecting subsequent calls
-    const failResult = await mcpClient.callTool('e2e-test_failing_tool', {});
+    const failResult = await mcpClient.callTool('e2e-test__failing_tool', {});
     expect(failResult.isError).toBe(true);
 
     // Verify tools still work after a failure
-    const echo2Output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'after-fail' });
+    const echo2Output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'after-fail' });
     expect(echo2Output.message).toBe('after-fail');
 
     await page.close();

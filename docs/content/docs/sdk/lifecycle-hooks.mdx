@@ -178,7 +178,7 @@ class MyPlugin extends OpenTabsPlugin {
 
 ## `onToolInvocationStart(toolName)`
 
-Called before each `tool.handle()` execution. Receives the unprefixed tool name (e.g., `'send_message'`, not `'slack_send_message'`).
+Called before each `tool.handle()` execution. Receives the unprefixed tool name (e.g., `'send_message'`, not `'slack__send_message'`).
 
 ```typescript
 onToolInvocationStart?(toolName: string): void;

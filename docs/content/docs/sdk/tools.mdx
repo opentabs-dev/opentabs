@@ -57,7 +57,7 @@ interface ToolDefinition<
     <Table.Row>
       <Table.Cell className="font-medium">`name`</Table.Cell>
       <Table.Cell>`string`</Table.Cell>
-      <Table.Cell>Tool name in `snake_case` (e.g., `'send_message'`). Auto-prefixed with the plugin name for MCP registration (`slack_send_message`).</Table.Cell>
+      <Table.Cell>Tool name in `snake_case` (e.g., `'send_message'`). Auto-prefixed with the plugin name for MCP registration (`slack__send_message`).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`displayName`</Table.Cell>
@@ -169,6 +169,8 @@ Tool schemas are serialized to JSON Schema via `z.toJSONSchema()` at build time.
 
 ## Name Prefixing
 
-Tool names are automatically prefixed with the plugin name when registered with the MCP server. A tool named `send_message` in a plugin named `slack` becomes `slack_send_message` at the MCP level. You define just the unprefixed name.
+Tool names are automatically prefixed with the plugin name when registered with the MCP server. A tool named `send_message` in a plugin named `slack` becomes `slack__send_message` at the MCP level. You define just the unprefixed name.
+
+The plugin name and the tool name are joined with a **double underscore** (`__`). Plugin names are kebab-case (so they never contain an underscore) and tool names are snake_case, which makes `__` an unambiguous boundary between the two — the prefix is everything before the first `__`, the base name is everything after. A double underscore also stays within the `[a-zA-Z0-9_-]` character set that the OpenAI and Anthropic tool-calling APIs require for tool names, unlike separators such as `:` or `.`.
 
 Tool names must match `^[a-z][a-z0-9]*(_[a-z0-9]+)*$` — lowercase snake_case, starting with a letter.

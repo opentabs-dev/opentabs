@@ -58,8 +58,8 @@ test.describe('HTTP API — GET /tools', () => {
     // e2e-test plugin tools should be present and annotated correctly
     const e2eTools = tools.filter(t => t.plugin === 'e2e-test');
     expect(e2eTools.length).toBeGreaterThan(0);
-    expect(e2eTools.some(t => t.name === 'e2e-test_get_status')).toBe(true);
-    expect(e2eTools.some(t => t.name === 'e2e-test_echo')).toBe(true);
+    expect(e2eTools.some(t => t.name === 'e2e-test__get_status')).toBe(true);
+    expect(e2eTools.some(t => t.name === 'e2e-test__echo')).toBe(true);
 
     // Each tool has the expected shape
     for (const tool of e2eTools) {
@@ -119,7 +119,7 @@ test.describe('HTTP API — GET /tools', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('HTTP API — POST /tools/:name/call', () => {
-  test('dispatches e2e-test_get_status and returns result', async ({
+  test('dispatches e2e-test__get_status and returns result', async ({
     mcpServer,
     testServer,
     extensionContext,
@@ -127,7 +127,7 @@ test.describe('HTTP API — POST /tools/:name/call', () => {
   }) => {
     await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const res = await fetchWithAuth(mcpServer.port, mcpServer.secret, '/tools/e2e-test_get_status/call', {
+    const res = await fetchWithAuth(mcpServer.port, mcpServer.secret, '/tools/e2e-test__get_status/call', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ arguments: {} }),
@@ -149,10 +149,10 @@ test.describe('HTTP API — POST /tools/:name/call', () => {
     expect(output.version).toBe('1.0.0-test');
   });
 
-  test('dispatches e2e-test_echo with arguments', async ({ mcpServer, testServer, extensionContext, mcpClient }) => {
+  test('dispatches e2e-test__echo with arguments', async ({ mcpServer, testServer, extensionContext, mcpClient }) => {
     await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const res = await fetchWithAuth(mcpServer.port, mcpServer.secret, '/tools/e2e-test_echo/call', {
+    const res = await fetchWithAuth(mcpServer.port, mcpServer.secret, '/tools/e2e-test__echo/call', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ arguments: { message: 'http-api-test' } }),
@@ -191,7 +191,7 @@ test.describe('HTTP API — POST /tools/:name/call', () => {
 
   test('returns 401 without auth', async ({ mcpServer }) => {
     await mcpServer.waitForHealth(h => h.status === 'ok');
-    const res = await fetch(`http://127.0.0.1:${mcpServer.port}/tools/e2e-test_get_status/call`, {
+    const res = await fetch(`http://127.0.0.1:${mcpServer.port}/tools/e2e-test__get_status/call`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ arguments: {} }),

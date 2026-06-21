@@ -133,7 +133,7 @@ test.describe('npm auto-discovery pipeline', () => {
     ]);
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-npm-disc-basic-cfg-'));
-    const config = configWithPlugins([], { 'npm-disc-basic_ping': true });
+    const config = configWithPlugins([], { 'npm-disc-basic__ping': true });
     writeTestConfig(configDir, config);
 
     let server: McpServer | undefined;
@@ -164,8 +164,8 @@ test.describe('npm auto-discovery pipeline', () => {
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-npm-disc-health-cfg-'));
     const config = configWithPlugins([], {
-      'npm-disc-health_status': true,
-      'npm-disc-health_info': true,
+      'npm-disc-health__status': true,
+      'npm-disc-health__info': true,
     });
     writeTestConfig(configDir, config);
 
@@ -190,8 +190,8 @@ test.describe('npm auto-discovery pipeline', () => {
 
       // Verify tools appear in MCP tools/list
       const tools = await client.listTools();
-      expect(tools.some(t => t.name === 'npm-disc-health_status')).toBe(true);
-      expect(tools.some(t => t.name === 'npm-disc-health_info')).toBe(true);
+      expect(tools.some(t => t.name === 'npm-disc-health__status')).toBe(true);
+      expect(tools.some(t => t.name === 'npm-disc-health__info')).toBe(true);
     } finally {
       await client?.close();
       await server?.kill();
@@ -207,7 +207,7 @@ test.describe('npm auto-discovery pipeline', () => {
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-npm-disc-call-cfg-'));
     const config = {
-      ...configWithPlugins([], { 'npm-disc-call_echo': true }),
+      ...configWithPlugins([], { 'npm-disc-call__echo': true }),
       permissions: {
         'e2e-test': { permission: 'auto' as const },
         'npm-disc-call': { permission: 'auto' as const },
@@ -230,7 +230,7 @@ test.describe('npm auto-discovery pipeline', () => {
 
       // Tool dispatch should fail because no browser extension is connected
       // (tab state is 'closed'), but the tool is recognized and dispatched.
-      const result = await client.callTool('npm-disc-call_echo', {});
+      const result = await client.callTool('npm-disc-call__echo', {});
       expect(result.isError).toBe(true);
       // The error message should indicate the tab is not ready, not "unknown tool"
       expect(result.content).not.toContain('Unknown tool');
@@ -326,8 +326,8 @@ test.describe('npm auto-discovery pipeline', () => {
 
       // tools/list should contain the local e2e-test tools, not the npm-only-tool
       const tools = await client.listTools();
-      expect(tools.some(t => t.name.startsWith('e2e-test_'))).toBe(true);
-      expect(tools.some(t => t.name === 'e2e-test_npm-only-tool')).toBe(false);
+      expect(tools.some(t => t.name.startsWith('e2e-test__'))).toBe(true);
+      expect(tools.some(t => t.name === 'e2e-test__npm-only-tool')).toBe(false);
     } finally {
       await client?.close();
       await server?.kill();

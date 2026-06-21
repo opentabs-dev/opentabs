@@ -110,7 +110,7 @@ test.describe('CLI tool call — large payload bypass', () => {
       };
 
       const result = await runCli(
-        ['tool', 'call', 'e2e-test_echo', '--params-file', payloadPath, '--port', String(mcpServer.port)],
+        ['tool', 'call', 'e2e-test__echo', '--params-file', payloadPath, '--port', String(mcpServer.port)],
         env,
       );
 
@@ -145,7 +145,7 @@ test.describe('CLI tool call — large payload bypass', () => {
     };
 
     const result = await runCli(
-      ['tool', 'call', 'e2e-test_echo', '--params-file', '-', '--port', String(mcpServer.port)],
+      ['tool', 'call', 'e2e-test__echo', '--params-file', '-', '--port', String(mcpServer.port)],
       env,
       Buffer.from(payloadJson, 'utf8'),
     );
@@ -177,7 +177,7 @@ test.describe('CLI tool call — large payload bypass', () => {
     };
 
     const result = await runCli(
-      ['tool', 'call', 'e2e-test_echo', '--params', bigJson, '--port', String(mcpServer.port)],
+      ['tool', 'call', 'e2e-test__echo', '--params', bigJson, '--port', String(mcpServer.port)],
       env,
     );
 

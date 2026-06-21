@@ -66,13 +66,13 @@ test.describe('Stress: WebSocket reconnect with pending tool calls', () => {
       await page.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
 
       // Wait for the plugin to become ready
-      await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 30_000);
+      await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 30_000);
 
       // Start 3 slow tool calls (5s each) — they will be in-flight when we kill the server
       const slowCalls = Promise.allSettled([
-        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 5000, steps: 5 }, { timeout: 30_000 }),
-        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 5000, steps: 5 }, { timeout: 30_000 }),
-        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 5000, steps: 5 }, { timeout: 30_000 }),
+        mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 5000, steps: 5 }, { timeout: 30_000 }),
+        mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 5000, steps: 5 }, { timeout: 30_000 }),
+        mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 5000, steps: 5 }, { timeout: 30_000 }),
       ]);
 
       // Wait 500ms for calls to start being dispatched
@@ -115,10 +115,10 @@ test.describe('Stress: WebSocket reconnect with pending tool calls', () => {
       await newClient.initialize();
 
       // Wait for plugin to become ready on the new server
-      await waitForToolResult(newClient, 'e2e-test_echo', { message: 'recovery-test' }, { isError: false }, 30_000);
+      await waitForToolResult(newClient, 'e2e-test__echo', { message: 'recovery-test' }, { isError: false }, 30_000);
 
       // Verify a fresh echo call succeeds
-      const echoResult = await newClient.callTool('e2e-test_echo', { message: 'post-reconnect' });
+      const echoResult = await newClient.callTool('e2e-test__echo', { message: 'post-reconnect' });
       expect(echoResult.isError).toBe(false);
       expect(echoResult.content).toContain('post-reconnect');
 
@@ -179,7 +179,7 @@ test.describe('Stress: Multi-connection isolation under concurrent dispatch', ()
       await client2.initialize();
 
       // Wait for at least one plugin to be ready (both extensions report tabs)
-      await waitForToolResult(client1, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 30_000);
+      await waitForToolResult(client1, 'e2e-test__echo', { message: 'warmup' }, { isError: false }, 30_000);
 
       // Fire concurrent echo calls 5 times for confidence
       for (let round = 0; round < 5; round++) {
@@ -187,8 +187,8 @@ test.describe('Stress: Multi-connection isolation under concurrent dispatch', ()
         const msg2 = `from-conn-2-round-${round}`;
 
         const [result1, result2] = await Promise.all([
-          client1.callTool('e2e-test_echo', { message: msg1 }),
-          client2.callTool('e2e-test_echo', { message: msg2 }),
+          client1.callTool('e2e-test__echo', { message: msg1 }),
+          client2.callTool('e2e-test__echo', { message: msg2 }),
         ]);
 
         // Verify client1's result contains its own message
@@ -305,14 +305,14 @@ test.describe('Stress: Audit log under rapid tool calls', () => {
       await page.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
 
       // Wait for the plugin to become ready
-      await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 30_000);
+      await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 30_000);
 
       // Fire 50 echo calls sequentially (tests ordering, not throughput).
       // Pace calls with a small delay to stay under the extension's
       // tool.dispatch rate limit (30 requests per 1s window).
       const CALL_COUNT = 50;
       for (let i = 0; i < CALL_COUNT; i++) {
-        const result = await mcpClient.callTool('e2e-test_echo', { message: `audit-seq-${i}` });
+        const result = await mcpClient.callTool('e2e-test__echo', { message: `audit-seq-${i}` });
         expect(result.isError).toBe(false);
         if (i < CALL_COUNT - 1) await new Promise(r => setTimeout(r, 40));
       }
@@ -332,12 +332,12 @@ test.describe('Stress: Audit log under rapid tool calls', () => {
       }>;
 
       // Filter to only the echo calls we made (audit may contain other tool entries)
-      const echoEntries = entries.filter(e => e.tool === 'e2e-test_echo');
+      const echoEntries = entries.filter(e => e.tool === 'e2e-test__echo');
       expect(echoEntries.length).toBeGreaterThanOrEqual(CALL_COUNT);
 
       // Verify all echo entries have correct tool name and success flag
       for (const entry of echoEntries) {
-        expect(entry.tool).toBe('e2e-test_echo');
+        expect(entry.tool).toBe('e2e-test__echo');
         expect(entry.success).toBe(true);
       }
 
@@ -406,10 +406,10 @@ test.describe('Stress: Secret rotation during active session', () => {
       await page.goto(testSrv.url, { waitUntil: 'load', timeout: 10_000 });
 
       // Wait for the plugin to become ready
-      await waitForToolResult(oldClient, 'e2e-test_get_status', {}, { isError: false }, 30_000);
+      await waitForToolResult(oldClient, 'e2e-test__get_status', {}, { isError: false }, 30_000);
 
       // Verify echo works before rotation
-      const echoResult = await oldClient.callTool('e2e-test_echo', { message: 'before-rotation' });
+      const echoResult = await oldClient.callTool('e2e-test__echo', { message: 'before-rotation' });
       expect(echoResult.isError).toBe(false);
       expect(echoResult.content).toContain('before-rotation');
 
@@ -428,7 +428,7 @@ test.describe('Stress: Secret rotation during active session', () => {
 
       // Old client with stale secret should fail with auth error
       await expect(
-        oldClient.callTool('e2e-test_echo', { message: 'stale-secret' }, { timeout: 10_000 }),
+        oldClient.callTool('e2e-test__echo', { message: 'stale-secret' }, { timeout: 10_000 }),
       ).rejects.toThrow(/401/);
 
       // Launch a new extension with the new secret for post-rotation dispatch
@@ -450,9 +450,9 @@ test.describe('Stress: Secret rotation during active session', () => {
       await newClient.initialize();
 
       // Wait for the plugin to become ready on the new extension
-      await waitForToolResult(newClient, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 30_000);
+      await waitForToolResult(newClient, 'e2e-test__echo', { message: 'warmup' }, { isError: false }, 30_000);
 
-      const newEchoResult = await newClient.callTool('e2e-test_echo', { message: 'after-rotation' });
+      const newEchoResult = await newClient.callTool('e2e-test__echo', { message: 'after-rotation' });
       expect(newEchoResult.isError).toBe(false);
       expect(newEchoResult.content).toContain('after-rotation');
 

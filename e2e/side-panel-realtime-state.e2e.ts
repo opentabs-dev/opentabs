@@ -95,7 +95,7 @@ test.describe('Side panel real-time state propagation', () => {
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echoTool = toolList.find(t => t.name === 'e2e-test_echo');
+            const echoTool = toolList.find(t => t.name === 'e2e-test__echo');
             return echoTool?.description?.startsWith('[Disabled]') ?? false;
           },
           { timeout: 15_000, message: 'MCP server did not reflect echo tool as disabled' },
@@ -454,10 +454,10 @@ test.describe('stress', () => {
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const echo = toolList.find(t => t.name === 'e2e-test__echo');
             return echo !== undefined && !echo.description.startsWith('[Disabled]');
           },
-          { timeout: 15_000, message: 'e2e-test_echo should be enabled after switching back to Auto' },
+          { timeout: 15_000, message: 'e2e-test__echo should be enabled after switching back to Auto' },
         )
         .toBe(true);
 

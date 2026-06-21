@@ -220,7 +220,7 @@ interface OpentabsConfig {
 
 /**
  * Read tool names from the e2e-test plugin's dist/tools.json.
- * Returns prefixed tool names (e.g., 'e2e-test_echo') matching the format
+ * Returns prefixed tool names (e.g., 'e2e-test__echo') matching the format
  * used in config.json's `tools` map. The sdkVersion field is patched once
  * in global-setup.ts before workers spawn.
  */
@@ -229,7 +229,7 @@ const readPluginToolNames = (): string[] => {
   const raw: unknown = JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
   // Support both legacy array format and current { tools: [...] } format
   const tools = (Array.isArray(raw) ? raw : (raw as { tools: unknown[] }).tools) as Array<{ name: string }>;
-  return tools.map(t => `e2e-test_${t.name}`);
+  return tools.map(t => `e2e-test__${t.name}`);
 };
 
 /**

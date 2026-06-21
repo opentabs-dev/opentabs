@@ -478,6 +478,21 @@ export const EXTENSION_COPY_EXCLUDE_PATTERN =
 /** Regex for valid plugin names: lowercase alphanumeric with hyphens */
 export const NAME_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+/**
+ * Delimiter joining a plugin name and a tool name in the prefixed tool id
+ * surfaced to MCP clients (e.g. `slack__send_message`).
+ *
+ * Double underscore is unambiguous given the naming rules: plugin names are
+ * kebab-case (`NAME_REGEX`, no underscore) and tool names are snake_case that
+ * forbid consecutive underscores, so `__` can only be the boundary. It also
+ * stays within the `[a-zA-Z0-9_-]` set that OpenAI and Anthropic tool-calling
+ * require, unlike `:` or `.`.
+ */
+export const TOOL_NAME_DELIMITER = '__';
+
+/** Join a plugin name and tool name into the prefixed tool id surfaced to MCP clients. */
+export const prefixedToolName = (plugin: string, tool: string): string => `${plugin}${TOOL_NAME_DELIMITER}${tool}`;
+
 /** Plugin names that conflict with platform internals */
 export const RESERVED_NAMES = new Set([
   'system',

@@ -43,7 +43,7 @@ const setupSdkTest = async (
   const page = await openTestAppTab(extensionContext, `${testServer.url}/sdk-test`, mcpServer);
 
   // Poll until the plugin reports "ready" state on this page
-  await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+  await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
   return page;
 };
@@ -61,7 +61,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_wait_for_selector', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_wait_for_selector', {
       selector: '#delayed-element',
     });
 
@@ -80,7 +80,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_fetch_json', {});
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_fetch_json', {});
 
     expect(output.ok).toBe(true);
     expect(output.data).toBe('sdk-fetch-works');
@@ -96,7 +96,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_get_local_storage', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_get_local_storage', {
       key: 'sdk-test-key',
     });
 
@@ -114,7 +114,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_get_local_storage', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_get_local_storage', {
       key: 'nonexistent-key',
     });
 
@@ -132,7 +132,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_get_page_global', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_get_page_global', {
       path: '__sdkTestGlobal.nested.value',
     });
 
@@ -151,7 +151,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_get_page_global', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_get_page_global', {
       path: '__sdkTestGlobal.nested.deeply.nested.value',
     });
 
@@ -170,7 +170,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_get_page_global', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_get_page_global', {
       path: '__nonexistent.deep.path',
     });
 
@@ -189,7 +189,7 @@ test.describe('SDK utilities — full stack', () => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // __sdkTestGlobal.nested exists, but .nonexistent does not
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_get_page_global', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_get_page_global', {
       path: '__sdkTestGlobal.nested.nonexistent.value',
     });
 
@@ -209,7 +209,7 @@ test.describe('SDK utilities — full stack', () => {
 
     // The /api/flaky endpoint fails the first 3 calls, then succeeds.
     // sdk.retry is configured with maxAttempts: 5, delay: 100.
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_retry', {});
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_retry', {});
 
     expect(output.ok).toBe(true);
     expect(output.data).toBe('flaky-success');
@@ -230,7 +230,7 @@ test.describe('SDK utilities — full stack', () => {
     // Set a localStorage key on the page to be removed by the tool
     await page.evaluate(() => localStorage.setItem('removeMe', 'value'));
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_remove_storage', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_remove_storage', {
       storageType: 'local',
       key: 'removeMe',
     });
@@ -256,7 +256,7 @@ test.describe('SDK utilities — full stack', () => {
     // Set a sessionStorage key on the page to be removed by the tool
     await page.evaluate(() => sessionStorage.setItem('removeMe', 'session-value'));
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_remove_storage', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_remove_storage', {
       storageType: 'session',
       key: 'removeMe',
     });
@@ -279,7 +279,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_set_session_storage', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_set_session_storage', {
       key: 'test-key',
       value: 'test-value',
     });
@@ -302,7 +302,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_http_methods', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_http_methods', {
       method: 'put',
       data: { foo: 'bar' },
     });
@@ -321,7 +321,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_http_methods', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_http_methods', {
       method: 'patch',
       data: { foo: 'bar' },
     });
@@ -340,7 +340,7 @@ test.describe('SDK utilities — full stack', () => {
   }) => {
     const page = await setupSdkTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_http_methods', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_http_methods', {
       method: 'delete',
     });
 

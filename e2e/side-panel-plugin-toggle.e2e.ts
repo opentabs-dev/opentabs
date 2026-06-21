@@ -205,7 +205,7 @@ test.describe('Side panel — tool permission change', () => {
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const echo = toolList.find(t => t.name === 'e2e-test__echo');
             return echo?.description?.startsWith('[Disabled]') ?? false;
           },
           {
@@ -240,7 +240,7 @@ test.describe('Side panel — tool permission change', () => {
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const echo = toolList.find(t => t.name === 'e2e-test__echo');
             return echo !== undefined && !echo.description.startsWith('[Disabled]');
           },
           {
@@ -308,10 +308,10 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
       const appTab = await openTestAppTab(context, testServer.url, server, testServer);
 
       // Wait until the echo tool is callable (tab state = ready)
-      await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'hello' }, { isError: false }, 15_000);
+      await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'hello' }, { isError: false }, 15_000);
 
       // Verify tool call succeeds initially
-      const successResult = await mcpClient.callTool('e2e-test_echo', { message: 'hello' });
+      const successResult = await mcpClient.callTool('e2e-test__echo', { message: 'hello' });
       expect(successResult.isError).toBe(false);
 
       // Open side panel and change echo tool permission to 'off'
@@ -338,18 +338,18 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const echo = toolList.find(t => t.name === 'e2e-test__echo');
             return echo?.description?.startsWith('[Disabled]') ?? false;
           },
           {
             timeout: 15_000,
-            message: 'e2e-test_echo should have [Disabled] prefix after being set to off',
+            message: 'e2e-test__echo should have [Disabled] prefix after being set to off',
           },
         )
         .toBe(true);
 
       // Call the disabled tool — should return isError: true with review flow message
-      const disabledResult = await mcpClient.callTool('e2e-test_echo', { message: 'hello' });
+      const disabledResult = await mcpClient.callTool('e2e-test__echo', { message: 'hello' });
       expect(disabledResult.isError).toBe(true);
       expect(disabledResult.content).toContain('has not been reviewed yet');
 
@@ -362,12 +362,12 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const echo = toolList.find(t => t.name === 'e2e-test__echo');
             return echo !== undefined && !echo.description.startsWith('[Disabled]');
           },
           {
             timeout: 30_000,
-            message: 'e2e-test_echo should not have [Disabled] prefix after re-enabling',
+            message: 'e2e-test__echo should not have [Disabled] prefix after re-enabling',
           },
         )
         .toBe(true);
@@ -375,7 +375,7 @@ test.describe('Side panel — disabled tool dispatch rejection', () => {
       // Verify tool call succeeds again after re-enabling
       const reenabledResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: 'world' },
         { isError: false },
         15_000,
@@ -973,7 +973,7 @@ test.describe('Side panel — skipPermissions mode and group headers', () => {
       // When skipPermissions is active, tool descriptions get an '[Auto]' prefix.
       // After restoring approvals, 'ask' tools must retain their 'ask' behavior.
       const toolList = await mcpClient.listTools();
-      const e2eTestTools = toolList.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTestTools = toolList.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTestTools.length).toBeGreaterThan(0);
       for (const tool of e2eTestTools) {
         expect(tool.description.startsWith('[Auto]')).toBe(false);
@@ -1139,12 +1139,12 @@ test.describe('stress', () => {
       await expect(echoSelect).toContainText('Auto', { timeout: 10_000 });
       await expect(browserSelect).toContainText('Auto', { timeout: 10_000 });
 
-      // Verify server state: e2e-test_echo and browser_list_tabs should not be disabled
+      // Verify server state: e2e-test__echo and browser_list_tabs should not be disabled
       await expect
         .poll(
           async () => {
             const toolList = await mcpClient.listTools();
-            const echo = toolList.find(t => t.name === 'e2e-test_echo');
+            const echo = toolList.find(t => t.name === 'e2e-test__echo');
             const listTabs = toolList.find(t => t.name === 'browser_list_tabs');
             return (
               echo !== undefined &&
@@ -1155,7 +1155,7 @@ test.describe('stress', () => {
           },
           {
             timeout: 15_000,
-            message: 'e2e-test_echo and browser_list_tabs should not be disabled after cycling to Auto',
+            message: 'e2e-test__echo and browser_list_tabs should not be disabled after cycling to Auto',
           },
         )
         .toBe(true);

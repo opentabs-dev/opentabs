@@ -582,7 +582,7 @@ test.describe('extension_reload', () => {
     // 1. Wait for initial connection, open tab, verify adapter injection + tool dispatch
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const baseline = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    const baseline = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'before-reload',
     });
     expect(baseline.message).toBe('before-reload');
@@ -693,7 +693,7 @@ test.describe('extension_reload', () => {
       // 11. Verify plugin tool dispatch works after reload (tab state = ready)
       const afterResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: 'after-reload' },
         { isError: false },
         15_000,
@@ -731,7 +731,7 @@ test.describe('Stress: hot reload during active tool dispatch', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Start a 5-second slow tool call (in-flight during reload)
-    const slowCallPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+    const slowCallPromise = mcpClient.callTool('e2e-test__slow_with_progress', {
       durationMs: 5000,
       steps: 5,
       message: 'in-flight-during-reload',
@@ -773,7 +773,7 @@ test.describe('Stress: hot reload during active tool dispatch', () => {
     // Fresh echo call succeeds within 20s
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-reload-stress' },
       { isError: false },
       20_000,

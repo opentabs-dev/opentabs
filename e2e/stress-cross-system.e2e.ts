@@ -79,7 +79,7 @@ test.describe('Cross-system stress tests', () => {
       await openTestAppTab(context, testServer.url, server, testServer);
 
       // Wait until the e2e-test tools are callable
-      await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 15_000);
+      await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'warmup' }, { isError: false }, 15_000);
 
       // Open side panel
       const sp = await openSidePanel(context);
@@ -94,7 +94,7 @@ test.describe('Cross-system stress tests', () => {
       await tick(200);
 
       // Start a slow tool call (3s) via MCP client — do NOT await
-      const slowCallPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+      const slowCallPromise = mcpClient.callTool('e2e-test__slow_with_progress', {
         durationMs: 3000,
       });
 
@@ -124,15 +124,15 @@ test.describe('Cross-system stress tests', () => {
         .poll(
           async () => {
             const tools = await mcpClient.listTools();
-            const echo = tools.find(t => t.name === 'e2e-test_echo');
+            const echo = tools.find(t => t.name === 'e2e-test__echo');
             return echo !== undefined && !echo.description.startsWith('[Disabled]');
           },
-          { timeout: 15_000, message: 'e2e-test_echo should not be disabled after permission toggle' },
+          { timeout: 15_000, message: 'e2e-test__echo should not be disabled after permission toggle' },
         )
         .toBe(true);
 
       // Make a fresh echo call to verify the system is healthy
-      const echoResult = await mcpClient.callTool('e2e-test_echo', { message: 'post-chaos' });
+      const echoResult = await mcpClient.callTool('e2e-test__echo', { message: 'post-chaos' });
       expect(echoResult.isError).toBe(false);
       const parsed = JSON.parse(echoResult.content) as { message: string };
       expect(parsed.message).toBe('post-chaos');
@@ -190,11 +190,11 @@ test.describe('Cross-system stress tests', () => {
       await openTestAppTab(context, testServer.url, server, testServer);
 
       // Wait until the e2e-test tools are callable
-      await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 15_000);
+      await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'warmup' }, { isError: false }, 15_000);
 
       // Start 3 slow tool calls (5s each) — do NOT await
       const slowCalls = Array.from({ length: 3 }, () =>
-        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 5000 }),
+        mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 5000 }),
       );
 
       // After 500ms, remove the plugin from config (simulating CLI `opentabs plugin remove`)
@@ -246,7 +246,13 @@ test.describe('Cross-system stress tests', () => {
       await openTestAppTab(context, testServer.url, server, testServer);
 
       // Verify fresh echo call succeeds (system recovered)
-      await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'post-config-chaos' }, { isError: false }, 20_000);
+      await waitForToolResult(
+        mcpClient,
+        'e2e-test__echo',
+        { message: 'post-config-chaos' },
+        { isError: false },
+        20_000,
+      );
     } finally {
       await mcpClient.close().catch(() => {});
       await context.close().catch(() => {});
@@ -396,7 +402,7 @@ test.describe('Cross-system stress tests', () => {
       await client3.initialize();
 
       // Warm up: verify echo tool is callable
-      await waitForToolResult(client1, 'e2e-test_echo', { message: 'warmup' }, { isError: false }, 15_000);
+      await waitForToolResult(client1, 'e2e-test__echo', { message: 'warmup' }, { isError: false }, 15_000);
 
       // Open side panel and collect page errors
       const sp = await openSidePanel(context);
@@ -421,7 +427,7 @@ test.describe('Cross-system stress tests', () => {
         let errorCount = 0;
         for (let i = 0; i < 10; i++) {
           try {
-            const r = await client.callTool('e2e-test_echo', { message: `${prefix}${i}` });
+            const r = await client.callTool('e2e-test__echo', { message: `${prefix}${i}` });
             results.push(r);
             if (r.isError) errorCount++;
           } catch (err) {
@@ -504,9 +510,9 @@ test.describe('Cross-system stress tests', () => {
 
       // 4. ALL 3 MCP clients must recover after chaos — not just 1
       const recoveryResults = await Promise.allSettled([
-        waitForToolResult(client1, 'e2e-test_echo', { message: 'recovery-1' }, { isError: false }, 20_000),
-        waitForToolResult(client2, 'e2e-test_echo', { message: 'recovery-2' }, { isError: false }, 20_000),
-        waitForToolResult(client3, 'e2e-test_echo', { message: 'recovery-3' }, { isError: false }, 20_000),
+        waitForToolResult(client1, 'e2e-test__echo', { message: 'recovery-1' }, { isError: false }, 20_000),
+        waitForToolResult(client2, 'e2e-test__echo', { message: 'recovery-2' }, { isError: false }, 20_000),
+        waitForToolResult(client3, 'e2e-test__echo', { message: 'recovery-3' }, { isError: false }, 20_000),
       ]);
       for (const [i, result] of recoveryResults.entries()) {
         expect(result.status, `client ${i + 1} failed to recover after chaos`).toBe('fulfilled');
@@ -576,13 +582,13 @@ test.describe('Cross-system stress tests', () => {
       expect(client2.sessionId).not.toBe(client3.sessionId);
 
       // Warm up: verify dispatch pipeline is ready for ALL clients
-      await waitForToolResult(client1, 'e2e-test_echo', { message: 'warmup-1' }, { isError: false }, 15_000);
-      await waitForToolResult(client2, 'e2e-test_echo', { message: 'warmup-2' }, { isError: false }, 15_000);
-      await waitForToolResult(client3, 'e2e-test_echo', { message: 'warmup-3' }, { isError: false }, 15_000);
+      await waitForToolResult(client1, 'e2e-test__echo', { message: 'warmup-1' }, { isError: false }, 15_000);
+      await waitForToolResult(client2, 'e2e-test__echo', { message: 'warmup-2' }, { isError: false }, 15_000);
+      await waitForToolResult(client3, 'e2e-test__echo', { message: 'warmup-3' }, { isError: false }, 15_000);
 
       // Fire 15 calls in parallel (5 per client, each with unique prefix)
       const makeEchoCalls = (client: ReturnType<typeof createMcpClient>, prefix: string) =>
-        Array.from({ length: 5 }, (_, i) => client.callTool('e2e-test_echo', { message: `${prefix}${i}` }));
+        Array.from({ length: 5 }, (_, i) => client.callTool('e2e-test__echo', { message: `${prefix}${i}` }));
 
       const allCalls = [
         ...makeEchoCalls(client1, 'c1-'),

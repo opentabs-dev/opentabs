@@ -45,7 +45,7 @@ export interface ToolDefinition<
   TInput extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.ZodRawShape>,
   TOutput extends z.ZodType = z.ZodType,
 > {
-  /** Tool name — auto-prefixed with plugin name (e.g., 'send_message' → 'slack_send_message') */
+  /** Tool name — auto-prefixed with plugin name (e.g., 'send_message' → 'slack__send_message') */
   name: string;
   /** Human-readable display name shown in the side panel (e.g., 'Send Message'). Auto-derived from name during build when omitted. */
   displayName?: string;
@@ -149,7 +149,7 @@ export abstract class OpenTabsPlugin {
   /**
    * Called before each `tool.handle()` execution. Runs in the page context.
    * Receives the tool name (unprefixed, e.g. "send_message" not
-   * "slack_send_message"). Errors thrown here are caught and logged — they
+   * "slack__send_message"). Errors thrown here are caught and logged — they
    * do not prevent tool execution.
    *
    * @param toolName — the unprefixed tool name

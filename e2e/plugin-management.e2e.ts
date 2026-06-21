@@ -527,8 +527,8 @@ test.describe('config.setPluginPermission', () => {
     try {
       // Baseline: e2e-test plugin tools are present without [Disabled] prefix
       const baselineTools = await mcpClient.listTools();
-      const echoBaseline = baselineTools.find(t => t.name === 'e2e-test_echo');
-      if (!echoBaseline) throw new Error('Expected e2e-test_echo in tools/list');
+      const echoBaseline = baselineTools.find(t => t.name === 'e2e-test__echo');
+      if (!echoBaseline) throw new Error('Expected e2e-test__echo in tools/list');
       expect(echoBaseline.description).not.toMatch(/^\[Disabled\]/);
 
       // Set plugin permission to 'off'
@@ -543,12 +543,12 @@ test.describe('config.setPluginPermission', () => {
       await waitForToolList(
         mcpClient,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           return echo?.description?.startsWith('[Disabled]') ?? false;
         },
         10_000,
         300,
-        'e2e-test_echo [Disabled] prefix after plugin off',
+        'e2e-test__echo [Disabled] prefix after plugin off',
       );
     } finally {
       await mcpClient.close();
@@ -575,12 +575,12 @@ test.describe('config.setPluginPermission', () => {
       await waitForToolList(
         mcpClient,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           return echo?.description?.startsWith('[Disabled]') ?? false;
         },
         10_000,
         300,
-        'e2e-test_echo [Disabled] prefix after plugin off',
+        'e2e-test__echo [Disabled] prefix after plugin off',
       );
 
       // Set back to auto
@@ -595,12 +595,12 @@ test.describe('config.setPluginPermission', () => {
       await waitForToolList(
         mcpClient,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           return echo !== undefined && !echo.description.startsWith('[Disabled]');
         },
         10_000,
         300,
-        'e2e-test_echo no [Disabled] prefix after plugin auto',
+        'e2e-test__echo no [Disabled] prefix after plugin auto',
       );
     } finally {
       await mcpClient.close();
@@ -627,16 +627,16 @@ test.describe('config.setPluginPermission', () => {
       await waitForToolList(
         mcpClient,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           return echo?.description?.startsWith('[Disabled]') ?? false;
         },
         10_000,
         300,
-        'e2e-test_echo [Disabled] after plugin off',
+        'e2e-test__echo [Disabled] after plugin off',
       );
 
       // Calling the off tool should return isError: true with review flow message
-      const result = await mcpClient.callTool('e2e-test_echo', { message: 'hello' });
+      const result = await mcpClient.callTool('e2e-test__echo', { message: 'hello' });
       expect(result.isError).toBe(true);
       expect(result.content).toContain('has not been reviewed yet');
     } finally {
@@ -679,8 +679,8 @@ test.describe('config.setToolPermission', () => {
     try {
       // Baseline: echo tool is present without prefix
       const baselineTools = await mcpClient.listTools();
-      const echoBaseline = baselineTools.find(t => t.name === 'e2e-test_echo');
-      if (!echoBaseline) throw new Error('Expected e2e-test_echo in tools/list');
+      const echoBaseline = baselineTools.find(t => t.name === 'e2e-test__echo');
+      if (!echoBaseline) throw new Error('Expected e2e-test__echo in tools/list');
       expect(echoBaseline.description).not.toMatch(/^\[Disabled\]/);
 
       // Set only the echo tool to 'off'
@@ -696,18 +696,18 @@ test.describe('config.setToolPermission', () => {
       await waitForToolList(
         mcpClient,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           return echo?.description?.startsWith('[Disabled]') ?? false;
         },
         10_000,
         300,
-        'e2e-test_echo [Disabled] prefix after tool off',
+        'e2e-test__echo [Disabled] prefix after tool off',
       );
 
       // Other e2e-test tools should NOT have the prefix
       const updatedTools = await mcpClient.listTools();
-      const greetTool = updatedTools.find(t => t.name === 'e2e-test_greet');
-      if (!greetTool) throw new Error('Expected e2e-test_greet in tools/list');
+      const greetTool = updatedTools.find(t => t.name === 'e2e-test__greet');
+      if (!greetTool) throw new Error('Expected e2e-test__greet in tools/list');
       expect(greetTool.description).not.toMatch(/^\[Disabled\]/);
     } finally {
       await mcpClient.close();
@@ -808,7 +808,7 @@ test.describe('install + remove race', () => {
 
       // Verify baseline: raceable tools exist
       const baselineTools = await mcpClient.listTools();
-      const raceableTools = baselineTools.filter(t => t.name.startsWith('raceable_'));
+      const raceableTools = baselineTools.filter(t => t.name.startsWith('raceable__'));
       expect(raceableTools.length).toBe(2);
 
       // Fire install and remove concurrently within 10ms via Promise.allSettled.
@@ -842,9 +842,9 @@ test.describe('install + remove race', () => {
       const raceablePlugin = finalHealth?.pluginDetails?.find(p => p.name === 'raceable');
       expect(raceablePlugin).toBeUndefined();
 
-      // Verify final state: zero tools with the raceable_ prefix
+      // Verify final state: zero tools with the raceable__ prefix
       const finalTools = await mcpClient.listTools();
-      const raceableToolsAfter = finalTools.filter(t => t.name.startsWith('raceable_'));
+      const raceableToolsAfter = finalTools.filter(t => t.name.startsWith('raceable__'));
       expect(raceableToolsAfter).toHaveLength(0);
 
       // Verify final state: config.json localPlugins does NOT contain the plugin's path
@@ -915,7 +915,7 @@ test.describe('plugin.install + plugin.remove happy path', () => {
       mcpClient = createMcpClient(server.port, server.secret);
       await mcpClient.initialize();
       const tools = await mcpClient.listTools();
-      expect(tools.some(t => t.name.startsWith('slack_'))).toBe(true);
+      expect(tools.some(t => t.name.startsWith('slack__'))).toBe(true);
 
       // Remove the plugin (generous timeout for npm uninstall -g + rediscovery)
       const removeResp = await client.sendRequest('plugin.remove', { name: 'slack' }, 60_000);
@@ -930,7 +930,7 @@ test.describe('plugin.install + plugin.remove happy path', () => {
 
       // Verify slack tools are gone from MCP tools/list
       const toolsAfter = await mcpClient.listTools();
-      expect(toolsAfter.some(t => t.name.startsWith('slack_'))).toBe(false);
+      expect(toolsAfter.some(t => t.name.startsWith('slack__'))).toBe(false);
     } finally {
       await mcpClient?.close();
       client?.close();

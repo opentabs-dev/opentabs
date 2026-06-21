@@ -474,7 +474,7 @@ test.describe('Side panel data flow — tool invocation animation', () => {
       // Run tool call and UI assertion concurrently. The tool call takes ~3s
       // due to slow mode, giving enough time to observe the border flash.
       const [result] = await Promise.all([
-        mcpClient.callTool('e2e-test_echo', { message: 'spinner test' }),
+        mcpClient.callTool('e2e-test__echo', { message: 'spinner test' }),
         expect(activityBorderLocator).toBeVisible({ timeout: 10_000 }),
       ]);
       expect(result.isError).toBe(false);
@@ -693,8 +693,8 @@ test.describe('stress', () => {
       // Use .first() for the visibility assertion since multiple elements
       // (PluginIcon + individual ToolIcons) will have the flash class.
       const [result1, result2] = await Promise.all([
-        mcpClient.callTool('e2e-test_echo', { message: 'parallel-a' }),
-        mcpClient.callTool('e2e-test_greet', { name: 'parallel-b' }),
+        mcpClient.callTool('e2e-test__echo', { message: 'parallel-a' }),
+        mcpClient.callTool('e2e-test__greet', { name: 'parallel-b' }),
         expect(activityBorderLocator.first()).toBeVisible({ timeout: 10_000 }),
       ]);
       expect(result1.isError).toBe(false);

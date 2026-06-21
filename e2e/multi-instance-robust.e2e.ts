@@ -269,7 +269,7 @@ test.describe('Multi-instance robust — same host different ports', () => {
       // Dispatch echo to alpha — verify it hits alphaServer only
       await ctx.alphaServer.reset();
       await ctx.betaServer.reset();
-      const alphaResult = await ctx.client.callTool('e2e-test_echo', {
+      const alphaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-alpha-port',
         instance: 'alpha',
       });
@@ -288,7 +288,7 @@ test.describe('Multi-instance robust — same host different ports', () => {
       // Dispatch echo to beta — verify it hits betaServer only
       await ctx.alphaServer.reset();
       await ctx.betaServer.reset();
-      const betaResult = await ctx.client.callTool('e2e-test_echo', {
+      const betaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-beta-port',
         instance: 'beta',
       });
@@ -305,7 +305,7 @@ test.describe('Multi-instance robust — same host different ports', () => {
       expect(alphaEchoes2.length).toBe(0);
 
       // Verify getConfig returns the correct port-specific URL in each tab
-      const alphaConfigResult = await ctx.client.callTool('e2e-test_sdk_get_config', {
+      const alphaConfigResult = await ctx.client.callTool('e2e-test__sdk_get_config', {
         key: 'instanceUrl',
         instance: 'alpha',
       });
@@ -313,7 +313,7 @@ test.describe('Multi-instance robust — same host different ports', () => {
       const alphaConfig = JSON.parse(alphaConfigResult.content) as { key: string; value: string | null };
       expect(alphaConfig.value).toBe(ctx.alphaUrl);
 
-      const betaConfigResult = await ctx.client.callTool('e2e-test_sdk_get_config', {
+      const betaConfigResult = await ctx.client.callTool('e2e-test__sdk_get_config', {
         key: 'instanceUrl',
         instance: 'beta',
       });
@@ -340,9 +340,9 @@ test.describe('Multi-instance robust — single instance seamless', () => {
     try {
       ctx = await setupSingleInstanceTest();
 
-      // List tools — verify e2e-test_echo does NOT have an instance property
+      // List tools — verify e2e-test__echo does NOT have an instance property
       const tools = await ctx.client.listTools();
-      const echoTool = tools.find(t => t.name === 'e2e-test_echo');
+      const echoTool = tools.find(t => t.name === 'e2e-test__echo');
       expect(echoTool).toBeDefined();
 
       const schema = echoTool?.inputSchema as {
@@ -362,7 +362,7 @@ test.describe('Multi-instance robust — single instance seamless', () => {
 
       // Dispatch echo without instance parameter — should succeed
       await ctx.testServer.reset();
-      const echoResult = await ctx.client.callTool('e2e-test_echo', {
+      const echoResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-single',
       });
       expect(echoResult.isError).toBe(false);
@@ -375,7 +375,7 @@ test.describe('Multi-instance robust — single instance seamless', () => {
       expect(echoes.length).toBe(1);
 
       // getConfig('instanceUrl') should return the URL as a string (not a map)
-      const configResult = await ctx.client.callTool('e2e-test_sdk_get_config', {
+      const configResult = await ctx.client.callTool('e2e-test__sdk_get_config', {
         key: 'instanceUrl',
       });
       expect(configResult.isError).toBe(false);
@@ -420,7 +420,7 @@ test.describe('Multi-instance robust — hot-reload instance addition', () => {
 
       // Verify initial tool schema has instance enum with alpha + beta
       const toolsBefore = await ctx.client.listTools();
-      const echoToolBefore = toolsBefore.find(t => t.name === 'e2e-test_echo');
+      const echoToolBefore = toolsBefore.find(t => t.name === 'e2e-test__echo');
       expect(echoToolBefore).toBeDefined();
       const schemaBefore = echoToolBefore?.inputSchema as {
         properties?: Record<string, { enum?: string[] }>;
@@ -449,7 +449,7 @@ test.describe('Multi-instance robust — hot-reload instance addition', () => {
       const toolsAfter = await waitForToolList(
         ctx.client,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           if (!echo) return false;
           const schema = echo.inputSchema as {
             properties?: Record<string, { enum?: string[] }>;
@@ -463,7 +463,7 @@ test.describe('Multi-instance robust — hot-reload instance addition', () => {
       );
 
       // Verify all three instances are in the enum
-      const echoToolAfter = toolsAfter.find(t => t.name === 'e2e-test_echo');
+      const echoToolAfter = toolsAfter.find(t => t.name === 'e2e-test__echo');
       const schemaAfter = echoToolAfter?.inputSchema as {
         properties?: Record<string, { enum?: string[] }>;
       };
@@ -478,7 +478,7 @@ test.describe('Multi-instance robust — hot-reload instance addition', () => {
 
       // Dispatch to gamma — verify it hits the gamma server
       await gammaServer.reset();
-      const gammaResult = await ctx.client.callTool('e2e-test_echo', {
+      const gammaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-gamma',
         instance: 'gamma',
       });
@@ -528,7 +528,7 @@ test.describe('Multi-instance robust — hot-reload instance removal', () => {
 
       // Verify initial tool schema has instance enum with alpha + beta
       const toolsBefore = await ctx.client.listTools();
-      const echoToolBefore = toolsBefore.find(t => t.name === 'e2e-test_echo');
+      const echoToolBefore = toolsBefore.find(t => t.name === 'e2e-test__echo');
       expect(echoToolBefore).toBeDefined();
       const schemaBefore = echoToolBefore?.inputSchema as {
         properties?: Record<string, { enum?: string[] }>;
@@ -553,7 +553,7 @@ test.describe('Multi-instance robust — hot-reload instance removal', () => {
       await waitForToolList(
         ctx.client,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           if (!echo) return false;
           const schema = echo.inputSchema as {
             properties?: Record<string, { enum?: string[] }>;
@@ -567,7 +567,7 @@ test.describe('Multi-instance robust — hot-reload instance removal', () => {
       );
 
       // Dispatch to beta — should return an Unknown instance error
-      const betaResult = await ctx.client.callTool('e2e-test_echo', {
+      const betaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'should-fail',
         instance: 'beta',
       });
@@ -578,7 +578,7 @@ test.describe('Multi-instance robust — hot-reload instance removal', () => {
       // Dispatch to alpha should still work (without instance param, since
       // it's now the only instance)
       await ctx.alphaServer.reset();
-      const alphaResult = await ctx.client.callTool('e2e-test_echo', {
+      const alphaResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'hello-alpha-after-removal',
       });
       expect(alphaResult.isError).toBe(false);
@@ -627,7 +627,7 @@ test.describe('Multi-instance robust — tabId + instance conflict precedence', 
 
       // Dispatch with instance='alpha' AND tabId=<beta_tab_id>
       // tabId should take precedence — the call should hit beta's server
-      const result = await ctx.client.callTool('e2e-test_echo', {
+      const result = await ctx.client.callTool('e2e-test__echo', {
         message: 'tabid-wins',
         instance: 'alpha',
         tabId: betaTabId,
@@ -686,7 +686,7 @@ test.describe('Multi-instance robust — rapid sequential dispatch', () => {
         const instance = i % 2 === 0 ? 'alpha' : 'beta';
         const message = `call-${String(i)}-${instance}`;
 
-        const result = await ctx.client.callTool('e2e-test_echo', {
+        const result = await ctx.client.callTool('e2e-test__echo', {
           message,
           instance,
         });
@@ -751,7 +751,7 @@ test.describe('Multi-instance robust — concurrent burst dispatch', () => {
         const instance = i < 5 ? 'alpha' : 'beta';
         const message = `burst-${String(i)}-${instance}`;
         return client
-          .callTool('e2e-test_echo', { message, instance })
+          .callTool('e2e-test__echo', { message, instance })
           .then(result => ({ index: i, instance, message, result }));
       });
 
@@ -822,13 +822,13 @@ test.describe('Multi-instance robust — all instance tabs closed', () => {
       await waitForReadyTabs(ctx.client, 2);
 
       // Verify dispatch works before closing
-      const alphaCheck = await ctx.client.callTool('e2e-test_echo', {
+      const alphaCheck = await ctx.client.callTool('e2e-test__echo', {
         message: 'pre-close-alpha',
         instance: 'alpha',
       });
       expect(alphaCheck.isError).toBe(false);
 
-      const betaCheck = await ctx.client.callTool('e2e-test_echo', {
+      const betaCheck = await ctx.client.callTool('e2e-test__echo', {
         message: 'pre-close-beta',
         instance: 'beta',
       });
@@ -842,14 +842,14 @@ test.describe('Multi-instance robust — all instance tabs closed', () => {
       await waitForTabCount(ctx.client, 0);
 
       // Dispatch to alpha — should fail
-      const alphaFailResult = await ctx.client.callTool('e2e-test_echo', {
+      const alphaFailResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'should-fail-alpha',
         instance: 'alpha',
       });
       expect(alphaFailResult.isError).toBe(true);
 
       // Dispatch to beta — should fail
-      const betaFailResult = await ctx.client.callTool('e2e-test_echo', {
+      const betaFailResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'should-fail-beta',
         instance: 'beta',
       });
@@ -887,13 +887,13 @@ test.describe('Multi-instance robust — tab close and reopen recovery', () => {
       await ctx.alphaServer.reset();
       await ctx.betaServer.reset();
 
-      const alphaResult1 = await ctx.client.callTool('e2e-test_echo', {
+      const alphaResult1 = await ctx.client.callTool('e2e-test__echo', {
         message: 'before-close-alpha',
         instance: 'alpha',
       });
       expect(alphaResult1.isError).toBe(false);
 
-      const betaResult1 = await ctx.client.callTool('e2e-test_echo', {
+      const betaResult1 = await ctx.client.callTool('e2e-test__echo', {
         message: 'before-close-beta',
         instance: 'beta',
       });
@@ -906,7 +906,7 @@ test.describe('Multi-instance robust — tab close and reopen recovery', () => {
       await waitForTabCount(ctx.client, 1);
 
       // Dispatch to beta — should fail with "No open tab" or similar error
-      const betaFailResult = await ctx.client.callTool('e2e-test_echo', {
+      const betaFailResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'should-fail-beta',
         instance: 'beta',
       });
@@ -914,7 +914,7 @@ test.describe('Multi-instance robust — tab close and reopen recovery', () => {
 
       // Dispatch to alpha — should still work (isolated from beta closure)
       await ctx.alphaServer.reset();
-      const alphaResult2 = await ctx.client.callTool('e2e-test_echo', {
+      const alphaResult2 = await ctx.client.callTool('e2e-test__echo', {
         message: 'after-close-alpha',
         instance: 'alpha',
       });
@@ -930,7 +930,7 @@ test.describe('Multi-instance robust — tab close and reopen recovery', () => {
 
       // Dispatch to beta — should work again
       await ctx.betaServer.reset();
-      const betaResult2 = await ctx.client.callTool('e2e-test_echo', {
+      const betaResult2 = await ctx.client.callTool('e2e-test__echo', {
         message: 'after-reopen-beta',
         instance: 'beta',
       });
@@ -974,7 +974,7 @@ test.describe('Multi-instance robust — URL path variations in pattern derivati
       await waitForToolList(
         ctx.client,
         tools => {
-          const echo = tools.find(t => t.name === 'e2e-test_echo');
+          const echo = tools.find(t => t.name === 'e2e-test__echo');
           return echo !== undefined;
         },
         10_000,
@@ -991,7 +991,7 @@ test.describe('Multi-instance robust — URL path variations in pattern derivati
 
       // Dispatch echo — should succeed (pattern matched the tab)
       await ctx.testServer.reset();
-      const echoResult = await ctx.client.callTool('e2e-test_echo', {
+      const echoResult = await ctx.client.callTool('e2e-test__echo', {
         message: 'path-variation-test',
       });
       expect(echoResult.isError).toBe(false);
@@ -999,7 +999,7 @@ test.describe('Multi-instance robust — URL path variations in pattern derivati
       expect(echoParsed.message).toBe('path-variation-test');
 
       // getConfig('instanceUrl') should return the original URL with path
-      const configResult = await ctx.client.callTool('e2e-test_sdk_get_config', {
+      const configResult = await ctx.client.callTool('e2e-test__sdk_get_config', {
         key: 'instanceUrl',
       });
       expect(configResult.isError).toBe(false);
@@ -1037,7 +1037,7 @@ test.describe('Multi-instance robust — per-tab getConfig isolation under concu
       const promises = Array.from({ length: 10 }, (_, i) => {
         const instance = i < 5 ? 'alpha' : 'beta';
         return client
-          .callTool('e2e-test_sdk_get_config', { key: 'instanceUrl', instance })
+          .callTool('e2e-test__sdk_get_config', { key: 'instanceUrl', instance })
           .then(result => ({ index: i, instance, result }));
       });
 
@@ -1133,7 +1133,7 @@ test.describe('Multi-instance robust — duplicate hostname warning', () => {
 
       // Dispatch should still work (last-write-wins for duplicate patterns)
       await testServer.reset();
-      const echoResult = await client.callTool('e2e-test_echo', {
+      const echoResult = await client.callTool('e2e-test__echo', {
         message: 'dup-pattern-test',
         instance: 'staging',
       });

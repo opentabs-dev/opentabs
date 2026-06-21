@@ -151,7 +151,7 @@ test.describe('Plugin review flow — full cycle', () => {
     await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
 
     // Step 1: Call a tool on the unreviewed 'off' plugin — should get review instructions
-    const offResult = await mcpClient.callTool('e2e-test_echo', { message: 'hello' });
+    const offResult = await mcpClient.callTool('e2e-test__echo', { message: 'hello' });
     expect(offResult.isError).toBe(true);
     expect(offResult.content).toContain('has not been reviewed yet');
     expect(offResult.content).toContain('plugin_inspect');
@@ -191,7 +191,7 @@ test.describe('Plugin review flow — full cycle', () => {
     expect(markResult.content).toContain('permission set to "auto"');
 
     // Step 4: Retry the original tool — should now succeed (permission is 'auto')
-    const retryResult = await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'hello' }, { isError: false });
+    const retryResult = await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'hello' }, { isError: false });
     expect(retryResult.isError).toBe(false);
   });
 });
@@ -362,12 +362,12 @@ test.describe('Plugin version change resets permission', () => {
     await waitForToolList(
       mcpClient,
       tools => {
-        const echo = tools.find(t => t.name === 'e2e-test_echo');
+        const echo = tools.find(t => t.name === 'e2e-test__echo');
         return echo !== undefined && !echo.description.startsWith('[Disabled]');
       },
       15_000,
       300,
-      'e2e-test_echo should not have [Disabled] prefix',
+      'e2e-test__echo should not have [Disabled] prefix',
     );
 
     // Now simulate a version change by setting a mismatched reviewedVersion
@@ -388,12 +388,12 @@ test.describe('Plugin version change resets permission', () => {
     await waitForToolList(
       mcpClient,
       tools => {
-        const echo = tools.find(t => t.name === 'e2e-test_echo');
+        const echo = tools.find(t => t.name === 'e2e-test__echo');
         return echo?.description?.startsWith('[Disabled]') ?? false;
       },
       15_000,
       300,
-      'e2e-test_echo should have [Disabled] prefix after version reset',
+      'e2e-test__echo should have [Disabled] prefix after version reset',
     );
 
     // Server should have logged the version reset
@@ -401,7 +401,7 @@ test.describe('Plugin version change resets permission', () => {
 
     // Calling the tool should return the review error (reviewedVersion was cleared
     // by resetStaleReviewedVersions, so the message says "not been reviewed yet")
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'hello' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'hello' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('has not been reviewed yet');
   });
@@ -497,12 +497,12 @@ test.describe('Side panel — unreviewed plugin confirmation dialog', () => {
     await waitForToolList(
       mcpClient,
       tools => {
-        const echo = tools.find(t => t.name === 'e2e-test_echo');
+        const echo = tools.find(t => t.name === 'e2e-test__echo');
         return echo !== undefined && !echo.description.startsWith('[Disabled]');
       },
       15_000,
       300,
-      'e2e-test_echo should not have [Disabled] prefix after Enable Anyway',
+      'e2e-test__echo should not have [Disabled] prefix after Enable Anyway',
     );
 
     await sidePanel.close();
@@ -544,13 +544,13 @@ test.describe('Side panel — unreviewed plugin confirmation dialog', () => {
     await waitForToolList(
       mcpClient,
       tools => {
-        const echo = tools.find(t => t.name === 'e2e-test_echo');
+        const echo = tools.find(t => t.name === 'e2e-test__echo');
         // Tool should not be disabled (it has a per-tool override of 'auto')
         return echo !== undefined && !echo.description.startsWith('[Disabled]');
       },
       15_000,
       300,
-      'e2e-test_echo should not have [Disabled] prefix after tool-level Enable Anyway',
+      'e2e-test__echo should not have [Disabled] prefix after tool-level Enable Anyway',
     );
 
     await sidePanel.close();
@@ -577,7 +577,7 @@ test.describe('Side panel — unreviewed plugin confirmation dialog', () => {
 
     // Permission should still be 'off' — tools should still be disabled
     const tools = await mcpClient.listTools();
-    const echo = tools.find(t => t.name === 'e2e-test_echo');
+    const echo = tools.find(t => t.name === 'e2e-test__echo');
     expect(echo?.description).toMatch(/^\[Disabled\]/);
 
     await sidePanel.close();
@@ -613,12 +613,12 @@ test.describe('Side panel — unreviewed plugin confirmation dialog', () => {
     await waitForToolList(
       mcpClient,
       tools => {
-        const echo = tools.find(t => t.name === 'e2e-test_echo');
+        const echo = tools.find(t => t.name === 'e2e-test__echo');
         return echo !== undefined && !echo.description.startsWith('[Disabled]');
       },
       15_000,
       300,
-      'e2e-test_echo should not have [Disabled] prefix after direct enable',
+      'e2e-test__echo should not have [Disabled] prefix after direct enable',
     );
 
     // Verify no dialog appeared (it should still be hidden)

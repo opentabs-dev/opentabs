@@ -73,7 +73,7 @@ test.describe('Multi-tab targeting — plugin_list_tabs', () => {
     const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
 
     // Wait for the second tab's adapter to be fully ready
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Wait for the server to receive updated tab state with two tabs
     const plugins = await waitForTabCount(mcpClient.callTool.bind(mcpClient), 2);
@@ -165,7 +165,7 @@ test.describe('Multi-tab targeting — targeted dispatch', () => {
     }
 
     // Call sdk_get_page_global with tabId targeting 'tab-two'
-    const targetResult = await mcpClient.callTool('e2e-test_sdk_get_page_global', {
+    const targetResult = await mcpClient.callTool('e2e-test__sdk_get_page_global', {
       path: '__tabMarker',
       tabId: tabTwoId,
     });
@@ -174,7 +174,7 @@ test.describe('Multi-tab targeting — targeted dispatch', () => {
     expect(targetParsed.value).toBe('tab-two');
 
     // Verify targeting the other tab returns 'tab-one'
-    const otherResult = await mcpClient.callTool('e2e-test_sdk_get_page_global', {
+    const otherResult = await mcpClient.callTool('e2e-test__sdk_get_page_global', {
       path: '__tabMarker',
       tabId: tabOneId,
     });
@@ -221,7 +221,7 @@ test.describe('Multi-tab targeting — URL mismatch', () => {
     if (!nonMatchingTab) throw new Error('Could not find non-matching tab with 127.0.0.1 URL');
 
     // Call a plugin tool with the non-matching tab's ID
-    const result = await mcpClient.callTool('e2e-test_echo', {
+    const result = await mcpClient.callTool('e2e-test__echo', {
       message: 'should-fail',
       tabId: nonMatchingTab.id,
     });
@@ -250,7 +250,7 @@ test.describe('Multi-tab targeting — non-existent tab', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Call a plugin tool with a non-existent tab ID
-    const result = await mcpClient.callTool('e2e-test_echo', {
+    const result = await mcpClient.callTool('e2e-test__echo', {
       message: 'should-fail',
       tabId: 999999,
     });
@@ -286,7 +286,7 @@ test.describe('Multi-tab targeting — auto-select fallback', () => {
     await waitForTabCount(mcpClient.callTool.bind(mcpClient), 2);
 
     // Call echo WITHOUT tabId — should auto-select and succeed
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'auto-select' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'auto-select' });
     expect(result.isError).toBe(false);
     const parsed = parseToolResult(result.content);
     expect(parsed.message).toBe('auto-select');
@@ -417,7 +417,7 @@ test.describe('Multi-tab targeting — targeted dispatch to unavailable tab', ()
     await testServer.setAuth(false);
 
     // Call a plugin tool with the explicit tabId of the unavailable tab
-    const result = await mcpClient.callTool('e2e-test_echo', {
+    const result = await mcpClient.callTool('e2e-test__echo', {
       message: 'should-fail-unavailable',
       tabId: targetTabId,
     });
@@ -613,11 +613,11 @@ test.describe('Multi-tab targeting — concurrent targeted dispatches', () => {
 
     // Launch two concurrent tool calls targeting different tabs
     const [alphaResult, betaResult] = await Promise.all([
-      mcpClient.callTool('e2e-test_sdk_get_page_global', {
+      mcpClient.callTool('e2e-test__sdk_get_page_global', {
         path: '__tabMarker',
         tabId: tabAlphaId,
       }),
-      mcpClient.callTool('e2e-test_sdk_get_page_global', {
+      mcpClient.callTool('e2e-test__sdk_get_page_global', {
         path: '__tabMarker',
         tabId: tabBetaId,
       }),
@@ -808,7 +808,7 @@ test.describe('Multi-tab targeting — targeted dispatch to closed tab', () => {
     );
 
     // Dispatch with tabId=tabA — MUST return isError=true
-    const closedResult = await mcpClient.callTool('e2e-test_echo', {
+    const closedResult = await mcpClient.callTool('e2e-test__echo', {
       message: 'should-fail-closed',
       tabId: tabAId,
     });
@@ -816,7 +816,7 @@ test.describe('Multi-tab targeting — targeted dispatch to closed tab', () => {
     expect(closedResult.content.toLowerCase()).toMatch(/not found|no usable|closed/i);
 
     // Dispatch with tabId=tabB — MUST succeed with correct message
-    const liveResult = await mcpClient.callTool('e2e-test_echo', {
+    const liveResult = await mcpClient.callTool('e2e-test__echo', {
       message: 'tab-b-works',
       tabId: tabBId,
     });
@@ -892,7 +892,7 @@ test.describe('Multi-tab targeting — tab closes mid-execution', () => {
     }
 
     // Verify tools work normally before adding the delay
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'pre-close',
     });
     expect(okOutput.message).toBe('pre-close');
@@ -910,7 +910,7 @@ test.describe('Multi-tab targeting — tab closes mid-execution', () => {
     // Fire the tool call targeting page1's tab — it will block in the adapter's
     // fetch for 10s.
     const start = Date.now();
-    const toolCallPromise = mcpClient.callTool('e2e-test_echo', {
+    const toolCallPromise = mcpClient.callTool('e2e-test__echo', {
       message: 'should-fail-close',
       tabId: pageOneTabId,
     });
@@ -953,7 +953,7 @@ test.describe('Multi-tab targeting — tab closes mid-execution', () => {
     await testServer.setSlow(0);
 
     // Verify the second tab is still functional (no cross-contamination)
-    const page2Result = await mcpClient.callTool('e2e-test_echo', {
+    const page2Result = await mcpClient.callTool('e2e-test__echo', {
       message: 'page2-still-works',
       tabId: pageTwoTabId,
     });

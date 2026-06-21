@@ -284,7 +284,7 @@ test.describe('Discovery edge cases — broken plugins', () => {
 
       configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-partial-cfg-'));
       const config = configWithPlugins([path.resolve(brokenDir), validDir], {
-        'valid-partial_ping': true,
+        'valid-partial__ping': true,
       });
       writeTestConfig(configDir, config);
 
@@ -317,8 +317,8 @@ test.describe('Discovery edge cases — broken plugins', () => {
 
       // Verify tools/list includes tools from both valid plugins
       const tools = await client.listTools();
-      expect(tools.some(t => t.name.startsWith('e2e-test_'))).toBe(true);
-      expect(tools.some(t => t.name === 'valid-partial_ping')).toBe(true);
+      expect(tools.some(t => t.name.startsWith('e2e-test__'))).toBe(true);
+      expect(tools.some(t => t.name === 'valid-partial__ping')).toBe(true);
     } finally {
       await client?.close();
       await server?.kill();
@@ -356,7 +356,7 @@ test.describe('Discovery edge cases — broken plugins', () => {
       // Intentionally NOT writing dist/tools.json yet
 
       configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-fix-cfg-'));
-      const config = configWithPlugins([path.resolve(pluginDir)], { fixable_hello: true });
+      const config = configWithPlugins([path.resolve(pluginDir)], { fixable__hello: true });
       writeTestConfig(configDir, config);
       server = await startMcpServer(configDir, true);
       client = createMcpClient(server.port, server.secret);
@@ -441,7 +441,7 @@ test.describe('Discovery edge cases — broken plugins', () => {
 
       // Verify the tool is now visible in tools/list
       const tools = await client.listTools();
-      expect(tools.some(t => t.name === 'fixable_hello')).toBe(true);
+      expect(tools.some(t => t.name === 'fixable__hello')).toBe(true);
     } finally {
       await client?.close();
       await server?.kill();
@@ -555,11 +555,11 @@ test.describe('Discovery edge cases — broken plugins', () => {
       for (const t of e2eToolNames) {
         tools[t] = true;
       }
-      tools['valid-alpha_ping'] = true;
-      tools['valid-alpha_pong'] = true;
-      tools['valid-beta_read'] = true;
-      tools['valid-beta_write'] = true;
-      tools['valid-beta_delete'] = true;
+      tools['valid-alpha__ping'] = true;
+      tools['valid-alpha__pong'] = true;
+      tools['valid-beta__read'] = true;
+      tools['valid-beta__write'] = true;
+      tools['valid-beta__delete'] = true;
 
       configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-disc-stress-cfg-'));
       writeTestConfig(configDir, {
@@ -626,11 +626,11 @@ test.describe('Discovery edge cases — broken plugins', () => {
       expect(toolNames.every(n => !n.startsWith('broken-'))).toBe(true);
 
       // Valid plugin tools are present
-      expect(toolNames).toContain('valid-alpha_ping');
-      expect(toolNames).toContain('valid-alpha_pong');
-      expect(toolNames).toContain('valid-beta_read');
-      expect(toolNames).toContain('valid-beta_write');
-      expect(toolNames).toContain('valid-beta_delete');
+      expect(toolNames).toContain('valid-alpha__ping');
+      expect(toolNames).toContain('valid-alpha__pong');
+      expect(toolNames).toContain('valid-beta__read');
+      expect(toolNames).toContain('valid-beta__write');
+      expect(toolNames).toContain('valid-beta__delete');
     } finally {
       await client?.close();
       await server?.kill();

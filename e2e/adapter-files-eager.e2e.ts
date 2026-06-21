@@ -167,7 +167,7 @@ test.describe('Eager adapter injection on first connect', () => {
     // plugin reached ready state on the first connection attempt.
     const result = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'eager-adapters' },
       { isError: false },
       15_000,

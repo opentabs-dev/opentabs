@@ -131,7 +131,7 @@ test.describe('Browser permission persistence across reloads', () => {
       // Wait for plugin tools to appear
       await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to appear after config.json change',
@@ -148,7 +148,7 @@ test.describe('Browser permission persistence across reloads', () => {
 
       // Verify plugin tools are still present (reload didn't break anything)
       const toolsAfter = await client.listTools();
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
     } finally {
       await client?.close();

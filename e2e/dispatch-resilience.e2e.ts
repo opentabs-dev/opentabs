@@ -43,11 +43,11 @@ test.describe('Concurrent tool dispatch', () => {
 
     // Fire 5 different tool calls concurrently
     const results = await Promise.all([
-      mcpClient.callTool('e2e-test_echo', { message: 'concurrent-1' }),
-      mcpClient.callTool('e2e-test_echo', { message: 'concurrent-2' }),
-      mcpClient.callTool('e2e-test_greet', { name: 'Concurrent' }),
-      mcpClient.callTool('e2e-test_get_status', {}),
-      mcpClient.callTool('e2e-test_list_items', { limit: 2 }),
+      mcpClient.callTool('e2e-test__echo', { message: 'concurrent-1' }),
+      mcpClient.callTool('e2e-test__echo', { message: 'concurrent-2' }),
+      mcpClient.callTool('e2e-test__greet', { name: 'Concurrent' }),
+      mcpClient.callTool('e2e-test__get_status', {}),
+      mcpClient.callTool('e2e-test__list_items', { limit: 2 }),
     ]);
 
     // All should succeed
@@ -98,7 +98,7 @@ test.describe('Concurrent tool dispatch', () => {
 
     // Fire 4 echo calls concurrently with unique messages
     const messages = ['alpha', 'bravo', 'charlie', 'delta'];
-    const results = await Promise.all(messages.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg })));
+    const results = await Promise.all(messages.map(msg => mcpClient.callTool('e2e-test__echo', { message: msg })));
 
     // All should succeed
     for (const result of results) {
@@ -138,7 +138,7 @@ test.describe('extension_reload tool', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Verify tools work before reload
-    const beforeOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    const beforeOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'before reload',
     });
     expect(beforeOutput.message).toBe('before reload');
@@ -175,17 +175,17 @@ test.describe('Multi-tab same plugin', () => {
 
     // Open first tab
     const page1 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Tool works with first tab
-    const output1 = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'tab-1' });
+    const output1 = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'tab-1' });
     expect(output1.message).toBe('tab-1');
 
     // Open second tab to same URL
     const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
 
     // Tool should still work (dispatches to one of the matching tabs)
-    const output2 = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'multi-tab' });
+    const output2 = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'multi-tab' });
     expect(output2.message).toBe('multi-tab');
 
     // Close first tab — tool should still work via second tab
@@ -194,7 +194,7 @@ test.describe('Multi-tab same plugin', () => {
     // Poll until the tool succeeds via the second tab
     const afterClose = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-close-tab1' },
       { isError: false },
       15_000,
@@ -208,7 +208,7 @@ test.describe('Multi-tab same plugin', () => {
     // Poll until the tool fails
     const afterCloseAll = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-close-all' },
       { isError: true },
       15_000,
@@ -231,7 +231,7 @@ test.describe('Tab navigates away', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Tool works while tab is on matching URL
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'before-nav' });
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'before-nav' });
     expect(okOutput.message).toBe('before-nav');
 
     // Navigate the tab to a non-matching URL (127.0.0.1 does not match the plugin's http://localhost/* pattern)
@@ -243,7 +243,7 @@ test.describe('Tab navigates away', () => {
     // Poll until the tool fails (tab no longer matches plugin URL pattern)
     const failResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-nav-away' },
       { isError: true },
       15_000,
@@ -267,7 +267,7 @@ test.describe('Tab navigates away', () => {
     // Poll until the tool works again
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-nav-back' },
       { isError: false },
       15_000,
@@ -324,7 +324,7 @@ test.describe('Tool call during reconnect window', () => {
     // Call a tool while the extension is disconnected.
     // Should return a clean error quickly (not hang for 30s dispatch timeout).
     const start = Date.now();
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'during-reconnect' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'during-reconnect' });
     const elapsed = Date.now() - start;
 
     expect(result.isError).toBe(true);
@@ -397,7 +397,7 @@ test.describe('Tool dispatch timeout', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Verify the tool works normally before adding the delay
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'pre-timeout' });
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'pre-timeout' });
     expect(okOutput.message).toBe('pre-timeout');
 
     // Set the test server delay to 27 seconds — longer than SCRIPT_TIMEOUT_MS (25s)
@@ -405,7 +405,7 @@ test.describe('Tool dispatch timeout', () => {
     await testServer.setSlow(27_000);
 
     const start = Date.now();
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'should-timeout' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'should-timeout' });
     const elapsed = Date.now() - start;
 
     // The extension-side timeout (25s) should produce a clean error
@@ -439,7 +439,7 @@ test.describe('Concurrent tool dispatch timeouts', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Verify tools work normally before adding the delay
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'pre-concurrent-timeout',
     });
     expect(okOutput.message).toBe('pre-concurrent-timeout');
@@ -450,9 +450,9 @@ test.describe('Concurrent tool dispatch timeouts', () => {
     // Fire 3 concurrent tool calls that will all time out
     const start = Date.now();
     const results = await Promise.allSettled([
-      mcpClient.callTool('e2e-test_echo', { message: 'timeout-1' }),
-      mcpClient.callTool('e2e-test_echo', { message: 'timeout-2' }),
-      mcpClient.callTool('e2e-test_echo', { message: 'timeout-3' }),
+      mcpClient.callTool('e2e-test__echo', { message: 'timeout-1' }),
+      mcpClient.callTool('e2e-test__echo', { message: 'timeout-2' }),
+      mcpClient.callTool('e2e-test__echo', { message: 'timeout-3' }),
     ]);
     const elapsed = Date.now() - start;
 
@@ -475,7 +475,7 @@ test.describe('Concurrent tool dispatch timeouts', () => {
 
     const afterTimeout = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-concurrent-timeout' },
       { isError: false },
       15_000,
@@ -504,7 +504,7 @@ test.describe('Server-side dispatch timeout', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Verify the tool works normally before the timeout test
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'pre-timeout' });
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'pre-timeout' });
     expect(okOutput.message).toBe('pre-timeout');
 
     // Fire the tool call. The extension receives tool.dispatch and begins
@@ -535,7 +535,7 @@ test.describe('Server-side dispatch timeout', () => {
       // steal the extension's WS so the response can never reach the server.
       const start = Date.now();
       const toolCallPromise = timeoutClient.callTool(
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: 'should-timeout' },
         { timeout: 45_000 },
       );
@@ -605,7 +605,7 @@ test.describe('Server-side dispatch timeout', () => {
 
     const afterTimeoutResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-timeout' },
       { isError: false },
       15_000,
@@ -658,9 +658,9 @@ test.describe('Tool input validation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    // e2e-test_echo expects { message: string } but we omit it
+    // e2e-test__echo expects { message: string } but we omit it
     // Server-side JSON Schema validation rejects the args before dispatch
-    const result = await mcpClient.callTool('e2e-test_echo', {});
+    const result = await mcpClient.callTool('e2e-test__echo', {});
     expect(result.isError).toBe(true);
     expect(result.content.toLowerCase()).toContain('invalid arguments');
     expect(result.content.toLowerCase()).toContain('message');
@@ -693,7 +693,7 @@ test.describe('Tab closing during in-flight dispatch', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Verify the tool works normally before the test
-    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'pre-close' });
+    const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'pre-close' });
     expect(okOutput.message).toBe('pre-close');
 
     // Set test server delay to 10s — long enough to close the tab while the
@@ -704,7 +704,7 @@ test.describe('Tab closing during in-flight dispatch', () => {
     // Fire the tool call without awaiting — it will block in the adapter's
     // fetch for 10s.
     const start = Date.now();
-    const toolCallPromise = mcpClient.callTool('e2e-test_echo', { message: 'should-fail' });
+    const toolCallPromise = mcpClient.callTool('e2e-test__echo', { message: 'should-fail' });
 
     // Wait until the request actually reaches the test server before closing the tab.
     // This ensures we're testing 'tab closed during in-flight fetch', not 'tab closed
@@ -742,7 +742,7 @@ test.describe('Tab closing during in-flight dispatch', () => {
     const newPage = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-reopen' },
       { isError: false },
       15_000,
@@ -768,7 +768,7 @@ test.describe('Malformed WebSocket messages', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Verify tools work before sending malformed messages
-    const beforeOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    const beforeOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'before-malformed',
     });
     expect(beforeOutput.message).toBe('before-malformed');
@@ -840,7 +840,7 @@ test.describe('Malformed WebSocket messages', () => {
     // Verify tool calls still work after the malformed message barrage
     const afterOutput = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-malformed' },
       { isError: false },
       15_000,
@@ -924,7 +924,7 @@ test.describe('stress', () => {
     // Fire 10 concurrent echo calls with distinct messages
     const messages = Array.from({ length: 10 }, (_, i) => `rapid-${i}`);
     const start = Date.now();
-    const promises = messages.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg }));
+    const promises = messages.map(msg => mcpClient.callTool('e2e-test__echo', { message: msg }));
 
     // Immediately navigate the tab to a non-matching URL
     await page.goto(`${testServer.url.replace('localhost', '127.0.0.1')}/non-matching`, {

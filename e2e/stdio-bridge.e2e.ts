@@ -207,7 +207,7 @@ test.describe('stdio bridge', () => {
 
       // Verify e2e-test plugin tools are present
       const toolNames = toolsResult.tools.map(t => t.name);
-      expect(toolNames.some(n => n.startsWith('e2e-test_'))).toBe(true);
+      expect(toolNames.some(n => n.startsWith('e2e-test__'))).toBe(true);
     } finally {
       await bridge?.kill();
       await server?.kill();

@@ -222,7 +222,7 @@ test.describe('Lifecycle hooks', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Call a tool through the full MCP stack
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'hooks-test' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'hooks-test' });
 
     // Wait for invocation hooks to fire. The hooks are set by the adapter
     // after the tool handler completes — under heavy parallel load, the CDP
@@ -271,7 +271,7 @@ test.describe('Lifecycle hooks', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Call the failing tool — it returns an error through tool dispatch
-    await mcpClient.callTool('e2e-test_failing_tool', {});
+    await mcpClient.callTool('e2e-test__failing_tool', {});
 
     // Wait for the invocation end hook to record the failure. The hooks are
     // set by the adapter after the tool handler completes — under heavy
@@ -357,6 +357,6 @@ test.describe('Lifecycle hooks', () => {
     expect(reActivated).toBeUndefined();
 
     // Verify tools still work after the skipped hot reload
-    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'after-reload' }, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'after-reload' }, { isError: false }, 15_000);
   });
 });

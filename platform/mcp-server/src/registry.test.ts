@@ -51,7 +51,7 @@ describe('buildRegistry', () => {
     const plugin = makePlugin();
     const registry = buildRegistry([plugin], []);
 
-    const lookup = registry.toolLookup.get('test_my_tool');
+    const lookup = registry.toolLookup.get('test__my_tool');
     expect(lookup).toBeDefined();
     expect(lookup?.pluginName).toBe('test');
     expect(lookup?.toolName).toBe('my_tool');
@@ -61,7 +61,7 @@ describe('buildRegistry', () => {
     const plugin = makePlugin();
     const registry = buildRegistry([plugin], []);
 
-    const lookup = registry.toolLookup.get('test_my_tool');
+    const lookup = registry.toolLookup.get('test__my_tool');
     expect(lookup?.validate).toBeTypeOf('function');
     // Valid input should pass
     expect(lookup?.validate?.({ msg: 'hello' })).toBe(true);
@@ -98,8 +98,8 @@ describe('buildRegistry', () => {
 
     expect(registry.plugins.size).toBe(2);
     expect(registry.toolLookup.size).toBe(2);
-    expect(registry.toolLookup.has('alpha_do_thing')).toBe(true);
-    expect(registry.toolLookup.has('beta_do_thing')).toBe(true);
+    expect(registry.toolLookup.has('alpha__do_thing')).toBe(true);
+    expect(registry.toolLookup.has('beta__do_thing')).toBe(true);
   });
 
   test('preserves failures in the registry', () => {
@@ -135,7 +135,7 @@ describe('buildRegistry', () => {
   test('replaces previous tool lookup entries on rebuild', () => {
     const registryV1 = buildRegistry([makePlugin({ name: 'slack' })], []);
     expect(registryV1.toolLookup.size).toBe(1);
-    expect(registryV1.toolLookup.has('slack_my_tool')).toBe(true);
+    expect(registryV1.toolLookup.has('slack__my_tool')).toBe(true);
 
     const registryV2 = buildRegistry(
       [
@@ -157,8 +157,8 @@ describe('buildRegistry', () => {
     );
 
     expect(registryV2.toolLookup.size).toBe(1);
-    expect(registryV2.toolLookup.has('slack_my_tool')).toBe(false);
-    expect(registryV2.toolLookup.get('github_create_issue')).toMatchObject({
+    expect(registryV2.toolLookup.has('slack__my_tool')).toBe(false);
+    expect(registryV2.toolLookup.get('github__create_issue')).toMatchObject({
       pluginName: 'github',
       toolName: 'create_issue',
     });
@@ -179,7 +179,7 @@ describe('buildRegistry', () => {
     });
     const registry = buildRegistry([plugin], []);
 
-    const lookup = registry.toolLookup.get('test_bad_schema');
+    const lookup = registry.toolLookup.get('test__bad_schema');
     expect(lookup).toBeDefined();
     expect(lookup?.validate).toBeNull();
     expect(lookup?.validationErrors()).toContain('Schema compilation failed');
@@ -221,7 +221,7 @@ describe('getTool', () => {
     const plugin = makePlugin();
     const registry = buildRegistry([plugin], []);
 
-    const result = getTool(registry, 'test_my_tool');
+    const result = getTool(registry, 'test__my_tool');
     expect(result).toBeDefined();
     expect(result?.plugin).toBe(plugin);
     expect(result?.tool.name).toBe('my_tool');
@@ -232,7 +232,7 @@ describe('getTool', () => {
   test('returns undefined for unknown tool name', () => {
     const registry = buildRegistry([makePlugin()], []);
 
-    expect(getTool(registry, 'test_nonexistent')).toBeUndefined();
+    expect(getTool(registry, 'test__nonexistent')).toBeUndefined();
   });
 
   test('returns undefined for empty registry', () => {

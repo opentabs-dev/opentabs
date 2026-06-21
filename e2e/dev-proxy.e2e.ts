@@ -465,14 +465,14 @@ test.describe('POST /reload in non-hot (production) mode', () => {
       // re-initialize the session first).
       const toolsAfter = await waitForToolList(
         client,
-        tools => tools.some(t => t.name === `${pluginName}_ping`),
+        tools => tools.some(t => t.name === `${pluginName}__ping`),
         10_000,
         300,
-        `${pluginName}_ping tool to appear`,
+        `${pluginName}__ping tool to appear`,
       );
 
       // Verify the new plugin's tool is present
-      expect(toolsAfter.some(t => t.name === `${pluginName}_ping`)).toBe(true);
+      expect(toolsAfter.some(t => t.name === `${pluginName}__ping`)).toBe(true);
 
       // Verify the original e2e-test tools are still present
       for (const name of expectedToolNames) {
@@ -502,7 +502,7 @@ test.describe
       try {
         // Baseline: verify the slow_with_progress tool works normally
         const baseline = await mcpClient.callToolWithProgress(
-          'e2e-test_slow_with_progress',
+          'e2e-test__slow_with_progress',
           { durationMs: 500, steps: 2 },
           { timeout: 15_000 },
         );
@@ -516,7 +516,7 @@ test.describe
         // breaks and the client receives either a partial/error response
         // or a connection reset.
         const slowCallPromise = mcpClient.callToolWithProgress(
-          'e2e-test_slow_with_progress',
+          'e2e-test__slow_with_progress',
           { durationMs: 5_000, steps: 10 },
           { timeout: 30_000 },
         );
@@ -555,7 +555,7 @@ test.describe
 
         // Verify subsequent tool calls work after the reload. The MCP client
         // auto-reinitializes the session (new worker has no session memory).
-        const afterResult = await mcpClient.callTool('e2e-test_echo', { message: 'after-sse-reload' });
+        const afterResult = await mcpClient.callTool('e2e-test__echo', { message: 'after-sse-reload' });
         expect(afterResult.isError).toBe(false);
         const afterOutput = parseToolResult(afterResult.content);
         expect(afterOutput.message).toBe('after-sse-reload');
@@ -577,7 +577,7 @@ test.describe
       try {
         // Baseline: verify the slow_with_progress tool works normally
         const baseline = await mcpClient.callToolWithProgress(
-          'e2e-test_slow_with_progress',
+          'e2e-test__slow_with_progress',
           { durationMs: 500, steps: 2 },
           { timeout: 15_000 },
         );
@@ -589,7 +589,7 @@ test.describe
         // notifications over 5 seconds. This exercises the proxy's piped SSE
         // connection path, which breaks when the worker is killed mid-stream.
         const slowCallPromise = mcpClient.callToolWithProgress(
-          'e2e-test_slow_with_progress',
+          'e2e-test__slow_with_progress',
           { durationMs: 5_000, steps: 10 },
           { timeout: 30_000 },
         );
@@ -630,12 +630,12 @@ test.describe
         await waitForLog(mcpServer, 'plugin(s) mapped', 20_000);
 
         // Poll until the tool is callable end-to-end through the extension
-        await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'poll-check' }, { isError: false }, 20_000);
+        await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'poll-check' }, { isError: false }, 20_000);
 
         // Verify end-to-end tool dispatch works after all rapid hot reloads.
         // This confirms the proxy's full relay path is functional after multiple
         // overlapping worker restarts during an active SSE stream.
-        const afterResult = await mcpClient.callTool('e2e-test_echo', { message: 'after-rapid-reload' });
+        const afterResult = await mcpClient.callTool('e2e-test__echo', { message: 'after-rapid-reload' });
         expect(afterResult.isError).toBe(false);
         expect(parseToolResult(afterResult.content).message).toBe('after-rapid-reload');
 
@@ -881,12 +881,12 @@ test.describe
       await client2.initialize();
 
       try {
-        // Baseline: both clients dispatch e2e-test_echo through the extension
-        const baseline1 = await mcpClient.callTool('e2e-test_echo', { message: 'client1-before' });
+        // Baseline: both clients dispatch e2e-test__echo through the extension
+        const baseline1 = await mcpClient.callTool('e2e-test__echo', { message: 'client1-before' });
         expect(baseline1.isError).toBe(false);
         expect(parseToolResult(baseline1.content).message).toBe('client1-before');
 
-        const baseline2 = await client2.callTool('e2e-test_echo', { message: 'client2-before' });
+        const baseline2 = await client2.callTool('e2e-test__echo', { message: 'client2-before' });
         expect(baseline2.isError).toBe(false);
         expect(parseToolResult(baseline2.content).message).toBe('client2-before');
 
@@ -907,16 +907,16 @@ test.describe
 
         // Poll until the tool is callable again (tab state = ready after worker restart).
         // Both clients auto-reinitialize their sessions against the new worker.
-        await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'poll-check' }, { isError: false }, 20_000);
+        await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'poll-check' }, { isError: false }, 20_000);
 
-        // Both clients must be able to dispatch e2e-test_echo end-to-end after hot reload.
+        // Both clients must be able to dispatch e2e-test__echo end-to-end after hot reload.
         // This exercises the full relay path: MCP client → proxy → new worker → extension
         // WebSocket → adapter IIFE → tool handler → extension → worker → proxy → client.
-        const after1 = await mcpClient.callTool('e2e-test_echo', { message: 'client1-after' });
+        const after1 = await mcpClient.callTool('e2e-test__echo', { message: 'client1-after' });
         expect(after1.isError).toBe(false);
         expect(parseToolResult(after1.content).message).toBe('client1-after');
 
-        const after2 = await client2.callTool('e2e-test_echo', { message: 'client2-after' });
+        const after2 = await client2.callTool('e2e-test__echo', { message: 'client2-after' });
         expect(after2.isError).toBe(false);
         expect(parseToolResult(after2.content).message).toBe('client2-after');
       } finally {

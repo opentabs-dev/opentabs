@@ -70,7 +70,7 @@ const setupStrictCspToolTest = async (
   const page = await openTestAppTab(extensionContext, strictCspServer.url, mcpServer);
 
   // Poll until the tool is callable (tab state = ready)
-  await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+  await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
   return page;
 };
@@ -95,7 +95,7 @@ fixtureTest.describe('Strict CSP — full tool dispatch', () => {
       expect(adapterExists).toBe(true);
 
       // Call echo tool through the full MCP stack
-      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'strict-csp roundtrip',
       });
       expect(output.ok).toBe(true);
@@ -111,7 +111,7 @@ fixtureTest.describe('Strict CSP — full tool dispatch', () => {
       const page = await setupStrictCspToolTest(mcpServer, strictCspServer, extensionContext, mcpClient);
 
       // Tool should succeed with auth on (default)
-      const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const okOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'auth on',
       });
       expect(okOutput.message).toBe('auth on');
@@ -121,7 +121,7 @@ fixtureTest.describe('Strict CSP — full tool dispatch', () => {
 
       const failResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: 'auth off' },
         { isError: true },
       );
@@ -132,7 +132,7 @@ fixtureTest.describe('Strict CSP — full tool dispatch', () => {
 
       const recoveredResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: 'auth restored' },
         { isError: false },
       );
@@ -149,21 +149,21 @@ fixtureTest.describe('Strict CSP — full tool dispatch', () => {
       const page = await setupStrictCspToolTest(mcpServer, strictCspServer, extensionContext, mcpClient);
 
       // Echo
-      const echoOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const echoOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'csp-echo',
       });
       expect(echoOutput.ok).toBe(true);
       expect(echoOutput.message).toBe('csp-echo');
 
       // Greet
-      const greetOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', {
+      const greetOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', {
         name: 'CSP',
       });
       expect(greetOutput.ok).toBe(true);
       expect(greetOutput.greeting).toBe('Hello, CSP!');
 
       // Get status
-      const statusOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_get_status', {});
+      const statusOutput = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__get_status', {});
       expect(statusOutput.ok).toBe(true);
       expect(statusOutput.authenticated).toBe(true);
       expect(statusOutput.version).toBe('1.0.0-test');
@@ -181,9 +181,9 @@ fixtureTest.describe('Strict CSP — full tool dispatch', () => {
       await strictCspServer.reset();
 
       // Make tool calls
-      await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'inv-test' });
-      await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', { name: 'Invocation' });
-      await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_get_status', {});
+      await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'inv-test' });
+      await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', { name: 'Invocation' });
+      await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__get_status', {});
 
       // Fetch invocation log from the strict-CSP test server
       const invocations = await strictCspServer.invocations();
@@ -243,7 +243,7 @@ fixtureTest.describe('Strict CSP — CSP enforcement verification', () => {
       expect(adapterExists).toBe(true);
 
       // Full tool dispatch still works
-      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'csp-verification',
       });
       expect(output.ok).toBe(true);
@@ -289,9 +289,9 @@ fixtureTest.describe('Strict CSP — CSP enforcement verification', () => {
       );
 
       // Tool dispatch works after re-injection
-      await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
-      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'after-reload',
       });
       expect(output.ok).toBe(true);
@@ -322,7 +322,7 @@ fixtureTest.describe('Strict CSP — CSP enforcement verification', () => {
       expect(adapterExists).toBe(true);
 
       // Verify full tool dispatch works
-      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'no-script-elements',
       });
       expect(output.ok).toBe(true);
@@ -344,7 +344,7 @@ fixtureTest.describe('Strict CSP — plugin.update re-injection', () => {
       const page = await setupStrictCspToolTest(mcpServer, strictCspServer, extensionContext, mcpClient);
 
       // Baseline: adapter is present and tool dispatch works
-      const baseline = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const baseline = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'before-hot-reload',
       });
       expect(baseline.message).toBe('before-hot-reload');
@@ -367,7 +367,7 @@ fixtureTest.describe('Strict CSP — plugin.update re-injection', () => {
       expect(adapterAfter).toBe(true);
 
       // Tool dispatch still works after hot reload on strict-CSP page
-      const afterResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const afterResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'after-hot-reload-csp',
       });
       expect(afterResult.message).toBe('after-hot-reload-csp');
@@ -410,9 +410,9 @@ fixtureTest.describe('Strict CSP — plugin.update re-injection', () => {
       );
 
       // Tool dispatch works after re-injection on strict-CSP page
-      await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
-      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'after-reload-csp',
       });
       expect(output.message).toBe('after-reload-csp');
@@ -457,7 +457,7 @@ fixtureTest.describe('Strict CSP — connect-src blocks fetch', () => {
       // by connect-src 'none' — so the tab state stays 'unavailable'.
       const failResult = await waitForToolResult(
         mcpClient,
-        'e2e-test_echo',
+        'e2e-test__echo',
         { message: 'should-fail' },
         { isError: true },
         15_000,
@@ -769,10 +769,10 @@ test.describe('Strict CSP — file watcher IIFE re-injection', () => {
       const page = await openTestAppTab(context, strictCspSrv.url, server);
 
       // Poll until tool dispatch works (tab state = ready)
-      await waitForToolResult(client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Baseline: adapter is present and tool dispatch works on strict-CSP page
-      const baseline = await callToolExpectSuccess(client, server, 'e2e-test_echo', {
+      const baseline = await callToolExpectSuccess(client, server, 'e2e-test__echo', {
         message: 'csp-before-update',
       });
       expect(baseline.message).toBe('csp-before-update');
@@ -809,7 +809,7 @@ test.describe('Strict CSP — file watcher IIFE re-injection', () => {
       );
 
       // Tool dispatch still works after re-injection on strict-CSP page
-      const afterResult = await callToolExpectSuccess(client, server, 'e2e-test_echo', {
+      const afterResult = await callToolExpectSuccess(client, server, 'e2e-test__echo', {
         message: 'csp-after-update',
       });
       expect(afterResult.message).toBe('csp-after-update');
@@ -838,7 +838,7 @@ fixtureTest.describe('Strict CSP — multiple plugins on same page', () => {
       const page = await setupStrictCspToolTest(mcpServer, strictCspServer, extensionContext, mcpClient);
 
       // Baseline: e2e-test adapter is present and tool dispatch works
-      const baseline = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+      const baseline = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
         message: 'csp-before-second-plugin',
       });
       expect(baseline.message).toBe('csp-before-second-plugin');
@@ -865,10 +865,10 @@ fixtureTest.describe('Strict CSP — multiple plugins on same page', () => {
         // Wait for the extra plugin's tool to appear in the MCP tool list
         await waitForToolList(
           mcpClient,
-          list => list.some(t => t.name === 'csp-extra-plugin_noop'),
+          list => list.some(t => t.name === 'csp-extra-plugin__noop'),
           10_000,
           300,
-          'csp-extra-plugin_noop to appear in tool list',
+          'csp-extra-plugin__noop to appear in tool list',
         );
 
         // Wait for both adapters to be present in the strict-CSP page
@@ -949,13 +949,13 @@ fixtureTest.describe('Strict CSP — multiple plugins on same page', () => {
         );
 
         // e2e-test tool dispatch works with two adapters on the strict-CSP page
-        const echoResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+        const echoResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
           message: 'csp-dual-adapter-echo',
         });
         expect(echoResult.ok).toBe(true);
         expect(echoResult.message).toBe('csp-dual-adapter-echo');
 
-        const greetResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', {
+        const greetResult = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', {
           name: 'DualCSP',
         });
         expect(greetResult.ok).toBe(true);
@@ -1010,7 +1010,7 @@ fixtureTest.describe('Strict CSP — multiple plugins on same page', () => {
         );
 
         // Verify e2e-test tool dispatch works with both adapters
-        const beforeRemoval = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+        const beforeRemoval = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
           message: 'csp-before-removal',
         });
         expect(beforeRemoval.message).toBe('csp-before-removal');
@@ -1030,17 +1030,17 @@ fixtureTest.describe('Strict CSP — multiple plugins on same page', () => {
         // Wait for the removed plugin's tool to disappear from the tool list
         await waitForToolList(
           mcpClient,
-          list => !list.some(t => t.name === 'csp-removable_noop'),
+          list => !list.some(t => t.name === 'csp-removable__noop'),
           10_000,
           300,
-          'csp-removable_noop to be removed from tool list',
+          'csp-removable__noop to be removed from tool list',
         );
 
         // e2e-test adapter and tool dispatch still works on the strict-CSP page
         // after the second plugin was removed
-        await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+        await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
-        const afterRemoval = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+        const afterRemoval = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
           message: 'csp-after-removal',
         });
         expect(afterRemoval.ok).toBe(true);

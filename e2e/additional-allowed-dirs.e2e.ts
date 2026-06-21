@@ -61,7 +61,7 @@ test.describe('additionalAllowedDirectories', () => {
       const pluginDir = createMinimalPlugin(tmpDir, 'allowed-dir-test', [{ name: 'ping', description: 'A ping tool' }]);
 
       configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-allowdirs-cfg-'));
-      const config = configWithPlugins([pluginDir], [tmpDir], { 'allowed-dir-test_ping': true });
+      const config = configWithPlugins([pluginDir], [tmpDir], { 'allowed-dir-test__ping': true });
       writeTestConfig(configDir, config);
 
       server = await startMcpServer(configDir, true);
@@ -79,7 +79,7 @@ test.describe('additionalAllowedDirectories', () => {
 
       // Verify tool is in tools/list
       const tools = await client.listTools();
-      expect(tools.some(t => t.name === 'allowed-dir-test_ping')).toBe(true);
+      expect(tools.some(t => t.name === 'allowed-dir-test__ping')).toBe(true);
     } finally {
       await client?.close();
       await server?.kill();

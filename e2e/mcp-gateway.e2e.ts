@@ -224,7 +224,7 @@ test.describe('MCP Gateway — opentabs_list_tools', () => {
       // e2e-test tools should be present
       const e2eTools = tools.filter(t => t.plugin === 'e2e-test');
       expect(e2eTools.length).toBeGreaterThan(0);
-      expect(e2eTools.some(t => t.name === 'e2e-test_get_status')).toBe(true);
+      expect(e2eTools.some(t => t.name === 'e2e-test__get_status')).toBe(true);
 
       // Browser tools should be present
       const browserTools = tools.filter(t => t.plugin === 'browser');
@@ -260,7 +260,7 @@ test.describe('MCP Gateway — opentabs_list_tools', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('MCP Gateway — opentabs_call', () => {
-  test('invokes e2e-test_get_status through the gateway', async ({
+  test('invokes e2e-test__get_status through the gateway', async ({
     mcpServer,
     testServer,
     extensionContext,
@@ -273,7 +273,7 @@ test.describe('MCP Gateway — opentabs_call', () => {
       await client.initialize();
 
       const result = await client.callTool('opentabs_call', {
-        tool: 'e2e-test_get_status',
+        tool: 'e2e-test__get_status',
         arguments: {},
       });
       expect(result.isError).toBe(false);
@@ -287,7 +287,7 @@ test.describe('MCP Gateway — opentabs_call', () => {
     }
   });
 
-  test('invokes e2e-test_echo with arguments through the gateway', async ({
+  test('invokes e2e-test__echo with arguments through the gateway', async ({
     mcpServer,
     testServer,
     extensionContext,
@@ -300,7 +300,7 @@ test.describe('MCP Gateway — opentabs_call', () => {
       await client.initialize();
 
       const result = await client.callTool('opentabs_call', {
-        tool: 'e2e-test_echo',
+        tool: 'e2e-test__echo',
         arguments: { message: 'gateway-test' },
       });
       expect(result.isError).toBe(false);

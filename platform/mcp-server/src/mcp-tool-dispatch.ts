@@ -107,6 +107,15 @@ const sanitizeOutput = (obj: unknown, depth = 0): unknown => {
 };
 
 /**
+ * Serialize a value for an MCP `content.text` payload.
+ *
+ * Tool output is consumed by the model, not read by humans, so it is serialized
+ * compactly (no indentation). Indentation inflates token usage by 10–20% for
+ * nested objects while carrying no information the model needs.
+ */
+const serializeToolOutput = (value: unknown): string => JSON.stringify(value);
+
+/**
  * Format a structured error response for MCP clients.
  *
  * When the error data contains structured fields (category, retryable, retryAfterMs),
@@ -289,7 +298,7 @@ const handleBrowserToolCall = async (
     const result = await cachedBt.tool.handler(parseResult.data, state);
     const cleaned = sanitizeOutput(result);
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(cleaned, null, 2) }],
+      content: [{ type: 'text' as const, text: serializeToolOutput(cleaned) }],
     };
   } catch (err) {
     btSuccess = false;
@@ -524,7 +533,7 @@ const handlePluginToolCall = async (
     const rawOutput = (result as Record<string, unknown>).output ?? result;
     const cleaned = sanitizeOutput(rawOutput);
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(cleaned, null, 2) }],
+      content: [{ type: 'text' as const, text: serializeToolOutput(cleaned) }],
     };
   } catch (err) {
     success = false;
@@ -747,7 +756,7 @@ const handlePluginInspect = async (state: ServerState, args: Record<string, unkn
   };
 
   return {
-    content: [{ type: 'text' as const, text: JSON.stringify(response, null, 2) }],
+    content: [{ type: 'text' as const, text: serializeToolOutput(response) }],
   };
 };
 
@@ -881,4 +890,5 @@ export {
   handlePluginToolCall,
   REVIEW_GUIDANCE,
   sanitizeOutput,
+  serializeToolOutput,
 };

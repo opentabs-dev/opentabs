@@ -17,6 +17,7 @@ import type {
   ToolPermission,
   WsHandle,
 } from '@opentabs-dev/shared';
+import { prefixedToolName } from '@opentabs-dev/shared';
 import { appendAuditEntryToDisk } from './audit-disk.js';
 import type { BrowserToolDefinition } from './browser-tools/definition.js';
 
@@ -240,7 +241,7 @@ export interface PendingConfirmation {
 export interface AuditEntry {
   /** ISO 8601 timestamp of the invocation */
   timestamp: string;
-  /** Prefixed tool name (e.g., 'slack_send_message') */
+  /** Prefixed tool name (e.g., 'slack__send_message') */
   tool: string;
   /** Plugin name (e.g., 'slack') or 'browser' for browser tools */
   plugin: string;
@@ -429,8 +430,7 @@ export const createState = (): ServerState => ({
 /** Generate a cryptographically random JSON-RPC request ID */
 export const getNextRequestId = (): string => crypto.randomUUID();
 
-/** Get the prefixed tool name: plugin_tool */
-export const prefixedToolName = (plugin: string, tool: string): string => `${plugin}_${tool}`;
+export { prefixedToolName };
 
 /** Resolve the configured permission for a tool (ignoring skipPermissions).
  *  Resolution order: per-tool override → plugin default → 'off'.

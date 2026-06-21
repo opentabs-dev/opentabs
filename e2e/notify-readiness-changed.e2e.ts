@@ -27,7 +27,7 @@ test.describe('notifyReadinessChanged — full pipeline', () => {
     expect(stateBefore).toBe('ready');
 
     // Call the tool that invokes notifyReadinessChanged
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_sdk_notify_readiness_changed');
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__sdk_notify_readiness_changed');
     expect(output.ok).toBe(true);
 
     // Wait for the re-probe pipeline to propagate and verify state is still ready
@@ -42,7 +42,7 @@ test.describe('notifyReadinessChanged — full pipeline', () => {
       .toBe('ready');
 
     // Tool dispatch still works
-    const echoResult = await mcpClient.callTool('e2e-test_echo', { message: 'still ready' });
+    const echoResult = await mcpClient.callTool('e2e-test__echo', { message: 'still ready' });
     expect(echoResult.isError).toBe(false);
     expect(echoResult.content).toContain('still ready');
 
@@ -124,7 +124,7 @@ test.describe('notifyReadinessChanged — full pipeline', () => {
       .toBe('ready');
 
     // Verify tool dispatch works again
-    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'back online' }, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'back online' }, { isError: false }, 15_000);
 
     await page.close();
   });

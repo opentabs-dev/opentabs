@@ -40,7 +40,7 @@ test.describe('Concurrent dispatch stress — 10+ parallel calls', () => {
 
     for (let offset = 0; offset < count; offset += BATCH_SIZE) {
       const batch = messages.slice(offset, offset + BATCH_SIZE);
-      const batchResults = await Promise.all(batch.map(msg => mcpClient.callTool('e2e-test_echo', { message: msg })));
+      const batchResults = await Promise.all(batch.map(msg => mcpClient.callTool('e2e-test__echo', { message: msg })));
       allResults.push(...batchResults);
     }
 
@@ -83,7 +83,7 @@ test.describe('Hot reload during active tool dispatch', () => {
     // when hot reload kills the worker.
     const count = 5;
     const callPromises = Array.from({ length: count }, () =>
-      mcpClient.callTool('e2e-test_slow_with_progress', {
+      mcpClient.callTool('e2e-test__slow_with_progress', {
         durationMs: 2000,
         steps: 2,
       }),
@@ -138,7 +138,7 @@ test.describe('Hot reload during active tool dispatch', () => {
     // tab state.
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-hot-reload' },
       { isError: false },
       20_000,
@@ -167,7 +167,7 @@ test.describe('Tool dispatch during tab close', () => {
 
     // Fire a slow tool call (3s duration, 3 steps) without awaiting
     const start = Date.now();
-    const toolCallPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+    const toolCallPromise = mcpClient.callTool('e2e-test__slow_with_progress', {
       durationMs: 3000,
       steps: 3,
     });
@@ -197,7 +197,7 @@ test.describe('Tool dispatch during tab close', () => {
     const newPage = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-tab-close' },
       { isError: false },
       15_000,
@@ -226,7 +226,7 @@ test.describe('Permission change mid-dispatch', () => {
 
     // Fire a slow tool call (3s duration, 3 steps) — it will be in-flight
     // when we change the permission to 'off'.
-    const slowCallPromise = mcpClient.callTool('e2e-test_slow_with_progress', {
+    const slowCallPromise = mcpClient.callTool('e2e-test__slow_with_progress', {
       durationMs: 3000,
       steps: 3,
     });
@@ -259,7 +259,7 @@ test.describe('Permission change mid-dispatch', () => {
     expect(slowResult.isError).not.toBe(true);
 
     // A subsequent call should be rejected with a 'disabled' or 'not been reviewed' message
-    const rejectedResult = await mcpClient.callTool('e2e-test_echo', { message: 'should-fail' });
+    const rejectedResult = await mcpClient.callTool('e2e-test__echo', { message: 'should-fail' });
     expect(rejectedResult.isError).toBe(true);
     expect(
       rejectedResult.content.includes('currently disabled') || rejectedResult.content.includes('not been reviewed'),
@@ -286,7 +286,7 @@ test.describe('Permission change mid-dispatch', () => {
     // Verify the tool works again after restoring permission
     const recoveredResult = await waitForToolResult(
       mcpClient,
-      'e2e-test_echo',
+      'e2e-test__echo',
       { message: 'after-restore' },
       { isError: false },
       20_000,

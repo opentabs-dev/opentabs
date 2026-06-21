@@ -218,7 +218,7 @@ test.describe('Icon pipeline — side panel rendering', () => {
       tools[t] = true;
     }
     // Also enable the no-icon plugin's tool
-    tools['no-icon-test_ping'] = true;
+    tools['no-icon-test__ping'] = true;
 
     const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'opentabs-e2e-icon-avatar-cfg-'));
     writeTestConfig(configDir, {
