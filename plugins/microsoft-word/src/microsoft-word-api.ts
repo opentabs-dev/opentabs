@@ -107,8 +107,8 @@ const getToken = (): string | null => getCapturedToken() ?? getMsalToken();
  */
 export const getGraphToken = (): string => {
   const token = getToken();
-  if (!token) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
-  return token;
+  if (token) return token;
+  return authError('Not authenticated — please sign in to Microsoft 365.');
 };
 
 export const isAuthenticated = (): boolean => getToken() !== null;
@@ -128,6 +128,30 @@ export const isSharePointDocument = (): boolean => {
     return false;
   }
 };
+
+/**
+ * Trailing guidance appended to AUTH_ERROR messages on SharePoint/OneDrive
+ * documents. MSAL's encrypted cache means we can't recover in-place — the only
+ * reliable path is to clear MSAL state and reload, which the
+ * `microsoft-word_reauthenticate` tool does.
+ */
+const SP_REAUTH_HINT = 'Call `microsoft-word_reauthenticate` to recover.';
+
+/** Throw an AUTH_ERROR, appending the reauth hint on SharePoint documents. */
+export const authError = (msg: string): never => {
+  throw ToolError.auth(isSharePointDocument() ? `${msg} ${SP_REAUTH_HINT}` : msg);
+};
+
+/**
+ * Guidance for HTTP 423 from Graph `/content`. The file is held by a WOPI
+ * co-authoring lock — almost always because it is open in the Word web editor
+ * in this very browser. Graph cannot overwrite a locked file, so the only path
+ * is to close the editor (or wait for the lock to lapse) and retry.
+ */
+export const FILE_LOCKED_MESSAGE =
+  'The document is locked because it is open in the Word web editor (or another co-authoring session), ' +
+  'so Microsoft Graph cannot save changes to it. Close the editor tab — or wait ~30–60 seconds after closing ' +
+  'for the lock to release — then retry.';
 
 interface DocumentContext {
   driveId: string;
@@ -199,7 +223,7 @@ export const api = async <T>(
   } = {},
 ): Promise<T> => {
   const token = getToken();
-  if (!token) throw ToolError.auth('Not authenticated — please sign in to Microsoft 365.');
+  if (!token) authError('Not authenticated — please sign in to Microsoft 365.');
 
   const qs = options.query ? buildQueryString(options.query) : '';
   const url = qs ? `${GRAPH_API_BASE}${endpoint}?${qs}` : `${GRAPH_API_BASE}${endpoint}`;
@@ -245,7 +269,7 @@ export const api = async <T>(
   }
 
   if (response.status === 401 || response.status === 403) {
-    throw ToolError.auth('Authentication expired — please refresh the page.');
+    authError('Authentication expired — please refresh the page.');
   }
 
   if (response.status === 404) {

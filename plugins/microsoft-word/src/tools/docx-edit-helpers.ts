@@ -3,7 +3,7 @@
  */
 import { ToolError, clearAuthCache } from '@opentabs-dev/plugin-sdk';
 import { type ZipEntry, extractAllZipEntries, rebuildZip } from '../docx-utils.js';
-import { getGraphToken } from '../microsoft-word-api.js';
+import { FILE_LOCKED_MESSAGE, authError, getGraphToken } from '../microsoft-word-api.js';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -108,7 +108,10 @@ async function fetchWithErrorHandling(url: string, init: RequestInit): Promise<R
 
   if (response.status === 401 || response.status === 403) {
     clearAuthCache('microsoft-word');
-    throw ToolError.auth('Authentication expired — please refresh the page.');
+    authError('Authentication expired — please refresh the page.');
+  }
+  if (response.status === 423) {
+    throw ToolError.validation(FILE_LOCKED_MESSAGE);
   }
   if (response.status === 404) {
     throw ToolError.notFound('Document not found.');

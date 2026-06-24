@@ -1,6 +1,6 @@
 import { ToolError, clearAuthCache, defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
-import { getGraphToken } from '../microsoft-word-api.js';
+import { authError, getGraphToken } from '../microsoft-word-api.js';
 
 const GRAPH_API_BASE = 'https://graph.microsoft.com/v1.0';
 
@@ -33,7 +33,7 @@ export const getFileContent = defineTool({
 
       if (metaResp.status === 401 || metaResp.status === 403) {
         clearAuthCache('microsoft-word');
-        throw ToolError.auth('Authentication expired — please refresh the page.');
+        authError('Authentication expired — please refresh the page.');
       }
       if (metaResp.status === 404) {
         throw ToolError.notFound('File not found.');

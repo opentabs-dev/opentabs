@@ -21,6 +21,7 @@ import { listRecentDocuments } from './tools/list-recent-documents.js';
 import { listSharedWithMe } from './tools/list-shared-with-me.js';
 import { listVersions } from './tools/list-versions.js';
 import { moveItem } from './tools/move-item.js';
+import { reauthenticate } from './tools/reauthenticate.js';
 import { renameItem } from './tools/rename-item.js';
 import { replaceTextInDocument } from './tools/replace-text-in-document.js';
 import { restoreVersion } from './tools/restore-version.js';
@@ -38,6 +39,7 @@ class MicrosoftWordPlugin extends OpenTabsPlugin {
   readonly tools: ToolDefinition[] = [
     // Account
     getCurrentUser,
+    reauthenticate,
     // Drive
     getDrive,
     // Documents — the core document editing tools
