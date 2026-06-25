@@ -134,9 +134,9 @@ export const isSharePointDocument = (): boolean => {
  * Trailing guidance appended to AUTH_ERROR messages on SharePoint/OneDrive
  * documents. MSAL's encrypted cache means we can't recover in-place — the only
  * reliable path is to clear MSAL state and reload, which the
- * `microsoft-word_reauthenticate` tool does.
+ * `microsoft-word__reauthenticate` tool does.
  */
-const SP_REAUTH_HINT = 'Call `microsoft-word_reauthenticate` to recover.';
+const SP_REAUTH_HINT = 'Call `microsoft-word__reauthenticate` to recover.';
 
 /** User-facing message when no Graph token is available at all. */
 export const NOT_AUTHENTICATED_MESSAGE = 'Not authenticated — please sign in to Microsoft 365.';

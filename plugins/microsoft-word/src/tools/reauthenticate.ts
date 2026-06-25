@@ -19,8 +19,8 @@ const LS_TOKEN_KEY = '__opentabs_word_graph_token';
  * which the pre-script catches. SSO cookies stay intact, so the
  * re-acquisition is silent (no sign-in UI).
  *
- * Caller protocol: when `microsoft-word_*` tools return an `AUTH_ERROR` whose
- * message ends with "Call `microsoft-word_reauthenticate` to recover", invoke
+ * Caller protocol: when `microsoft-word__*` tools return an `AUTH_ERROR` whose
+ * message ends with "Call `microsoft-word__reauthenticate` to recover", invoke
  * this tool, wait for the tab to reload (~5 seconds), then retry the
  * original operation.
  */
