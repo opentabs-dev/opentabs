@@ -73,7 +73,7 @@ const createPendingConfirmation = (
     reject: (err: Error) => {
       result.rejected = err;
     },
-    tool: 'slack_send_message',
+    tool: 'slack__send_message',
     plugin: 'slack',
     params: {},
     ...overrides,

@@ -95,7 +95,7 @@ export default new MyAppPlugin();
 
 Here's what each field does:
 
-- **`name`** — unique identifier used as the tool prefix in MCP. A tool called `get_items` becomes `my-app_get_items` when exposed to AI agents.
+- **`name`** — unique identifier used as the tool prefix in MCP. A tool called `get_items` becomes `my-app__get_items` when exposed to AI agents.
 - **`description`** — brief description of the plugin's purpose. Shown in discovery and status output.
 - **`displayName`** — human-readable name shown in the side panel and health endpoint (e.g., `"My App"`).
 - **`urlPatterns`** — [Chrome match patterns](https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns) that determine which tabs get your adapter injected. Use `*://*.example.com/*` to match all subdomains.
@@ -207,7 +207,7 @@ export const getItems = defineTool({
 
 ### Tool naming conventions
 
-- **`name`** — `snake_case`, descriptive of the action. Becomes `<plugin>_<name>` in MCP (e.g., `my-app_get_items`).
+- **`name`** — `snake_case`, descriptive of the action. Becomes `<plugin>__<name>` in MCP (e.g., `my-app__get_items`).
 - **`displayName`** — human-readable, shown in the side panel. Optional — auto-derived from `name` during build if omitted.
 - **`description`** — shown to AI agents. Be specific about what the tool does, what it returns, and when to use it.
 - **`icon`** — a [Lucide icon](https://lucide.dev/icons/) name in `kebab-case` (e.g., `list`, `send`, `search`). Optional — defaults to `wrench` if omitted.
@@ -582,7 +582,7 @@ No server restart, no extension reload — just save and test. The whole pipelin
 1. Start the MCP server if it's not running: `opentabs start`
 2. Open the target web app in Chrome and log in
 3. Check the extension side panel — your plugin should show as **Ready**
-4. Ask your AI agent to use a tool: *"Use the my-app_get_items tool to list items"*
+4. Ask your AI agent to use a tool: *"Use the my-app__get_items tool to list items"*
 5. Edit your code, save, and the adapter hot-reloads automatically
 
 Use `opentabs status` to verify plugin state, `opentabs logs --plugin my-app` to see your log output, and `opentabs audit` to inspect recent tool invocations.

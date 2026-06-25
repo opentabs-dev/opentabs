@@ -51,10 +51,10 @@ test.describe('Tool defaults — runtime', () => {
     // Verify the tool appears in MCP tools/list
     const tools = await mcpClient.listTools();
     const toolNames = tools.map(t => t.name);
-    expect(toolNames).toContain('e2e-test_no_display_name');
+    expect(toolNames).toContain('e2e-test__no_display_name');
 
     // Verify the tool is callable through the full dispatch chain
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_no_display_name', {});
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__no_display_name', {});
     expect(output.ok).toBe(true);
 
     await page.close();
@@ -78,7 +78,7 @@ test.describe('Tool defaults — runtime', () => {
 
     // The health endpoint returns prefixed tool names at runtime
     const pluginTools = (e2ePlugin as unknown as { tools: string[] }).tools;
-    expect(pluginTools).toContain('e2e-test_no_display_name');
+    expect(pluginTools).toContain('e2e-test__no_display_name');
 
     await page.close();
   });

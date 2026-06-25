@@ -767,7 +767,7 @@ describe('sendSyncFull', () => {
       [],
     );
 
-    // alpha_ping enabled (default), beta_pong explicitly disabled
+    // alpha__ping enabled (default), beta__pong explicitly disabled
     state.pluginPermissions = { beta: { tools: { pong: 'off' } } };
 
     await sendSyncFull(state);
@@ -3634,7 +3634,7 @@ describe('multi-connection — sendConfirmationRequest broadcasts to all', () =>
     state.extensionConnections.set('conn-a', connA);
     state.extensionConnections.set('conn-b', connB);
 
-    const promise = sendConfirmationRequest(state, 'slack_send_message', 'slack', { text: 'hi' });
+    const promise = sendConfirmationRequest(state, 'slack__send_message', 'slack', { text: 'hi' });
 
     // Both connections should receive the confirmation.request
     expect(wsA.sent.length).toBeGreaterThanOrEqual(1);

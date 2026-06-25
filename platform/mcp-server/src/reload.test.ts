@@ -268,8 +268,8 @@ describe('performReload', () => {
 
     await performReload(state, [], emptyTransports(), false);
 
-    expect(state.registry.toolLookup.has('my-plugin_test_tool')).toBe(true);
-    const entry = state.registry.toolLookup.get('my-plugin_test_tool');
+    expect(state.registry.toolLookup.has('my-plugin__test_tool')).toBe(true);
+    const entry = state.registry.toolLookup.get('my-plugin__test_tool');
     expect(entry?.pluginName).toBe('my-plugin');
     expect(entry?.toolName).toBe('test_tool');
   });

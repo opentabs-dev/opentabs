@@ -153,7 +153,6 @@ const OPS: Record<string, string> = {};
 
 /** Extract GraphQL operation hashes from the webpack chunk registry. */
 const extractOps = (): void => {
-  if (Object.keys(OPS).length > 0) return;
   try {
     const chunks = (globalThis as Record<string, unknown>).webpackChunk_twitter_responsive_web as
       | Array<[unknown, Record<string, (...args: never) => unknown>]>
@@ -181,9 +180,17 @@ const extractOps = (): void => {
   }
 };
 
-/** Get the operation hash for a named GraphQL operation. */
+/**
+ * Get the operation hash for a named GraphQL operation.
+ *
+ * X lazy-loads many GraphQL operations in separate webpack chunks that only
+ * arrive when the user navigates to the relevant surface (e.g. Favoriters and
+ * Retweeters load when a tweet's likes/reposts view is opened). A single cached
+ * scan would miss operations whose chunk loaded after the first extraction, so
+ * on a cache miss we re-scan the (now larger) chunk registry before giving up.
+ */
 const getOpHash = (name: string): string => {
-  extractOps();
+  if (!OPS[name]) extractOps();
   const hash = OPS[name];
   if (!hash) throw ToolError.internal(`GraphQL operation "${name}" not found in X client bundle`);
   return hash;

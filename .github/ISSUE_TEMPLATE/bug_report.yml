@@ -1,0 +1,66 @@
+name: 🐛 Bug report
+description: Report a defect in the platform or an existing plugin/tool
+title: '[bug]: '
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Use this for **defects in existing behavior** — the platform (MCP server,
+        Chrome extension, CLI, SDK) or a tool that already ships in a plugin and
+        is misbehaving.
+
+
+        This is **not** for requesting a new plugin or a new tool on an existing
+        plugin. Those come from contributions — see the
+        [plugin development guide](https://opentabs.dev/docs/guides/plugin-development)
+        and open a PR.
+  - type: input
+    id: plugin
+    attributes:
+      label: Affected plugin or platform component
+      description: e.g. `youtube`, `x`, the MCP server, the Chrome extension, or the CLI.
+      placeholder: youtube
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Platform/CLI version and the plugin version, if applicable.
+      placeholder: 'CLI 0.0.112, plugin youtube@0.0.85'
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what actually occurred.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps to reproduce. Include the exact tool call and arguments where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / errors
+      description: >-
+        Relevant output. For extension/adapter issues, the chrome://extensions
+        error log and the side panel state are especially useful. Redact any
+        secrets, tokens, or cookies.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Chrome version.
+      placeholder: macOS 15.4, Chrome 149
+    validations:
+      required: true

@@ -1,0 +1,18 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🧩 Missing plugin or tool? Contribute it
+    url: https://opentabs.dev/docs/guides/plugin-development
+    about: >-
+      We do not take requests for new plugins or new tools on existing plugins.
+      The platform and existing plugins are maintained by the core team; new
+      coverage comes from contributions. Plugins are standalone npm packages —
+      scaffold one with `opentabs plugin create`, follow the plugin development
+      guide, and open a PR. This is the fastest way to get the tool you need.
+  - name: 💬 Questions & discussion (Discord)
+    url: https://discord.gg/vDQDRz6S
+    about: >-
+      Usage questions, ideas, "is there a plugin for X", and general discussion
+      belong in Discord, not the issue tracker.
+  - name: 📚 Documentation
+    url: https://opentabs.dev/docs
+    about: Setup, quick start, SDK reference, and the plugin development guide.

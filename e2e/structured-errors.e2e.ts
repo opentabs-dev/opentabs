@@ -25,7 +25,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_auth', {});
+    const result = await mcpClient.callTool('e2e-test__error_auth', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Not authenticated');
     expect(result.content).toContain('[ERROR');
@@ -50,7 +50,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_rate_limited', {});
+    const result = await mcpClient.callTool('e2e-test__error_rate_limited', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Too many requests');
     expect(result.content).toContain('code=RATE_LIMITED');
@@ -75,7 +75,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_not_found', {});
+    const result = await mcpClient.callTool('e2e-test__error_not_found', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Resource does not exist');
     expect(result.content).toContain('code=NOT_FOUND');
@@ -99,7 +99,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_validation', {});
+    const result = await mcpClient.callTool('e2e-test__error_validation', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Invalid input');
     expect(result.content).toContain('code=VALIDATION_ERROR');
@@ -123,7 +123,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_timeout', {});
+    const result = await mcpClient.callTool('e2e-test__error_timeout', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('timed out');
     expect(result.content).toContain('code=TIMEOUT');
@@ -147,7 +147,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_internal', {});
+    const result = await mcpClient.callTool('e2e-test__error_internal', {});
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Unexpected server error');
     expect(result.content).toContain('code=INTERNAL_ERROR');
@@ -175,7 +175,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_custom_code', { factory: 'auth' });
+    const result = await mcpClient.callTool('e2e-test__error_custom_code', { factory: 'auth' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Custom auth error');
     expect(result.content).toContain('code=CUSTOM_AUTH');
@@ -198,7 +198,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_custom_code', { factory: 'not_found' });
+    const result = await mcpClient.callTool('e2e-test__error_custom_code', { factory: 'not_found' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Custom not found');
     expect(result.content).toContain('code=CUSTOM_NOT_FOUND');
@@ -221,7 +221,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_custom_code', { factory: 'rate_limited' });
+    const result = await mcpClient.callTool('e2e-test__error_custom_code', { factory: 'rate_limited' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Custom rate limit');
     expect(result.content).toContain('code=CUSTOM_RATE_LIMIT');
@@ -246,7 +246,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_custom_code', { factory: 'validation' });
+    const result = await mcpClient.callTool('e2e-test__error_custom_code', { factory: 'validation' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Custom validation');
     expect(result.content).toContain('code=CUSTOM_VALIDATION');
@@ -269,7 +269,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_custom_code', { factory: 'timeout' });
+    const result = await mcpClient.callTool('e2e-test__error_custom_code', { factory: 'timeout' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Custom timeout');
     expect(result.content).toContain('code=CUSTOM_TIMEOUT');
@@ -292,7 +292,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_error_custom_code', { factory: 'internal' });
+    const result = await mcpClient.callTool('e2e-test__error_custom_code', { factory: 'internal' });
     expect(result.isError).toBe(true);
     expect(result.content).toContain('Custom internal');
     expect(result.content).toContain('code=CUSTOM_INTERNAL');
@@ -315,7 +315,7 @@ test.describe('Structured error propagation', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_failing_tool', {
+    const result = await mcpClient.callTool('e2e-test__failing_tool', {
       error_code: 'deliberate_failure',
       error_message: 'This tool always fails',
     });

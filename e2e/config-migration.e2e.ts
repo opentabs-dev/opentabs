@@ -291,12 +291,12 @@ test.describe('Config migration — tools after migration', () => {
 
       // List tools — all e2e-test tools should be present
       const tools = await client.listTools();
-      const e2eTools = tools.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = tools.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
 
       // Verify specific known tools are present
-      expect(tools.map(t => t.name)).toContain('e2e-test_echo');
-      expect(tools.map(t => t.name)).toContain('e2e-test_get_status');
+      expect(tools.map(t => t.name)).toContain('e2e-test__echo');
+      expect(tools.map(t => t.name)).toContain('e2e-test__get_status');
     } finally {
       await client?.close();
       await server?.kill();

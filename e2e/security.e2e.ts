@@ -243,7 +243,7 @@ test.describe('Per-plugin concurrency limit', () => {
     // all 25 dispatch slots occupied while the 26th is checked.
     const count = 26;
     const promises = Array.from({ length: count }, () =>
-      mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
+      mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
     );
     const results = await Promise.all(promises);
 
@@ -272,7 +272,7 @@ test.describe('Per-plugin concurrency limit', () => {
 
     // Fill all 25 slots with short-lived calls (2s each)
     const fillPromises = Array.from({ length: 25 }, () =>
-      mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 2000, steps: 2 }, { timeout: 30_000 }),
+      mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 2000, steps: 2 }, { timeout: 30_000 }),
     );
 
     // Wait for all 25 to complete — all slots are now free
@@ -285,7 +285,7 @@ test.describe('Per-plugin concurrency limit', () => {
 
     // A new call should succeed (slots freed)
     const result = await mcpClient.callTool(
-      'e2e-test_slow_with_progress',
+      'e2e-test__slow_with_progress',
       { durationMs: 1000, steps: 1 },
       { timeout: 30_000 },
     );
@@ -314,7 +314,7 @@ test.describe('Per-plugin concurrency limit', () => {
 
     // Start 25 slow calls (10s each) — these occupy all dispatch slots
     const batch1Promises = Array.from({ length: 25 }, () =>
-      mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
+      mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 10_000, steps: 2 }, { timeout: 30_000 }),
     );
 
     // Give the 25 calls time to be dispatched and registered in activeDispatches.
@@ -325,7 +325,7 @@ test.describe('Per-plugin concurrency limit', () => {
     // Fire the 26th call — should be rejected immediately (not after 10s)
     const overflowStart = Date.now();
     const overflowResult = await mcpClient.callTool(
-      'e2e-test_slow_with_progress',
+      'e2e-test__slow_with_progress',
       { durationMs: 10_000, steps: 2 },
       { timeout: 30_000 },
     );
@@ -352,7 +352,7 @@ test.describe('Per-plugin concurrency limit', () => {
 
     const batch2Results = await Promise.all(
       Array.from({ length: 25 }, () =>
-        mcpClient.callTool('e2e-test_slow_with_progress', { durationMs: 2_000, steps: 1 }, { timeout: 30_000 }),
+        mcpClient.callTool('e2e-test__slow_with_progress', { durationMs: 2_000, steps: 1 }, { timeout: 30_000 }),
       ),
     );
 

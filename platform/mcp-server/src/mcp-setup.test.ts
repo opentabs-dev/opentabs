@@ -123,7 +123,7 @@ describe('buildRegistry — input validation', () => {
     };
     state.registry = buildRegistry([plugin], []);
 
-    const entry = state.registry.toolLookup.get('test_greet');
+    const entry = state.registry.toolLookup.get('test__greet');
     expect(entry).toBeDefined();
     if (!entry?.validate) throw new Error('Expected validate function');
     expect(entry.validate).toBeInstanceOf(Function);
@@ -155,7 +155,7 @@ describe('buildRegistry — input validation', () => {
     };
     state.registry = buildRegistry([plugin], []);
 
-    const entry = state.registry.toolLookup.get('test_greet');
+    const entry = state.registry.toolLookup.get('test__greet');
     if (!entry?.validate) throw new Error('Expected entry with validate');
     // Pass wrong type for name
     entry.validate({ name: 123 });
@@ -168,7 +168,7 @@ describe('buildRegistry — input validation', () => {
     const state = createState();
     state.registry = buildRegistry([createPlugin('test', ['ping'])], []);
 
-    const entry = state.registry.toolLookup.get('test_ping');
+    const entry = state.registry.toolLookup.get('test__ping');
     expect(entry).toBeDefined();
     if (!entry?.validate) throw new Error('Expected validate function');
     // { type: 'object' } compiles successfully — validate should still be a function
@@ -198,7 +198,7 @@ describe('buildRegistry — input validation', () => {
     };
     state.registry = buildRegistry([plugin], []);
 
-    const entry = state.registry.toolLookup.get('test_strict');
+    const entry = state.registry.toolLookup.get('test__strict');
     if (!entry?.validate) throw new Error('Expected entry with validate');
     expect(entry.validate({ a: 'ok' })).toBe(true);
     expect(entry.validate({ a: 'ok', b: 'extra' })).toBe(false);
@@ -266,9 +266,9 @@ describe('registerMcpHandlers — tools/list includes all tools regardless of pe
     const result = listTools({ params: { name: '' } }, mockExtra) as { tools: Array<{ name: string }> };
 
     const toolNames = result.tools.map(t => t.name);
-    expect(toolNames).toContain('slack_send_message');
-    expect(toolNames).toContain('slack_read_messages');
-    expect(toolNames).toContain('slack_list_channels');
+    expect(toolNames).toContain('slack__send_message');
+    expect(toolNames).toContain('slack__read_messages');
+    expect(toolNames).toContain('slack__list_channels');
     expect(toolNames).toHaveLength(3 + PLATFORM_TOOL_NAMES.size);
   });
 
@@ -287,7 +287,7 @@ describe('registerMcpHandlers — tools/list includes all tools regardless of pe
     const resultBefore = listTools({ params: { name: '' } }, mockExtra) as {
       tools: Array<{ name: string; description: string }>;
     };
-    const sendBefore = resultBefore.tools.find(t => t.name === 'slack_send_message');
+    const sendBefore = resultBefore.tools.find(t => t.name === 'slack__send_message');
     expect(sendBefore?.description).toMatch(/^\[Disabled\] /);
 
     // Change permission to auto — prefix goes away
@@ -296,7 +296,7 @@ describe('registerMcpHandlers — tools/list includes all tools regardless of pe
     const resultAfter = listTools({ params: { name: '' } }, mockExtra) as {
       tools: Array<{ name: string; description: string }>;
     };
-    const sendAfter = resultAfter.tools.find(t => t.name === 'slack_send_message');
+    const sendAfter = resultAfter.tools.find(t => t.name === 'slack__send_message');
     expect(sendAfter?.description).not.toMatch(/^\[Disabled\]/);
     expect(sendAfter?.description).toBe('send_message description');
   });
@@ -314,8 +314,8 @@ describe('getAllToolsList — all tools always listed', () => {
     const tools = getAllToolsList(state);
     const names = tools.map(t => t.name);
 
-    expect(names).toContain('slack_send_message');
-    expect(names).toContain('slack_read_messages');
+    expect(names).toContain('slack__send_message');
+    expect(names).toContain('slack__read_messages');
     expect(names).toContain('browser_list_tabs');
     expect(tools).toHaveLength(3 + PLATFORM_TOOL_NAMES.size);
   });
@@ -409,10 +409,10 @@ describe('getAllToolsList — all tools always listed', () => {
     const tools = getAllToolsList(state);
     const byName = Object.fromEntries(tools.map(t => [t.name, t.description]));
 
-    expect(byName.slack_send_message).toBe('send_message description');
-    expect(byName.slack_read_messages).toBe('[Requires approval] read_messages description');
-    expect(byName.github_create_issue).toBe('[Disabled] create_issue description');
-    expect(byName.github_list_prs).toBe('list_prs description');
+    expect(byName.slack__send_message).toBe('send_message description');
+    expect(byName.slack__read_messages).toBe('[Requires approval] read_messages description');
+    expect(byName.github__create_issue).toBe('[Disabled] create_issue description');
+    expect(byName.github__list_prs).toBe('list_prs description');
     expect(byName.browser_list_tabs).toBe('List tabs');
     expect(tools).toHaveLength(5 + PLATFORM_TOOL_NAMES.size);
   });
@@ -481,7 +481,7 @@ describe('getAllToolsList — tool entry shape', () => {
 
     expect(pluginTools).toHaveLength(1);
     expect(tools[0]).toMatchObject({
-      name: 'slack_send_message',
+      name: 'slack__send_message',
       description: 'send_message description',
       inputSchema: { type: 'object' },
     });
@@ -513,7 +513,7 @@ describe('getAllToolsList — tabId schema injection', () => {
     state.pluginPermissions = { slack: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    const slackTool = tools.find(t => t.name === 'slack__send_message');
 
     expect(slackTool).toBeDefined();
     const schema = slackTool?.inputSchema as Record<string, unknown>;
@@ -634,7 +634,7 @@ describe('checkToolCallable', () => {
     const state = createState();
     state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
 
-    const result = checkToolCallable(state, 'slack_send_message');
+    const result = checkToolCallable(state, 'slack__send_message');
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -648,7 +648,7 @@ describe('checkToolCallable', () => {
     state.registry = buildRegistry([createPlugin('slack', ['send_message'])], []);
     // Default permission is 'off' — but checkToolCallable no longer checks this
 
-    const result = checkToolCallable(state, 'slack_send_message');
+    const result = checkToolCallable(state, 'slack__send_message');
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -985,7 +985,7 @@ describe('registerMcpHandlers — generic dispatch error sanitization', () => {
     registerMcpHandlers(server, state);
 
     const handler = getHandler(handlers, CallToolRequestSchema);
-    const result = (await handler({ params: { name: 'test_ping', arguments: {} } }, mockExtra)) as {
+    const result = (await handler({ params: { name: 'test__ping', arguments: {} } }, mockExtra)) as {
       content: Array<{ text: string }>;
       isError: boolean;
     };
@@ -1011,7 +1011,7 @@ describe('getAllToolsList — instance schema injection', () => {
     state.pluginPermissions = { sqlpad: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const sqlpadTool = tools.find(t => t.name === 'sqlpad_run_query');
+    const sqlpadTool = tools.find(t => t.name === 'sqlpad__run_query');
 
     expect(sqlpadTool).toBeDefined();
     const schema = sqlpadTool?.inputSchema as Record<string, unknown>;
@@ -1037,7 +1037,7 @@ describe('getAllToolsList — instance schema injection', () => {
     state.pluginPermissions = { sqlpad: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const sqlpadTool = tools.find(t => t.name === 'sqlpad_run_query');
+    const sqlpadTool = tools.find(t => t.name === 'sqlpad__run_query');
 
     const schema = sqlpadTool?.inputSchema as Record<string, unknown>;
     const required = schema.required as string[];
@@ -1058,7 +1058,7 @@ describe('getAllToolsList — instance schema injection', () => {
     state.pluginPermissions = { app: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const appTool = tools.find(t => t.name === 'app_action');
+    const appTool = tools.find(t => t.name === 'app__action');
 
     const properties = (appTool?.inputSchema as Record<string, unknown>).properties as Record<string, unknown>;
     const instanceDef = properties.instance as { enum: string[] };
@@ -1075,7 +1075,7 @@ describe('getAllToolsList — instance schema injection', () => {
     state.pluginPermissions = { sqlpad: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const sqlpadTool = tools.find(t => t.name === 'sqlpad_run_query');
+    const sqlpadTool = tools.find(t => t.name === 'sqlpad__run_query');
 
     const properties = (sqlpadTool?.inputSchema as Record<string, unknown>).properties as Record<string, unknown>;
     expect(properties.instance).toBeUndefined();
@@ -1087,7 +1087,7 @@ describe('getAllToolsList — instance schema injection', () => {
     state.pluginPermissions = { slack: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    const slackTool = tools.find(t => t.name === 'slack__send_message');
 
     const properties = (slackTool?.inputSchema as Record<string, unknown>).properties as Record<string, unknown>;
     expect(properties.instance).toBeUndefined();
@@ -1126,7 +1126,7 @@ describe('getAllToolsList — instance schema injection', () => {
     state.pluginPermissions = { sqlpad: { permission: 'auto' } };
 
     const tools = getAllToolsList(state);
-    const sqlpadTool = tools.find(t => t.name === 'sqlpad_run_query');
+    const sqlpadTool = tools.find(t => t.name === 'sqlpad__run_query');
 
     const properties = (sqlpadTool?.inputSchema as Record<string, unknown>).properties as Record<string, unknown>;
     expect(properties.tabId).toBeDefined();

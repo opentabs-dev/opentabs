@@ -115,7 +115,7 @@ test.describe('Tab state sync — navigate away', () => {
       .toBe('closed');
 
     // 5. Verify tool dispatch returns an error when no matching tab is open
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'should fail' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'should fail' });
     expect(result.isError).toBe(true);
 
     await page.close();
@@ -140,7 +140,7 @@ test.describe('Tab state sync — multi-tab resilience', () => {
     const page2 = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
 
     // Wait for the second tab's adapter to be fully ready (tool calls succeed)
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // 3. Verify the server reports 'ready' state
     await expect
@@ -193,7 +193,7 @@ test.describe('Tab state sync — multi-tab resilience', () => {
       .toBe('ready');
 
     // 6. Verify tool dispatch still succeeds via the remaining tab
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'still alive' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'still alive' });
     expect(result.isError).toBe(false);
 
     // 7. Close the second (last) tab
@@ -299,9 +299,9 @@ test.describe('Tab state sync — rapid close and reopen', () => {
       .toBe('ready');
 
     // 5. Verify tool dispatch succeeds on the new tab
-    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'recovered' }, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'recovered' }, { isError: false }, 15_000);
 
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'hello from new tab' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'hello from new tab' });
     expect(result.isError).toBe(false);
     expect(result.content).toContain('hello from new tab');
 
@@ -406,13 +406,13 @@ test.describe('Tab state sync — server restart reconnect', () => {
           await mcpClient2.initialize();
           await waitForToolResult(
             mcpClient2,
-            'e2e-test_echo',
+            'e2e-test__echo',
             { message: 'after restart' },
             { isError: false },
             15_000,
           );
 
-          const result = await mcpClient2.callTool('e2e-test_echo', { message: 'reconnected' });
+          const result = await mcpClient2.callTool('e2e-test__echo', { message: 'reconnected' });
           expect(result.isError).toBe(false);
           expect(result.content).toContain('reconnected');
         } finally {
@@ -451,14 +451,16 @@ test.describe('Tab state sync — 5-tab churn', () => {
     await waitForLog(mcpServer, 'plugin(s) mapped');
     await testServer.reset();
 
-    // Open 5 tabs sequentially. Opening in parallel via Promise.all can
-    // race with browser context limits, causing "Target page has been closed"
-    // errors on page.goto. Navigations are fire-and-forget (.catch swallows
-    // rejections from tabs closed before their navigation completes).
+    // Open 5 tabs sequentially. Each navigation is awaited so that no
+    // navigation is still in-flight when the test closes tabs or when the
+    // context is torn down — a pending page.goto on a page being closed
+    // deadlocks context.close() during fixture teardown. The per-navigation
+    // guard tolerates a tab being closed mid-load (the resulting rejection is
+    // expected and does not fail the test).
     const tabs: Awaited<ReturnType<typeof extensionContext.newPage>>[] = [];
     for (let i = 0; i < 5; i++) {
       const page = await extensionContext.newPage();
-      page.goto(testServer.url, { waitUntil: 'load' }).catch(() => {});
+      await page.goto(testServer.url, { waitUntil: 'load' }).catch(() => {});
       tabs.push(page);
     }
     const [tab0, tab1, tab2, tab3, tab4] = tabs;
@@ -504,7 +506,7 @@ test.describe('Tab state sync — 5-tab churn', () => {
     expect(new Set(tabIds).size).toBe(2);
 
     // Tool dispatch succeeds on one of the remaining tabs
-    const echoResult = await mcpClient.callTool('e2e-test_echo', { message: 'churn-survivor' });
+    const echoResult = await mcpClient.callTool('e2e-test__echo', { message: 'churn-survivor' });
     expect(echoResult.isError).toBe(false);
     const parsed = parseToolResult(echoResult.content);
     expect(parsed.message).toBe('churn-survivor');
@@ -601,7 +603,7 @@ test.describe('Tab state sync — navigate away and back', () => {
     expect(tab.ready).toBe(true);
 
     // 8. Tool dispatch succeeds
-    const echoResult = await mcpClient.callTool('e2e-test_echo', { message: 'navigated-back' });
+    const echoResult = await mcpClient.callTool('e2e-test__echo', { message: 'navigated-back' });
     expect(echoResult.isError).toBe(false);
     const parsed = parseToolResult(echoResult.content);
     expect(parsed.message).toBe('navigated-back');

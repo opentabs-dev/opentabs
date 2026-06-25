@@ -47,13 +47,31 @@ export const createTweet = defineTool({
 
     const data = await graphqlMutation<CreateTweetResponse>('CreateTweet', variables);
 
-    const tweetResult = data.data?.create_tweet?.tweet_results?.result;
+    const createResult = data.data?.create_tweet;
+    const tweetResult = createResult?.tweet_results?.result;
     if (!tweetResult) {
       const errors = data.errors;
-      const msg = Array.isArray(errors) ? errors.map(e => e.message).join('; ') : undefined;
-      throw ToolError.internal(
-        msg ?? `CreateTweet returned unexpected response: ${JSON.stringify(data).slice(0, 500)}`,
-      );
+      if (Array.isArray(errors) && errors.length > 0) {
+        // X returned explicit GraphQL errors — surface them verbatim.
+        throw ToolError.internal(errors.map(e => e.message).join('; '));
+      }
+      // The response was well-formed and carried no errors, but tweet_results
+      // is empty (`{}`) — X accepted the request yet returned no tweet. This
+      // is ambiguous: the post may or may not have landed. Retrying risks a
+      // double-post, so mark it non-retryable and give callers a distinct code
+      // (EMPTY_RESULT_AMBIGUOUS) to branch on instead of conflating it with a
+      // generic INTERNAL_ERROR.
+      if (createResult?.tweet_results !== undefined) {
+        throw new ToolError(
+          'CreateTweet returned an empty tweet_results object — X accepted the request but returned no tweet. ' +
+            'The post may or may not have landed; verify on the timeline before retrying to avoid a double-post.',
+          'EMPTY_RESULT_AMBIGUOUS',
+          { category: 'internal', retryable: false },
+        );
+      }
+      // Neither a tweet nor a recognizable tweet_results envelope — the response
+      // shape is genuinely unexpected (e.g. selector drift in X's backend).
+      throw ToolError.internal(`CreateTweet returned unexpected response: ${JSON.stringify(data).slice(0, 500)}`);
     }
 
     return { tweet: mapTweet(tweetResult) };

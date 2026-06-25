@@ -76,16 +76,16 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Invoke a successful tool
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'audit-test' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'audit-test' });
 
     // Invoke a tool that fails
-    const failResult = await mcpClient.callTool('e2e-test_failing_tool', {});
+    const failResult = await mcpClient.callTool('e2e-test__failing_tool', {});
     expect(failResult.isError).toBe(true);
 
     // Fetch audit log
     const { status, entries } = await fetchAudit(mcpServer.port, mcpServer.secret);
     expect(status).toBe(200);
-    const testEntries = entries.filter(e => e.tool === 'e2e-test_echo' || e.tool === 'e2e-test_failing_tool');
+    const testEntries = entries.filter(e => e.tool === 'e2e-test__echo' || e.tool === 'e2e-test__failing_tool');
     expect(testEntries.length).toBe(2);
 
     // Verify entries have required fields
@@ -132,11 +132,11 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Invoke a tool to create audit entries
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'plugin-filter' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'plugin-filter' });
 
     // Filter by plugin
     const { entries } = await fetchAudit(mcpServer.port, mcpServer.secret, { plugin: 'e2e-test' });
-    const echoEntries = entries.filter(e => e.tool === 'e2e-test_echo');
+    const echoEntries = entries.filter(e => e.tool === 'e2e-test__echo');
     expect(echoEntries.length).toBe(1);
     for (const entry of entries) {
       expect(entry.plugin).toBe('e2e-test');
@@ -158,8 +158,8 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Create both success and failure entries
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'success-entry' });
-    await mcpClient.callTool('e2e-test_failing_tool', {});
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'success-entry' });
+    await mcpClient.callTool('e2e-test__failing_tool', {});
 
     // Filter by success=false
     const { entries } = await fetchAudit(mcpServer.port, mcpServer.secret, { success: 'false' });
@@ -175,8 +175,8 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Create at least 2 entries
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'limit-1' });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'limit-2' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'limit-1' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'limit-2' });
 
     const { entries } = await fetchAudit(mcpServer.port, mcpServer.secret, { limit: '1' });
     expect(entries.length).toBe(1);
@@ -193,9 +193,9 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Invoke tools to populate audit log
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'health-audit-1' });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'health-audit-2' });
-    await mcpClient.callTool('e2e-test_failing_tool', {});
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'health-audit-1' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'health-audit-2' });
+    await mcpClient.callTool('e2e-test__failing_tool', {});
 
     // Fetch health (authenticated to get full response)
     const healthHeaders: Record<string, string> = {};
@@ -234,21 +234,21 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Invoke two different tools to create distinct audit entries
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'tool-filter' });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', { name: 'AuditTest' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'tool-filter' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', { name: 'AuditTest' });
 
     // Filter by tool name — only echo entries
-    const { entries: echoEntries } = await fetchAudit(mcpServer.port, mcpServer.secret, { tool: 'e2e-test_echo' });
+    const { entries: echoEntries } = await fetchAudit(mcpServer.port, mcpServer.secret, { tool: 'e2e-test__echo' });
     expect(echoEntries.length).toBeGreaterThanOrEqual(1);
     for (const entry of echoEntries) {
-      expect(entry.tool).toBe('e2e-test_echo');
+      expect(entry.tool).toBe('e2e-test__echo');
     }
 
     // Filter by tool name — only greet entries
-    const { entries: greetEntries } = await fetchAudit(mcpServer.port, mcpServer.secret, { tool: 'e2e-test_greet' });
+    const { entries: greetEntries } = await fetchAudit(mcpServer.port, mcpServer.secret, { tool: 'e2e-test__greet' });
     expect(greetEntries.length).toBeGreaterThanOrEqual(1);
     for (const entry of greetEntries) {
-      expect(entry.tool).toBe('e2e-test_greet');
+      expect(entry.tool).toBe('e2e-test__greet');
     }
 
     // Filter by a non-existent tool returns empty
@@ -267,23 +267,23 @@ test.describe('Audit logging', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Invoke tools to create audit entries
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', { message: 'combined-filter' });
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_greet', { name: 'CombinedTest' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', { message: 'combined-filter' });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__greet', { name: 'CombinedTest' });
 
     // Combined filter: correct tool + correct plugin
     const { entries: matched } = await fetchAudit(mcpServer.port, mcpServer.secret, {
-      tool: 'e2e-test_echo',
+      tool: 'e2e-test__echo',
       plugin: 'e2e-test',
     });
     expect(matched.length).toBeGreaterThanOrEqual(1);
     for (const entry of matched) {
-      expect(entry.tool).toBe('e2e-test_echo');
+      expect(entry.tool).toBe('e2e-test__echo');
       expect(entry.plugin).toBe('e2e-test');
     }
 
     // Combined filter: correct tool + wrong plugin returns empty
     const { entries: noMatch } = await fetchAudit(mcpServer.port, mcpServer.secret, {
-      tool: 'e2e-test_echo',
+      tool: 'e2e-test__echo',
       plugin: 'nonexistent-plugin',
     });
     expect(noMatch).toEqual([]);

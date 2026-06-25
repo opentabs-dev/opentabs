@@ -258,7 +258,7 @@ export const setupToolTest = async (
 
   // Poll until the tool is actually callable (tab state = ready) instead
   // of using a fixed READY_SETTLE_MS sleep.
-  await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+  await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
   return page;
 };

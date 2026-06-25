@@ -510,7 +510,7 @@ test.describe('Side panel npm search', () => {
       mcpClient = createMcpClient(server.port, server.secret);
       await mcpClient.initialize();
       const tools = await mcpClient.listTools();
-      expect(tools.some(t => t.name.startsWith('slack_'))).toBe(false);
+      expect(tools.some(t => t.name.startsWith('slack__'))).toBe(false);
 
       await sidePanelPage.close();
     } finally {

@@ -1427,7 +1427,7 @@ describe('GET /tools endpoint', () => {
 
     const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
 
-    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    const slackTool = tools.find(t => t.name === 'slack__send_message');
     expect(slackTool).toBeDefined();
     expect(slackTool?.plugin).toBe('slack');
 
@@ -1474,7 +1474,7 @@ describe('GET /tools endpoint', () => {
     const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools?plugin=slack');
 
     expect(tools).toHaveLength(1);
-    expect(tools[0]?.name).toBe('slack_send_message');
+    expect(tools[0]?.name).toBe('slack__send_message');
     expect(tools[0]?.plugin).toBe('slack');
   });
 
@@ -1574,9 +1574,9 @@ describe('GET /tools endpoint', () => {
 
     const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
 
-    const slackTool = tools.find(t => t.name === 'slack_send_message');
+    const slackTool = tools.find(t => t.name === 'slack__send_message');
     expect(slackTool).toBeDefined();
-    expect(slackTool?.name).toBe('slack_send_message');
+    expect(slackTool?.name).toBe('slack__send_message');
     // Description includes the original text (may have a [Disabled] prefix when permission is 'off')
     expect(slackTool?.description).toContain('Send a Slack message');
     expect(slackTool?.inputSchema).toBeDefined();
@@ -1636,8 +1636,8 @@ describe('GET /tools endpoint', () => {
 
     const tools = await fetchJson<ToolEntry[]>(handlers, 'http://localhost:9876/tools');
 
-    expect(tools.find(t => t.name === 'slack_send_message')?.plugin).toBe('slack');
-    expect(tools.find(t => t.name === 'discord_read_messages')?.plugin).toBe('discord');
+    expect(tools.find(t => t.name === 'slack__send_message')?.plugin).toBe('slack');
+    expect(tools.find(t => t.name === 'discord__read_messages')?.plugin).toBe('discord');
     expect(tools.find(t => t.name === 'browser_list_tabs')?.plugin).toBe('browser');
     expect(tools.find(t => t.name === 'plugin_inspect')?.plugin).toBe('platform');
   });
@@ -1824,7 +1824,7 @@ describe('POST /tools/:name/call endpoint', () => {
 
     const { status, body } = await postJson<ToolCallResponse>(
       handlers,
-      'http://localhost:9876/tools/slack_send_message/call',
+      'http://localhost:9876/tools/slack__send_message/call',
       { arguments: { text: 'hello' } },
     );
 
@@ -1966,7 +1966,7 @@ describe('POST /tools/:name/call endpoint', () => {
 
     const { status, body } = await postJson<ToolCallResponse>(
       handlers,
-      'http://localhost:9876/tools/slack_send_message/call',
+      'http://localhost:9876/tools/slack__send_message/call',
       { arguments: {} },
     );
 

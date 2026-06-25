@@ -81,8 +81,8 @@ test.describe('Multi-profile plugin-aware dispatch routing', () => {
       // Set up listener on conn-beta for the tool.dispatch message BEFORE calling the tool
       const betaDispatch = waitForWsMessage(wsBeta, msg => msg.method === 'tool.dispatch', 15_000);
 
-      // Call e2e-test_echo via MCP — should route to conn-beta (not conn-alpha)
-      const toolCallPromise = mcpClient.callTool('e2e-test_echo', { message: 'route-test' });
+      // Call e2e-test__echo via MCP — should route to conn-beta (not conn-alpha)
+      const toolCallPromise = mcpClient.callTool('e2e-test__echo', { message: 'route-test' });
 
       // Wait for conn-beta to receive the dispatch
       const dispatchMsg = await betaDispatch;
@@ -162,7 +162,7 @@ test.describe('Multi-profile plugin-aware dispatch routing', () => {
       setupDispatchHandler(wsBeta, 'beta');
 
       // Call the tool — should succeed via either connection
-      const result = await mcpClient.callTool('e2e-test_echo', { message: 'both-ready' });
+      const result = await mcpClient.callTool('e2e-test__echo', { message: 'both-ready' });
       expect(result.isError).toBeFalsy();
       expect(result.content).toMatch(/from-(alpha|beta)/);
     } finally {
@@ -212,7 +212,7 @@ test.describe('Multi-profile plugin-aware dispatch routing', () => {
       setupErrorHandler(wsBeta);
 
       // Call the tool — should get an error
-      const result = await mcpClient.callTool('e2e-test_echo', { message: 'should-fail' });
+      const result = await mcpClient.callTool('e2e-test__echo', { message: 'should-fail' });
       expect(result.isError).toBe(true);
     } finally {
       wsAlpha?.close();

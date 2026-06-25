@@ -23,6 +23,20 @@ Load the Chrome extension:
 2. Enable Developer mode
 3. Click "Load unpacked" and select `~/.opentabs/extension/`
 
+## Requesting Plugins or Tools
+
+**We do not accept issues requesting new plugins, or new tools on an existing plugin.** The core team maintains the platform (MCP server, Chrome extension, CLI, SDK) and the existing plugins and their tools — bug reports for those are welcome. New coverage, however, comes from contributions, not requests.
+
+If a plugin or a specific tool you need does not exist, build it and open a PR — that is the fastest path to having it, and the platform is designed for exactly this. Plugins are standalone npm packages:
+
+```bash
+opentabs plugin create     # scaffold a new plugin
+```
+
+Then follow the [plugin development guide](https://opentabs.dev/docs/guides/plugin-development). For questions while building, use [Discord](https://discord.gg/vDQDRz6S).
+
+The issue tracker is reserved for **defects in existing behavior**. The blank-issue option is disabled; opening an issue routes you to the bug-report template or to the contribution path above.
+
 ## Legal
 
 By submitting a pull request, you agree that your contributions are licensed under the [MIT License](LICENSE) and that you have the right to license them. This project uses the "inbound=outbound" model: contributions are licensed under the same terms as the project itself.

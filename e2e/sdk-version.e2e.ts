@@ -72,9 +72,9 @@ test.describe('SDK version compatibility', () => {
 
     const tools = await mcpClient.listTools();
     const toolNames = tools.map(t => t.name);
-    expect(toolNames).toContain('e2e-test_echo');
+    expect(toolNames).toContain('e2e-test__echo');
 
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_echo', {
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__echo', {
       message: 'sdk-version-ok',
     });
     expect(output.message).toBe('sdk-version-ok');
@@ -112,7 +112,7 @@ test.describe('SDK version compatibility', () => {
       await client.initialize();
       try {
         const tools = await client.listTools();
-        const e2eTools = tools.filter(t => t.name.startsWith('e2e-test_'));
+        const e2eTools = tools.filter(t => t.name.startsWith('e2e-test__'));
         expect(e2eTools).toHaveLength(0);
       } finally {
         await client.close();
@@ -183,7 +183,7 @@ test.describe('SDK version compatibility', () => {
       await client.initialize();
       try {
         const tools = await client.listTools();
-        const e2eTools = tools.filter(t => t.name.startsWith('e2e-test_'));
+        const e2eTools = tools.filter(t => t.name.startsWith('e2e-test__'));
         expect(e2eTools.length).toBeGreaterThan(0);
       } finally {
         await client.close();

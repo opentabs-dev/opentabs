@@ -59,7 +59,7 @@ test.describe('Config watcher — production mode auto-discovery', () => {
 
       // Verify plugin tools are present initially
       const toolsBefore = await client.listTools();
-      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsBefore.length).toBe(prefixedToolNames.length);
 
       // Wait for config watcher to be set up
@@ -72,7 +72,7 @@ test.describe('Config watcher — production mode auto-discovery', () => {
       // the change without any manual reload
       const toolsAfter = await waitForToolList(
         client,
-        list => !list.some(t => t.name.startsWith('e2e-test_')),
+        list => !list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to disappear after config.json change in production mode',
@@ -275,7 +275,7 @@ test.describe('Config watcher — production mode auto-discovery', () => {
       // Final state must reflect the last write (plugin tools present)
       await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to appear after debounced config writes',
@@ -402,7 +402,7 @@ test.describe('Config watcher — production mode auto-discovery', () => {
 
       // After receiving the notification, verify the new tools are visible
       const toolsAfter = await client.listTools();
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
     } finally {
       await client?.close();
@@ -456,14 +456,14 @@ test.describe('Config watcher — production mode auto-discovery', () => {
       // the change without any manual reload
       const toolsAfter = await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to appear after config.json change in production mode',
       );
 
       // Verify all e2e-test plugin tools are present
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
 
       // Browser tools should still be present

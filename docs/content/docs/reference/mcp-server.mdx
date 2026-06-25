@@ -86,10 +86,10 @@ opentabs tool list
 opentabs tool list --plugin slack
 
 # View a tool's input schema
-opentabs tool schema slack_send_message
+opentabs tool schema slack__send_message
 
 # Call a tool
-opentabs tool call slack_send_message '{"channel":"C123","text":"hello"}'
+opentabs tool call slack__send_message '{"channel":"C123","text":"hello"}'
 ```
 
 The server must be running (`opentabs start`), but the AI doesn't need an MCP configuration — it just needs Bash access and knowledge that `opentabs tool call` exists.
@@ -240,7 +240,7 @@ Multiple concurrent MCP clients are supported — each gets an independent sessi
 
 The server exposes these MCP capabilities:
 
-- **Tools** — plugin tools (prefixed as `<plugin>_<tool>`) and built-in browser tools (`browser_*`, `extension_*`)
+- **Tools** — plugin tools (prefixed as `<plugin>__<tool>`) and built-in browser tools (`browser_*`, `extension_*`)
 - **Logging** — plugin log entries forwarded as `notifications/message` to connected clients
 - **Progress** — tool progress notifications forwarded as `notifications/progress` (requires `progressToken` in request `_meta`)
 
@@ -364,7 +364,7 @@ Pass `Authorization: Bearer <secret>` to get the full payload:
       "name": "slack",
       "displayName": "Slack",
       "toolCount": 22,
-      "tools": ["slack_send_message", "slack_list_channels"],
+      "tools": ["slack__send_message", "slack__list_channels"],
       "tabState": "ready",
       "tabs": [
         { "tabId": 1, "url": "https://app.slack.com/client", "title": "Slack", "ready": true }
@@ -412,7 +412,7 @@ Key fields:
 - `browserToolCount` — number of built-in browser tools registered
 - `pluginToolCount` — total number of plugin tools across all loaded plugins
 - `browserToolNames` — all registered browser tool names (including disabled ones)
-- `pluginDetails[].tools` — prefixed tool names exposed by this plugin (e.g., `["slack_send_message"]`)
+- `pluginDetails[].tools` — prefixed tool names exposed by this plugin (e.g., `["slack__send_message"]`)
 - `pluginDetails[].tabs` — array of currently matching tabs: `{ tabId, url, title, ready }` per tab
 - `pluginDetails[].iconSvg` — SVG markup for the plugin icon (present only if the plugin provides one)
 - `pluginDetails[].sdkVersion` — per-plugin SDK version (null if missing)
@@ -483,7 +483,7 @@ Query parameters:
     <Table.Row>
       <Table.Cell className="font-medium">`tool`</Table.Cell>
       <Table.Cell>—</Table.Cell>
-      <Table.Cell>Filter by prefixed tool name (e.g., `slack_send_message`).</Table.Cell>
+      <Table.Cell>Filter by prefixed tool name (e.g., `slack__send_message`).</Table.Cell>
     </Table.Row>
     <Table.Row>
       <Table.Cell className="font-medium">`success`</Table.Cell>
@@ -498,7 +498,7 @@ Each entry contains:
 ```json
 {
   "timestamp": "2026-02-21T10:30:00.000Z",
-  "tool": "slack_send_message",
+  "tool": "slack__send_message",
   "plugin": "slack",
   "success": true,
   "durationMs": 245

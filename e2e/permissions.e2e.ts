@@ -862,7 +862,7 @@ test.describe('Confirmation dialog — plugin tools', () => {
     await testServer.reset();
 
     await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Switch e2e-test permission to 'ask'
     const config = readTestConfig(mcpServer.configDir);
@@ -883,7 +883,7 @@ test.describe('Confirmation dialog — plugin tools', () => {
     const sidePanel = await openSidePanel(extensionContext);
 
     const [result] = await Promise.all([
-      mcpClient.callTool('e2e-test_echo', { message: 'hello from plugin' }, { timeout: 35_000 }),
+      mcpClient.callTool('e2e-test__echo', { message: 'hello from plugin' }, { timeout: 35_000 }),
       (async () => {
         await waitForConfirmationDialog(sidePanel);
         const dialog = sidePanel.locator('[role="dialog"]');
@@ -917,7 +917,7 @@ test.describe('Confirmation dialog — plugin tools', () => {
     await testServer.reset();
 
     await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Switch e2e-test permission to 'ask'
     const config = readTestConfig(mcpServer.configDir);
@@ -938,7 +938,7 @@ test.describe('Confirmation dialog — plugin tools', () => {
     const sidePanel = await openSidePanel(extensionContext);
 
     const [result] = await Promise.all([
-      mcpClient.callTool('e2e-test_echo', { message: 'will be denied' }, { timeout: 35_000 }),
+      mcpClient.callTool('e2e-test__echo', { message: 'will be denied' }, { timeout: 35_000 }),
       (async () => {
         await waitForConfirmationDialog(sidePanel);
         await sidePanel.getByRole('button', { name: 'Deny' }).click();
@@ -1134,14 +1134,14 @@ test.describe('Permission change mid-flight — in-flight completes, next call d
     await testServer.reset();
 
     const page = await openTestAppTab(extensionContext, testServer.url, mcpServer, testServer);
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Clear logs so we can detect the dispatch log for the upcoming slow call
     mcpServer.logs.length = 0;
 
     // Fire a slow tool call (5s duration) — it passes the permission check at dispatch entry
     const slowCallPromise = mcpClient.callTool(
-      'e2e-test_slow_with_progress',
+      'e2e-test__slow_with_progress',
       { durationMs: 5000, steps: 2 },
       { timeout: 30_000 },
     );
@@ -1176,7 +1176,7 @@ test.describe('Permission change mid-flight — in-flight completes, next call d
     expect(slowResult.isError).not.toBe(true);
 
     // A subsequent call should be rejected with a 'disabled' or 'not been reviewed' message
-    const rejectedResult = await mcpClient.callTool('e2e-test_echo', { message: 'should-fail' });
+    const rejectedResult = await mcpClient.callTool('e2e-test__echo', { message: 'should-fail' });
     expect(rejectedResult.isError).toBe(true);
     expect(
       rejectedResult.content.includes('currently disabled') || rejectedResult.content.includes('not been reviewed'),

@@ -508,7 +508,7 @@ test.describe
 
       try {
         // Verify end-to-end tool dispatch works before reload
-        const beforeResult = await mcpClient.callTool('e2e-test_echo', {
+        const beforeResult = await mcpClient.callTool('e2e-test__echo', {
           message: 'before-reload',
         });
         expect(beforeResult.isError).toBe(false);
@@ -524,10 +524,10 @@ test.describe
         await waitForLog(mcpServer, 'plugin(s) mapped', 20_000);
 
         // Poll until the tool is callable through the extension (tab state = ready)
-        await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'poll-check' }, { isError: false }, 20_000);
+        await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'poll-check' }, { isError: false }, 20_000);
 
         // Verify full end-to-end tool dispatch: MCP client → proxy → worker → extension → adapter
-        const afterResult = await mcpClient.callTool('e2e-test_echo', {
+        const afterResult = await mcpClient.callTool('e2e-test__echo', {
           message: 'after-reload',
         });
         expect(afterResult.isError).toBe(false);
@@ -549,14 +549,14 @@ test.describe
 
       try {
         // Verify baseline tool dispatch
-        const baseline = await mcpClient.callTool('e2e-test_echo', {
+        const baseline = await mcpClient.callTool('e2e-test__echo', {
           message: 'baseline',
         });
         expect(baseline.isError).toBe(false);
 
         // Start a slow tool call and trigger hot reload while it's in-flight
         const slowCallPromise = mcpClient.callToolWithProgress(
-          'e2e-test_slow_with_progress',
+          'e2e-test__slow_with_progress',
           { durationMs: 5_000, steps: 10 },
           { timeout: 30_000 },
         );
@@ -583,10 +583,10 @@ test.describe
         await waitForLog(mcpServer, 'plugin(s) mapped', 20_000);
 
         // Poll until the tool is callable again
-        await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'poll-check' }, { isError: false }, 20_000);
+        await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'poll-check' }, { isError: false }, 20_000);
 
         // Verify subsequent tool calls succeed after the interrupted call
-        const afterResult = await mcpClient.callTool('e2e-test_echo', {
+        const afterResult = await mcpClient.callTool('e2e-test__echo', {
           message: 'after-inflight-reload',
         });
         expect(afterResult.isError).toBe(false);

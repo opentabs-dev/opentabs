@@ -19,7 +19,7 @@ npm install -g @opentabs-dev/opentabs-plugin-x
 1. Open [x.com](https://x.com) in Chrome and log in
 2. Open the OpenTabs side panel — the X plugin should appear as **ready**
 
-## Tools (27)
+## Tools (31)
 
 ### Timelines (3)
 
@@ -29,12 +29,13 @@ npm install -g @opentabs-dev/opentabs-plugin-x
 | `get_latest_timeline` | Get latest tweets from followed accounts | Read |
 | `get_user_tweets` | Get tweets by a user | Read |
 
-### Tweets (5)
+### Tweets (6)
 
 | Tool | Description | Type |
 |---|---|---|
 | `get_tweet` | Get tweet details by ID | Read |
 | `create_tweet` | Post a new tweet | Write |
+| `quote_tweet` | Post a quote tweet | Write |
 | `delete_tweet` | Delete a tweet | Write |
 | `get_tweet_replies` | Get replies to a tweet | Read |
 | `pin_tweet` | Pin a tweet to your profile | Write |
@@ -48,7 +49,7 @@ npm install -g @opentabs-dev/opentabs-plugin-x
 | `get_following` | List accounts a user follows | Read |
 | `get_user_likes` | Get tweets liked by a user | Read |
 
-### Engagement (6)
+### Engagement (8)
 
 | Tool | Description | Type |
 |---|---|---|
@@ -58,6 +59,8 @@ npm install -g @opentabs-dev/opentabs-plugin-x
 | `unretweet` | Undo a retweet | Write |
 | `bookmark_tweet` | Bookmark a tweet | Write |
 | `remove_bookmark` | Remove a bookmark | Write |
+| `get_likers` | List users who liked a tweet | Read |
+| `get_retweeters` | List users who retweeted a tweet | Read |
 
 ### Bookmarks (1)
 
@@ -65,11 +68,12 @@ npm install -g @opentabs-dev/opentabs-plugin-x
 |---|---|---|
 | `get_bookmarks` | Get bookmarked tweets | Read |
 
-### Explore (1)
+### Explore (2)
 
 | Tool | Description | Type |
 |---|---|---|
 | `get_trending` | Get trending topics | Read |
+| `search_tweets` | Search tweets by query with X search operators | Read |
 
 ### Lists (7)
 

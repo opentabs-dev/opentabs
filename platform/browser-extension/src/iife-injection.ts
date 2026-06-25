@@ -125,7 +125,7 @@ const injectLogRelay = async (tabId: number): Promise<void> => {
         window.addEventListener('message', event => {
           if (event.source !== window) return;
           const data = event.data as Record<string, unknown> | undefined;
-          if (!data || data.type !== 'opentabs:plugin-logs') return;
+          if (data?.type !== 'opentabs:plugin-logs') return;
           if (typeof data.nonce !== 'string' || !nonces.has(data.nonce)) return;
           const plugin = data.plugin;
           const entries = data.entries;
@@ -195,7 +195,7 @@ const injectReadinessRelay = async (tabId: number): Promise<void> => {
         window.addEventListener('message', event => {
           if (event.source !== window) return;
           const data = event.data as Record<string, unknown> | undefined;
-          if (!data || data.type !== 'opentabs:readiness-changed') return;
+          if (data?.type !== 'opentabs:readiness-changed') return;
           if (typeof data.nonce !== 'string' || !nonces.has(data.nonce)) return;
           const plugin = data.plugin;
           if (typeof plugin !== 'string') return;

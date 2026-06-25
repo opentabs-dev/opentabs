@@ -181,10 +181,10 @@ test.describe('Plugin settings — getConfig tool', () => {
       const page = await openTestAppTab(context, testServer.url, server, testServer);
 
       // Wait until the tool is callable
-      await waitForToolResult(client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Call sdk_get_config to read the configured testString value
-      const result = await client.callTool('e2e-test_sdk_get_config', {
+      const result = await client.callTool('e2e-test__sdk_get_config', {
         key: 'testString',
       });
       expect(result.isError).toBe(false);

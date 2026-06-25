@@ -226,7 +226,7 @@ const SERVER_INSTRUCTIONS = `OpenTabs gives you access to web applications throu
 
 ## Tool Categories
 
-**Plugin tools** (<plugin>_<tool>, e.g. slack_send_message): Domain-specific tools that execute in the page context using the user's authenticated session.
+**Plugin tools** (<plugin>__<tool>, e.g. slack__send_message): Domain-specific tools that execute in the page context using the user's authenticated session.
 
 **Browser tools** (browser_*): General-purpose tab tools — clicking, typing, reading, screenshots, network capture, storage inspection.
 
@@ -423,7 +423,7 @@ export type ToolCallableResult = ToolCallableOk | ToolCallableError;
  * tools are handled separately (before this check) in the tools/call handler.
  *
  * @param state - Server state containing the plugin registry
- * @param prefixedToolName - Fully prefixed tool name (e.g., 'slack_send_message')
+ * @param prefixedToolName - Fully prefixed tool name (e.g., 'slack__send_message')
  * @returns An ok result with pluginName/toolName if found, or an error result with a message
  */
 export const checkToolCallable = (state: ServerState, prefixedToolName: string): ToolCallableResult => {

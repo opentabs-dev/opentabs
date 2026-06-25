@@ -92,16 +92,16 @@ describe('getNextRequestId', () => {
 });
 
 describe('prefixedToolName', () => {
-  test('joins plugin and tool names with underscore', () => {
-    expect(prefixedToolName('slack', 'send_message')).toBe('slack_send_message');
+  test('joins plugin and tool names with a double underscore', () => {
+    expect(prefixedToolName('slack', 'send_message')).toBe('slack__send_message');
   });
 
   test('works with single-word tool names', () => {
-    expect(prefixedToolName('browser', 'navigate')).toBe('browser_navigate');
+    expect(prefixedToolName('browser', 'navigate')).toBe('browser__navigate');
   });
 
   test('handles empty strings', () => {
-    expect(prefixedToolName('', '')).toBe('_');
+    expect(prefixedToolName('', '')).toBe('__');
   });
 });
 

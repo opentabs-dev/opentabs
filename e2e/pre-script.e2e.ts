@@ -119,7 +119,7 @@ test.describe('Pre-script — document_start MAIN-world capture', () => {
       const mcpClient = createMcpClient(server.port, server.secret);
       await mcpClient.initialize();
       try {
-        const result = await callToolExpectSuccess(mcpClient, server, `${PLUGIN_NAME}_echo_auth`, {});
+        const result = await callToolExpectSuccess(mcpClient, server, `${PLUGIN_NAME}__echo_auth`, {});
         expect(result).toMatchObject({ token: mock.expectedToken, source: 'pre-script' });
       } finally {
         await mcpClient.close();

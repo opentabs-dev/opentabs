@@ -79,14 +79,14 @@ test.describe('Config watcher — auto-discovery', () => {
       // the change without any manual reload
       const toolsAfter = await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to appear after config.json change',
       );
 
       // Verify all e2e-test plugin tools are present
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
 
       // Browser tools should still be present
@@ -125,7 +125,7 @@ test.describe('Config watcher — auto-discovery', () => {
 
       // Verify plugin tools are present initially
       const toolsBefore = await client.listTools();
-      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsBefore.length).toBe(prefixedToolNames.length);
 
       // Remove the plugin from config.json
@@ -134,7 +134,7 @@ test.describe('Config watcher — auto-discovery', () => {
       // Poll until plugin tools disappear
       const toolsAfter = await waitForToolList(
         client,
-        list => !list.some(t => t.name.startsWith('e2e-test_')),
+        list => !list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to disappear after config.json change',
@@ -185,13 +185,13 @@ test.describe('Config watcher — auto-discovery', () => {
 
       // Verify only e2e-test tools are present initially
       const toolsBefore = await client.listTools();
-      expect(toolsBefore.some(t => t.name.startsWith('e2e-test_'))).toBe(true);
-      expect(toolsBefore.some(t => t.name.startsWith('cw-extra_'))).toBe(false);
+      expect(toolsBefore.some(t => t.name.startsWith('e2e-test__'))).toBe(true);
+      expect(toolsBefore.some(t => t.name.startsWith('cw-extra__'))).toBe(false);
 
       // Add the second plugin to config.json (keeping the first)
       const updatedTools: Record<string, boolean> = { ...tools };
-      updatedTools['cw-extra_ping'] = true;
-      updatedTools['cw-extra_pong'] = true;
+      updatedTools['cw-extra__ping'] = true;
+      updatedTools['cw-extra__pong'] = true;
       writeTestConfig(configDir, {
         localPlugins: [absPluginPath, newPluginDir],
         tools: updatedTools,
@@ -200,17 +200,17 @@ test.describe('Config watcher — auto-discovery', () => {
       // Poll until the new plugin's tools appear
       const toolsAfter = await waitForToolList(
         client,
-        list => list.some(t => t.name === 'cw-extra_ping') && list.some(t => t.name === 'cw-extra_pong'),
+        list => list.some(t => t.name === 'cw-extra__ping') && list.some(t => t.name === 'cw-extra__pong'),
         15_000,
         300,
         'cw-extra plugin tools to appear after config.json change',
       );
 
       // Both plugins' tools should be present
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
-      expect(toolsAfter.map(t => t.name)).toContain('cw-extra_ping');
-      expect(toolsAfter.map(t => t.name)).toContain('cw-extra_pong');
+      expect(toolsAfter.map(t => t.name)).toContain('cw-extra__ping');
+      expect(toolsAfter.map(t => t.name)).toContain('cw-extra__pong');
     } finally {
       await client?.close();
       await server?.kill();
@@ -273,7 +273,7 @@ test.describe('Config watcher — auto-discovery', () => {
       }
 
       // The expected final tools from alpha, beta, gamma
-      const expectedTools = ['alpha_a1', 'alpha_a2', 'beta_b1', 'gamma_g1', 'gamma_g2', 'gamma_g3'];
+      const expectedTools = ['alpha__a1', 'alpha__a2', 'beta__b1', 'gamma__g1', 'gamma__g2', 'gamma__g3'];
       const expectedToolSet = new Set(expectedTools);
 
       // Wait until tools/list converges to exactly the last-written config within 5s
@@ -364,13 +364,13 @@ test.describe('Config watcher — auto-discovery', () => {
       // Poll until plugin tools appear via the config watcher (not hot reload)
       const toolsAfter = await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to appear after config.json change (post-hot-reload)',
       );
 
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eTools.length).toBe(prefixedToolNames.length);
     } finally {
       await client?.close();

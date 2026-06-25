@@ -97,7 +97,7 @@ test.describe('Side panel — permission change alongside error states', () => {
 
       // Verify the MCP tools/list shows the tool as disabled
       const toolsBefore = await mcpClient.listTools();
-      const toolBefore = toolsBefore.find(t => t.name === 'test-perm_do_thing');
+      const toolBefore = toolsBefore.find(t => t.name === 'test-perm__do_thing');
       expect(toolBefore?.description).toMatch(/^\[Disabled\]/);
 
       // Change the plugin permission from 'off' to 'auto'
@@ -125,12 +125,12 @@ test.describe('Side panel — permission change alongside error states', () => {
         .poll(
           async () => {
             const tools = await mcpClient.listTools();
-            const tool = tools.find(t => t.name === 'test-perm_do_thing');
+            const tool = tools.find(t => t.name === 'test-perm__do_thing');
             return tool !== undefined && !tool.description.startsWith('[Disabled]');
           },
           {
             timeout: 15_000,
-            message: 'MCP tools/list should show test-perm_do_thing without [Disabled] prefix',
+            message: 'MCP tools/list should show test-perm__do_thing without [Disabled] prefix',
           },
         )
         .toBe(true);

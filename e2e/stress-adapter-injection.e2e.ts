@@ -34,10 +34,10 @@ test.describe('Stress — rapid adapter re-injection', () => {
       const page = await openTestAppTab(ctx.context, ctx.testServer.url, ctx.server, ctx.testServer);
 
       // Poll until tool dispatch works (tab state = ready)
-      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(ctx.client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Baseline: tool works
-      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
         message: 'before-rapid-changes',
       });
       expect(baseline.message).toBe('before-rapid-changes');
@@ -94,7 +94,7 @@ test.describe('Stress — rapid adapter re-injection', () => {
       expect(expectedHash.length).toBeGreaterThan(0);
 
       // Verify tool dispatch still works with the final adapter version
-      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
         message: 'after-rapid-changes',
       });
       expect(afterResult.message).toBe('after-rapid-changes');
@@ -117,17 +117,17 @@ test.describe('Stress — adapter injection during tab navigation', () => {
     try {
       // Open a tab and wait for adapter injection + ready state
       const page = await openTestAppTab(ctx.context, ctx.testServer.url, ctx.server, ctx.testServer);
-      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(ctx.client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Baseline: tool works on the matching tab
-      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
         message: 'before-navigation',
       });
       expect(baseline.message).toBe('before-navigation');
 
       // Start a tool call and immediately navigate away — the tool call may
       // succeed or fail depending on timing, but it must not crash the extension.
-      const toolPromise = ctx.client.callTool('e2e-test_echo', { message: 'during-navigation' });
+      const toolPromise = ctx.client.callTool('e2e-test__echo', { message: 'during-navigation' });
       await page.goto('about:blank', { waitUntil: 'load' });
 
       // Tool call must resolve within 10s — not hang for 30s dispatch timeout
@@ -169,10 +169,10 @@ test.describe('Stress — adapter injection during tab navigation', () => {
       );
 
       // Wait for the tab to reach ready state again
-      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(ctx.client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Verify tool calls work after re-injection
-      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
         message: 'after-navigation-back',
       });
       expect(afterResult.message).toBe('after-navigation-back');
@@ -254,9 +254,9 @@ test.describe('Stress — multiple tabs opening simultaneously', () => {
       const tabIds = entry.tabs.map(t => t.tabId);
       expect(new Set(tabIds).size).toBe(entry.tabs.length);
 
-      // Dispatch e2e-test_echo with explicit tabId to each tab
+      // Dispatch e2e-test__echo with explicit tabId to each tab
       for (const tab of entry.tabs) {
-        const result = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+        const result = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
           message: `tab-${String(tab.tabId)}`,
           tabId: tab.tabId,
         });
@@ -295,10 +295,10 @@ test.describe('Stress — adapter file missing (corruption recovery)', () => {
     try {
       // Open a tab and wait for adapter injection + ready state
       const page = await openTestAppTab(ctx.context, ctx.testServer.url, ctx.server, ctx.testServer);
-      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(ctx.client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Baseline: tool works
-      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+      const baseline = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
         message: 'before-corruption',
       });
       expect(baseline.message).toBe('before-corruption');
@@ -359,10 +359,10 @@ test.describe('Stress — adapter file missing (corruption recovery)', () => {
       const recoveryPage = await openTestAppTab(ctx.context, ctx.testServer.url, ctx.server, ctx.testServer);
 
       // Wait for the recovery tab to reach ready state
-      await waitForToolResult(ctx.client, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+      await waitForToolResult(ctx.client, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
       // Verify tool calls work on the recovery tab
-      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test_echo', {
+      const afterResult = await callToolExpectSuccess(ctx.client, ctx.server, 'e2e-test__echo', {
         message: 'after-recovery',
       });
       expect(afterResult.message).toBe('after-recovery');

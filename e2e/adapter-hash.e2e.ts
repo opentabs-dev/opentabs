@@ -90,7 +90,7 @@ test.describe('Adapter hash', () => {
     expect(deactivated).toBeUndefined();
 
     // Verify tools still work after the hash-skipped reconnect
-    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'after-skip' }, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'after-skip' }, { isError: false }, 15_000);
   });
 
   test('tools work after multiple consecutive hash-skipped reconnects', async ({
@@ -124,7 +124,7 @@ test.describe('Adapter hash', () => {
       'e2e-test adapter to remain present after multiple hot reloads',
     );
 
-    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'after-triple-skip' }, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'after-triple-skip' }, { isError: false }, 15_000);
   });
 
   // ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ test.describe('Adapter hash', () => {
     await waitForLog(mcpServer, 'plugin(s) mapped', 20_000);
 
     // Wait for tool dispatch to be operational after the reconnect
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Verify checkAdapter still reports correct state after the skipped reconnect
     const resultRaw = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
@@ -231,7 +231,7 @@ test.describe('Adapter hash', () => {
     }
 
     // Wait for tool dispatch to be operational after the reconnects
-    await waitForToolResult(mcpClient, 'e2e-test_get_status', {}, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__get_status', {}, { isError: false }, 15_000);
 
     // Get the hash reported by extension_check_adapter
     const resultRaw = await callToolExpectSuccess(mcpClient, mcpServer, 'extension_check_adapter', {
@@ -277,6 +277,6 @@ test.describe('Adapter hash', () => {
     expect(tab.adapterHash).toBe(reportedHash);
 
     // Tool dispatch still works after the reconnects
-    await waitForToolResult(mcpClient, 'e2e-test_echo', { message: 'after-hash-verify' }, { isError: false }, 15_000);
+    await waitForToolResult(mcpClient, 'e2e-test__echo', { message: 'after-hash-verify' }, { isError: false }, 15_000);
   });
 });

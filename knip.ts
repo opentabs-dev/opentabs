@@ -47,6 +47,12 @@ const config: KnipConfig = {
     'platform/create-plugin': {},
   },
   tags: ['+@public'],
+  ignoreBinaries: [
+    // System utility invoked by name for command detection in the doctor command.
+    'which',
+    // The project's own published CLI binary, spawned by name to start the server.
+    'opentabs',
+  ],
   ignore: [
     'plugins/**',
     'docs/**',

@@ -33,7 +33,7 @@ test.describe('Progress reporting — full pipeline', () => {
 
     // Call the tool with progress tracking — 3 steps over 3 seconds
     const result = await mcpClient.callToolWithProgress(
-      'e2e-test_slow_with_progress',
+      'e2e-test__slow_with_progress',
       { durationMs: 3000, steps: 3 },
       { timeout: 30_000 },
     );
@@ -70,7 +70,7 @@ test.describe('Progress reporting — full pipeline', () => {
 
     // Call with 5 steps over 2 seconds
     const result = await mcpClient.callToolWithProgress(
-      'e2e-test_slow_with_progress',
+      'e2e-test__slow_with_progress',
       { durationMs: 2000, steps: 5 },
       { timeout: 30_000 },
     );
@@ -114,7 +114,7 @@ test.describe('Indeterminate progress reporting', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callToolWithProgress('e2e-test_indeterminate_progress', {}, { timeout: 30_000 });
+    const result = await mcpClient.callToolWithProgress('e2e-test__indeterminate_progress', {}, { timeout: 30_000 });
 
     // Tool should succeed
     expect(result.isError).toBe(false);
@@ -159,7 +159,7 @@ test.describe('Progress-based timeout extension', () => {
     // or 30s (server). With progress, each notification resets the timer.
     const start = Date.now();
     const result = await mcpClient.callToolWithProgress(
-      'e2e-test_slow_with_progress',
+      'e2e-test__slow_with_progress',
       { durationMs: 35_000, steps: 5 },
       { timeout: 60_000 },
     );
@@ -197,7 +197,7 @@ test.describe('Progress-based timeout extension', () => {
     await testServer.setSlow(35_000);
 
     const start = Date.now();
-    const result = await mcpClient.callTool('e2e-test_echo', { message: 'should-timeout' });
+    const result = await mcpClient.callTool('e2e-test__echo', { message: 'should-timeout' });
     const elapsed = Date.now() - start;
 
     // Should time out with an error

@@ -328,7 +328,7 @@ Examples:
   $ opentabs audit
   $ opentabs audit --limit 50
   $ opentabs audit --plugin slack
-  $ opentabs audit --tool slack_send_message
+  $ opentabs audit --tool slack__send_message
   $ opentabs audit --since 1h
   $ opentabs audit --since 30m --plugin slack
   $ opentabs audit --json

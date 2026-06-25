@@ -1,7 +1,16 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "files": {
-    "includes": ["**", "!.next", "!out", "!.content-collections", "!**/*.css", "!**/*.mjs", "!next-env.d.ts"]
+    "includes": [
+      "**",
+      "!.next",
+      "!out",
+      "!.content-collections",
+      "!**/*.css",
+      "!**/*.svg",
+      "!**/*.mjs",
+      "!next-env.d.ts"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
@@ -28,7 +37,7 @@
       "next": "recommended"
     },
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noDoubleEquals": "error",
         "noVar": "error",

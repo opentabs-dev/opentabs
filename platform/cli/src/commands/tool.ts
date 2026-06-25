@@ -295,13 +295,13 @@ Examples:
   toolCmd
     .command('schema')
     .description('Show the full input schema for a tool')
-    .argument('<name>', 'Tool name (e.g., slack_send_message)')
+    .argument('<name>', 'Tool name (e.g., slack__send_message)')
     .option('--port <number>', 'Server port', parsePort)
     .addHelpText(
       'after',
       `
 Examples:
-  $ opentabs tool schema slack_send_message
+  $ opentabs tool schema slack__send_message
   $ opentabs tool schema browser_list_tabs`,
     )
     .action((name: string, _options: unknown, command: Command) => handleToolSchema(name, command.optsWithGlobals()));
@@ -309,7 +309,7 @@ Examples:
   toolCmd
     .command('call')
     .description('Invoke a tool on the running server')
-    .argument('<name>', 'Tool name (e.g., slack_send_message, browser_list_tabs)')
+    .argument('<name>', 'Tool name (e.g., slack__send_message, browser_list_tabs)')
     .argument('[json]', 'Tool arguments as a JSON string')
     .option('--params <json>', 'Tool arguments as JSON (alternative to positional arg)')
     .option(
@@ -323,12 +323,12 @@ Examples:
       'after',
       `
 Examples:
-  $ opentabs tool call slack_send_message '{"channel":"C123","text":"hi"}'
+  $ opentabs tool call slack__send_message '{"channel":"C123","text":"hi"}'
   $ opentabs tool call browser_list_tabs
-  $ opentabs tool call slack_send_message --params '{"channel":"C123"}'
-  $ opentabs tool call slack_read_messages --instance work --tab-id 42
-  $ opentabs tool call my-plugin_upload_photo --params-file payload.json
-  $ cat payload.json | opentabs tool call my-plugin_upload_photo --params-file -`,
+  $ opentabs tool call slack__send_message --params '{"channel":"C123"}'
+  $ opentabs tool call slack__read_messages --instance work --tab-id 42
+  $ opentabs tool call my-plugin__upload_photo --params-file payload.json
+  $ cat payload.json | opentabs tool call my-plugin__upload_photo --params-file -`,
     )
     .action((name: string, jsonArg: string | undefined, _options: unknown, command: Command) =>
       handleToolCall(name, jsonArg, command.optsWithGlobals()),

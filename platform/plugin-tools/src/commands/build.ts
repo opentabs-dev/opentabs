@@ -732,8 +732,22 @@ const bundleIIFE = async (sourceEntry: string, outDir: string, pluginName: strin
   const relativeImport = `./${relative(outDir, sourceEntry).replace(/\.ts$/, '.js')}`;
 
   const name = JSON.stringify(pluginName);
-  const wrapperCode = `import plugin from ${JSON.stringify(relativeImport)};
+  const wrapperCode = `import { z } from 'zod';
+import plugin from ${JSON.stringify(relativeImport)};
 import type { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
+
+// Disable Zod's JIT validation codegen. Zod 4 compiles an optimized validator
+// via \`new Function(...)\` on the first synchronous parse of a schema. On hosts
+// that send \`Content-Security-Policy: require-trusted-types-for 'script'\`
+// (e.g. youtube.com, outlook.com), constructing a function from a string throws
+// an uncaught \`EvalError\`, aborting adapter initialization and tool calls so
+// the plugin never becomes ready. Jitless mode validates via the interpreted
+// path instead — no string-to-code construction, fully Trusted Types–safe. The
+// throughput cost is negligible for tool input/output validation. esbuild
+// bundles a single Zod instance into the IIFE, so this configures the same
+// instance every tool schema uses. Runs before the plugin import so no schema
+// is parsed under the JIT path first.
+z.config({ jitless: true });
 
 // Typed accessor for the globalThis.__openTabs runtime namespace, replacing
 // untyped \`(globalThis as any).__openTabs\` casts throughout the wrapper.

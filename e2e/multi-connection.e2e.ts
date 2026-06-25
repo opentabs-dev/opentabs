@@ -301,7 +301,7 @@ test.describe('Multi-connection WebSocket support', () => {
       expect(health.extensionConnections).toBeGreaterThanOrEqual(2);
 
       // The extension should still handle tool dispatches normally
-      const result = await mcpClient.callTool('e2e-test_echo', { message: 'multi-conn-test' });
+      const result = await mcpClient.callTool('e2e-test__echo', { message: 'multi-conn-test' });
       expect(result.isError).toBeFalsy();
       const text = Array.isArray(result.content)
         ? result.content.map((c: { text?: string }) => c.text ?? '').join('')
@@ -1009,7 +1009,7 @@ test.describe('Multi-connection WebSocket support', () => {
 
       // Fire a tool dispatch targeting Alpha's tab (6001) — don't await yet
       const dispatchStart = Date.now();
-      const alphaDispatch = mcpClient.callTool('e2e-test_echo', { message: 'alpha-test', tabId: 6001 });
+      const alphaDispatch = mcpClient.callTool('e2e-test__echo', { message: 'alpha-test', tabId: 6001 });
 
       // Wait 500ms for the dispatch to be sent to Alpha, then disconnect Alpha
       await new Promise(r => setTimeout(r, 500));
@@ -1026,7 +1026,7 @@ test.describe('Multi-connection WebSocket support', () => {
       expect(elapsed).toBeLessThan(6_000);
 
       // Verify Beta is still functional by dispatching a tool call targeting Beta's tab
-      const betaResult = await mcpClient.callTool('e2e-test_echo', { message: 'beta-alive', tabId: 6002 });
+      const betaResult = await mcpClient.callTool('e2e-test__echo', { message: 'beta-alive', tabId: 6002 });
       expect(betaResult.isError).toBe(false);
       expect(betaResult.content).toContain('beta-alive');
     } finally {

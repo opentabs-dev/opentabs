@@ -24,7 +24,7 @@ test.describe('fetchFromPage error categorization', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_sdk_fetch_error_categories', {
+    const result = await mcpClient.callTool('e2e-test__sdk_fetch_error_categories', {
       endpoint: '/api/status-code/401',
     });
     expect(result.isError).toBe(true);
@@ -47,7 +47,7 @@ test.describe('fetchFromPage error categorization', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_sdk_fetch_error_categories', {
+    const result = await mcpClient.callTool('e2e-test__sdk_fetch_error_categories', {
       endpoint: '/api/status-code/404',
     });
     expect(result.isError).toBe(true);
@@ -70,7 +70,7 @@ test.describe('fetchFromPage error categorization', () => {
   }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_sdk_fetch_error_categories', {
+    const result = await mcpClient.callTool('e2e-test__sdk_fetch_error_categories', {
       endpoint: '/api/status-code/429',
     });
     expect(result.isError).toBe(true);
@@ -96,7 +96,7 @@ test.describe('fetchFromPage error categorization', () => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
     // Use a very short timeout (1s) against the slow-forever endpoint
-    const result = await mcpClient.callTool('e2e-test_sdk_fetch_error_categories', {
+    const result = await mcpClient.callTool('e2e-test__sdk_fetch_error_categories', {
       endpoint: '/api/slow-forever',
       timeoutMs: 1000,
     });
@@ -115,7 +115,7 @@ test.describe('fetchFromPage error categorization', () => {
   test('500 produces category=internal', async ({ mcpServer, testServer, extensionContext, mcpClient }) => {
     const page = await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
 
-    const result = await mcpClient.callTool('e2e-test_sdk_fetch_error_categories', {
+    const result = await mcpClient.callTool('e2e-test__sdk_fetch_error_categories', {
       endpoint: '/api/status-code/500',
     });
     expect(result.isError).toBe(true);

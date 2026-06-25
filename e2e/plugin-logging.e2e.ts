@@ -28,7 +28,7 @@ test.describe('Plugin logging — full pipeline', () => {
     const bufferBefore = healthBefore?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
 
     const prefix = `e2e-log-${Date.now()}`;
-    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_levels', { prefix });
+    const output = await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__log_levels', { prefix });
     expect(output.ok).toBe(true);
     expect(output.levels).toEqual(['debug', 'info', 'warning', 'error']);
 
@@ -70,7 +70,7 @@ test.describe('Plugin logging — full pipeline', () => {
     const bufferBefore = healthBefore?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
 
     const prefix = `e2e-args-${Date.now()}`;
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_levels', { prefix });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__log_levels', { prefix });
 
     // Wait until all 4 entries are buffered before checking stdout.
     await mcpServer.waitForHealth(h => {
@@ -106,7 +106,7 @@ test.describe('Plugin logging — full pipeline', () => {
     const bufferBefore = healthBefore?.pluginDetails?.find(p => p.name === 'e2e-test')?.logBufferSize ?? 0;
 
     const prefix = `e2e-count-${Date.now()}`;
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_levels', { prefix });
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__log_levels', { prefix });
 
     // The log_levels tool emits exactly 4 entries (debug, info, warning, error).
     // Wait for the buffer to grow by at least 4 entries.
@@ -139,7 +139,7 @@ test.describe('Plugin logging — full pipeline', () => {
     // Use log_bulk to emit 1100 entries in a single tool call, exceeding
     // the 1000-entry circular buffer limit without hitting rate limits.
     const overflowPrefix = `overflow-${Date.now()}`;
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_bulk', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__log_bulk', {
       prefix: overflowPrefix,
       count: 1100,
     });
@@ -157,7 +157,7 @@ test.describe('Plugin logging — full pipeline', () => {
 
     // Emit more entries to verify the buffer wraps (doesn't stop accepting).
     const markerPrefix = `overflow-marker-${Date.now()}`;
-    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test_log_bulk', {
+    await callToolExpectSuccess(mcpClient, mcpServer, 'e2e-test__log_bulk', {
       prefix: markerPrefix,
       count: 10,
     });

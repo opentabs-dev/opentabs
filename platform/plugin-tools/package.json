@@ -11,7 +11,7 @@
     "plugin-tools",
     "opentabs-plugin"
   ],
-  "version": "0.0.111",
+  "version": "0.0.113",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -35,11 +35,11 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.111",
-    "@opentabs-dev/shared": "^0.0.111",
+    "@opentabs-dev/plugin-sdk": "^0.0.113",
+    "@opentabs-dev/shared": "^0.0.113",
     "commander": "^14.0.3",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "picocolors": "^1.1.1",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   }
 }

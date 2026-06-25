@@ -77,6 +77,7 @@ jobs:
         run: |
           PLUGINS='${{ steps.detect.outputs.plugins }}'
           PUBLISHED=()
+          FAILED=()
 
           for PLUGIN in $(echo "$PLUGINS" | jq -r '.[]'); do
             DIR="plugins/$PLUGIN"
@@ -89,40 +90,77 @@ jobs:
             CURRENT=$(node -p "require('./$DIR/package.json').version")
             NPM_NAME=$(node -p "require('./$DIR/package.json').name")
 
-            # Check if this version is already on npm
-            NPM_VERSION=$(npm view "$NPM_NAME" version 2>/dev/null || echo "0.0.0")
+            # Compute the next version robustly. `npm view <pkg> version` reflects the
+            # 'latest' dist-tag and lags registry propagation; reading it right after a
+            # publish elsewhere can return stale data, leading the old equality check to
+            # pick an already-taken version and fail with E403 (this silently failed 111
+            # plugins once). Instead: base the bump on the 'latest' dist-tag (the
+            # maintained line) folded with the local package.json version, then patch-bump
+            # past any version that already exists in the full published set. This avoids
+            # both E403 collisions and orphan versions (e.g. a stray 0.1.0) hijacking the
+            # line. A brand-new package (no published versions) publishes its local version.
+            NEW_VERSION=$(
+              CURRENT="$CURRENT" node -e "
+                const { execSync } = require('node:child_process');
+                const name = process.argv[1];
+                const current = process.env.CURRENT;
+                const semverRe = /^[0-9]+\.[0-9]+\.[0-9]+\$/;
+                const parse = v => v.split('.').map(Number);
+                const cmp = (a, b) => { const x = parse(a), y = parse(b); for (let i = 0; i < 3; i++) { if (x[i] !== y[i]) return x[i] - y[i]; } return 0; };
+                let published = [], latest = '';
+                try {
+                  const raw = execSync('npm view ' + name + ' versions --json', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+                  if (raw) { const parsed = JSON.parse(raw); published = Array.isArray(parsed) ? parsed : [parsed]; }
+                } catch { /* package not yet on npm — published stays empty */ }
+                try {
+                  latest = execSync('npm view ' + name + ' dist-tags.latest', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+                } catch { /* no latest tag */ }
+                if (published.length === 0) { console.log(current); process.exit(0); }
+                const base = [latest, current].filter(v => semverRe.test(v)).reduce((a, b) => (cmp(a, b) >= 0 ? a : b), '0.0.0');
+                const set = new Set(published);
+                let [maj, min, pat] = parse(base);
+                do { pat++; } while (set.has([maj, min, pat].join('.')));
+                console.log([maj, min, pat].join('.'));
+              " "$NPM_NAME"
+            )
 
-            if [ "$CURRENT" = "$NPM_VERSION" ]; then
-              # Same version on npm — bump patch
-              IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-              NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+            if [ -z "$NEW_VERSION" ]; then
+              echo "::warning::Could not compute next version for $NPM_NAME — skipping"
+              FAILED+=("$PLUGIN")
+              continue
+            fi
+
+            if [ "$NEW_VERSION" != "$CURRENT" ]; then
               echo "Bumping $NPM_NAME: $CURRENT -> $NEW_VERSION"
-
-              node -e "
+              NEW_VERSION="$NEW_VERSION" node -e "
                 const fs = require('fs');
                 const pkg = JSON.parse(fs.readFileSync('$DIR/package.json', 'utf8'));
-                pkg.version = '$NEW_VERSION';
+                pkg.version = process.env.NEW_VERSION;
                 fs.writeFileSync('$DIR/package.json', JSON.stringify(pkg, null, 2) + '\n');
               "
             else
-              # Version differs from npm (e.g., already bumped by lockstep) — publish as-is
-              NEW_VERSION="$CURRENT"
               echo "Publishing $NPM_NAME@$NEW_VERSION (not yet on npm)"
             fi
 
             # Install dependencies and full build (tsc + opentabs-plugin build)
             echo "Installing dependencies..."
-            (cd "$DIR" && npm install)
+            (cd "$DIR" && npm install) || {
+              echo "::warning::Install failed for $NPM_NAME — skipping publish"
+              FAILED+=("$PLUGIN")
+              continue
+            }
 
             echo "Building..."
             (cd "$DIR" && npm run build) || {
               echo "::warning::Build failed for $NPM_NAME — skipping publish"
+              FAILED+=("$PLUGIN")
               continue
             }
 
             # Verify the build produced the required artifacts
             if [ ! -f "$DIR/dist/adapter.iife.js" ] || [ ! -f "$DIR/dist/tools.json" ]; then
               echo "::warning::Build incomplete for $NPM_NAME — missing adapter.iife.js or tools.json, skipping publish"
+              FAILED+=("$PLUGIN")
               continue
             fi
 
@@ -130,6 +168,7 @@ jobs:
             echo "Publishing $NPM_NAME@$NEW_VERSION..."
             (cd "$DIR" && npm publish --access public) || {
               echo "::warning::Failed to publish $NPM_NAME@$NEW_VERSION"
+              FAILED+=("$PLUGIN")
               continue
             }
 
@@ -138,6 +177,16 @@ jobs:
           done
 
           echo "PUBLISHED=${PUBLISHED[*]}" >> "$GITHUB_ENV"
+
+          echo ""
+          echo "Published ${#PUBLISHED[@]} plugin(s); ${#FAILED[@]} failure(s)."
+          if [ "${#FAILED[@]}" -gt 0 ]; then
+            # A swallowed publish failure previously let the job report success while
+            # nothing reached npm. Surface failures as a job failure so they are not
+            # silently lost — successful plugins are still committed by the next step.
+            echo "::error::Failed to publish: ${FAILED[*]}"
+            echo "PUBLISH_FAILED=1" >> "$GITHUB_ENV"
+          fi
 
       - name: Commit version bumps
         if: steps.detect.outputs.plugins != '' && env.PUBLISHED != ''
@@ -179,3 +228,12 @@ jobs:
               exit 1
             fi
           fi
+
+      - name: Fail if any plugin failed to publish
+        # Runs after the commit step so successfully published plugins are still
+        # recorded. Then fails the job if any plugin failed, so a partial publish
+        # is never reported as a green run (the bug that previously hid 111 E403s).
+        if: always() && env.PUBLISH_FAILED == '1'
+        run: |
+          echo "::error::One or more plugins failed to publish — see warnings above."
+          exit 1

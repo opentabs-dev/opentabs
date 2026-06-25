@@ -165,7 +165,7 @@ test.describe('Side panel stress test', () => {
         .poll(
           async () => {
             const tools = await mcpClient.listTools();
-            const echo = tools.find(t => t.name === 'e2e-test_echo');
+            const echo = tools.find(t => t.name === 'e2e-test__echo');
             const listTabs = tools.find(t => t.name === 'browser_list_tabs');
             return (
               echo !== undefined &&
@@ -176,7 +176,7 @@ test.describe('Side panel stress test', () => {
           },
           {
             timeout: 15_000,
-            message: 'e2e-test_echo and browser_list_tabs should not be disabled after barrage',
+            message: 'e2e-test__echo and browser_list_tabs should not be disabled after barrage',
           },
         )
         .toBe(true);

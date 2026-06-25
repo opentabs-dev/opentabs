@@ -207,6 +207,22 @@ describe('opentabs-plugin build E2E', () => {
       const iifeContent = await readFile(join(pluginDir, 'dist', 'adapter.iife.js'), 'utf-8');
       expect(iifeContent).toContain('Object.freeze');
     });
+
+    test('adapter.iife.js disables Zod JIT (jitless) for Trusted Types CSP safety', async () => {
+      const pluginDir = join(tmpDir, 'e2e-test');
+      copyPlugin(pluginDir);
+
+      rmSync(join(pluginDir, 'dist', 'adapter.iife.js'), { force: true });
+
+      const { exitCode } = runBuild(pluginDir, configDir);
+      expect(exitCode).toBe(0);
+
+      // Zod 4 compiles validators via `new Function(...)`, which throws under
+      // `require-trusted-types-for 'script'` (youtube.com, outlook.com). The
+      // wrapper calls z.config({ jitless: true }) to force the interpreted path.
+      const iifeContent = await readFile(join(pluginDir, 'dist', 'adapter.iife.js'), 'utf-8');
+      expect(iifeContent).toContain('config({ jitless: true })');
+    });
   });
 
   // ---------------------------------------------------------------------------

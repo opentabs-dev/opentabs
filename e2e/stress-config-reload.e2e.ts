@@ -65,7 +65,7 @@ test.describe('Stress: config watcher + POST /reload simultaneous race', () => {
 
       // Verify no plugin tools initially
       const toolsBefore = await client.listTools();
-      const pluginToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_'));
+      const pluginToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test__'));
       expect(pluginToolsBefore.length).toBe(0);
 
       // Simultaneously: write config adding the e2e-test plugin AND POST /reload
@@ -87,14 +87,14 @@ test.describe('Stress: config watcher + POST /reload simultaneous race', () => {
       // The server will coalesce or sequence the triggers — poll for the result
       const toolsAfter = await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to appear after simultaneous config write + POST /reload',
       );
 
       // Verify no duplicate tools — each e2e-test tool should appear exactly once
-      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eTools = toolsAfter.filter(t => t.name.startsWith('e2e-test__'));
       const toolNames = e2eTools.map(t => t.name);
       const uniqueToolNames = [...new Set(toolNames)];
       expect(toolNames.length).toBe(uniqueToolNames.length);
@@ -142,7 +142,7 @@ test.describe('Stress: rapid config writes (10x in 2 seconds)', () => {
 
       // Verify plugin tools are present initially
       const toolsBefore = await client.listTools();
-      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsBefore.length).toBe(prefixedToolNames.length);
 
       const configDirRef = configDir;
@@ -165,7 +165,7 @@ test.describe('Stress: rapid config writes (10x in 2 seconds)', () => {
       // Final write was i=9 (odd) → no plugins. Verify e2e-test tools are gone.
       const toolsAfterRapid = await waitForToolList(
         client,
-        list => !list.some(t => t.name.startsWith('e2e-test_')),
+        list => !list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to disappear after rapid config writes',
@@ -186,13 +186,13 @@ test.describe('Stress: rapid config writes (10x in 2 seconds)', () => {
 
       const toolsRecovered = await waitForToolList(
         client,
-        list => list.some(t => t.name.startsWith('e2e-test_')),
+        list => list.some(t => t.name.startsWith('e2e-test__')),
         15_000,
         300,
         'e2e-test plugin tools to reappear after recovery write',
       );
 
-      const e2eToolsRecovered = toolsRecovered.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsRecovered = toolsRecovered.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsRecovered.length).toBe(prefixedToolNames.length);
     } finally {
       await client?.close();
@@ -291,7 +291,7 @@ test.describe('Stress: config corruption recovery (invalid JSON mid-write)', () 
 
       // Verify plugin tools are present initially
       const toolsBefore = await client.listTools();
-      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsBefore = toolsBefore.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsBefore.length).toBe(prefixedToolNames.length);
 
       // Write truncated/corrupted JSON directly to config.json.
@@ -319,7 +319,7 @@ test.describe('Stress: config corruption recovery (invalid JSON mid-write)', () 
       // The previous valid state should be preserved — plugin tools should still work.
       // The server keeps its previous registry when config parsing fails.
       const toolsAfterCorrupt = await client.listTools();
-      const e2eToolsAfterCorrupt = toolsAfterCorrupt.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsAfterCorrupt = toolsAfterCorrupt.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsAfterCorrupt.length).toBe(prefixedToolNames.length);
 
       // Now write valid config back and verify recovery
@@ -336,7 +336,7 @@ test.describe('Stress: config corruption recovery (invalid JSON mid-write)', () 
 
       // Verify plugin tools are still present after recovery
       const toolsAfterRecovery = await client.listTools();
-      const e2eToolsAfterRecovery = toolsAfterRecovery.filter(t => t.name.startsWith('e2e-test_'));
+      const e2eToolsAfterRecovery = toolsAfterRecovery.filter(t => t.name.startsWith('e2e-test__'));
       expect(e2eToolsAfterRecovery.length).toBe(prefixedToolNames.length);
     } finally {
       await client?.close();

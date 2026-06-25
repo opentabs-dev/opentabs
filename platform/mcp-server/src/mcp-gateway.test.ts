@@ -81,7 +81,7 @@ describe('annotateTools', () => {
 
     const result = annotateTools(state);
 
-    const slackTool = result.find(t => t.name === 'slack_send_message');
+    const slackTool = result.find(t => t.name === 'slack__send_message');
     expect(slackTool).toBeDefined();
     expect(slackTool?.plugin).toBe('slack');
   });
@@ -121,8 +121,8 @@ describe('annotateTools', () => {
 
     const result = annotateTools(state);
 
-    expect(result.find(t => t.name === 'slack_send_message')?.plugin).toBe('slack');
-    expect(result.find(t => t.name === 'discord_read_messages')?.plugin).toBe('discord');
+    expect(result.find(t => t.name === 'slack__send_message')?.plugin).toBe('slack');
+    expect(result.find(t => t.name === 'discord__read_messages')?.plugin).toBe('discord');
     expect(result.find(t => t.name === 'browser_list_tabs')?.plugin).toBe('browser');
   });
 
@@ -154,8 +154,8 @@ describe('handleListTools', () => {
     expect(result.content).toHaveLength(1);
     expect(result.content[0]?.type).toBe('text');
     const tools = JSON.parse(result.content[0]?.text ?? '[]') as Array<{ name: string; plugin: string }>;
-    expect(tools.some(t => t.name === 'slack_send_message')).toBe(true);
-    expect(tools.some(t => t.name === 'slack_read_messages')).toBe(true);
+    expect(tools.some(t => t.name === 'slack__send_message')).toBe(true);
+    expect(tools.some(t => t.name === 'slack__read_messages')).toBe(true);
     expect(tools.some(t => t.name === 'browser_list_tabs')).toBe(true);
   });
 
@@ -170,7 +170,7 @@ describe('handleListTools', () => {
 
     const tools = JSON.parse(result.content[0]?.text ?? '[]') as Array<{ name: string; plugin: string }>;
     expect(tools).toHaveLength(1);
-    expect(tools[0]?.name).toBe('slack_send_message');
+    expect(tools[0]?.name).toBe('slack__send_message');
     expect(tools[0]?.plugin).toBe('slack');
   });
 
@@ -296,7 +296,7 @@ describe('handleCallTool', () => {
 
     const result = await handleCallTool(
       state,
-      { tool: 'slack_send_message', arguments: { channel: 'C123', text: 'hello' } },
+      { tool: 'slack__send_message', arguments: { channel: 'C123', text: 'hello' } },
       createMockExtra(),
       createMockCallbacks(),
     );

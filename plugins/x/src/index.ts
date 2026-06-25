@@ -10,6 +10,7 @@ import { getUserTweets } from './tools/get-user-tweets.js';
 // Tweets
 import { getTweet } from './tools/get-tweet.js';
 import { createTweet } from './tools/create-tweet.js';
+import { quoteTweet } from './tools/quote-tweet.js';
 import { deleteTweet } from './tools/delete-tweet.js';
 import { getTweetReplies } from './tools/get-tweet-replies.js';
 import { pinTweet } from './tools/pin-tweet.js';
@@ -27,6 +28,8 @@ import { retweet } from './tools/retweet.js';
 import { unretweet } from './tools/unretweet.js';
 import { bookmarkTweet } from './tools/bookmark-tweet.js';
 import { removeBookmark } from './tools/remove-bookmark.js';
+import { getLikers } from './tools/get-likers.js';
+import { getRetweeters } from './tools/get-retweeters.js';
 
 // Bookmarks & Explore
 import { getBookmarks } from './tools/get-bookmarks.js';
@@ -58,6 +61,7 @@ class XPlugin extends OpenTabsPlugin {
     // Tweets
     getTweet,
     createTweet,
+    quoteTweet,
     deleteTweet,
     getTweetReplies,
     pinTweet,
@@ -73,6 +77,8 @@ class XPlugin extends OpenTabsPlugin {
     unretweet,
     bookmarkTweet,
     removeBookmark,
+    getLikers,
+    getRetweeters,
     // Bookmarks & Explore
     getBookmarks,
     getTrending,

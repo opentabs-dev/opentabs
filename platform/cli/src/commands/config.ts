@@ -12,6 +12,7 @@ import {
   DEFAULT_PORT,
   generateSecret,
   type PluginPermissionConfig,
+  prefixedToolName,
   type ToolPermission,
   toErrorMessage,
 } from '@opentabs-dev/shared';
@@ -311,7 +312,7 @@ const handleSetToolPermission = async (key: string, value: string, options: { po
           : [];
         const plugin = pluginDetails.find(p => p.name === pluginName);
         if (plugin) {
-          const prefixedName = `${pluginName}_${toolName}`;
+          const prefixedName = prefixedToolName(pluginName, toolName);
           toolExists = Array.isArray(plugin.tools) && plugin.tools.includes(prefixedName);
         }
       }

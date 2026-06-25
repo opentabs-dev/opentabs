@@ -140,9 +140,9 @@ opentabs audit
 
 ```bash
 Time       Tool                      OK   Duration
-10:15:30   slack_list_channels        ✓    120ms
-10:15:45   slack_send_message         ✗    30.0s
-10:16:02   slack_list_channels        ✓    95ms
+10:15:30   slack__list_channels       ✓    120ms
+10:15:45   slack__send_message        ✗    30.0s
+10:16:02   slack__list_channels       ✓    95ms
 ```
 
 A red `✗` means the tool call failed. Filter by plugin to focus on what matters:
@@ -158,7 +158,7 @@ The `--json` output is where the real detail lives — error codes, categories, 
 ```json
 {
   "timestamp": "2026-02-21T10:15:45.000Z",
-  "tool": "slack_send_message",
+  "tool": "slack__send_message",
   "plugin": "slack",
   "success": false,
   "durationMs": 30000,

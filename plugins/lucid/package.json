@@ -1,7 +1,7 @@
 {
   "name": "@opentabs-dev/opentabs-plugin-lucid",
   "description": "OpenTabs plugin for Lucid (Lucidchart, Lucidspark)",
-  "version": "0.0.93",
+  "version": "0.0.96",
   "publishConfig": {
     "access": "public"
   },
@@ -43,11 +43,11 @@
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "@opentabs-dev/plugin-sdk": "^0.0.111"
+    "@opentabs-dev/plugin-sdk": "^0.0.113"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@opentabs-dev/plugin-tools": "^0.0.111",
+    "@opentabs-dev/plugin-tools": "^0.0.113",
     "jiti": "^2.6.1",
     "typescript": "^6.0.3",
     "zod": "^4.0.0"
