@@ -19,7 +19,7 @@ npm install -g @opentabs-dev/opentabs-plugin-chatgpt
 1. Open [chatgpt.com](https://chatgpt.com) in Chrome and log in
 2. Open the OpenTabs side panel — the ChatGPT plugin should appear as **ready**
 
-## Tools (20)
+## Tools (26)
 
 ### Account (2)
 
@@ -34,12 +34,15 @@ npm install -g @opentabs-dev/opentabs-plugin-chatgpt
 |---|---|---|
 | `list_models` | List available AI models | Read |
 
-### Conversations (10)
+### Conversations (13)
 
 | Tool | Description | Type |
 |---|---|---|
 | `list_conversations` | List your ChatGPT conversations | Read |
 | `get_conversation` | Get a conversation with messages | Read |
+| `send_message` | Send a message to the current conversation | Write |
+| `upload_image` | Attach an image to the current composer | Write |
+| `send_image_message` | Attach and send an image message | Write |
 | `search_conversations` | Search conversations by keyword | Read |
 | `rename_conversation` | Rename a conversation | Write |
 | `archive_conversation` | Archive a conversation | Write |
@@ -48,6 +51,14 @@ npm install -g @opentabs-dev/opentabs-plugin-chatgpt
 | `unstar_conversation` | Unstar a conversation | Write |
 | `delete_conversation` | Delete a conversation permanently | Write |
 | `list_shared_conversations` | List shared conversations | Read |
+
+### Files (3)
+
+| Tool | Description | Type |
+|---|---|---|
+| `list_conversation_files` | List file and generated-image references in a conversation | Read |
+| `get_file_content` | Get a file or generated image as base64 | Read |
+| `download_file` | Save a file or generated image to Downloads | Read |
 
 ### Memories (1)
 

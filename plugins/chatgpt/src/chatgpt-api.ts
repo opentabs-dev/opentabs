@@ -1,6 +1,7 @@
 import {
   ToolError,
   fetchJSON,
+  fetchFromPage,
   buildQueryString,
   getCookie,
   getAuthCache,
@@ -107,3 +108,17 @@ export const api = async <T>(
     throw err;
   }
 };
+
+export const fetchChatGPTFile = async (url: string): Promise<Response> => {
+  const auth = await ensureAuth();
+  const response = await fetchFromPage(url, {
+    headers: {
+      Authorization: `Bearer ${auth.accessToken}`,
+    },
+    timeout: 60_000,
+  });
+  return response;
+};
+
+export const chatGPTFileContentUrl = (fileId: string): string =>
+  `${API_BASE}/estuary/content?id=${encodeURIComponent(fileId)}`;
