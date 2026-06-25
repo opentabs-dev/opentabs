@@ -38,6 +38,7 @@
     "build:bundle": "tsx build-extension.ts",
     "build:side-panel": "tsx build-side-panel.ts && npm run build:tailwind",
     "build:tailwind": "npx @tailwindcss/cli -i src/side-panel/styles.css -o dist/side-panel/styles.css --minify",
+    "build:firefox-manifest": "tsx build-firefox-manifest.ts",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build -o storybook-static"
   },

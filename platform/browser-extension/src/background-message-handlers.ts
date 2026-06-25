@@ -4,7 +4,7 @@ import { buildWsUrl, SERVER_PORT_KEY, WS_CONNECTED_KEY } from './constants.js';
 import type { DisconnectReason, InternalMessage, PluginTabStateInfo } from './extension-messages.js';
 import { getLastSeenUrl, setLastSeenUrl } from './last-seen-urls.js';
 import { handleServerMessage } from './message-router.js';
-import { forwardToSidePanel, sendToServer } from './messaging.js';
+import { changeServerPort, forwardToSidePanel, sendToServer } from './messaging.js';
 import { getAllPluginMeta, getPluginMeta } from './plugin-storage.js';
 import { rejectAllPendingServerRequests, sendServerRequest } from './server-request.js';
 import {
@@ -105,35 +105,53 @@ const handleOffscreenGetUrl: MessageHandler = (_message, sendResponse) => {
   });
 };
 
-/** Handle ws:state — WebSocket connection state changed */
-const handleWsState: MessageHandler = (message, sendResponse) => {
-  const nowConnected = message.connected as boolean;
-  persistWsConnected(nowConnected);
-  lastDisconnectReason = nowConnected ? undefined : (message.disconnectReason as DisconnectReason | undefined);
+/**
+ * Apply a WebSocket connection-state transition: persist it, forward to the side
+ * panel, and tear down caches on disconnect. Shared by the Chrome `ws:state`
+ * message handler and the Firefox direct-transport state callback so both paths
+ * run identical logic.
+ */
+const applyWsState = (connected: boolean, disconnectReason?: DisconnectReason): void => {
+  persistWsConnected(connected);
+  lastDisconnectReason = connected ? undefined : disconnectReason;
   forwardToSidePanel({
     type: 'sp:connectionState',
     data: {
-      connected: nowConnected,
+      connected,
       disconnectReason: lastDisconnectReason,
     },
   });
-  if (!nowConnected) {
+  if (!connected) {
     stopReadinessPoll();
     clearTabStateCache();
     clearServerStateCache();
     rejectAllPendingServerRequests();
     clearAllConfirmationBadges();
   }
-  sendResponse({ ok: true });
 };
 
-/** Handle ws:message — relay a JSON-RPC message from the MCP server */
-const handleWsMessage: MessageHandler = (message, sendResponse) => {
+/**
+ * Route a validated inbound JSON-RPC message from the MCP server to the message
+ * router. Shared by the Chrome `ws:message` handler and the Firefox
+ * direct-transport message callback so both paths run identical logic.
+ */
+const applyWsMessage = (data: Record<string, unknown>): void => {
   try {
-    handleServerMessage(message.data as Record<string, unknown>);
+    handleServerMessage(data);
   } catch (err) {
     console.error('[opentabs:background] handleServerMessage threw:', err);
   }
+};
+
+/** Handle ws:state — WebSocket connection state changed (Chrome offscreen relay) */
+const handleWsState: MessageHandler = (message, sendResponse) => {
+  applyWsState(message.connected as boolean, message.disconnectReason as DisconnectReason | undefined);
+  sendResponse({ ok: true });
+};
+
+/** Handle ws:message — relay a JSON-RPC message from the MCP server (Chrome offscreen relay) */
+const handleWsMessage: MessageHandler = (message, sendResponse) => {
+  applyWsMessage(message.data as Record<string, unknown>);
   sendResponse({ ok: true });
 };
 
@@ -676,11 +694,9 @@ const handleBgOpenFolder: MessageHandler = (message, sendResponse) => {
     });
 };
 
-/** Handle port-changed — relay port change to offscreen document for reconnect */
+/** Handle port-changed — drive a reconnect to the new port (direct on Firefox, offscreen on Chrome) */
 const handlePortChanged: MessageHandler = (message, sendResponse) => {
-  chrome.runtime.sendMessage(message as unknown as InternalMessage).catch(() => {
-    // Offscreen may not be ready yet
-  });
+  changeServerPort(message.port as number);
   sendResponse({ ok: true });
 };
 
@@ -837,6 +853,8 @@ const initBackgroundMessageHandlers = (): void => {
 const backgroundHandlerNames: readonly string[] = [...backgroundHandlers.keys()];
 
 export {
+  applyWsMessage,
+  applyWsState,
   backgroundHandlerNames,
   handleBgGetFullState,
   handleBgInstallPlugin,

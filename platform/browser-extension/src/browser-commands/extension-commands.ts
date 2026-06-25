@@ -14,8 +14,9 @@ import {
   WS_CONNECTED_KEY,
   WS_FLUSH_DELAY_MS,
 } from '../constants.js';
-import type { BgForceReconnectMessage, OffscreenGetLogsMessage, SpGetStateMessage } from '../extension-messages.js';
+import type { OffscreenGetLogsMessage, SpGetStateMessage } from '../extension-messages.js';
 import type { LogEntry, LogFilterOptions, LogStats } from '../log-collector.js';
+import { forceReconnectServer } from '../messaging.js';
 import { getActiveCapturesSummary } from '../network-capture.js';
 import { getAllPluginMeta, getPluginMeta } from '../plugin-storage.js';
 import { findAllMatchingTabs } from '../tab-matching.js';
@@ -356,9 +357,7 @@ export const handleExtensionForceReconnect = async (id: string | number): Promis
 
     await new Promise(resolve => setTimeout(resolve, WS_FLUSH_DELAY_MS));
 
-    await chrome.runtime.sendMessage({
-      type: 'bg:forceReconnect',
-    } satisfies BgForceReconnectMessage);
+    await forceReconnectServer();
   } catch (err) {
     // The response was already sent above, so this catch is best-effort.
     // If sendToServer itself failed, there's nothing more we can do.

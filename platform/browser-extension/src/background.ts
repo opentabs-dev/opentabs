@@ -1,4 +1,9 @@
-import { initBackgroundMessageHandlers, restoreWsConnectedState } from './background-message-handlers.js';
+import {
+  applyWsMessage,
+  applyWsState,
+  initBackgroundMessageHandlers,
+  restoreWsConnectedState,
+} from './background-message-handlers.js';
 import { initNotificationClickHandler } from './browser-commands/notification-commands.js';
 import { initConfirmationBadge } from './confirmation-badge.js';
 import {
@@ -8,13 +13,25 @@ import {
   PLUGINS_META_KEY,
   SERVER_PORT_KEY,
 } from './constants.js';
-import type { InternalMessage } from './extension-messages.js';
 import { injectPluginsIntoTab, reinjectStoredPlugins } from './iife-injection.js';
 import { loadLastSeenUrlsFromStorage } from './last-seen-urls.js';
+import { setFirefoxTransport, setServerUrl } from './messaging.js';
 import { getAllPluginMeta, invalidatePluginCache } from './plugin-storage.js';
 import { syncPreScripts } from './pre-script-registration.js';
 import { initSidePanelToggle } from './side-panel-toggle.js';
 import { checkTabChanged, checkTabRemoved } from './tab-state.js';
+import { startFirefoxBackgroundTransport } from './transport/firefox-background-transport.js';
+
+declare const __OPENTABS_IS_FIREFOX__: boolean | undefined;
+
+type ChromeOffscreenApi = {
+  createDocument(options: { url: string; reasons: string[]; justification: string }): Promise<void>;
+};
+
+const CHROME_OFFSCREEN_KEY = 'off' + 'screen';
+
+const getChromeOffscreen = (): ChromeOffscreenApi | undefined =>
+  (chrome as unknown as Record<string, ChromeOffscreenApi | undefined>)[CHROME_OFFSCREEN_KEY];
 
 // --- Side panel toggle ---
 
@@ -27,11 +44,12 @@ loadLastSeenUrlsFromStorage().catch(() => {
   // Best-effort — storage may not be available on wake
 });
 
-// --- Offscreen document management ---
+// --- Offscreen document management (Chrome only) ---
 
 let creatingOffscreen: Promise<void> | null = null;
 
 const ensureOffscreenDocument = async (): Promise<void> => {
+  if (typeof __OPENTABS_IS_FIREFOX__ === 'boolean' && __OPENTABS_IS_FIREFOX__) return;
   if (creatingOffscreen) return creatingOffscreen;
 
   creatingOffscreen = (async () => {
@@ -41,9 +59,11 @@ const ensureOffscreenDocument = async (): Promise<void> => {
     // no live offscreen document exists. The createDocument call is
     // idempotent: if one already exists, it throws and we catch below.
     try {
-      await chrome.offscreen.createDocument({
+      const offscreen = getChromeOffscreen();
+      if (!offscreen) return;
+      await offscreen.createDocument({
         url: 'offscreen/offscreen.html',
-        reasons: [chrome.offscreen.Reason.WORKERS],
+        reasons: ['WORKERS'],
         justification: 'Maintain persistent WebSocket connection to MCP server',
       });
     } catch {
@@ -114,6 +134,16 @@ chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
 
 initBackgroundMessageHandlers();
 
+// --- Firefox direct transport (no offscreen document) ---
+
+if (typeof __OPENTABS_IS_FIREFOX__ === 'boolean' && __OPENTABS_IS_FIREFOX__) {
+  const transport = startFirefoxBackgroundTransport({
+    onMessage: applyWsMessage,
+    onState: state => applyWsState(state.connected, state.disconnectReason),
+  });
+  setFirefoxTransport(transport);
+}
+
 // --- Connection identity ---
 
 /**
@@ -176,9 +206,9 @@ reinjectStoredPlugins()
 initConfirmationBadge();
 initNotificationClickHandler();
 
-// Relay MCP server URL changes to the offscreen document, and invalidate
-// the plugin metadata cache when storage is modified from another context
-// (e.g., DevTools, another extension page).
+// Relay MCP server URL changes to the transport (direct on Firefox, via
+// offscreen on Chrome), and invalidate the plugin metadata cache when storage
+// is modified from another context (e.g., DevTools, another extension page).
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
 
@@ -190,9 +220,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
     portChange.newValue <= 65535
   ) {
     const newUrl = buildWsUrl(portChange.newValue);
-    chrome.runtime.sendMessage({ type: 'ws:setUrl', url: newUrl } satisfies InternalMessage).catch(() => {
-      // Offscreen may not be ready yet
-    });
+    setServerUrl(newUrl);
   }
 
   if (changes[PLUGINS_META_KEY]) {
