@@ -399,3 +399,179 @@ export const api = async <T>(
 
   throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
 };
+
+// OWS gateway lives on the OWA page's own origin — a third base distinct from Graph
+// and Outlook REST. It serves the client-side compose settings (roaming signatures,
+// startup data) that Graph's mailboxSettings does not expose. The adapter runs on
+// whichever OWA host matched (outlook.cloud.microsoft, outlook.office.com, or
+// outlook.office365.com), so resolve against the current origin to stay same-origin
+// rather than hardcoding one host. Read lazily (not at module scope) because the
+// plugin module is also loaded in Node at build time, where `window` is undefined.
+const owsBaseUrl = (): string => window.location.origin;
+const OWS_AUTH_CACHE_KEY = 'outlook-ows';
+
+/** MSAL access-token claims OWS routing headers are derived from. */
+interface OwsTokenClaims {
+  puid?: string;
+  tid?: string;
+}
+
+/**
+ * Read the `puid`/`tid` claims from an MSAL access token's JWT payload. No signature
+ * verification — the token is already trusted (we minted the request with it); we
+ * only need its routing hints. Returns an empty object for any malformed token.
+ */
+const decodeTokenClaims = (jwt: string): OwsTokenClaims => {
+  const payload = jwt.split('.')[1];
+  if (!payload) return {};
+  try {
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    return {
+      puid: typeof parsed.puid === 'string' ? parsed.puid : undefined,
+      tid: typeof parsed.tid === 'string' ? parsed.tid : undefined,
+    };
+  } catch {
+    return {};
+  }
+};
+
+/**
+ * Build the header set OWS gateway endpoints expect. The mailbox anchor
+ * (`x-anchormailbox` / `x-routingparameter-sessionkey`) is derived from the token's
+ * own `puid`/`tid` claims so the gateway routes to the right mailbox's settings.
+ */
+const buildOwsHeaders = (token: string, extra?: Record<string, string>): Record<string, string> => {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/json',
+    'x-ms-appname': 'owa-reactmail',
+    owaappid: '00000002-0000-0ff1-ce00-000000000000',
+    'x-outlook-client': 'owa',
+    ...extra,
+  };
+  const { puid, tid } = decodeTokenClaims(token);
+  if (puid) {
+    const anchor = tid ? `PUID:${puid}@${tid}` : `PUID:${puid}`;
+    headers['x-anchormailbox'] = anchor;
+    headers['x-routingparameter-sessionkey'] = anchor;
+  }
+  return headers;
+};
+
+/**
+ * Encode an OWS query string with `encodeURIComponent` per value, yielding `%20` for
+ * spaces (in signature display names) and `%2C` for commas (the `settingname` list
+ * delimiter) — both of which the OWS gateway accepts. `URLSearchParams` is avoided
+ * because it encodes spaces as `+`, which OWS does not decode back to a space.
+ */
+const encodeOwsQuery = (query: Record<string, string | number | boolean | undefined>): string => {
+  const parts: string[] = [];
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined) continue;
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`);
+  }
+  return parts.join('&');
+};
+
+interface OwsRequestOptions {
+  method?: string;
+  query?: Record<string, string | number | boolean | undefined>;
+  headers?: Record<string, string>;
+}
+
+type OwsOutcome<T> = { kind: 'ok'; data: T } | { kind: 'notFound' } | { kind: 'authFail' };
+
+/**
+ * Send one OWS request with a specific token. OWS is same-origin, so cookies ride
+ * along with the Bearer token. A 404 means the token authenticated but the settings
+ * collection holds no such item (e.g. a signature with no body) — distinct from
+ * 401/403, which signals "try the next candidate token".
+ */
+const sendOwsRequest = async <T>(
+  token: string,
+  endpoint: string,
+  options: OwsRequestOptions,
+): Promise<OwsOutcome<T>> => {
+  const qs = options.query ? encodeOwsQuery(options.query) : '';
+  const base = owsBaseUrl();
+  const url = qs ? `${base}${endpoint}?${qs}` : `${base}${endpoint}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: options.method ?? 'GET',
+      headers: buildOwsHeaders(token, options.headers),
+      credentials: 'same-origin',
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw ToolError.timeout('Microsoft settings request timed out.');
+    }
+    throw new ToolError(`Network error: ${err instanceof Error ? err.message : 'unknown'}`, 'network_error', {
+      category: 'internal',
+      retryable: true,
+    });
+  }
+
+  if (response.status === 401 || response.status === 403) return { kind: 'authFail' };
+  if (response.status === 404) return { kind: 'notFound' };
+  if (response.status === 429) {
+    const retryAfter = response.headers.get('Retry-After');
+    const retryMs = retryAfter ? Number.parseInt(retryAfter, 10) * 1000 : undefined;
+    throw ToolError.rateLimited('Microsoft API rate limit exceeded.', retryMs);
+  }
+  if (!response.ok) {
+    throw ToolError.internal(`Microsoft settings request failed (${response.status}).`);
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+  const data = contentType.includes('application/json') ? ((await response.json()) as T) : ({} as T);
+  return { kind: 'ok', data };
+};
+
+/**
+ * Request an OWS gateway endpoint on the OWA origin (roaming signature settings,
+ * startup data), cascading through every MSAL candidate on 401/403 exactly like
+ * `api()` and caching the winner in its own slot. Returns `undefined` when a token
+ * authenticated but the endpoint returned 404 (no such setting), so callers can
+ * treat a missing signature as "none configured" rather than an error. Throws only
+ * when no candidate authenticates at all.
+ */
+export const owsRequest = async <T>(endpoint: string, options: OwsRequestOptions = {}): Promise<T | undefined> => {
+  const cached = getAuthCache<OutlookAuth>(OWS_AUTH_CACHE_KEY);
+  if (cached) {
+    const outcome = await sendOwsRequest<T>(cached.token, endpoint, options);
+    if (outcome.kind === 'ok') return outcome.data;
+    if (outcome.kind === 'notFound') return undefined;
+    clearAuthCache(OWS_AUTH_CACHE_KEY);
+  }
+
+  const candidates = collectAuthCandidates();
+  const remaining = cached ? candidates.filter(c => c.token !== cached.token) : candidates;
+  if (remaining.length === 0) {
+    throw ToolError.auth(
+      cached
+        ? 'Authentication expired — please refresh the Outlook page.'
+        : 'Not authenticated — please sign in to Microsoft 365.',
+    );
+  }
+
+  for (const auth of remaining) {
+    const outcome = await sendOwsRequest<T>(auth.token, endpoint, options);
+    if (outcome.kind === 'ok') {
+      setAuthCache(OWS_AUTH_CACHE_KEY, auth);
+      return outcome.data;
+    }
+    // A 404 means this token authenticated (the gateway resolved its mailbox) and the
+    // setting is simply absent — a valid winner to cache, so a genuinely-missing
+    // signature does not re-cascade through every token on each subsequent call.
+    if (outcome.kind === 'notFound') {
+      setAuthCache(OWS_AUTH_CACHE_KEY, auth);
+      return undefined;
+    }
+  }
+
+  throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
+};
