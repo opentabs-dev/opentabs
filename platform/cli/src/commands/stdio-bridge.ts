@@ -106,6 +106,7 @@ const startBackgroundServer = async (port: number, log: LogFn): Promise<boolean>
     stdio: ['ignore', 'ignore', 'ignore'],
     detached: true,
     env: { ...process.env, PORT: String(port) },
+    windowsHide: true,
   });
   child.unref();
 

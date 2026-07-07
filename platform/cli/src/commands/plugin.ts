@@ -10,8 +10,8 @@ import {
   type ConfigSchema,
   type ConfigSettingDefinition,
   DEFAULT_HOST,
-  isWindows,
   normalizePluginName,
+  npmSpawnOpts,
   PLATFORM_PACKAGES,
   PLUGIN_PREFIX,
   pluginNameFromPackage,
@@ -45,7 +45,7 @@ interface SpawnResult {
 const spawnProcessSync = (cmd: string, args: string[]): SpawnResult => {
   // On Windows, npm/npx are .cmd shims that require cmd.exe to execute.
   // shell: true on Windows lets the shell resolve .cmd/.exe via PATHEXT.
-  const result = spawnSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: isWindows() });
+  const result = spawnSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...npmSpawnOpts() });
   if (result.error) {
     return { exitCode: 1, stdout: '', stderr: result.error.message };
   }
@@ -58,7 +58,7 @@ const spawnProcessSync = (cmd: string, args: string[]): SpawnResult => {
 
 const spawnProcessAsync = (cmd: string, args: string[]): Promise<SpawnResult> =>
   new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: isWindows() });
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...npmSpawnOpts() });
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     child.stdout.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
@@ -87,7 +87,7 @@ const spawnProcessAsync = (cmd: string, args: string[]): Promise<SpawnResult> =>
 
 const spawnInherit = (cmd: string, args: string[]): Promise<number> =>
   new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: 'inherit', shell: isWindows() });
+    const child = spawn(cmd, args, { stdio: 'inherit', ...npmSpawnOpts() });
     child.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EINVAL') {
         reject(

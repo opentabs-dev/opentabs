@@ -15,8 +15,8 @@ import {
   getConfigDir,
   getConfigPath,
   isValidPluginPackageName,
-  isWindows,
   normalizePluginName,
+  npmSpawnOpts,
   PLATFORM_PACKAGES,
   pluginNameFromPackage,
   resolvePluginPackageCandidates,
@@ -71,7 +71,7 @@ const spawnAsync = (
   args: string[],
 ): { promise: Promise<{ exitCode: number; stdout: string; stderr: string }>; kill: () => void } => {
   // On Windows, npm/npx are .cmd batch wrappers that require shell to execute.
-  const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], shell: isWindows() });
+  const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...npmSpawnOpts() });
   const stdoutChunks: Buffer[] = [];
   const stderrChunks: Buffer[] = [];
   let totalBytes = 0;

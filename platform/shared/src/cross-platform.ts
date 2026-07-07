@@ -25,7 +25,7 @@ export const isWindows = (): boolean => process.platform === 'win32';
  * @deprecated Use `npmSpawnOpts()` for npm/npx, or `process.execPath` for
  * node. This function appends `.cmd` on Windows but `spawn()` cannot execute
  * `.cmd` files without `shell: true`, so callers must also pass `shell: true`
- * to avoid `EINVAL`. Prefer the dedicated helpers instead.
+ * to avoid `EINVAL`. Prefer the dedicated helper instead.
  */
 export const platformExec = (cmd: string): string => {
   if (!isWindows()) return cmd;
@@ -40,12 +40,16 @@ export const platformExec = (cmd: string): string => {
 };
 
 /**
- * Returns spawn options for running npm/npx on all platforms.
+ * Returns spawn options shared by every child process on all platforms.
  *
  * On Windows, npm and npx are `.cmd` batch wrappers that require `cmd.exe`
  * to execute. `spawn('npm.cmd', ...)` without `shell: true` fails with
- * `EINVAL`. This helper returns `{ shell: true }` on Windows so callers
- * can spread it into their spawn options.
+ * `EINVAL`, so `shell` is enabled on Windows.
+ *
+ * `windowsHide: true` prevents each child from opening its own visible
+ * console window on Windows — without it, spawning one process per installed
+ * plugin (e.g. the boot-time `npm view` update checks) flashes a burst of
+ * console windows. The option is ignored on non-Windows platforms.
  *
  * Usage:
  * ```ts
@@ -53,8 +57,9 @@ export const platformExec = (cmd: string): string => {
  * spawnSync('npm', ['view', pkg, 'version'], { ...npmSpawnOpts(), stdio: 'pipe' });
  * ```
  */
-export const npmSpawnOpts = (): { shell: boolean } => ({
+export const npmSpawnOpts = (): { shell: boolean; windowsHide: boolean } => ({
   shell: isWindows(),
+  windowsHide: true,
 });
 
 // ---------------------------------------------------------------------------

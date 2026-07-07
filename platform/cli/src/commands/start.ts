@@ -61,6 +61,7 @@ const spawnStreaming = (
     cwd: opts?.cwd,
     env: opts?.env,
     stdio: [opts?.stdin ?? 'inherit', 'pipe', 'pipe'],
+    windowsHide: true,
   });
   const toReadableStream = (readable: Readable | null): ReadableStream<Uint8Array> => {
     if (!readable)
@@ -504,6 +505,7 @@ const handleStart = async (options: StartOptions): Promise<void> => {
       env: env,
       stdio: ['ignore', logStream, logStream],
       detached: true,
+      windowsHide: true,
     });
     child.unref();
 

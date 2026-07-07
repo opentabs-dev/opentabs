@@ -28,6 +28,7 @@ export { isTabGroupColor, TAB_GROUP_COLORS, type TabGroupColor } from './tab-gro
 export {
   atomicWrite,
   isWindows,
+  npmSpawnOpts,
   platformExec,
   safeChmod,
   sanitizeEnv,

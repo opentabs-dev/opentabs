@@ -9,7 +9,7 @@
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isWindows, toErrorMessage } from '@opentabs-dev/shared';
+import { npmSpawnOpts, toErrorMessage } from '@opentabs-dev/shared';
 import { log } from './logger.js';
 import type { OutdatedPlugin, ServerState } from './state.js';
 import { getSessionId, trackEvent } from './telemetry.js';
@@ -34,7 +34,7 @@ export const fetchLatestVersion = async (packageName: string): Promise<string | 
   try {
     const child = spawn('npm', ['view', packageName, 'version'], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: isWindows(),
+      ...npmSpawnOpts(),
     });
 
     const stdoutChunks: Buffer[] = [];

@@ -21,7 +21,7 @@ import type {
   TabSyncAllParams,
   ToolPermission,
 } from '@opentabs-dev/shared';
-import { DEFAULT_PORT, isWindows } from '@opentabs-dev/shared';
+import { DEFAULT_PORT, isWindows, npmSpawnOpts } from '@opentabs-dev/shared';
 import open from 'open';
 import { getExtensionDir } from './config.js';
 import { isDev } from './dev-mode.js';
@@ -1157,7 +1157,7 @@ const handleServerSelfUpdate = async (state: ServerState, id: string | number): 
 
   const result = spawnSync('npm', ['install', '-g', `${CLI_PACKAGE_NAME}@${latestVersion}`], {
     stdio: isDev() ? 'inherit' : 'ignore',
-    shell: isWindows(),
+    ...npmSpawnOpts(),
   });
   if (result.error || (result.status ?? 1) !== 0) {
     sendToExtension(state, {
@@ -1186,7 +1186,12 @@ const handleServerSelfUpdate = async (state: ServerState, id: string | number): 
   const startArgs = ['start', '--background'];
   if (port !== DEFAULT_PORT) startArgs.push('--port', String(port));
 
-  const child = spawn('opentabs', startArgs, { detached: true, stdio: 'ignore', shell: isWindows() });
+  const child = spawn('opentabs', startArgs, {
+    detached: true,
+    stdio: 'ignore',
+    shell: isWindows(),
+    windowsHide: true,
+  });
   child.unref();
 
   setTimeout(() => process.exit(0), 200);

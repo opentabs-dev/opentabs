@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { atomicWrite } from './cross-platform.js';
+import { atomicWrite, isWindows, npmSpawnOpts } from './cross-platform.js';
 
 describe('atomicWrite', () => {
   let tempDir: string;
@@ -46,5 +46,17 @@ describe('atomicWrite', () => {
     expect(() => {
       JSON.parse(result);
     }).not.toThrow();
+  });
+});
+
+describe('npmSpawnOpts', () => {
+  test('always sets windowsHide to suppress console flash', () => {
+    // windowsHide prevents each spawned child from opening its own visible
+    // console window on Windows; it is ignored on other platforms.
+    expect(npmSpawnOpts().windowsHide).toBe(true);
+  });
+
+  test('enables shell only on Windows for .cmd resolution', () => {
+    expect(npmSpawnOpts().shell).toBe(isWindows());
   });
 });
