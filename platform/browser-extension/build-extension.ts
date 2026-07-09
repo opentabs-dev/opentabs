@@ -48,6 +48,11 @@ execSync('npx tsc --build', { cwd: base, stdio: 'inherit' });
 
 const isDev = process.env.OPENTABS_DEV === '1';
 
+// Build target: 'chrome' (default) or 'firefox'. Inlined into the bundle via an
+// esbuild `define` so the transport layer can dead-code-eliminate the unused
+// platform path. The default leaves Chrome output byte-for-byte unchanged.
+const target = process.env.OPENTABS_TARGET === 'firefox' ? 'firefox' : 'chrome';
+
 // In dev mode, prepend the dev reload WebSocket client to the background bundle.
 // The client connects to the relay server and triggers chrome.runtime.reload()
 // on DO_UPDATE signals with id 'extension'. The banner is injected as raw text
@@ -100,10 +105,20 @@ for (const { entrypoint, outfile, label } of entries) {
       bundle: true,
       platform: 'browser',
       format: 'esm',
-      minify: false,
+      // Keep Chrome output readable/unchanged; minify only Firefox so the build-time
+      // target gate removes Chrome-only dead branches before AMO/Firefox sees them.
+      minify: target === 'firefox',
+      // Firefox relies on build-time target gates to exclude Chrome-only APIs
+      // such as chrome.offscreen from the background bundle. minifySyntax folds
+      // those constant branches without changing the default Chrome output.
+      minifySyntax: target === 'firefox',
       // Write directly to the exact output path, overwriting the tsc-produced file.
       allowOverwrite: true,
       banner,
+      define: {
+        __OPENTABS_TARGET__: JSON.stringify(target),
+        __OPENTABS_IS_FIREFOX__: JSON.stringify(target === 'firefox'),
+      },
       plugins: [stubNodeBuiltins],
     });
 
