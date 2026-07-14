@@ -35,6 +35,9 @@ export const fetchLatestVersion = async (packageName: string): Promise<string | 
     const child = spawn('npm', ['view', packageName, 'version'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: isWindows(),
+      // On Windows, shell: true launches cmd.exe, which flashes a console
+      // window when the parent has none. Hide it — this runs on a timer.
+      windowsHide: true,
     });
 
     const stdoutChunks: Buffer[] = [];
