@@ -47,7 +47,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "happy-dom": "^20.10.3",
-    "lucide-react": "^1.18.0"
+    "happy-dom": "^20.10.6",
+    "lucide-react": "^1.25.0"
   }
 }
