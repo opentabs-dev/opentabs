@@ -47,9 +47,11 @@ export const initSidePanelToggle = (): void => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
 
   // Chrome 141+ — track open/close state per window for toggle behavior.
-  // On older Chrome (114–140), these APIs are undefined; openWindows stays
-  // empty and the action click always opens the side panel.
-  const canToggle = 'onOpened' in chrome.sidePanel;
+  // Every member the toggle branch relies on is probed individually: Chrome 150
+  // ships onOpened without onClosed, so checking only onOpened throws at the
+  // top level and kills service worker registration. When any member is
+  // missing, openWindows stays empty and the action click always opens.
+  const canToggle = 'onOpened' in chrome.sidePanel && 'onClosed' in chrome.sidePanel && 'close' in chrome.sidePanel;
 
   if (canToggle) {
     // Restore persisted open-window state so the toggle works correctly after
