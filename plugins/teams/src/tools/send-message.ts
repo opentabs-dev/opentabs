@@ -1,18 +1,20 @@
 import { defineTool } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
+import { MARKDOWN_FORMATTING_HELP, markdownToTeamsHtml } from '../markdown-html.js';
 import { chatApi } from '../teams-api.js';
 
 export const sendMessage = defineTool({
   name: 'send_message',
   displayName: 'Send Message',
   description:
-    'Send a message to a Teams chat conversation. Use the conversation ID from list_conversations or create_chat.',
+    'Send a message to a Teams chat conversation. Use the conversation ID from list_conversations or create_chat. ' +
+    MARKDOWN_FORMATTING_HELP,
   summary: 'Send a message to a chat',
   icon: 'send',
   group: 'Messages',
   input: z.object({
     conversation_id: z.string().min(1).describe('Conversation/thread ID to send the message to'),
-    text: z.string().min(1).describe('Message text to send (supports HTML formatting)'),
+    text: z.string().min(1).describe('Message text in Markdown'),
   }),
   output: z.object({
     message_id: z.string().describe('Server-assigned message ID (arrival timestamp)'),
@@ -25,7 +27,7 @@ export const sendMessage = defineTool({
       {
         method: 'POST',
         body: {
-          content: params.text,
+          content: markdownToTeamsHtml(params.text),
           messagetype: 'RichText/Html',
           contenttype: 'text',
           clientmessageid: clientMsgId,
