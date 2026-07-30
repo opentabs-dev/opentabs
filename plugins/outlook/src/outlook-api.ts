@@ -350,6 +350,52 @@ const sendRequest = async <T>(
   return (isOutlookApi ? normalizeKeys(json) : json) as T;
 };
 
+/** The outcome of one cascade attempt: `done` stops and caches the token; otherwise advance. */
+type CascadeAttempt<R> = { done: true; value: R } | { done: false };
+
+/**
+ * Try `attempt` with each auth candidate for a capability's cache slot: the cached
+ * winner first, then every other MSAL candidate, caching whichever token the attempt
+ * accepts. `attempt` returns `{ done: true, value }` to stop (caching that token), or
+ * `{ done: false }` to advance to the next candidate (as on a 401/403). Throws an auth
+ * error when no candidate is accepted. This is the shared spine of every authenticated
+ * transport (`api`, `owsRequest`, `attachFileToMessage`) — each differs only in how it
+ * maps a response to a done/advance outcome.
+ */
+const cascadeAuth = async <R>(
+  cacheKey: string,
+  attempt: (auth: OutlookAuth) => Promise<CascadeAttempt<R>>,
+): Promise<R> => {
+  const cached = getAuthCache<OutlookAuth>(cacheKey);
+  if (cached) {
+    const outcome = await attempt(cached);
+    // The cached token is already stored — return without re-caching it.
+    if (outcome.done) return outcome.value;
+    clearAuthCache(cacheKey);
+  }
+
+  const candidates = collectAuthCandidates();
+  // Skip the cached candidate we just tried — it 401'd, no point retrying it.
+  const remaining = cached ? candidates.filter(c => c.token !== cached.token) : candidates;
+  if (remaining.length === 0) {
+    throw ToolError.auth(
+      cached
+        ? 'Authentication expired — please refresh the Outlook page.'
+        : 'Not authenticated — please sign in to Microsoft 365.',
+    );
+  }
+
+  for (const auth of remaining) {
+    const outcome = await attempt(auth);
+    if (outcome.done) {
+      setAuthCache(cacheKey, auth);
+      return outcome.value;
+    }
+  }
+
+  throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
+};
+
 /**
  * Make an authenticated request to a Microsoft 365 API for the given capability,
  * cascading through every MSAL-cached candidate on 401/403 (the capability's cached
@@ -368,37 +414,11 @@ export const api = async <T>(
     headers?: Record<string, string>;
   } = {},
   capability: Capability = 'mail',
-): Promise<T> => {
-  const cacheKey = AUTH_CACHE_KEY[capability];
-
-  const cached = getAuthCache<OutlookAuth>(cacheKey);
-  if (cached) {
-    const r = await sendRequest<T>(cached, endpoint, options);
-    if (r !== null) return r;
-    clearAuthCache(cacheKey);
-  }
-
-  const candidates = collectAuthCandidates();
-  // Skip the cached candidate we just tried — it 401'd, no point retrying it.
-  const remaining = cached ? candidates.filter(c => c.token !== cached.token) : candidates;
-  if (remaining.length === 0) {
-    throw ToolError.auth(
-      cached
-        ? 'Authentication expired — please refresh the Outlook page.'
-        : 'Not authenticated — please sign in to Microsoft 365.',
-    );
-  }
-
-  for (const auth of remaining) {
+): Promise<T> =>
+  cascadeAuth<T>(AUTH_CACHE_KEY[capability], async auth => {
     const r = await sendRequest<T>(auth, endpoint, options);
-    if (r !== null) {
-      setAuthCache(cacheKey, auth);
-      return r;
-    }
-  }
-
-  throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
-};
+    return r === null ? { done: false } : { done: true, value: r };
+  });
 
 // OWS gateway lives on the OWA page's own origin — a third base distinct from Graph
 // and Outlook REST. It serves the client-side compose settings (roaming signatures,
@@ -539,39 +559,243 @@ const sendOwsRequest = async <T>(
  * treat a missing signature as "none configured" rather than an error. Throws only
  * when no candidate authenticates at all.
  */
-export const owsRequest = async <T>(endpoint: string, options: OwsRequestOptions = {}): Promise<T | undefined> => {
-  const cached = getAuthCache<OutlookAuth>(OWS_AUTH_CACHE_KEY);
-  if (cached) {
-    const outcome = await sendOwsRequest<T>(cached.token, endpoint, options);
-    if (outcome.kind === 'ok') return outcome.data;
-    if (outcome.kind === 'notFound') return undefined;
-    clearAuthCache(OWS_AUTH_CACHE_KEY);
-  }
-
-  const candidates = collectAuthCandidates();
-  const remaining = cached ? candidates.filter(c => c.token !== cached.token) : candidates;
-  if (remaining.length === 0) {
-    throw ToolError.auth(
-      cached
-        ? 'Authentication expired — please refresh the Outlook page.'
-        : 'Not authenticated — please sign in to Microsoft 365.',
-    );
-  }
-
-  for (const auth of remaining) {
+export const owsRequest = async <T>(endpoint: string, options: OwsRequestOptions = {}): Promise<T | undefined> =>
+  cascadeAuth<T | undefined>(OWS_AUTH_CACHE_KEY, async auth => {
     const outcome = await sendOwsRequest<T>(auth.token, endpoint, options);
-    if (outcome.kind === 'ok') {
-      setAuthCache(OWS_AUTH_CACHE_KEY, auth);
-      return outcome.data;
-    }
+    if (outcome.kind === 'ok') return { done: true, value: outcome.data };
     // A 404 means this token authenticated (the gateway resolved its mailbox) and the
     // setting is simply absent — a valid winner to cache, so a genuinely-missing
     // signature does not re-cascade through every token on each subsequent call.
-    if (outcome.kind === 'notFound') {
-      setAuthCache(OWS_AUTH_CACHE_KEY, auth);
-      return undefined;
+    if (outcome.kind === 'notFound') return { done: true, value: undefined };
+    return { done: false };
+  });
+
+/** Graph vs Outlook REST namespaces for the fileAttachment OData type. */
+const FILE_ATTACHMENT_ODATA_TYPE: Record<'graph' | 'outlook', string> = {
+  graph: '#microsoft.graph.fileAttachment',
+  outlook: '#Microsoft.OutlookServices.FileAttachment',
+};
+
+/** A file to embed in a message as a copy of its bytes. */
+export interface FileAttachmentInput {
+  /** File name including extension, e.g. "report.pdf". */
+  name: string;
+  /** MIME type; defaults to application/octet-stream. */
+  contentType?: string;
+  /** Base64-encoded file content, with no data: URI prefix. */
+  contentBase64: string;
+}
+
+/**
+ * Embed a file in an existing draft as a `fileAttachment`. Reuses the `mail` cache
+ * slot so the attach lands on the same token — and therefore the same API base and
+ * message-id namespace — that created the draft (a draft id minted on Graph is not
+ * valid on Outlook REST, and vice versa). The attachment body is built per base: the
+ * two APIs disagree on the OData type namespace, and `sendRequest` PascalCases the
+ * property keys for the Outlook REST base while leaving Graph's camelCase untouched.
+ */
+export const attachFileToMessage = async (messageId: string, attachment: FileAttachmentInput): Promise<void> =>
+  cascadeAuth<void>(AUTH_CACHE_KEY.mail, async auth => {
+    const namespace = auth.apiBase === GRAPH_API_BASE ? 'graph' : 'outlook';
+    const body = {
+      '@odata.type': FILE_ATTACHMENT_ODATA_TYPE[namespace],
+      name: attachment.name,
+      contentType: attachment.contentType ?? 'application/octet-stream',
+      contentBytes: attachment.contentBase64,
+    };
+    const r = await sendRequest<unknown>(auth, `/me/messages/${messageId}/attachments`, { method: 'POST', body });
+    return r === null ? { done: false } : { done: true, value: undefined };
+  });
+
+/**
+ * Graph vs Outlook REST namespaces and enum casing for the referenceAttachment OData
+ * type. Graph spells the enums camelCase; Outlook REST spells them PascalCase. Only
+ * the property keys are transformed by `sendRequest` — the string enum *values* are
+ * set here per base.
+ */
+const REFERENCE_ATTACHMENT: Record<'graph' | 'outlook', { type: string; providerType: string; permission: string }> = {
+  graph: { type: '#microsoft.graph.referenceAttachment', providerType: 'oneDriveBusiness', permission: 'view' },
+  outlook: {
+    type: '#Microsoft.OutlookServices.ReferenceAttachment',
+    providerType: 'OneDriveBusiness',
+    permission: 'View',
+  },
+};
+
+/** A file already in OneDrive, attached to a message as a sharing link. */
+export interface ReferenceAttachmentInput {
+  /** File name including extension, e.g. "report.pdf". */
+  name: string;
+  /** The OneDrive sharing-link URL recipients open the file from. */
+  sourceUrl: string;
+}
+
+/**
+ * Attach a OneDrive file to a draft as a `referenceAttachment` (a sharing link rather
+ * than an embedded copy). Reuses the `mail` cache slot for the same base/message-id
+ * reasons as {@link attachFileToMessage}, and builds the body per base.
+ */
+export const attachReferenceToMessage = async (
+  messageId: string,
+  attachment: ReferenceAttachmentInput,
+): Promise<void> =>
+  cascadeAuth<void>(AUTH_CACHE_KEY.mail, async auth => {
+    const meta = REFERENCE_ATTACHMENT[auth.apiBase === GRAPH_API_BASE ? 'graph' : 'outlook'];
+    const body = {
+      '@odata.type': meta.type,
+      name: attachment.name,
+      sourceUrl: attachment.sourceUrl,
+      providerType: meta.providerType,
+      permission: meta.permission,
+      isFolder: false,
+    };
+    const r = await sendRequest<unknown>(auth, `/me/messages/${messageId}/attachments`, { method: 'POST', body });
+    return r === null ? { done: false } : { done: true, value: undefined };
+  });
+
+/** Wrap a fetch rejection as a structured, retryable network error. */
+const toNetworkError = (err: unknown): ToolError => {
+  if (err instanceof DOMException && err.name === 'TimeoutError') {
+    return ToolError.timeout('Microsoft API request timed out.');
+  }
+  return new ToolError(`Network error: ${err instanceof Error ? err.message : 'unknown'}`, 'network_error', {
+    category: 'internal',
+    retryable: true,
+  });
+};
+
+/**
+ * Cloud attachments need Drive write scope, which mail tokens do not carry, so they
+ * cascade in their own cache slot restricted to Graph tokens — the only base that can
+ * reach `/me/drive`. A mail-scoped Graph token 401/403s and the cascade advances; if
+ * no candidate carries Files scope, the caller sees a clean auth error.
+ */
+const FILES_AUTH_CACHE_KEY = 'outlook-files';
+
+/** The OneDrive folder cloud attachments are uploaded to, mirroring OWA's compose. */
+const ONEDRIVE_ATTACHMENTS_FOLDER = 'Attachments';
+
+/**
+ * Upload a file to the user's OneDrive and return an organization-scoped view link for
+ * it — the source URL a `referenceAttachment` points at. Uploading and link creation
+ * share one Graph Files-scoped token, discovered by cascading only through Graph
+ * candidates (a Drive call is meaningless against the Outlook REST base). A single PUT
+ * to `/content` handles files up to Graph's simple-upload ceiling (250 MB), so cloud
+ * attachments carry the large files embedding cannot.
+ */
+export const uploadAttachmentToOneDrive = async (
+  name: string,
+  bytes: Uint8Array<ArrayBuffer>,
+  contentType: string,
+): Promise<string> =>
+  cascadeAuth<string>(FILES_AUTH_CACHE_KEY, async auth => {
+    if (auth.apiBase !== GRAPH_API_BASE) return { done: false };
+    const authHeader = { Authorization: `Bearer ${auth.token}` };
+    const encodedPath = `${encodeURIComponent(ONEDRIVE_ATTACHMENTS_FOLDER)}/${encodeURIComponent(name)}`;
+
+    let uploadRes: Response;
+    try {
+      uploadRes = await fetch(`${GRAPH_API_BASE}/me/drive/root:/${encodedPath}:/content`, {
+        method: 'PUT',
+        headers: { ...authHeader, 'Content-Type': contentType },
+        body: new Blob([bytes]),
+        credentials: 'omit',
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch (err) {
+      throw toNetworkError(err);
+    }
+    if (uploadRes.status === 401 || uploadRes.status === 403) return { done: false };
+    if (!uploadRes.ok) throw ToolError.internal(`OneDrive upload failed (${uploadRes.status}).`);
+    const item = (await uploadRes.json()) as { id?: string };
+    if (!item.id) throw ToolError.internal('OneDrive upload returned no item id.');
+
+    let linkRes: Response;
+    try {
+      linkRes = await fetch(`${GRAPH_API_BASE}/me/drive/items/${item.id}/createLink`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'view', scope: 'organization' }),
+        credentials: 'omit',
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err) {
+      throw toNetworkError(err);
+    }
+    if (linkRes.status === 401 || linkRes.status === 403) return { done: false };
+    if (!linkRes.ok) throw ToolError.internal(`OneDrive share-link creation failed (${linkRes.status}).`);
+    const link = (await linkRes.json()) as { link?: { webUrl?: string } };
+    const webUrl = link.link?.webUrl;
+    if (!webUrl) throw ToolError.internal('OneDrive share-link response contained no URL.');
+    return { done: true, value: webUrl };
+  });
+
+/**
+ * Upload-session chunk size. Microsoft requires every chunk but the last to be a
+ * multiple of 320 KiB; this is 10 × 320 KiB (3.125 MiB), comfortably under the 4 MiB
+ * per-request ceiling.
+ */
+const UPLOAD_SESSION_CHUNK_BYTES = 320 * 1024 * 10;
+
+/** A file whose bytes are streamed to a draft, for embeds too large to inline. */
+export interface LargeFileAttachmentInput {
+  /** File name including extension, e.g. "report.pdf". */
+  name: string;
+  /** MIME type; defaults to application/octet-stream. */
+  contentType?: string;
+  /** Raw file bytes. */
+  bytes: Uint8Array<ArrayBuffer>;
+}
+
+/**
+ * Embed a file too large for a single inline request (over ~3 MB) by opening a Graph
+ * attachment upload session and streaming the bytes to it in sequential chunks. The
+ * session is opened on the draft's mail token/base — the same base/message-id
+ * reasoning as {@link attachFileToMessage} — while the returned `uploadUrl` is
+ * pre-authorized, so the chunk PUTs carry no bearer token. The final chunk's response
+ * commits the attachment.
+ */
+export const attachLargeFileToMessage = async (messageId: string, file: LargeFileAttachmentInput): Promise<void> => {
+  const contentType = file.contentType ?? 'application/octet-stream';
+  const total = file.bytes.byteLength;
+
+  const session = await cascadeAuth<{ uploadUrl?: string }>(AUTH_CACHE_KEY.mail, async auth => {
+    // createUploadSession exists only on Graph (Outlook REST v2.0 is decommissioned),
+    // so skip any Outlook REST candidate rather than let it throw and abort the cascade.
+    if (auth.apiBase !== GRAPH_API_BASE) return { done: false };
+    const body = { AttachmentItem: { attachmentType: 'file', name: file.name, size: total, contentType } };
+    const r = await sendRequest<{ uploadUrl?: string }>(
+      auth,
+      `/me/messages/${messageId}/attachments/createUploadSession`,
+      { method: 'POST', body },
+    );
+    return r === null ? { done: false } : { done: true, value: r };
+  });
+
+  const uploadUrl = session.uploadUrl;
+  if (!uploadUrl) throw ToolError.internal('Attachment upload session returned no upload URL.');
+
+  // The uploadUrl is pre-authorized; chunks must be sent in order. Content-Length is a
+  // forbidden header the browser sets itself, so only Content-Range is set here.
+  for (let start = 0; start < total; start += UPLOAD_SESSION_CHUNK_BYTES) {
+    const end = Math.min(start + UPLOAD_SESSION_CHUNK_BYTES, total);
+    const chunk = file.bytes.subarray(start, end);
+
+    let res: Response;
+    try {
+      res = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Range': `bytes ${start}-${end - 1}/${total}` },
+        body: new Blob([chunk]),
+        credentials: 'omit',
+        signal: AbortSignal.timeout(120_000),
+      });
+    } catch (err) {
+      throw toNetworkError(err);
+    }
+    // 200 accepts an intermediate chunk; 201 commits the attachment on the final chunk.
+    if (res.status !== 200 && res.status !== 201) {
+      throw ToolError.internal(`Attachment chunk upload failed (${res.status}).`);
     }
   }
-
-  throw ToolError.auth('Authentication expired — please refresh the Outlook page.');
 };

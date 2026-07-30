@@ -1,5 +1,6 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
+import { attachToDraft, attachmentInputSchema } from '../attachments.js';
 import { composeToolBody } from '../compose-defaults.js';
 import { api } from '../outlook-api.js';
 
@@ -17,6 +18,7 @@ export const forwardMessage = defineTool({
     comment: z.string().optional().describe('Optional comment to include above the forwarded message'),
     draft: z.boolean().optional().describe('Save as a draft instead of sending immediately (default: false)'),
     include_signature: z.boolean().optional().describe("Append the user's signature (default: true)"),
+    attachments: z.array(attachmentInputSchema).optional().describe('Additional files to attach to the forward'),
   }),
   output: z.object({
     success: z.boolean().describe('Whether the operation completed'),
@@ -48,6 +50,7 @@ export const forwardMessage = defineTool({
         method: 'PATCH',
         body: { body: { contentType: 'HTML', content: `${composed.content}${quoted}` } },
       });
+      await attachToDraft(draftId, params.attachments);
     };
 
     // Compose the comment onto the created draft. Any failure here means nothing was

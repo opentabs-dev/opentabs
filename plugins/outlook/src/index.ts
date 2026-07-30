@@ -1,6 +1,7 @@
 import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './outlook-api.js';
+import { addAttachment } from './tools/add-attachment.js';
 import { createDraft } from './tools/create-draft.js';
 import { createEvent } from './tools/create-event.js';
 import { deleteEvent } from './tools/delete-event.js';
@@ -55,6 +56,7 @@ class OutlookPlugin extends OpenTabsPlugin {
     listAttachments,
     getAttachmentContent,
     downloadAttachment,
+    addAttachment,
     // Folders
     listFolders,
     // Calendar

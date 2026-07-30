@@ -1,5 +1,6 @@
 import { defineTool, ToolError } from '@opentabs-dev/plugin-sdk';
 import { z } from 'zod';
+import { attachToDraft, attachmentInputSchema } from '../attachments.js';
 import { composeToolBody } from '../compose-defaults.js';
 import { api } from '../outlook-api.js';
 
@@ -21,6 +22,7 @@ export const replyToMessage = defineTool({
     reply_all: z.boolean().optional().describe('Reply to all recipients (default: false)'),
     draft: z.boolean().optional().describe('Save as a threaded draft instead of sending immediately (default: false)'),
     include_signature: z.boolean().optional().describe("Append the user's reply signature (default: true)"),
+    attachments: z.array(attachmentInputSchema).optional().describe('Files to attach to the reply'),
   }),
   output: z.object({
     success: z.boolean().describe('Whether the operation completed'),
@@ -50,6 +52,7 @@ export const replyToMessage = defineTool({
         method: 'PATCH',
         body: { body: { contentType: 'HTML', content: `${composed.content}${quoted}` } },
       });
+      await attachToDraft(draftId, params.attachments);
     };
 
     // Compose the reply onto the created draft. Any failure here means nothing was
