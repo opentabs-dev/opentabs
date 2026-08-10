@@ -33,7 +33,7 @@ export const searchPlaces = async (
     q: query,
   });
 
-  const pb = `!4m8!1m3!1d${radius}!2d${lng}!3d${lat}!3m2!1i1024!2i768!4f13.1!7i${maxResults}`;
+  const pb = `!4m8!1m3!1d${radius}!2d${lng}!3d${lat}!3m2!1i1024!2i768!4f13.1!7i${maxResults}!10b1!12m58!1m5!18b1!30b1!31m1!1b1!34e1!2m4!5m1!6e2!20e3!39b1!6m31!32i1!49b1!63m0!66b1!85b1!114b1!149b1!206b1!209b1!212b1!215b1!216b1!222b1!223b1!232b1!234b1!235b1!239b1!246b1!253b1!260b1!266b1!270b1!273b1!280b1!281b1!286b1!291m0!294b1!302i300!303i100!10b1!12b1!13b1!14b1`;
   params.set('pb', pb);
 
   const response = await fetchFromPage(`/search?${params.toString()}`);
