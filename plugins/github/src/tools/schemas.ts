@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { RawDevelopmentPullRequest } from '../development-pull-requests.js';
 
 // --- Shared schemas ---
 
@@ -45,6 +46,17 @@ export const relatedIssueSchema = z.object({
   html_url: z.string().describe('URL to the related issue on GitHub'),
 });
 
+export const developmentPullRequestSchema = z.object({
+  node_id: z.string().describe('GitHub GraphQL node ID of the linked pull request'),
+  owner: z.string().describe('Owner of the linked pull request repository'),
+  repo: z.string().describe('Name of the linked pull request repository'),
+  number: z.number().int().describe('Repository-scoped pull request number'),
+  title: z.string().describe('Title of the linked pull request'),
+  state: z.enum(['open', 'closed', 'merged']).describe('State of the linked pull request'),
+  draft: z.boolean().describe('Whether the linked pull request is a draft'),
+  html_url: z.string().describe('URL to the linked pull request on GitHub'),
+});
+
 export const issueRelationLocatorInputSchema = z.object({
   owner: z.string().min(1).describe('Owner of the source issue repository (user or organization)'),
   repo: z.string().min(1).describe('Name of the source issue repository'),
@@ -63,6 +75,20 @@ export const issueRelationMutationInputSchema = issueRelationLocatorInputSchema.
     .optional()
     .describe('Name of the related issue repository (defaults to the source repository)'),
   related_issue_number: z.number().int().min(1).describe('Repository-scoped number of the related issue'),
+});
+
+export const developmentPullRequestMutationInputSchema = issueRelationLocatorInputSchema.extend({
+  pull_request_owner: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Owner of the pull request repository (defaults to the issue owner)'),
+  pull_request_repo: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Name of the pull request repository (defaults to the issue repository)'),
+  pull_request_number: z.number().int().min(1).describe('Repository-scoped number of the pull request'),
 });
 
 export const pullRequestSchema = z.object({
@@ -269,6 +295,29 @@ export const mapRelatedIssue = (issue: RawRelatedIssue) => {
     state,
     state_reason: issue.stateReason ?? '',
     html_url: issue.url ?? '',
+  };
+};
+
+export const mapDevelopmentPullRequest = (pullRequest: RawDevelopmentPullRequest) => {
+  const [fullNameOwner = '', fullNameRepo = ''] = (pullRequest.repository?.nameWithOwner ?? '').split('/', 2);
+  const owner = pullRequest.repository?.owner?.login ?? fullNameOwner;
+  const repo = pullRequest.repository?.name ?? fullNameRepo;
+  const number = pullRequest.number ?? 0;
+  const state: 'open' | 'closed' | 'merged' = pullRequest.merged
+    ? 'merged'
+    : pullRequest.closed || pullRequest.state === 'CLOSED'
+      ? 'closed'
+      : 'open';
+
+  return {
+    node_id: pullRequest.id ?? '',
+    owner,
+    repo,
+    number,
+    title: pullRequest.title ?? '',
+    state,
+    draft: pullRequest.isDraft ?? false,
+    html_url: pullRequest.url ?? `https://github.com/${owner}/${repo}/pull/${number}`,
   };
 };
 

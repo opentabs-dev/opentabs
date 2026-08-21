@@ -19,7 +19,7 @@ npm install -g @opentabs-dev/opentabs-plugin-github
 1. Open [github.com](https://github.com) in Chrome and log in
 2. Open the OpenTabs side panel — the GitHub plugin should appear as **ready**
 
-## Tools (38)
+## Tools (41)
 
 ### Repositories (11)
 
@@ -37,7 +37,7 @@ npm install -g @opentabs-dev/opentabs-plugin-github
 | `create_or_update_file` | Create or update a file in a repository | Write |
 | `delete_file` | Delete a file from a repository | Write |
 
-### Issues (10)
+### Issues (13)
 
 | Tool | Description | Type |
 |---|---|---|
@@ -51,6 +51,9 @@ npm install -g @opentabs-dev/opentabs-plugin-github
 | `list_related_issues` | List native Relates to issue relationships | Read |
 | `add_related_issue` | Add a native Relates to issue relationship | Write |
 | `remove_related_issue` | Remove a native Relates to issue relationship | Write |
+| `list_development_pull_requests` | List native Development pull request links | Read |
+| `link_development_pull_request` | Link a native Development pull request | Write |
+| `unlink_development_pull_request` | Unlink a native Development pull request | Write |
 
 ### Pull Requests (8)
 

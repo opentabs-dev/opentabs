@@ -22,6 +22,7 @@ import { getWorkflowRun } from './tools/get-workflow-run.js';
 import { listBranches } from './tools/list-branches.js';
 import { listComments } from './tools/list-comments.js';
 import { listCommits } from './tools/list-commits.js';
+import { listDevelopmentPullRequests } from './tools/list-development-pull-requests.js';
 import { listIssues } from './tools/list-issues.js';
 import { listLabels } from './tools/list-labels.js';
 import { listNotifications } from './tools/list-notifications.js';
@@ -32,6 +33,7 @@ import { listReleases } from './tools/list-releases.js';
 import { listRelatedIssues } from './tools/list-related-issues.js';
 import { listRepos } from './tools/list-repos.js';
 import { listWorkflowRuns } from './tools/list-workflow-runs.js';
+import { linkDevelopmentPullRequest } from './tools/link-development-pull-request.js';
 import { mergePullRequest } from './tools/merge-pull-request.js';
 import { requestPullRequestReview } from './tools/request-pull-request-review.js';
 import { removeRelatedIssue } from './tools/remove-related-issue.js';
@@ -39,6 +41,7 @@ import { searchIssues } from './tools/search-issues.js';
 import { searchRepos } from './tools/search-repos.js';
 import { updateIssue } from './tools/update-issue.js';
 import { updatePullRequest } from './tools/update-pull-request.js';
+import { unlinkDevelopmentPullRequest } from './tools/unlink-development-pull-request.js';
 
 class GitHubPlugin extends OpenTabsPlugin {
   readonly name = 'github';
@@ -66,6 +69,9 @@ class GitHubPlugin extends OpenTabsPlugin {
     listRelatedIssues,
     addRelatedIssue,
     removeRelatedIssue,
+    listDevelopmentPullRequests,
+    linkDevelopmentPullRequest,
+    unlinkDevelopmentPullRequest,
     // Pull Requests
     listPullRequests,
     getPullRequest,

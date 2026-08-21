@@ -136,8 +136,12 @@ export const turboData = async <T>(
 // Cache of operation name → persisted query ID mappings discovered from pages
 // and their statically imported JS asset graph.
 const queryIdCache = new Map<string, string>();
+const endpointQueryIdCache = new Map<string, string>();
 const knownBundleUrls = new Set<string>();
 const scannedBundleUrls = new Set<string>();
+const assetExportIds = new Map<string, Set<string>>();
+const queryIdReferences: Array<{ exportName: string; context: string }> = [];
+let bundleDiscoveryQueue: Promise<void> = Promise.resolve();
 
 const cacheOperationsAndImports = (code: string, bundleUrl: string): void => {
   const operationPattern = /name:"([^"]+)",operationKind:"(?:mutation|query|subscription)"/g;
@@ -149,6 +153,26 @@ const cacheOperationsAndImports = (code: string, bundleUrl: string): void => {
     if (name && id) queryIdCache.set(name, id);
   }
 
+  const assetExportPattern = /(?:^|[,{])([A-Za-z_$][\w$]*):"([a-f0-9]{64})"/g;
+  for (const match of code.matchAll(assetExportPattern)) {
+    const exportName = match[1];
+    const id = match[2];
+    if (!exportName || !id) continue;
+    const ids = assetExportIds.get(exportName) ?? new Set<string>();
+    ids.add(id);
+    assetExportIds.set(exportName, ids);
+  }
+
+  const queryIdReferencePattern = /queryId:([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g;
+  for (const match of code.matchAll(queryIdReferencePattern)) {
+    const exportName = match[2];
+    if (!exportName) continue;
+    queryIdReferences.push({
+      exportName,
+      context: code.substring(Math.max(0, match.index - 500), match.index + 1_000),
+    });
+  }
+
   const importPattern = /(?:from|import)\(?["'](\.\/[^"']+\.js)["']\)?/g;
   for (const match of code.matchAll(importPattern)) {
     const importPath = match[1];
@@ -156,7 +180,7 @@ const cacheOperationsAndImports = (code: string, bundleUrl: string): void => {
   }
 };
 
-const discoverOperationIds = async (operationNames: readonly string[], discoveryPath: string): Promise<void> => {
+const discoverBundlesUntilUnlocked = async (discoveryPath: string, isComplete: () => boolean): Promise<void> => {
   const html = await fetchText(discoveryPath, {
     headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
   });
@@ -166,9 +190,7 @@ const discoverOperationIds = async (operationNames: readonly string[], discovery
     if (url) knownBundleUrls.add(url);
   }
 
-  const hasAllOperations = (): boolean => operationNames.every(name => queryIdCache.has(name));
-
-  while (!hasAllOperations()) {
+  while (!isComplete()) {
     const batch = [...knownBundleUrls].filter(url => !scannedBundleUrls.has(url)).slice(0, 8);
     if (batch.length === 0) break;
 
@@ -190,6 +212,35 @@ const discoverOperationIds = async (operationNames: readonly string[], discovery
   }
 };
 
+const discoverBundlesUntil = (discoveryPath: string, isComplete: () => boolean): Promise<void> => {
+  const discovery = bundleDiscoveryQueue.then(() => discoverBundlesUntilUnlocked(discoveryPath, isComplete));
+  bundleDiscoveryQueue = discovery.catch(() => undefined);
+  return discovery;
+};
+
+const discoverOperationIds = (operationNames: readonly string[], discoveryPath: string): Promise<void> =>
+  discoverBundlesUntil(discoveryPath, () => operationNames.every(name => queryIdCache.has(name)));
+
+const findEndpointQueryId = (endpointMarker: string): string | undefined => {
+  const exportNames = new Set(
+    queryIdReferences
+      .filter(reference => reference.context.includes(endpointMarker))
+      .map(reference => reference.exportName),
+  );
+  if (exportNames.size === 0) return undefined;
+  if (exportNames.size > 1) {
+    throw ToolError.internal(`Multiple query ID exports matched GitHub endpoint ${endpointMarker}`);
+  }
+
+  const exportName = [...exportNames][0];
+  const ids = exportName ? assetExportIds.get(exportName) : undefined;
+  if (!ids || ids.size === 0) return undefined;
+  if (ids.size > 1) {
+    throw ToolError.internal(`Multiple query IDs matched GitHub endpoint ${endpointMarker}`);
+  }
+  return [...ids][0];
+};
+
 export const getOperationId = async (operationName: string, discoveryPath: string): Promise<string> => {
   const cached = queryIdCache.get(operationName);
   if (cached) return cached;
@@ -198,6 +249,19 @@ export const getOperationId = async (operationName: string, discoveryPath: strin
 
   const id = queryIdCache.get(operationName);
   if (!id) throw ToolError.internal(`Operation ${operationName} not found in GitHub JS bundles`);
+  return id;
+};
+
+export const getEndpointQueryId = async (endpointMarker: string, discoveryPath: string): Promise<string> => {
+  const cached = endpointQueryIdCache.get(endpointMarker);
+  if (cached) return cached;
+
+  await discoverBundlesUntil(discoveryPath, () => findEndpointQueryId(endpointMarker) !== undefined);
+
+  const id = findEndpointQueryId(endpointMarker);
+  if (!id)
+    throw ToolError.internal(`Query ID for GitHub endpoint ${endpointMarker} was not found in GitHub JS bundles`);
+  endpointQueryIdCache.set(endpointMarker, id);
   return id;
 };
 
@@ -251,8 +315,11 @@ export const graphql = async <T>(
     if (err?.type === 'unknownQuery') {
       // Persisted query ID expired — clear cache and report
       queryIdCache.clear();
+      endpointQueryIdCache.clear();
       knownBundleUrls.clear();
       scannedBundleUrls.clear();
+      assetExportIds.clear();
+      queryIdReferences.length = 0;
       throw ToolError.internal(
         'GraphQL persisted query expired — GitHub may have deployed a new version. Please retry.',
       );
