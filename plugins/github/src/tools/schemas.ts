@@ -34,6 +34,37 @@ export const issueSchema = z.object({
   is_pull_request: z.boolean().describe('Whether this is a pull request'),
 });
 
+export const relatedIssueSchema = z.object({
+  node_id: z.string().describe('GitHub GraphQL node ID of the related issue'),
+  owner: z.string().describe('Owner of the related issue repository'),
+  repo: z.string().describe('Name of the related issue repository'),
+  number: z.number().int().describe('Repository-scoped number of the related issue'),
+  title: z.string().describe('Title of the related issue'),
+  state: z.enum(['open', 'closed']).describe('State of the related issue'),
+  state_reason: z.string().describe('GitHub state reason, or an empty string when none is set'),
+  html_url: z.string().describe('URL to the related issue on GitHub'),
+});
+
+export const issueRelationLocatorInputSchema = z.object({
+  owner: z.string().min(1).describe('Owner of the source issue repository (user or organization)'),
+  repo: z.string().min(1).describe('Name of the source issue repository'),
+  issue_number: z.number().int().min(1).describe('Repository-scoped number of the source issue'),
+});
+
+export const issueRelationMutationInputSchema = issueRelationLocatorInputSchema.extend({
+  related_owner: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Owner of the related issue repository (defaults to the source owner)'),
+  related_repo: z
+    .string()
+    .min(1)
+    .optional()
+    .describe('Name of the related issue repository (defaults to the source repository)'),
+  related_issue_number: z.number().int().min(1).describe('Repository-scoped number of the related issue'),
+});
+
 export const pullRequestSchema = z.object({
   number: z.number().describe('Pull request number'),
   title: z.string().describe('Pull request title'),
@@ -210,6 +241,36 @@ export interface RawIssueOrPR {
     owner?: { login?: string; __typename?: string };
   };
 }
+
+export interface RawRelatedIssue {
+  id?: string;
+  number?: number;
+  title?: string;
+  state?: string;
+  stateReason?: string | null;
+  url?: string;
+  repository?: {
+    name?: string;
+    nameWithOwner?: string;
+    owner?: { login?: string };
+  };
+}
+
+export const mapRelatedIssue = (issue: RawRelatedIssue) => {
+  const [fullNameOwner = '', fullNameRepo = ''] = (issue.repository?.nameWithOwner ?? '').split('/', 2);
+  const state: 'open' | 'closed' = issue.state === 'CLOSED' ? 'closed' : 'open';
+
+  return {
+    node_id: issue.id ?? '',
+    owner: issue.repository?.owner?.login ?? fullNameOwner,
+    repo: issue.repository?.name ?? fullNameRepo,
+    number: issue.number ?? 0,
+    title: issue.title ?? '',
+    state,
+    state_reason: issue.stateReason ?? '',
+    html_url: issue.url ?? '',
+  };
+};
 
 export const mapIssue = (i: RawIssueOrPR, repoContext?: { owner: string; repo: string }) => {
   const owner = repoContext?.owner ?? i.repository?.owner?.login ?? '';

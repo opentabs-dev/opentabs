@@ -37,26 +37,6 @@ export const getLogin = (): string => {
   return auth.login;
 };
 
-// --- CSRF token ---
-// GitHub requires a CSRF token for /_graphql and form POST mutations.
-// Tokens are form-specific and found in input[name="authenticity_token"] elements.
-
-const getCsrfToken = (): string | null => {
-  // Prefer graphql-specific form token, fall back to any authenticity_token
-  const graphqlInput = document.querySelector<HTMLInputElement>(
-    'form[action*="graphql"] input[name="authenticity_token"]',
-  );
-  if (graphqlInput?.value) return graphqlInput.value;
-  const anyInput = document.querySelector<HTMLInputElement>('input[name="authenticity_token"]');
-  return anyInput?.value ?? null;
-};
-
-const requireCsrf = (): string => {
-  const token = getCsrfToken();
-  if (!token) throw ToolError.auth('CSRF token not found — refresh the GitHub page.');
-  return token;
-};
-
 const doFetch = async (url: string, init: FetchFromPageOptions): Promise<Response> => {
   try {
     return await fetchFromPage(url, init);
@@ -153,58 +133,77 @@ export const turboData = async <T>(
 // GitHub's internal GraphQL endpoint accepts persisted query hashes.
 // Query IDs are discovered at runtime from embedded page data.
 
-// Cache of queryName → queryId mappings discovered from pages and JS bundles
+// Cache of operation name → persisted query ID mappings discovered from pages
+// and their statically imported JS asset graph.
 const queryIdCache = new Map<string, string>();
+const knownBundleUrls = new Set<string>();
+const scannedBundleUrls = new Set<string>();
 
-// Discover mutation query IDs from GitHub's JS bundles.
-// Mutations are compiled as Relay operations with format:
-// name:"XMutation",operationKind:"mutation" preceded by id:"hexhash"
-export const discoverMutationIds = async (): Promise<void> => {
-  if (queryIdCache.has('__mutations_discovered__')) return;
+const cacheOperationsAndImports = (code: string, bundleUrl: string): void => {
+  const operationPattern = /name:"([^"]+)",operationKind:"(?:mutation|query|subscription)"/g;
+  for (const match of code.matchAll(operationPattern)) {
+    const name = match[1] ?? '';
+    const before = code.substring(Math.max(0, match.index - 500), match.index);
+    const idMatches = [...before.matchAll(/id:"([a-f0-9]{32,64})"/g)];
+    const id = idMatches[idMatches.length - 1]?.[1];
+    if (name && id) queryIdCache.set(name, id);
+  }
 
-  const html = await fetchText(window.location.href, {
+  const importPattern = /(?:from|import)\(?["'](\.\/[^"']+\.js)["']\)?/g;
+  for (const match of code.matchAll(importPattern)) {
+    const importPath = match[1];
+    if (importPath) knownBundleUrls.add(new URL(importPath, bundleUrl).href);
+  }
+};
+
+const discoverOperationIds = async (operationNames: readonly string[], discoveryPath: string): Promise<void> => {
+  const html = await fetchText(discoveryPath, {
     headers: { Accept: 'text/html', 'X-Requested-With': 'XMLHttpRequest' },
   });
 
-  const jsUrls: string[] = [];
-  for (const m of html.matchAll(/src="(https:\/\/github\.githubassets\.com\/assets\/[^"]+\.js)"/g)) {
-    if (m[1]) jsUrls.push(m[1]);
+  for (const match of html.matchAll(/src="(https:\/\/github\.githubassets\.com\/assets\/[^"]+\.js)"/g)) {
+    const url = match[1];
+    if (url) knownBundleUrls.add(url);
   }
 
-  for (const url of jsUrls) {
-    try {
-      const response = await fetchFromPage(url, { credentials: 'omit' });
-      const code = await response.text();
-      if (!code.includes('operationKind:"mutation"')) continue;
+  const hasAllOperations = (): boolean => operationNames.every(name => queryIdCache.has(name));
 
-      const pattern = /name:"([^"]*)",operationKind:"mutation"/g;
-      for (const match of code.matchAll(pattern)) {
-        const name = match[1] ?? '';
-        const before = code.substring(Math.max(0, match.index - 300), match.index);
-        const idMatch = before.match(/id:"([a-f0-9]{32,64})"/);
-        if (idMatch?.[1]) {
-          queryIdCache.set(name, idMatch[1]);
+  while (!hasAllOperations()) {
+    const batch = [...knownBundleUrls].filter(url => !scannedBundleUrls.has(url)).slice(0, 8);
+    if (batch.length === 0) break;
+
+    const sources = await Promise.all(
+      batch.map(async url => {
+        scannedBundleUrls.add(url);
+        try {
+          const response = await fetchFromPage(url, { credentials: 'omit' });
+          return { code: await response.text(), url };
+        } catch {
+          return undefined;
         }
-      }
-    } catch {
-      // Skip bundles that fail to load
+      }),
+    );
+
+    for (const source of sources) {
+      if (source) cacheOperationsAndImports(source.code, source.url);
     }
   }
+};
 
-  queryIdCache.set('__mutations_discovered__', 'true');
+export const getOperationId = async (operationName: string, discoveryPath: string): Promise<string> => {
+  const cached = queryIdCache.get(operationName);
+  if (cached) return cached;
+
+  await discoverOperationIds([operationName], discoveryPath);
+
+  const id = queryIdCache.get(operationName);
+  if (!id) throw ToolError.internal(`Operation ${operationName} not found in GitHub JS bundles`);
+  return id;
 };
 
 // Get a mutation query ID by name, discovering from bundles if needed
-export const getMutationId = async (mutationName: string): Promise<string> => {
-  const cached = queryIdCache.get(mutationName);
-  if (cached) return cached;
-
-  await discoverMutationIds();
-
-  const id = queryIdCache.get(mutationName);
-  if (!id) throw ToolError.internal(`Mutation ${mutationName} not found in GitHub JS bundles`);
-  return id;
-};
+export const getMutationId = (mutationName: string, discoveryPath = window.location.href): Promise<string> =>
+  getOperationId(mutationName, discoveryPath);
 
 export const discoverQueryId = async (
   queryName: string,
@@ -224,9 +223,12 @@ export const discoverQueryId = async (
   return id;
 };
 
-export const graphql = async <T>(queryId: string, variables: Record<string, unknown>): Promise<T> => {
+export const graphql = async <T>(
+  queryId: string,
+  variables: Record<string, unknown>,
+  operationName?: string,
+): Promise<T> => {
   if (!getAuth()) throw ToolError.auth('Not authenticated — please log in to GitHub.');
-  const csrf = requireCsrf();
 
   const response = await doFetch('/_graphql', {
     method: 'POST',
@@ -234,9 +236,9 @@ export const graphql = async <T>(queryId: string, variables: Record<string, unkn
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'GitHub-Verified-Fetch': 'true',
-      'X-CSRF-Token': csrf,
+      'X-Requested-With': 'XMLHttpRequest',
     },
-    body: JSON.stringify({ query: queryId, variables }),
+    body: JSON.stringify({ persistedQueryName: operationName, query: queryId, variables }),
   });
 
   const result = (await response.json()) as {
@@ -249,6 +251,8 @@ export const graphql = async <T>(queryId: string, variables: Record<string, unkn
     if (err?.type === 'unknownQuery') {
       // Persisted query ID expired — clear cache and report
       queryIdCache.clear();
+      knownBundleUrls.clear();
+      scannedBundleUrls.clear();
       throw ToolError.internal(
         'GraphQL persisted query expired — GitHub may have deployed a new version. Please retry.',
       );

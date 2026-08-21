@@ -2,6 +2,7 @@ import { OpenTabsPlugin } from '@opentabs-dev/plugin-sdk';
 import type { ToolDefinition } from '@opentabs-dev/plugin-sdk';
 import { isAuthenticated, waitForAuth } from './github-api.js';
 import { addReaction } from './tools/add-reaction.js';
+import { addRelatedIssue } from './tools/add-related-issue.js';
 import { compareCommits } from './tools/compare-commits.js';
 import { createComment } from './tools/create-comment.js';
 import { createIssue } from './tools/create-issue.js';
@@ -28,10 +29,12 @@ import { listOrgMembers } from './tools/list-org-members.js';
 import { listPullRequestFiles } from './tools/list-pull-request-files.js';
 import { listPullRequests } from './tools/list-pull-requests.js';
 import { listReleases } from './tools/list-releases.js';
+import { listRelatedIssues } from './tools/list-related-issues.js';
 import { listRepos } from './tools/list-repos.js';
 import { listWorkflowRuns } from './tools/list-workflow-runs.js';
 import { mergePullRequest } from './tools/merge-pull-request.js';
 import { requestPullRequestReview } from './tools/request-pull-request-review.js';
+import { removeRelatedIssue } from './tools/remove-related-issue.js';
 import { searchIssues } from './tools/search-issues.js';
 import { searchRepos } from './tools/search-repos.js';
 import { updateIssue } from './tools/update-issue.js';
@@ -60,6 +63,9 @@ class GitHubPlugin extends OpenTabsPlugin {
     searchIssues,
     listLabels,
     createLabel,
+    listRelatedIssues,
+    addRelatedIssue,
+    removeRelatedIssue,
     // Pull Requests
     listPullRequests,
     getPullRequest,
