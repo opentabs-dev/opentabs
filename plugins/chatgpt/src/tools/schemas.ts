@@ -38,7 +38,7 @@ export const conversationListItemSchema = z.object({
   update_time: z.string().describe('Last updated ISO 8601 timestamp'),
   is_archived: z.boolean().describe('Whether the conversation is archived'),
   is_starred: z.boolean().describe('Whether the conversation is starred'),
-  gizmo_id: z.string().describe('GPT ID used in conversation, empty if none'),
+  gizmo_id: z.string().describe('GPT or project ID associated with the conversation, empty if none'),
   snippet: z.string().describe('Preview snippet of the conversation'),
 });
 
@@ -73,6 +73,11 @@ export const messageSchema = z.object({
   text: z.string().describe('Message text content'),
   model: z.string().describe('Model slug used for this message, empty if not applicable'),
   create_time: z.string().describe('Created ISO 8601 timestamp'),
+});
+
+export const messageSubmissionSchema = z.object({
+  conversation_id: z.string().describe('Conversation ID (UUID) that received the message'),
+  accepted: z.literal(true).describe('Whether the ChatGPT composer accepted the submission'),
 });
 
 interface RawMessage {
@@ -225,7 +230,7 @@ export const conversationDetailSchema = z.object({
   messages: z.array(messageSchema).describe('Messages in the conversation (chronological order)'),
 });
 
-interface RawConversationDetail {
+export interface RawConversationDetail {
   conversation_id?: string;
   title?: string;
   create_time?: number;

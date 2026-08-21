@@ -14,9 +14,12 @@ import { getMemories } from './tools/get-memories.js';
 import { getPromptLibrary } from './tools/get-prompt-library.js';
 import { listConversations } from './tools/list-conversations.js';
 import { listModels } from './tools/list-models.js';
+import { listProjectConversations } from './tools/list-project-conversations.js';
 import { listSharedConversations } from './tools/list-shared-conversations.js';
 import { renameConversation } from './tools/rename-conversation.js';
 import { searchConversations } from './tools/search-conversations.js';
+import { sendMessage } from './tools/send-message.js';
+import { sendProjectSessionMessage } from './tools/send-project-session-message.js';
 import { starConversation } from './tools/star-conversation.js';
 import { unarchiveConversation } from './tools/unarchive-conversation.js';
 import { unstarConversation } from './tools/unstar-conversation.js';
@@ -36,8 +39,11 @@ class ChatGPTPlugin extends OpenTabsPlugin {
     listModels,
     // Conversations
     listConversations,
+    listProjectConversations,
     getConversation,
     searchConversations,
+    sendMessage,
+    sendProjectSessionMessage,
     renameConversation,
     archiveConversation,
     unarchiveConversation,
