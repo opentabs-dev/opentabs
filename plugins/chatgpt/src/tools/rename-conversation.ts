@@ -5,7 +5,8 @@ import { api } from '../chatgpt-api.js';
 export const renameConversation = defineTool({
   name: 'rename_conversation',
   displayName: 'Rename Conversation',
-  description: 'Rename a ChatGPT conversation by setting a new title.',
+  description:
+    'Rename a ChatGPT conversation independently of conversation creation. This performs one metadata update and does not wait for automatic title generation; call it after ChatGPT has generated a title when the final name must persist.',
   summary: 'Rename a conversation',
   icon: 'pencil',
   group: 'Conversations',

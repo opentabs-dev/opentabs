@@ -19,7 +19,7 @@ npm install -g @opentabs-dev/opentabs-plugin-chatgpt
 1. Open [chatgpt.com](https://chatgpt.com) in Chrome and log in
 2. Open the OpenTabs side panel — the ChatGPT plugin should appear as **ready**
 
-## Tools (23)
+## Tools (26)
 
 ### Account (2)
 
@@ -34,13 +34,14 @@ npm install -g @opentabs-dev/opentabs-plugin-chatgpt
 |---|---|---|
 | `list_models` | List available AI models | Read |
 
-### Conversations (11)
+### Conversations (12)
 
 | Tool | Description | Type |
 |---|---|---|
 | `list_conversations` | List your ChatGPT conversations | Read |
 | `get_conversation` | Get a conversation with messages | Read |
 | `search_conversations` | Search conversations by keyword | Read |
+| `start_conversation` | Start an ordinary conversation | Write |
 | `send_message` | Send a message in the selected project conversation | Write |
 | `rename_conversation` | Rename a conversation | Write |
 | `archive_conversation` | Archive a conversation | Write |
@@ -50,12 +51,14 @@ npm install -g @opentabs-dev/opentabs-plugin-chatgpt
 | `delete_conversation` | Delete a conversation permanently | Write |
 | `list_shared_conversations` | List shared conversations | Read |
 
-### Projects (2)
+### Projects (4)
 
 | Tool | Description | Type |
 |---|---|---|
 | `list_project_conversations` | List conversations in a ChatGPT project | Read |
+| `start_project_conversation` | Start a conversation in a project | Write |
 | `send_project_session_message` | Send a message to a named project session | Write |
+| `move_conversation_to_project` | Move a conversation into a project | Write |
 
 ### Memories (1)
 
