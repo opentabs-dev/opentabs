@@ -311,6 +311,18 @@ const writeTestConfig = (configDir: string, config: OpentabsConfig): void => {
   fs.writeFileSync(path.join(configDir, 'config.json'), `${JSON.stringify(effective, null, 2)}\n`, 'utf-8');
 };
 
+/**
+ * Redirect npm global operations to an isolated prefix.
+ *
+ * npm injects lowercase `npm_config_*` variables into npm-script processes and
+ * gives them precedence over uppercase variants on POSIX systems. Set both
+ * spellings there so an inherited npm prefix cannot escape the test fixture.
+ */
+const npmPrefixEnv = (prefixDir: string): Record<string, string> => ({
+  NPM_CONFIG_PREFIX: prefixDir,
+  ...(process.platform === 'win32' ? {} : { npm_config_prefix: prefixDir }),
+});
+
 /** Minimal plugin manifest tool definition */
 interface MinimalToolDef {
   name: string;
@@ -1641,6 +1653,7 @@ export {
   fetchWsInfo,
   fetchWsUrl,
   launchExtensionContext,
+  npmPrefixEnv,
   ROOT,
   readPluginToolNames,
   readTestConfig,

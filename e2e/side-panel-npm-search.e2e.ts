@@ -20,6 +20,7 @@ import {
   E2E_TEST_PLUGIN_DIR,
   expect,
   launchExtensionContext,
+  npmPrefixEnv,
   startMcpServer,
   test,
   writeTestConfig,
@@ -313,7 +314,7 @@ test.describe('Side panel npm search', () => {
 
       const server = await startMcpServer(configDir, false, undefined, {
         OPENTABS_SKIP_NPM_DISCOVERY: undefined,
-        NPM_CONFIG_PREFIX: prefixDir,
+        ...npmPrefixEnv(prefixDir),
       });
       const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
       setupAdapterSymlink(configDir, extensionDir);
@@ -433,7 +434,7 @@ test.describe('Side panel npm search', () => {
     // Pre-install the slack plugin into the isolated prefix dir so the server
     // discovers it on startup via npm auto-discovery (bypasses npm search).
     execSync('npm install -g @opentabs-dev/opentabs-plugin-slack', {
-      env: { ...process.env, NPM_CONFIG_PREFIX: prefixDir },
+      env: { ...process.env, ...npmPrefixEnv(prefixDir) },
       stdio: 'pipe',
       timeout: 60_000,
     });
@@ -448,7 +449,7 @@ test.describe('Side panel npm search', () => {
 
     const server = await startMcpServer(configDir, false, undefined, {
       OPENTABS_SKIP_NPM_DISCOVERY: undefined,
-      NPM_CONFIG_PREFIX: prefixDir,
+      ...npmPrefixEnv(prefixDir),
     });
     const { context, cleanupDir, extensionDir } = await launchExtensionContext(server.port, server.secret);
     setupAdapterSymlink(configDir, extensionDir);

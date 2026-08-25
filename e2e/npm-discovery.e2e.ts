@@ -17,6 +17,7 @@ import {
   createMcpClient,
   E2E_TEST_PLUGIN_DIR,
   expect,
+  npmPrefixEnv,
   readPluginToolNames,
   startMcpServer,
   test,
@@ -119,7 +120,7 @@ const configWithPlugins = (
  */
 const npmDiscoveryEnv = (prefixDir: string): Record<string, string | undefined> => ({
   OPENTABS_SKIP_NPM_DISCOVERY: undefined,
-  NPM_CONFIG_PREFIX: prefixDir,
+  ...npmPrefixEnv(prefixDir),
 });
 
 // ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ import {
   createTestConfigDir,
   expect,
   fetchWsInfo,
+  npmPrefixEnv,
   readTestConfig,
   startMcpServer,
   test,
@@ -883,7 +884,7 @@ test.describe('plugin.install + plugin.remove happy path', () => {
       // Start server with npm discovery enabled, prefix isolated to temp dir
       server = await startMcpServer(configDir, false, undefined, {
         OPENTABS_SKIP_NPM_DISCOVERY: undefined,
-        NPM_CONFIG_PREFIX: prefixDir,
+        ...npmPrefixEnv(prefixDir),
       });
 
       // Connect a WebSocket client for plugin management RPC
