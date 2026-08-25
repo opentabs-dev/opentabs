@@ -4,6 +4,7 @@ import { isFigmaAuthenticated, waitForFigmaAuth } from './figma-api.js';
 import { createFile } from './tools/create-file.js';
 import { getFile } from './tools/get-file.js';
 import { getFileComponents } from './tools/get-file-components.js';
+import { getLayerTree } from './tools/get-layer-tree.js';
 import { getCurrentUser } from './tools/get-current-user.js';
 import { getTeamInfo } from './tools/get-team-info.js';
 import { listComments } from './tools/list-comments.js';
@@ -30,6 +31,7 @@ class FigmaPlugin extends OpenTabsPlugin {
     listFiles,
     getFile,
     getFileComponents,
+    getLayerTree,
     listFileVersions,
     createFile,
     updateFile,

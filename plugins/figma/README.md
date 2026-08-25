@@ -19,7 +19,7 @@ npm install -g @opentabs-dev/opentabs-plugin-figma
 1. Open [figma.com](https://www.figma.com/files/recents-and-sharing) in Chrome and log in
 2. Open the OpenTabs side panel — the Figma plugin should appear as **ready**
 
-## Tools (14)
+## Tools (15)
 
 ### Users (1)
 
@@ -47,6 +47,12 @@ npm install -g @opentabs-dev/opentabs-plugin-figma
 | `update_file` | Update a file name or description | Write |
 | `trash_file` | Move a file to the trash | Write |
 | `list_recent_files` | List recently accessed files | Read |
+
+### Layers (1)
+
+| Tool | Description | Type |
+|---|---|---|
+| `get_layer_tree` | Read the active page layer tree | Read |
 
 ### Comments (2)
 

@@ -1,6 +1,38 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
+// Layer tree schemas
+// ---------------------------------------------------------------------------
+
+export const layerTreeNodeSchema = z.object({
+  id: z.string().describe('Exact Figma node ID exposed by the Layers sidebar'),
+  parent_id: z.string().nullable().describe('Parent node ID in this result, or null for a returned root'),
+  depth: z.number().int().nonnegative().describe('Zero-based depth relative to the returned root or active page'),
+  sibling_index: z.number().int().nonnegative().describe('Zero-based sibling position from the Layers sidebar'),
+  name: z.string().describe('Exact visible Layers sidebar label'),
+  kind: z.string().describe('Exact layer kind exposed by the Layers sidebar, such as Frame, Text, or Instance'),
+  has_children: z.boolean().describe('Whether the Layers sidebar exposes an expansion control for this node'),
+});
+
+export const layerTreeResultSchema = z.object({
+  source: z.object({
+    url: z.string().describe('Figma Design URL read by the tool'),
+    file_key: z.string().describe('File key parsed from the Figma Design URL'),
+    file_name: z.string().describe('File name shown by Figma'),
+    page_name: z.string().describe('Active Figma page name'),
+    root_node_id: z.string().nullable().describe('Normalized subtree root node ID, or null for the active page'),
+  }),
+  nodes: z.array(layerTreeNodeSchema).describe('Layer nodes in flat preorder'),
+  complete: z.boolean().describe('Whether the requested tree was returned without hitting a traversal limit'),
+  truncated_reasons: z
+    .array(z.enum(['max_depth', 'max_nodes', 'time_budget']))
+    .describe('Traversal limits that prevented a complete result'),
+  frontier_node_ids: z
+    .array(z.string())
+    .describe('Returned node IDs at boundaries whose descendants may not have been fully traversed'),
+});
+
+// ---------------------------------------------------------------------------
 // File schema
 // ---------------------------------------------------------------------------
 
