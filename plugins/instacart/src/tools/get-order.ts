@@ -17,7 +17,7 @@ export const getOrder = defineTool({
   output: z.object({ order: orderSchema }),
   handle: async params => {
     const data = await gqlQuery<{ orderDelivery: RawOrder }>('OrderDelivery', {
-      id: params.order_id,
+      order_delivery_id: params.order_id,
     });
     return { order: mapOrder(data.orderDelivery ?? {}) };
   },
