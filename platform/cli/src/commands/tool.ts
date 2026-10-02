@@ -2,8 +2,10 @@
  * `opentabs tool` command — discover and invoke tools from the running server.
  */
 
-import { readFile } from 'node:fs/promises';
-import { DEFAULT_HOST, toErrorMessage } from '@opentabs-dev/shared';
+import { existsSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { atomicWrite, DEFAULT_HOST, toErrorMessage } from '@opentabs-dev/shared';
 import type { Command } from 'commander';
 import pc from 'picocolors';
 import { isConnectionRefused, readAuthSecret } from '../config.js';
@@ -157,10 +159,118 @@ export const readParamsSource = async (
   return undefined;
 };
 
+/** A `--attach`/`--save` argument: a dot path into the JSON and a local file path. */
+export interface FileMapping {
+  field: string;
+  segments: string[];
+  path: string;
+}
+
+const UNSAFE_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+const BASE64_PATTERN = /^[A-Za-z0-9+/_-]*={0,2}$/;
+const ARRAY_INDEX_PATTERN = /^(0|[1-9]\d*)$/;
+
+const isContainer = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
+
+const isValidSegment = (s: string): boolean =>
+  s !== '' && !UNSAFE_SEGMENTS.has(s) && (!/^\d+$/.test(s) || ARRAY_INDEX_PATTERN.test(s));
+
+/**
+ * Parse `<field>=<file>`, where `<field>` is a dot path whose numeric segments
+ * index arrays. The returned path is absolute.
+ */
+export const parseFileMapping = (spec: string, flag: string): FileMapping => {
+  const eq = spec.indexOf('=');
+  const field = spec.slice(0, eq);
+  const path = spec.slice(eq + 1);
+  const segments = field.split('.');
+  if (eq <= 0 || !path || !segments.every(isValidSegment)) {
+    throw new Error(`${flag} expects <field>=<file> with a dot-path field, got "${spec}"`);
+  }
+  return { field, segments, path: resolve(path) };
+};
+
+/**
+ * Set `value` at `segments`, creating objects (or arrays, for numeric next segments)
+ * along the way. Array indexes may append but not skip, since holes serialize as null,
+ * and arrays reject named keys, which JSON.stringify drops.
+ */
+export const setField = (root: Record<string, unknown>, segments: string[], value: unknown): void => {
+  const checkArrayKey = (node: unknown, key: string, depth: number): void => {
+    if (!Array.isArray(node)) return;
+    const parent = segments.slice(0, depth).join('.');
+    if (!ARRAY_INDEX_PATTERN.test(key)) {
+      throw new Error(`Cannot set "${segments.join('.')}": "${parent}" is an array, so "${key}" must be an index`);
+    }
+    if (Number(key) > node.length) {
+      throw new Error(`Cannot set "${segments.join('.')}": index ${key} skips past the end of "${parent}"`);
+    }
+  };
+  let node = root;
+  for (let i = 0; i < segments.length - 1; i++) {
+    const key = segments[i] as string;
+    checkArrayKey(node, key, i);
+    let next = Object.hasOwn(node, key) ? node[key] : undefined;
+    if (next === undefined) {
+      next = /^\d+$/.test(segments[i + 1] as string) ? [] : {};
+      node[key] = next;
+    } else if (!isContainer(next)) {
+      throw new Error(`Cannot set "${segments.join('.')}": "${segments.slice(0, i + 1).join('.')}" is not an object`);
+    }
+    node = next as Record<string, unknown>;
+  }
+  const last = segments.at(-1) as string;
+  checkArrayKey(node, last, segments.length - 1);
+  node[last] = value;
+};
+
+/**
+ * Decode the base64 string at `mapping.field` in a tool result. Refuses when the
+ * field's parent declares a non-base64 `encoding`, since short text is often valid base64.
+ */
+export const decodeBase64Field = (result: unknown, { field, segments }: FileMapping): Buffer => {
+  let parent: unknown;
+  let value: unknown = result;
+  for (const key of segments) {
+    if (!isContainer(value) || !Object.hasOwn(value, key))
+      throw new Error(`--save: field "${field}" not found in result`);
+    parent = value;
+    value = value[key];
+  }
+  if (typeof value !== 'string') throw new Error(`--save: field "${field}" is not a string`);
+  const encoding = isContainer(parent) && Object.hasOwn(parent, 'encoding') ? parent.encoding : 'base64';
+  if (encoding !== 'base64') throw new Error(`--save: field "${field}" has a non-base64 encoding`);
+  const compact = value.replace(/\s+/g, '');
+  const bytes = Buffer.from(compact, 'base64');
+  // Buffer.from silently drops dangling characters and stray bits, so require the input
+  // to equal the canonical encoding of what it decoded to.
+  const unpadded = compact.replace(/=+$/, '');
+  const canonical = bytes.toString('base64url');
+  if (
+    !BASE64_PATTERN.test(compact) ||
+    (unpadded !== compact && compact.length % 4 !== 0) ||
+    unpadded.replace(/\+/g, '-').replace(/\//g, '_') !== canonical
+  ) {
+    throw new Error(`--save: field "${field}" is not valid base64`);
+  }
+  return bytes;
+};
+
+const collect = (value: string, previous: string[] = []): string[] => [...previous, value];
+
 const handleToolCall = async (
   name: string,
   jsonArg: string | undefined,
-  options: { port?: number; params?: string; paramsFile?: string; instance?: string; tabId?: number },
+  options: {
+    port?: number;
+    params?: string;
+    paramsFile?: string;
+    instance?: string;
+    tabId?: number;
+    attach?: string[];
+    save?: string[];
+    force?: boolean;
+  },
 ): Promise<void> => {
   const port = resolvePort(options);
 
@@ -185,6 +295,29 @@ const handleToolCall = async (
   // Merge --instance and --tab-id into args
   if (options.instance) args.instance = options.instance;
   if (options.tabId !== undefined) args.tabId = options.tabId;
+
+  // File paths come only from argv, never from params or the tool result.
+  let saves: FileMapping[] = [];
+  try {
+    for (const spec of options.attach ?? []) {
+      const { segments, path } = parseFileMapping(spec, '--attach');
+      setField(args, segments, (await readFile(path)).toString('base64'));
+    }
+    saves = (options.save ?? []).map(spec => parseFileMapping(spec, '--save'));
+    // Check destinations before the call so a side-effecting tool never runs with nowhere to save.
+    const seen = new Set<string>();
+    for (const { path } of saves) {
+      const key = process.platform === 'win32' ? path.toLowerCase() : path;
+      if (seen.has(key)) throw new Error(`--save: ${path} is given more than once`);
+      seen.add(key);
+      if (!existsSync(dirname(path))) throw new Error(`--save: directory ${dirname(path)} does not exist`);
+      if (!options.force && existsSync(path))
+        throw new Error(`--save: ${path} already exists (use --force to overwrite)`);
+    }
+  } catch (err: unknown) {
+    console.error(pc.red(toErrorMessage(err)));
+    process.exit(2);
+  }
 
   const secret = await readAuthSecret();
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -227,6 +360,29 @@ const handleToolCall = async (
   if (result.isError) {
     console.error(output);
     process.exit(1);
+  }
+
+  if (saves.length > 0) {
+    try {
+      const parsed = JSON.parse(output) as Record<string, unknown>;
+      // Decode every field before writing any file so a bad field leaves the disk untouched.
+      const decoded = saves.map(s => ({ ...s, bytes: decodeBase64Field(parsed, s) }));
+      for (const { segments, path, bytes } of decoded) {
+        // Without --force, create exclusively in case the file appeared during the call.
+        if (options.force) await atomicWrite(path, bytes);
+        else
+          await writeFile(path, bytes, { flag: 'wx' }).catch((err: unknown) => {
+            if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+            throw new Error(`--save: ${path} already exists (use --force to overwrite)`);
+          });
+        setField(parsed, segments, { savedTo: path, bytes: bytes.length });
+      }
+      console.log(JSON.stringify(parsed, null, 2));
+    } catch (err: unknown) {
+      console.error(pc.red(err instanceof SyntaxError ? '--save: tool result is not JSON' : toErrorMessage(err)));
+      process.exit(2);
+    }
+    return;
   }
 
   // Print result to stdout — try to pretty-print if it's valid JSON
@@ -318,6 +474,9 @@ Examples:
     )
     .option('--instance <name>', 'Target a named instance (for multi-instance plugins)')
     .option('--tab-id <id>', 'Target a specific browser tab by ID', Number.parseInt)
+    .option('--attach <field=file>', 'Base64-encode a file into an argument field (repeatable)', collect)
+    .option('--save <field=file>', 'Base64-decode a result field into a file (repeatable)', collect)
+    .option('--force', 'Overwrite existing files with --save')
     .option('--port <number>', 'Server port', parsePort)
     .addHelpText(
       'after',
@@ -328,7 +487,9 @@ Examples:
   $ opentabs tool call slack__send_message --params '{"channel":"C123"}'
   $ opentabs tool call slack__read_messages --instance work --tab-id 42
   $ opentabs tool call my-plugin__upload_photo --params-file payload.json
-  $ cat payload.json | opentabs tool call my-plugin__upload_photo --params-file -`,
+  $ cat payload.json | opentabs tool call my-plugin__upload_photo --params-file -
+  $ opentabs tool call slack__upload_file '{"channel":"C123","filename":"a.pdf","is_base64":true}' --attach content=a.pdf
+  $ opentabs tool call browser_screenshot_tab '{"tabId":42}' --save image=shot.png`,
     )
     .action((name: string, jsonArg: string | undefined, _options: unknown, command: Command) =>
       handleToolCall(name, jsonArg, command.optsWithGlobals()),

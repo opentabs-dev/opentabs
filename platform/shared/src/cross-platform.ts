@@ -101,7 +101,7 @@ export const sanitizeEnv = (env: Record<string, string | undefined>): Record<str
  * @param mode      — optional POSIX permission mode (e.g., 0o600). Silently
  *                    skipped on Windows with a debug-level warning.
  */
-export const atomicWrite = async (filePath: string, content: string, mode?: number): Promise<void> => {
+export const atomicWrite = async (filePath: string, content: string | Uint8Array, mode?: number): Promise<void> => {
   const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2, 8)}`;
   try {
     await writeFile(tmpPath, content, 'utf-8');

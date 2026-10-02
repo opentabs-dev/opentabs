@@ -931,6 +931,21 @@ opentabs tool call <name> [json] [options]
       <Table.Cell>Target a specific browser tab by ID.</Table.Cell>
     </Table.Row>
     <Table.Row>
+      <Table.Cell className="font-medium">`--attach <field=file>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Read a local file, base64-encode it, and set it at the dot-path `field` in the arguments (numeric segments index arrays). Repeatable.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--save <field=file>`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Base64-decode the dot-path `field` of the result into a local file and print `{"savedTo", "bytes"}` in its place. Refuses fields whose sibling `encoding` isn't `"base64"`. Repeatable.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
+      <Table.Cell className="font-medium">`--force`</Table.Cell>
+      <Table.Cell>No</Table.Cell>
+      <Table.Cell>Allow `--save` to overwrite existing files.</Table.Cell>
+    </Table.Row>
+    <Table.Row>
       <Table.Cell className="font-medium">`--port <number>`</Table.Cell>
       <Table.Cell>No</Table.Cell>
       <Table.Cell>Server port (default: `9515`).</Table.Cell>
@@ -952,7 +967,13 @@ opentabs tool call slack__send_message --params '{"channel":"C123","text":"hello
 
 # Target a specific tab
 opentabs tool call slack__send_message '{"channel":"C123","text":"hi"}' --tab-id 42
+
+# Move binary content between local files and base64 fields
+opentabs tool call slack__upload_file '{"channel":"C123","filename":"report.pdf","is_base64":true}' --attach content=./report.pdf
+opentabs tool call browser_screenshot_tab '{"tabId":42}' --save image=./shot.png
 ```
+
+File paths come only from `--attach`/`--save` arguments, never from the params or the tool result. Every `--save` field is validated before any file is written; `--save` errors exit with code 2.
 
 ---
 

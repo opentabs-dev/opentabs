@@ -22,6 +22,13 @@ describe('atomicWrite', () => {
     expect(content).toBe('{"hello":"world"}');
   });
 
+  test('writes binary content byte for byte', async () => {
+    const filePath = join(tempDir, 'test.bin');
+    const bytes = Uint8Array.from([0x00, 0xff, 0xfe, 0x89, 0x50, 0x4e, 0x47]);
+    await atomicWrite(filePath, bytes);
+    expect(new Uint8Array(await readFile(filePath))).toEqual(bytes);
+  });
+
   test('overwrites existing file with new content', async () => {
     const filePath = join(tempDir, 'test.json');
     await atomicWrite(filePath, 'first');

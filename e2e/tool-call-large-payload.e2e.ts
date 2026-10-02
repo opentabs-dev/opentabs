@@ -5,13 +5,14 @@
  *   - --params-file <path> succeeds and round-trips the full payload
  *   - --params-file - (stdin) succeeds and round-trips the full payload
  *   - --params with an inline 1.5 MB blob fails (regression guard for argv limit)
+ *   - --attach / --save round-trip binary bytes through base64 fields
  *
  * The macOS ARG_MAX is ~1 MB. A 1.5 MB payload is reliably above the limit on
  * macOS and Linux CI runners, proving the argv bypass is necessary.
  */
 
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -190,5 +191,50 @@ test.describe('CLI tool call — large payload bypass', () => {
       result.spawnError === 'E2BIG' ||
       /E2BIG|too long|argument list too long/i.test(result.stderr + (result.spawnError ?? ''));
     expect(failed).toBe(true);
+  });
+
+  test('round-trips binary bytes via --attach and --save', async ({
+    mcpServer,
+    testServer,
+    extensionContext,
+    mcpClient,
+  }) => {
+    await setupToolTest(mcpServer, testServer, extensionContext, mcpClient);
+
+    const dir = await mkdtemp(join(tmpdir(), 'opentabs-attach-save-'));
+    try {
+      const bytes = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
+      const inputPath = join(dir, 'in.bin');
+      const outputPath = join(dir, 'out.bin');
+      await writeFile(inputPath, bytes);
+
+      const env = {
+        ...process.env,
+        OPENTABS_CONFIG_DIR: mcpServer.configDir,
+        OPENTABS_TELEMETRY_DISABLED: '1',
+        OPENTABS_DANGEROUSLY_SKIP_PERMISSIONS: '1',
+      };
+
+      const result = await runCli(
+        [
+          'tool',
+          'call',
+          'e2e-test__echo',
+          '--attach',
+          `message=${inputPath}`,
+          '--save',
+          `message=${outputPath}`,
+          '--port',
+          String(mcpServer.port),
+        ],
+        env,
+      );
+
+      expect(result.code).toBe(0);
+      expect(JSON.parse(result.stdout)).toEqual({ ok: true, message: { savedTo: outputPath, bytes: bytes.length } });
+      expect(await readFile(outputPath)).toEqual(bytes);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });
