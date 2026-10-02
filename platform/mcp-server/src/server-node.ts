@@ -20,8 +20,8 @@ import { MAX_MESSAGE_SIZE } from './extension-protocol.js';
 import type { ServerAdapter } from './http-routes.js';
 import { log } from './logger.js';
 
-/** Maximum HTTP request body size (10 MB) */
-const MAX_BODY_SIZE = 10 * 1024 * 1024;
+/** Maximum HTTP request body size (64 MiB), matching Chrome's extension-message cap on tool input */
+const MAX_BODY_SIZE = 64 * 1024 * 1024;
 
 /**
  * Hard protocol-layer backstop for inbound WebSocket frames. Set above the

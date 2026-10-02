@@ -329,7 +329,7 @@ The extension authenticates via the `Sec-WebSocket-Protocol` header:
 Sec-WebSocket-Protocol: opentabs, <secret>
 ```
 
-Max payload: 10 MB.
+Max payload: 64 MiB, matching Chrome's extension-message cap. Tool input is limited to 63 MiB to leave room for the dispatch envelope.
 
 ---
 

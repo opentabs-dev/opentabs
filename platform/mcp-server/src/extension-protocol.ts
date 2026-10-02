@@ -56,8 +56,11 @@ import {
 } from './state.js';
 import { getSessionId, trackEvent } from './telemetry.js';
 
-/** Maximum incoming WebSocket message size (10MB) handled at the application layer */
-export const MAX_MESSAGE_SIZE = 10 * 1024 * 1024;
+/**
+ * Maximum incoming WebSocket message size (64 MiB) handled at the application
+ * layer, matching Chrome's extension-message cap on tool results.
+ */
+export const MAX_MESSAGE_SIZE = 64 * 1024 * 1024;
 
 /**
  * Write adapter IIFE files for all plugins in the registry.
@@ -503,9 +506,10 @@ const handleExtensionMessage = (
   callbacks: McpCallbacks,
   senderWs?: WsHandle,
 ): void => {
-  if (text.length > MAX_MESSAGE_SIZE) {
+  const bytes = Buffer.byteLength(text);
+  if (bytes > MAX_MESSAGE_SIZE) {
     log.warn(
-      `Dropping oversized WebSocket message (${(text.length / 1024 / 1024).toFixed(1)}MB, limit ${MAX_MESSAGE_SIZE / 1024 / 1024}MB)`,
+      `Dropping oversized WebSocket message (${(bytes / 1024 / 1024).toFixed(1)}MiB, limit ${MAX_MESSAGE_SIZE / 1024 / 1024}MiB)`,
     );
     return;
   }

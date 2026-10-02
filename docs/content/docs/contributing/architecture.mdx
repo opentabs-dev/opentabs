@@ -205,7 +205,7 @@ To discover which tabs are available for a plugin, use the `plugin_list_tabs` MC
 
 ## Wire Protocol
 
-The wire protocol is the glue between server and extension. All communication uses JSON-RPC 2.0 over WebSocket with a 10 MB message size limit.
+The wire protocol is the glue between server and extension. All communication uses JSON-RPC 2.0 over WebSocket with a 64 MiB message size limit, matching Chrome's extension-message cap.
 
 **Server → Extension:**
 

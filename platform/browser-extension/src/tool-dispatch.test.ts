@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { MAX_INPUT_SIZE } from './constants.js';
 import type { PluginMeta } from './extension-messages.js';
 
 // ---------------------------------------------------------------------------
@@ -246,7 +247,7 @@ describe('handleToolDispatch', () => {
   });
 
   test('sends -32602 error for oversized input', async () => {
-    const largeValue = 'x'.repeat(11 * 1024 * 1024);
+    const largeValue = 'x'.repeat(MAX_INPUT_SIZE + 1);
     await handleToolDispatch({ plugin: 'slack', tool: 'send-message', input: { data: largeValue } }, 'req-6');
 
     if (mockSendToServer.mock.calls.length === 0) return;
@@ -257,6 +258,16 @@ describe('handleToolDispatch', () => {
       error: { code: -32602 },
     });
     const msg = firstSentMessage() as { error: { message: string } };
+    expect(msg.error.message).toContain('too large');
+  });
+
+  test('measures input size in UTF-8 bytes', async () => {
+    // Fewer UTF-16 code units than MAX_INPUT_SIZE, but three UTF-8 bytes each
+    const multiByteValue = '€'.repeat(Math.ceil(MAX_INPUT_SIZE / 3));
+    await handleToolDispatch({ plugin: 'slack', tool: 'send-message', input: { data: multiByteValue } }, 'req-6b');
+
+    const msg = firstSentMessage() as { error: { code: number; message: string } };
+    expect(msg.error.code).toBe(-32602);
     expect(msg.error.message).toContain('too large');
   });
 

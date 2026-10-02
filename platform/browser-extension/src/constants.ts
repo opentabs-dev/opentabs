@@ -60,8 +60,12 @@ export const DEFAULT_WAIT_TIMEOUT_MS = 10_000;
 export const POLL_INTERVAL_MS = 100;
 /** Default element limit for browser_query_elements when no limit param is provided */
 export const DEFAULT_QUERY_LIMIT = 100;
-/** Maximum serialized JSON size (bytes) for tool dispatch input payloads */
-export const MAX_INPUT_SIZE = 10 * 1024 * 1024;
+/**
+ * Maximum serialized JSON size (bytes) for tool dispatch input payloads. Chrome
+ * caps chrome.scripting.executeScript messages at 64 MiB and silently drops larger
+ * ones (the dispatch hangs until timeout), so this stays 1 MiB below for the envelope.
+ */
+export const MAX_INPUT_SIZE = 63 * 1024 * 1024;
 /** Timeout (ms) for side panel state request via chrome.runtime.sendMessage */
 export const SIDE_PANEL_TIMEOUT_MS = 3_000;
 /** Chrome DevTools Protocol version used for debugger.attach calls */

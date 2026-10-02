@@ -2364,15 +2364,22 @@ describe('telemetry events', () => {
   // --- server_update_applied ---
 
   test('server_update_applied is emitted after successful self-update', async () => {
-    const { state } = createTelemetryTestState();
-    state.serverUpdate = { latestVersion: '99.0.0', updateCommand: 'npm install -g @opentabs-dev/cli@99.0.0' };
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    try {
+      const { state } = createTelemetryTestState();
+      state.serverUpdate = { latestVersion: '99.0.0', updateCommand: 'npm install -g @opentabs-dev/cli@99.0.0' };
 
-    await handleServerSelfUpdate(state, 'req-18');
+      await handleServerSelfUpdate(state, 'req-18');
 
-    expect(mockTrackEvent).toHaveBeenCalledWith('server_update_applied', {
-      session_id: 'test-session-id',
-    });
-    assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+      expect(mockTrackEvent).toHaveBeenCalledWith('server_update_applied', {
+        session_id: 'test-session-id',
+      });
+      assertNoPrivacyViolation(mockTrackEvent.mock.calls);
+      // The handler exits on a timer after spawning the replacement server
+      await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   // --- privacy: no events leak forbidden fields ---
