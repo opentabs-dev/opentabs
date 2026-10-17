@@ -48,6 +48,6 @@
   },
   "devDependencies": {
     "happy-dom": "^20.10.3",
-    "lucide-react": "^1.18.0"
+    "lucide-react": "^1.56.0"
   }
 }
