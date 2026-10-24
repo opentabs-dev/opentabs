@@ -1,0 +1,57 @@
+---
+title: Security trust boundaries
+description: Where authority crosses between the AI client, local OpenTabs processes, browser extension, plugins, and third-party web APIs.
+lastUpdated: 2026-10-24
+---
+
+OpenTabs sits on a sensitive boundary: an AI client can ask a local OpenTabs server to use a browser session that is already authenticated to real services. This page makes the main trust boundaries explicit for users, plugin authors, and reviewers.
+
+## Boundary map
+
+| Boundary | What crosses it | Why it matters | Default control |
+| --- | --- | --- | --- |
+| AI client → MCP server | Tool names, arguments, progress | The AI can request actions, but should not receive more authority than the user enabled | Tools start disabled; per-plugin and per-tool permission levels gate execution |
+| MCP server → browser extension | Dispatches to browser-backed API calls and browser tools | The extension can act inside an authenticated browser profile | The user loads and connects the extension locally; audit logs record tool activity |
+| Plugin package → local runtime | Plugin source, manifests, generated code, declared tools | A plugin translates AI requests into service-specific API calls | Plugin review before enablement; permissions reset when a plugin version changes |
+| Browser session → third-party service | Authenticated HTTP requests made with the user's existing session | Actions happen against real accounts without separate OAuth setup | Off / Ask / Auto permissions and confirmation for tools set to Ask |
+| Local machine → telemetry endpoint | Anonymous platform and lifecycle metadata | Telemetry must not leak user activity, plugin names, prompts, or tool arguments | Telemetry is opt-out and documented in the telemetry reference |
+
+## What OpenTabs does not make safe by itself
+
+OpenTabs can make the permission boundary visible, but it cannot prove that every AI instruction or plugin is safe. Users should:
+
+- review plugin source and generated tools before enabling them;
+- prefer **Ask** for tools that mutate state, spend money, publish content, delete data, invite users, or change permissions;
+- keep separate browser profiles for high-risk accounts when practical;
+- inspect the audit log when a tool result is surprising;
+- disable plugins that request broader access than their purpose requires.
+
+## Plugin author checklist
+
+When adding or updating a plugin, document the boundaries that move:
+
+1. **Authentication source:** browser session cookies, local token, user-provided API key, or no auth.
+2. **Network destinations:** first-party service domains and any optional third-party endpoints.
+3. **Side effects:** read-only, draft creation, publishing, payment, deletion, permission changes, or account settings.
+4. **Sensitive inputs:** prompts, files, page contents, API responses, secrets, or account identifiers.
+5. **User confirmation:** which tools should default to Ask rather than Auto.
+6. **Version changes:** whether an update adds a new destination, new write operation, or broader account scope.
+
+If a plugin changes any of those answers, treat it as a permission-boundary change and make it obvious in the changelog or release notes.
+
+## Reviewer checklist
+
+Before approving a new plugin or a change to browser-tool behavior, ask:
+
+- Can a prompt-injected page cause the AI to invoke this tool with harmful arguments?
+- Does the tool combine read access with a write action that should be split into separate tools?
+- Is the default permission level appropriate for the worst realistic side effect?
+- Are errors and previews returned without exposing cookies, bearer tokens, or private response bodies?
+- Does telemetry or logging record only metadata needed for debugging and product quality?
+
+## Related docs
+
+- [Telemetry](/docs/reference/telemetry)
+- [Browser tools](/docs/reference/browser-tools)
+- [Plugin development](/docs/guides/plugin-development)
+- [MCP server](/docs/reference/mcp-server)
