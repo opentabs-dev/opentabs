@@ -130,7 +130,6 @@ const readLogs = async (data: CompileResponse, projectId: string, buildId: strin
       });
     } catch (error) {
       const classified = requestError(error, 'Overleaf build log read');
-      if (['auth', 'rate_limit', 'timeout'].includes(classified.category ?? '') || signal.aborted) throw classified;
       logs.push({
         path: file.path,
         status: 'unavailable',
@@ -138,8 +137,10 @@ const readLogs = async (data: CompileResponse, projectId: string, buildId: strin
         truncated: false,
         unparsed_excerpt: null,
       });
+      if (signal.aborted) break;
     }
   }
+  const logsOmitted = outputs.length - logs.length;
   if (!outputs.some(file => file.path === 'output.log')) {
     logs.unshift({
       path: 'output.log',
@@ -153,7 +154,7 @@ const readLogs = async (data: CompileResponse, projectId: string, buildId: strin
     diagnostics,
     diagnostics_truncated: diagnosticsTruncated,
     logs,
-    logs_omitted: Math.max(0, outputs.length - 8),
+    logs_omitted: logsOmitted,
   };
 };
 

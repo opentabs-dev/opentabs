@@ -65,6 +65,6 @@ export const pdfResultSchema = z.object({
   diagnostics: z.array(diagnosticSchema).describe('Up to 100 structured LaTeX and bibliography diagnostics'),
   diagnostics_truncated: z.boolean().describe('Whether the diagnostic limit was reached'),
   logs: z.array(logSchema).describe('Per-log availability, truncation, and parsing limitations'),
-  logs_omitted: z.number().int().nonnegative().describe('Number of additional logs beyond the eight-log limit'),
+  logs_omitted: z.number().int().nonnegative().describe('Number of logs omitted by the log limit or an aborted read'),
 });
 export type PdfResult = z.infer<typeof pdfResultSchema>;

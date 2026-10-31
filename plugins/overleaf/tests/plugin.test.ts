@@ -659,6 +659,67 @@ describe('fresh PDF and same-build diagnostics', () => {
     expect(result.logs[0]?.unparsed_excerpt).toBe('unrecognized format');
   });
 
+  it.each([
+    { category: 'auth', response: () => text('expired', 401) },
+    { category: 'rate_limit', response: () => text('limited', 429) },
+    {
+      category: 'timeout',
+      response: () => {
+        throw new DOMException('timeout', 'TimeoutError');
+      },
+    },
+  ])('preserves the confirmed PDF and reads remaining logs after a $category log failure', async ({
+    category,
+    response,
+  }) => {
+    const previous = route;
+    route = (path, init) => (path.includes('output.log') ? response() : previous(path, init));
+    const result = await invoke(getPdf, { project_id: PROJECT });
+    expect(result).toMatchObject({
+      success: true,
+      status: 'success',
+      compilation_ran: true,
+      build_id: BUILD,
+      pdf_url: `${ORIGIN}${file('output.pdf').url}?compileGroup=standard&clsiserverid=compile-server`,
+      logs_omitted: 0,
+    });
+    expect(result.logs).toMatchObject([
+      { path: 'output.log', status: 'unavailable', reason: `Log read failed (${category}).` },
+      { path: 'output.blg', status: 'partial' },
+    ]);
+    expect(result.diagnostics.map(diagnostic => diagnostic.source)).toEqual(['bibtex']);
+    expect(requests.filter(request => request.init?.method === 'POST')).toHaveLength(1);
+    expect(requests).toHaveLength(3);
+    expect(storage.size).toBe(0);
+  });
+
+  it('preserves the confirmed PDF and reports omitted logs when the operation signal aborts', async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+    const previous = route;
+    route = (path, init) => {
+      if (path.includes('output.log')) {
+        controller.abort();
+        throw new DOMException('aborted', 'AbortError');
+      }
+      return previous(path, init);
+    };
+    const result = await invoke(getPdf, { project_id: PROJECT });
+    expect(result).toMatchObject({
+      success: true,
+      status: 'success',
+      compilation_ran: true,
+      build_id: BUILD,
+      pdf_url: `${ORIGIN}${file('output.pdf').url}?compileGroup=standard&clsiserverid=compile-server`,
+      logs_omitted: 1,
+    });
+    expect(result.logs).toMatchObject([{ path: 'output.log', status: 'unavailable' }]);
+    expect(result.logs).toHaveLength(1);
+    expect(requests.some(request => request.path.includes('output.blg'))).toBe(false);
+    expect(requests).toHaveLength(2);
+    expect(storage.size).toBe(0);
+  });
+
   it('caps diagnostics and raw log reads', async () => {
     const previous = route;
     route = (path, init) =>

@@ -44,10 +44,12 @@ A successful result includes a build-specific **authenticated** `pdf_url`, wheth
 
 Overleaf can produce a PDF while reporting LaTeX errors or warnings. `success` reflects the server's successful output status and a safe PDF URL, not an assertion that the document is error-free. Always inspect the diagnostics.
 
-On a failed build, no old PDF is returned as current. Transport, authentication, rate-limit, and timeout failures use structured tool errors. There is no blind retry: an ambiguous response may mean a compile is still running. A timestamp-only, project-scoped browser storage guard prevents another plugin submission for 13 minutes after that request. Confirmed responses clear the guard. Cross-tab Web Locks also prevent concurrent plugin submissions.
+On a failed build, no old PDF is returned as current. Compile-request transport, authentication, rate-limit, and timeout failures use structured tool errors. There is no blind retry: an ambiguous response may mean a compile is still running. A timestamp-only, project-scoped browser storage guard prevents another plugin submission for 13 minutes after that request. Confirmed responses clear the guard. Cross-tab Web Locks also prevent concurrent plugin submissions.
 
 ## Diagnostic coverage
 
 PDF and logs are taken from the same confirmed build. The plugin reads `output.log` and bibliography `.blg` outputs, up to eight logs and 256 KiB per log, and returns at most 100 structured LaTeX/BibTeX/Biber diagnostics.
 
 Log parsing is intentionally partial and pattern-based. Per-log `status`, `reason`, and `truncated` fields distinguish partial extraction, unparsed logs, and unavailable logs. Unrecognized logs have a bounded excerpt; omitted logs and diagnostic limits are explicit. Missing or mismatched-build logs are not silently replaced with cached logs.
+
+Once compilation is confirmed, log-read failures, including authentication, rate-limit, and timeout errors, are reported as unavailable logs without discarding the compile result or its PDF URL. Remaining logs are still read unless the operation signal has aborted; unread logs are included in `logs_omitted`.
