@@ -227,7 +227,8 @@ const runCompile = async (projectId: string, signal: AbortSignal): Promise<PdfRe
   result.status = data.status;
   const notRun = ['compile-in-progress', 'too-recently-compiled', 'autocompile-backoff', 'validation-problems'];
   const ran = ['success', 'failure', 'error', 'timedout', 'stopped-on-first-error', 'terminated', 'killed'];
-  result.compilation_ran = notRun.includes(data.status) ? false : ran.includes(data.status) ? true : null;
+  result.compilation_ran =
+    data.fromCache || notRun.includes(data.status) ? false : ran.includes(data.status) ? true : null;
   const pdf = data.outputFiles.find(file => file.path === 'output.pdf');
   const buildIds = data.outputFiles.map(file => file.build).filter((id): id is string => !!id && BUILD_ID.test(id));
   result.build_id = pdf?.build && BUILD_ID.test(pdf.build) ? pdf.build : (buildIds[0] ?? null);

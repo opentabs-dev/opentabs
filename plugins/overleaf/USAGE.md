@@ -28,7 +28,7 @@ Opening an editor manually can trigger Overleaf's own normal auto-compile. That 
 
 `search_project` performs a literal single-line search, not a regular expression. Case sensitivity is optional; `path_filter` is a case-sensitive path substring, not a glob. It searches editable text documents and recognized source/bibliography text files, not PDFs, images, or fonts.
 
-Search limits are 100 files, 100 matching lines, 1 MiB per file, 10 MiB overall, and two minutes per scan. Each matching line has one excerpt of at most 320 characters. Defaults are 50 files and 50 matches. The aggregate byte limit also applies to the final partially read file.
+Search limits are 100 files, 100 matching lines, 1 MiB per file, 10 MiB overall, and two minutes per scan. Each matching line has one excerpt of at most 320 characters. Defaults are 50 files and 50 matches. The aggregate byte limit also applies to the final partially read file. Failed reads retain their reserved byte allowance, so repeated failures can exhaust the budget before 10 MiB of valid text has been searched.
 
 Always inspect `complete`, counts, and `issues`: a bounded or failed scan is not evidence that the whole project has no matches. Intentionally filtered/binary files, unread files, byte/match limits, and failed files are reported; issue details are capped at 100 with an explicit omitted count. Separate file reads are not an atomic project snapshot.
 
@@ -36,7 +36,7 @@ Always inspect `complete`, counts, and `issues`: a bounded or failed scan is not
 
 **`get_pdf` compiles**, despite its generated tool-table classification as “Read.” It is the only compilation entry point. There is no separate compile or diagnostics tool.
 
-Each call currently requests a compile because an existing PDF or cached success does not prove freshness. The plugin preserves the existing main document and compiler configuration, waits for the real compile response, and never stops another compile. If the configured main document is unset or unavailable, it returns an explicit validation failure without changing settings.
+Each call currently requests a compile because an existing PDF or cached success does not prove freshness. The plugin preserves the existing main document and compiler configuration, waits for the real compile response, and never stops another compile. If Overleaf returns a cache-only response, `compilation_requested` is true but `compilation_ran` and `success` are false. If the configured main document is unset or unavailable, it returns an explicit validation failure without changing settings.
 
 Freshness refers to the source snapshot used by Overleaf's compile service. It excludes unsynced browser editor text. Source or settings can change during compilation or after that snapshot, so the result is not an atomic snapshot at return time.
 

@@ -58,7 +58,10 @@ export const pdfResultSchema = z.object({
   status: z.string().describe('Overleaf compile status, or a local preflight failure status'),
   failure_reason: z.string().nullable().describe('Why no current PDF can be returned'),
   compilation_requested: z.boolean().describe('Whether a compile POST was sent'),
-  compilation_ran: z.boolean().nullable().describe('Whether compilation ran; null for an unrecognized server status'),
+  compilation_ran: z
+    .boolean()
+    .nullable()
+    .describe('Whether compilation ran; false for cache-only responses, null for an unrecognized server status'),
   build_id: z.string().nullable().describe('Build ID from the output files, not an assumed top-level field'),
   pdf_url: z.string().nullable().describe('Build-specific authenticated browser URL, never a public sharing link'),
   freshness: z.string().describe('Freshness applies to the server compile snapshot, not unsynced text or later edits'),

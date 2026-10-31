@@ -110,8 +110,9 @@ export const searchProject = defineTool({
         }
         try {
           const byteLimit = Math.min(MAX_FILE_BYTES, MAX_SEARCH_BYTES - bytes);
+          bytes += byteLimit;
           const result = await readEntity(params.project_id, entity, signal, byteLimit);
-          bytes += result.bytes;
+          bytes -= byteLimit - result.bytes;
           scanned++;
           if (result.truncated) {
             complete = false;

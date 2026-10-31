@@ -325,9 +325,10 @@ export const getProject = (projectId: string): Promise<Project> => {
         }
       });
       socket.on('connectionRejected', rejected);
-      for (const event of ['error', 'connect_error', 'connect_failed', 'connect_timeout', 'disconnect']) {
+      for (const event of ['error', 'connect_error', 'connect_failed', 'disconnect']) {
         socket.on(event, () => finish(ToolError.internal('Overleaf project connection failed.')));
       }
+      socket.on('connect_timeout', () => finish(ToolError.timeout('Overleaf project initialization timed out.')));
       if (client.version?.startsWith('0') && socket.socket) socket.socket.connect();
       else socket.connect();
     } catch (error) {

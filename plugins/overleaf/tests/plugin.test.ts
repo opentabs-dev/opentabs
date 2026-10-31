@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { outputUrl } from '../src/compile.js';
 import { parseDiagnostics } from '../src/diagnostics.js';
 import plugin from '../src/index.js';
-import { getProject, isAuthenticated, mapProject, readBoundedText } from '../src/overleaf-api.js';
+import { getProject, isAuthenticated, mapProject, MAX_FILE_BYTES, readBoundedText } from '../src/overleaf-api.js';
 import { getPdf } from '../src/tools/get-pdf.js';
 import { getProjectTool } from '../src/tools/get-project.js';
 import { listProjects } from '../src/tools/list-projects.js';
@@ -352,6 +352,32 @@ describe('ID-bearing project initialization', () => {
     expect(socketDisconnections).toBe(1);
   });
 
+  it('classifies socket connect_timeout as a structured timeout and clears the fallback timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const listeners = new Map<string, (value?: unknown) => void>();
+      vi.mocked(getPageGlobal).mockReturnValue({
+        connect: () => ({
+          on: (event: string, listener: (value?: unknown) => void) => listeners.set(event, listener),
+          connect: () => listeners.get('connect_timeout')?.(),
+          removeAllListeners: () => listeners.clear(),
+          disconnect: () => socketDisconnections++,
+        }),
+      });
+      await expect(getProject(PROJECT)).rejects.toMatchObject({
+        code: 'TIMEOUT',
+        category: 'timeout',
+        message: 'Overleaf project initialization timed out.',
+      });
+      expect(socketDisconnections).toBe(1);
+      expect(listeners.size).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(requests).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('rejects a silent project connection after exactly 12 seconds with a structured tool timeout', async () => {
     vi.useFakeTimers();
     try {
@@ -526,6 +552,76 @@ describe('literal source search and coverage', () => {
     expect(requests).toHaveLength(11);
   });
 
+  it.each(['binary', 'invalid UTF-8'])('enforces the aggregate byte limit across failed %s reads', async failure => {
+    const root = payload.project.rootFolder[0];
+    if (!root) throw new Error('Missing test fixture root');
+    root.docs = Array.from({ length: 12 }, (_, index) => ({
+      _id: (index + 100).toString(16).padStart(24, '0'),
+      name: `source-${index}.tex`,
+    }));
+    root.fileRefs = [];
+    root.folders = [];
+    const bytes = new Uint8Array(MAX_FILE_BYTES).fill(120);
+    bytes[bytes.length - 1] = failure === 'binary' ? 0 : 0xff;
+    route = () => new Response(bytes, { headers: { 'content-type': 'text/plain' } });
+    const result = await invoke(searchProject, { project_id: PROJECT, query: 'target' });
+    expect(result).toMatchObject({
+      matches: [],
+      complete: false,
+      scanned_files: 0,
+      eligible_files: 12,
+      failed_files: 10,
+      skipped_files: 2,
+    });
+    expect(result.issues.filter(issue => issue.reason === 'validation')).toHaveLength(10);
+    expect(result.issues.filter(issue => issue.reason === 'scan_limit').map(issue => issue.file_id)).toEqual(
+      root.docs.slice(10).map(doc => doc._id),
+    );
+    expect(requests).toHaveLength(10);
+  });
+
+  it('charges the remaining byte allowance for a failed read after uneven successful reads', async () => {
+    const root = payload.project.rootFolder[0];
+    if (!root) throw new Error('Missing test fixture root');
+    root.docs = Array.from({ length: 12 }, (_, index) => ({
+      _id: (index + 100).toString(16).padStart(24, '0'),
+      name: `source-${index}.tex`,
+    }));
+    root.fileRefs = [];
+    root.folders = [];
+    const halfMiB = MAX_FILE_BYTES / 2;
+    route = path => {
+      const index = root.docs.findIndex(doc => path.includes(doc._id));
+      if (index < 9) return text('x'.repeat(MAX_FILE_BYTES));
+      if (index === 9) return text('x'.repeat(halfMiB));
+      if (index === 10) {
+        const bytes = new Uint8Array(MAX_FILE_BYTES).fill(120);
+        bytes[halfMiB - 1] = 0xff;
+        return new Response(bytes, { headers: { 'content-type': 'text/plain' } });
+      }
+      return text('target-after');
+    };
+    const result = await invoke(searchProject, { project_id: PROJECT, query: 'target' });
+    expect(result).toMatchObject({
+      matches: [],
+      complete: false,
+      scanned_files: 10,
+      failed_files: 1,
+      skipped_files: 1,
+    });
+    expect(result.issues).toContainEqual({
+      file_id: root.docs[10]?._id,
+      path: 'source-10.tex',
+      reason: 'validation',
+    });
+    expect(result.issues).toContainEqual({
+      file_id: root.docs[11]?._id,
+      path: 'source-11.tex',
+      reason: 'scan_limit',
+    });
+    expect(requests).toHaveLength(11);
+  });
+
   it('surfaces auth/rate limits rather than hiding them as skipped files', async () => {
     route = () => text('expired', 401);
     await expect(invoke(searchProject, { project_id: PROJECT, query: 'text' })).rejects.toMatchObject({
@@ -576,6 +672,8 @@ describe('fresh PDF and same-build diagnostics', () => {
     const result = await invoke(getPdf, { project_id: PROJECT });
     expect(result.success).toBe(false);
     expect(result.pdf_url).toBeNull();
+    expect(result.compilation_requested).toBe(true);
+    expect(result.compilation_ran).toBe(false);
   });
 
   it('refuses to repair an unset main document or submit a compile', async () => {
