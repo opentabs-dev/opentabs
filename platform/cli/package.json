@@ -46,7 +46,7 @@
     "@opentabs-dev/plugin-sdk": "^0.0.115",
     "@opentabs-dev/plugin-tools": "^0.0.115",
     "@opentabs-dev/shared": "^0.0.115",
-    "commander": "^15.0.0",
+    "commander": "^15.1.0",
     "picocolors": "^1.1.1"
   }
 }
