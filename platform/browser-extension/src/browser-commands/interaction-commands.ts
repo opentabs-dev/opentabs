@@ -114,11 +114,15 @@ export const handleBrowserTypeText = async (params: Record<string, unknown>, id:
         if (!isField && !htmlEl.isContentEditable) {
           return { error: `Element is not a text input (found <${tag}>)` };
         }
-        if (isField) {
+        const notEditable = (): string | null => {
+          if (!isField) return htmlEl.isContentEditable ? null : `Element is not editable: ${sel}`;
           const field = el as HTMLInputElement | HTMLTextAreaElement;
-          if (field.disabled) return { error: `Element is disabled: ${sel}` };
-          if (field.readOnly) return { error: `Element is read-only: ${sel}` };
-        }
+          if (field.disabled) return `Element is disabled: ${sel}`;
+          if (field.readOnly) return `Element is read-only: ${sel}`;
+          return null;
+        };
+        const refusal = notEditable();
+        if (refusal) return { error: refusal };
         const hasFocus = (): boolean => {
           const active = (el.getRootNode() as Document | ShadowRoot).activeElement;
           return active === el || (active !== null && el.contains(active));
@@ -149,9 +153,13 @@ export const handleBrowserTypeText = async (params: Record<string, unknown>, id:
           }
         }
 
-        // focus() runs the page's focus handlers, which can move focus: check again right before
-        // inserting. Nothing else runs between this check and the insert.
+        // focus() runs the page's focus handlers, which can move focus or make the field read-only,
+        // disabled or no longer contentEditable. Check both again right before inserting: the
+        // native-setter fallback below would otherwise write to a field the page just locked.
+        // Nothing else runs between these checks and the insert.
         if (!hasFocus()) return { error: `Element lost focus before typing: ${sel}` };
+        const lateRefusal = notEditable();
+        if (lateRefusal) return { error: lateRefusal };
         let inserted = false;
         if (caretPlaced) {
           try {

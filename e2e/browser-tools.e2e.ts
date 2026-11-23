@@ -1490,6 +1490,35 @@ test.describe('browser_type_text', () => {
 
     await mcpClient.callTool('browser_close_tab', { tabId });
   });
+
+  test('types nothing when the page makes the field read-only while focusing it', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_type_text', {
+      tabId,
+      selector: '#readonly-on-focus',
+      text: '.uk',
+      clear: false,
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('read-only');
+
+    const checkResult = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: "return document.getElementById('readonly-on-focus').value",
+    });
+    expect(checkResult.isError).toBe(false);
+    const field = parseToolResult(checkResult.content).value as Record<string, unknown>;
+    expect(field.value).toBe('a@example.com');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
 });
 
 // ---------------------------------------------------------------------------

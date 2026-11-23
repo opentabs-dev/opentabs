@@ -302,6 +302,7 @@ const INTERACTIVE_HTML = `<!DOCTYPE html>
   <input id="email-input" type="email" value="a@example.com" />
   <input id="focus-thief" type="text" placeholder="Moves focus away" />
   <input id="focus-target" type="text" placeholder="Takes focus from the thief" />
+  <input id="readonly-on-focus" type="email" value="a@example.com" />
 
   <!-- Hover target -->
   <div id="hover-target" style="padding:10px;border:1px solid #ccc;">Hover me</div>
@@ -337,6 +338,11 @@ const INTERACTIVE_HTML = `<!DOCTYPE html>
 
     document.getElementById('focus-thief').addEventListener('focus', function() {
       document.getElementById('focus-target').focus();
+    });
+
+    // Keeps focus, but locks itself while focusing (an email input also has no caret positioning)
+    document.getElementById('readonly-on-focus').addEventListener('focus', function() {
+      this.readOnly = true;
     });
 
     // Like React's value tracker: an own 'value' setter remembers what a script last wrote, and an
