@@ -1400,6 +1400,35 @@ test.describe('browser_type_text', () => {
 
     await mcpClient.callTool('browser_close_tab', { tabId });
   });
+
+  test('updates an input whose value setter is tracked, as React does', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_type_text', {
+      tabId,
+      selector: '#controlled-input',
+      text: 'hello',
+    });
+    expect(result.isError).toBe(false);
+    expect(parseToolResult(result.content).value).toBe('hello');
+
+    // The page only updates its state for an edit its tracked setter didn't see.
+    const checkResult = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: "return document.getElementById('controlled-state').textContent",
+    });
+    expect(checkResult.isError).toBe(false);
+    const state = parseToolResult(checkResult.content).value as Record<string, unknown>;
+    expect(state.value).toBe('hello');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -2470,6 +2499,33 @@ test.describe('Browser tools — keyboard input', () => {
     const checkData = parseToolResult(checkResult.content);
     const value = checkData.value as Record<string, unknown>;
     expect(value.value).toBe('Escape');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('browser_press_key types a printable character once', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const pressResult = await mcpClient.callTool('browser_press_key', {
+      tabId,
+      key: 'a',
+      selector: '#test-input',
+    });
+    expect(pressResult.isError).toBe(false);
+
+    const checkResult = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: "return document.getElementById('test-input').value",
+    });
+    expect(checkResult.isError).toBe(false);
+    const value = parseToolResult(checkResult.content).value as Record<string, unknown>;
+    expect(value.value).toBe('a');
 
     await mcpClient.callTool('browser_close_tab', { tabId });
   });

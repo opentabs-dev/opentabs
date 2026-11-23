@@ -96,47 +96,91 @@ export const handleBrowserTypeText = async (params: Record<string, unknown>, id:
     if (text === null) return;
     const clear = typeof params.clear === 'boolean' ? params.clear : true;
 
-    const results = await chrome.scripting.executeScript({
+    // Step 1: focus the element and select what the new text replaces (everything when clearing,
+    // otherwise a caret at the end).
+    const prepResults = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (sel: string, txt: string, clr: boolean) => {
+      func: (sel: string, clr: boolean) => {
         const el = document.querySelector(sel);
         if (!el) return { error: `Element not found: ${sel}` };
         const tag = el.tagName.toLowerCase();
-        const isEditable = tag === 'input' || tag === 'textarea' || (el as HTMLElement).isContentEditable;
-        if (!isEditable) return { error: `Element is not a text input (found <${tag}>)` };
-        if (tag === 'input' || tag === 'textarea') {
-          const input = el as HTMLInputElement | HTMLTextAreaElement;
-          input.focus();
-          input.value = clr ? txt : input.value + txt;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          return { typed: true, tagName: tag, value: input.value };
+        const isField = tag === 'input' || tag === 'textarea';
+        if (!isField && !(el as HTMLElement).isContentEditable) {
+          return { error: `Element is not a text input (found <${tag}>)` };
         }
-        // contentEditable element — insert via Selection/Range API
-        const htmlEl = el as HTMLElement;
-        htmlEl.focus();
-        if (clr) htmlEl.textContent = '';
+        (el as HTMLElement).focus();
+        if (isField) {
+          const input = el as HTMLInputElement | HTMLTextAreaElement;
+          const end = input.value.length;
+          try {
+            if (clr) input.setSelectionRange(0, end);
+            else input.setSelectionRange(end, end);
+          } catch {
+            // Some input types (email, number) don't support selection ranges.
+            if (clr) input.select();
+          }
+          return { tagName: tag };
+        }
         const selection = window.getSelection();
         if (selection) {
-          if (selection.rangeCount === 0) {
-            const range = document.createRange();
-            range.selectNodeContents(htmlEl);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
-          }
-          const range = selection.getRangeAt(0);
-          range.deleteContents();
-          range.insertNode(document.createTextNode(txt));
-          range.collapse(false);
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          if (!clr) range.collapse(false);
           selection.removeAllRanges();
           selection.addRange(range);
         }
-        htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: txt }));
-        return { typed: true, tagName: tag, value: htmlEl.textContent || '' };
+        return { tagName: tag };
       },
-      args: [selector, text, clear],
+      args: [selector, clear],
+    });
+    const prep = extractScriptResult(prepResults, id);
+    if (!prep) return;
+
+    // Step 2: insert the text as a trusted edit. Setting `input.value` from a script is invisible to
+    // React and other frameworks that track the value setter: they keep their own state and re-render
+    // the old value. Input.insertText goes through the browser's editing path, like typing or pasting.
+    let trusted = true;
+    try {
+      await withDebugger(tabId, async () => {
+        await chrome.debugger.sendCommand({ tabId }, 'Input.insertText', { text });
+      });
+    } catch {
+      // The debugger couldn't attach (e.g. DevTools is open): fall back to a script edit below.
+      trusted = false;
+    }
+
+    // Step 3: on fallback, set the value through the prototype's native setter, which React does
+    // notice; then report the final value.
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: (sel: string, txt: string, clr: boolean, wasTrusted: boolean) => {
+        const el = document.querySelector(sel);
+        if (!el) return { error: `Element not found: ${sel}` };
+        const tag = el.tagName.toLowerCase();
+        const isField = tag === 'input' || tag === 'textarea';
+        if (!wasTrusted) {
+          if (isField) {
+            const input = el as HTMLInputElement | HTMLTextAreaElement;
+            const proto = tag === 'input' ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+            const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+            const next = clr ? txt : input.value + txt;
+            if (setter) setter.call(input, next);
+            else input.value = next;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          } else {
+            const htmlEl = el as HTMLElement;
+            if (clr) htmlEl.textContent = '';
+            htmlEl.append(document.createTextNode(txt));
+            htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: txt }));
+          }
+        }
+        if (isField) el.dispatchEvent(new Event('change', { bubbles: true }));
+        const value = isField ? (el as HTMLInputElement | HTMLTextAreaElement).value : el.textContent || '';
+        return { typed: true, tagName: tag, value };
+      },
+      args: [selector, text, clear, trusted],
     });
 
     const result = extractScriptResult(results, id);

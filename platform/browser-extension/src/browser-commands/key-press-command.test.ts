@@ -162,17 +162,18 @@ describe('handleBrowserPressKey — CDP dispatch', () => {
     mockExecuteScript.mockResolvedValueOnce([{ result: { tagName: 'input', id: 'search' } }]);
     await handleBrowserPressKey({ tabId: 42, key: 'a' }, 'req-cdp-2');
 
-    // Printable char: keyDown + char + keyUp (3 calls)
-    expect(mockDebuggerSendCommand).toHaveBeenCalledTimes(3);
+    // Printable char: keyDown (carrying the text) + keyUp. No separate 'char' event, which would
+    // insert the character a second time.
+    expect(mockDebuggerSendCommand).toHaveBeenCalledTimes(2);
 
     const keyDown = mockDebuggerSendCommand.mock.calls[0];
     expect(keyDown?.[2]).toMatchObject({ type: 'keyDown', text: 'a' });
 
-    const char = mockDebuggerSendCommand.mock.calls[1];
-    expect(char?.[2]).toMatchObject({ type: 'char', text: 'a' });
-
-    const keyUp = mockDebuggerSendCommand.mock.calls[2];
+    const keyUp = mockDebuggerSendCommand.mock.calls[1];
     expect(keyUp?.[2]).toMatchObject({ type: 'keyUp' });
+
+    const types = mockDebuggerSendCommand.mock.calls.map(call => (call[2] as { type: string }).type);
+    expect(types).not.toContain('char');
 
     expect(firstSentMessage()).toMatchObject({
       result: { pressed: true, key: 'a', target: { tagName: 'input', id: 'search' } },

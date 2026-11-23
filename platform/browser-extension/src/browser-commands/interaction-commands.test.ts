@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, type Mock, test, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Module mocks — set up before importing handler modules
@@ -18,6 +18,7 @@ vi.mock('../sanitize-error.js', () => ({
 }));
 
 vi.mock('../constants.js', () => ({
+  CDP_VERSION: '1.3',
   DEFAULT_WAIT_TIMEOUT_MS: 10000,
   POLL_INTERVAL_MS: 100,
   DEFAULT_QUERY_LIMIT: 100,
@@ -151,6 +152,73 @@ describe('handleBrowserTypeText', () => {
     expect(firstSentMessage()).toMatchObject({
       error: { code: -32602 },
     });
+  });
+});
+
+describe('handleBrowserTypeText — trusted insert', () => {
+  const debuggerApi = (
+    globalThis as unknown as { chrome: { debugger: { attach: Mock; detach: Mock; sendCommand: Mock } } }
+  ).chrome.debugger;
+
+  /** The args passed to the nth chrome.scripting.executeScript call. */
+  const scriptArgs = (n: number): unknown[] => (mockExecuteScript.mock.calls[n]?.[0] as { args: unknown[] }).args;
+
+  beforeEach(() => {
+    mockSendToServer.mockReset();
+    mockExecuteScript.mockReset();
+    debuggerApi.attach.mockReset().mockResolvedValue(undefined);
+    debuggerApi.detach.mockReset().mockResolvedValue(undefined);
+    debuggerApi.sendCommand.mockReset().mockResolvedValue(undefined);
+  });
+
+  test('focuses and selects, then inserts the text with CDP Input.insertText', async () => {
+    mockExecuteScript
+      .mockResolvedValueOnce([{ result: { tagName: 'input' } }])
+      .mockResolvedValueOnce([{ result: { typed: true, tagName: 'input', value: 'hello' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#input', text: 'hello' }, 'req-15');
+
+    expect(scriptArgs(0)).toEqual(['#input', true]);
+    expect(debuggerApi.sendCommand).toHaveBeenCalledWith({ tabId: 7 }, 'Input.insertText', { text: 'hello' });
+    // The final script only reports the value: the trusted insert already made the edit.
+    expect(scriptArgs(1)).toEqual(['#input', 'hello', true, true]);
+    expect(firstSentMessage()).toMatchObject({
+      id: 'req-15',
+      result: { typed: true, tagName: 'input', value: 'hello' },
+    });
+  });
+
+  test('puts the caret at the end when clear is false', async () => {
+    mockExecuteScript
+      .mockResolvedValueOnce([{ result: { tagName: 'textarea' } }])
+      .mockResolvedValueOnce([{ result: { typed: true, tagName: 'textarea', value: 'ab' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#notes', text: 'b', clear: false }, 'req-16');
+
+    expect(scriptArgs(0)).toEqual(['#notes', false]);
+    expect(scriptArgs(1)).toEqual(['#notes', 'b', false, true]);
+  });
+
+  test('falls back to a script edit when the debugger cannot attach', async () => {
+    debuggerApi.attach.mockRejectedValueOnce(new Error('Another debugger is already attached'));
+    mockExecuteScript
+      .mockResolvedValueOnce([{ result: { tagName: 'input' } }])
+      .mockResolvedValueOnce([{ result: { typed: true, tagName: 'input', value: 'hello' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#input', text: 'hello' }, 'req-17');
+
+    expect(debuggerApi.sendCommand).not.toHaveBeenCalledWith({ tabId: 7 }, 'Input.insertText', expect.anything());
+    expect(scriptArgs(1)).toEqual(['#input', 'hello', true, false]);
+    expect(firstSentMessage()).toMatchObject({ result: { typed: true, value: 'hello' } });
+  });
+
+  test('reports a missing element without inserting anything', async () => {
+    mockExecuteScript.mockResolvedValueOnce([{ result: { error: 'Element not found: #missing' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#missing', text: 'hello' }, 'req-18');
+
+    expect(debuggerApi.sendCommand).not.toHaveBeenCalled();
+    expect(firstSentMessage()).toMatchObject({ error: { message: 'Element not found: #missing' } });
   });
 });
 

@@ -155,7 +155,9 @@ export const handleBrowserPressKey = async (params: Record<string, unknown>, id:
     const printable = isPrintableKeyPress(key, ctrlKey, metaKey);
     const text = printable ? key : key === 'Enter' ? '\r' : key === 'Tab' ? '\t' : '';
 
-    // Dispatch trusted key events via CDP
+    // Dispatch trusted key events via CDP. A keyDown that carries text already inserts the character
+    // (Chrome fires keydown, keypress and input for it), so no separate 'char' event follows: sending
+    // one would type the character a second time.
     await withDebugger(tabId, async () => {
       await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', {
         type: printable ? 'keyDown' : 'rawKeyDown',
@@ -165,16 +167,6 @@ export const handleBrowserPressKey = async (params: Record<string, unknown>, id:
         key,
         text: printable ? text : '',
       });
-      if (printable) {
-        await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', {
-          type: 'char',
-          modifiers: cdpModifiers,
-          windowsVirtualKeyCode: key.charCodeAt(0),
-          code,
-          key,
-          text,
-        });
-      }
       await chrome.debugger.sendCommand({ tabId }, 'Input.dispatchKeyEvent', {
         type: 'keyUp',
         modifiers: cdpModifiers,
