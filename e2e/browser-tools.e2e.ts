@@ -1429,6 +1429,67 @@ test.describe('browser_type_text', () => {
 
     await mcpClient.callTool('browser_close_tab', { tabId });
   });
+
+  test('refuses a disabled input', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_type_text', { tabId, selector: '#disabled-input', text: 'x' });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('disabled');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('appends to an email input, which has no caret positioning', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_type_text', {
+      tabId,
+      selector: '#email-input',
+      text: '.uk',
+      clear: false,
+    });
+    expect(result.isError).toBe(false);
+    expect(parseToolResult(result.content).value).toBe('a@example.com.uk');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
+
+  test('types nothing when the page moves focus away from the field', async ({
+    mcpServer,
+    testServer,
+    extensionContext: _extensionContext,
+    mcpClient,
+  }) => {
+    await initAndListTools(mcpServer, mcpClient);
+    const tabId = await openInteractivePage(mcpClient, testServer);
+
+    const result = await mcpClient.callTool('browser_type_text', { tabId, selector: '#focus-thief', text: 'x' });
+    expect(result.isError).toBe(true);
+    expect(result.content).toContain('focus');
+
+    const checkResult = await mcpClient.callTool('browser_execute_script', {
+      tabId,
+      code: "return document.getElementById('focus-thief').value + '|' + document.getElementById('focus-target').value",
+    });
+    expect(checkResult.isError).toBe(false);
+    const values = parseToolResult(checkResult.content).value as Record<string, unknown>;
+    expect(values.value).toBe('|');
+
+    await mcpClient.callTool('browser_close_tab', { tabId });
+  });
 });
 
 // ---------------------------------------------------------------------------
