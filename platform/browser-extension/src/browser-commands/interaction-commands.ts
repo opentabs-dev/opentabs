@@ -96,6 +96,12 @@ export const handleBrowserTypeText = async (params: Record<string, unknown>, id:
     if (text === null) return;
     const clear = typeof params.clear === 'boolean' ? params.clear : true;
 
+    // Focus the element, select what the new text replaces and insert the text, all in one
+    // synchronous page script. Page code can't run between the focus check and the insert, so the
+    // text can only land in this element. document.execCommand('insertText') goes through the
+    // browser's editing path, like typing or pasting, so React and other frameworks that track the
+    // value setter see the change. Where it isn't supported, or the caret can't be placed for an
+    // append, the prototype's native value setter (which React also notices) is used instead.
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
@@ -103,38 +109,83 @@ export const handleBrowserTypeText = async (params: Record<string, unknown>, id:
         const el = document.querySelector(sel);
         if (!el) return { error: `Element not found: ${sel}` };
         const tag = el.tagName.toLowerCase();
-        const isEditable = tag === 'input' || tag === 'textarea' || (el as HTMLElement).isContentEditable;
-        if (!isEditable) return { error: `Element is not a text input (found <${tag}>)` };
-        if (tag === 'input' || tag === 'textarea') {
-          const input = el as HTMLInputElement | HTMLTextAreaElement;
-          input.focus();
-          input.value = clr ? txt : input.value + txt;
-          input.dispatchEvent(new Event('input', { bubbles: true }));
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-          return { typed: true, tagName: tag, value: input.value };
-        }
-        // contentEditable element — insert via Selection/Range API
+        const isField = tag === 'input' || tag === 'textarea';
         const htmlEl = el as HTMLElement;
+        if (!isField && !htmlEl.isContentEditable) {
+          return { error: `Element is not a text input (found <${tag}>)` };
+        }
+        const notEditable = (): string | null => {
+          if (!isField) return htmlEl.isContentEditable ? null : `Element is not editable: ${sel}`;
+          const field = el as HTMLInputElement | HTMLTextAreaElement;
+          if (field.disabled) return `Element is disabled: ${sel}`;
+          if (field.readOnly) return `Element is read-only: ${sel}`;
+          return null;
+        };
+        const refusal = notEditable();
+        if (refusal) return { error: refusal };
+        const hasFocus = (): boolean => {
+          const active = (el.getRootNode() as Document | ShadowRoot).activeElement;
+          return active === el || (active !== null && el.contains(active));
+        };
         htmlEl.focus();
-        if (clr) htmlEl.textContent = '';
-        const selection = window.getSelection();
-        if (selection) {
-          if (selection.rangeCount === 0) {
+        if (!hasFocus()) return { error: `Element did not take focus: ${sel}` };
+
+        let caretPlaced = true;
+        if (isField) {
+          const field = el as HTMLInputElement | HTMLTextAreaElement;
+          const end = field.value.length;
+          try {
+            if (clr) field.setSelectionRange(0, end);
+            else field.setSelectionRange(end, end);
+          } catch {
+            // Some input types (email, number) don't support selection ranges.
+            if (clr) field.select();
+            else caretPlaced = false;
+          }
+        } else {
+          const selection = window.getSelection();
+          if (selection) {
             const range = document.createRange();
-            range.selectNodeContents(htmlEl);
-            range.collapse(false);
+            range.selectNodeContents(el);
+            if (!clr) range.collapse(false);
             selection.removeAllRanges();
             selection.addRange(range);
           }
-          const range = selection.getRangeAt(0);
-          range.deleteContents();
-          range.insertNode(document.createTextNode(txt));
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
         }
-        htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: txt }));
-        return { typed: true, tagName: tag, value: htmlEl.textContent || '' };
+
+        // focus() runs the page's focus handlers, which can move focus or make the field read-only,
+        // disabled or no longer contentEditable. Check both again right before inserting: the
+        // native-setter fallback below would otherwise write to a field the page just locked.
+        // Nothing else runs between these checks and the insert.
+        if (!hasFocus()) return { error: `Element lost focus before typing: ${sel}` };
+        const lateRefusal = notEditable();
+        if (lateRefusal) return { error: lateRefusal };
+        let inserted = false;
+        if (caretPlaced) {
+          try {
+            inserted = document.execCommand('insertText', false, txt);
+          } catch {
+            inserted = false;
+          }
+        }
+        if (!inserted) {
+          if (isField) {
+            const field = el as HTMLInputElement | HTMLTextAreaElement;
+            const proto = tag === 'input' ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+            const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+            const next = clr ? txt : field.value + txt;
+            if (setter) setter.call(field, next);
+            else field.value = next;
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+          } else {
+            if (clr) htmlEl.textContent = '';
+            htmlEl.append(document.createTextNode(txt));
+            htmlEl.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: txt }));
+          }
+        }
+        if (isField) el.dispatchEvent(new Event('change', { bubbles: true }));
+        const value = isField ? (el as HTMLInputElement | HTMLTextAreaElement).value : el.textContent || '';
+        return { typed: true, tagName: tag, value };
       },
       args: [selector, text, clear],
     });

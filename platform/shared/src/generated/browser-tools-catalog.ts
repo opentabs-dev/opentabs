@@ -415,7 +415,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_press_key',
     description:
-      'Press a keyboard key on the page. Dispatches trusted (isTrusted: true) keyboard events via Chrome DevTools Protocol Input.dispatchKeyEvent. Named keys (Enter, Escape, etc.) dispatch rawKeyDown + keyUp; printable characters dispatch keyDown + char + keyUp. Common use cases: Enter to submit forms, Escape to close modals/dialogs, Tab to move between fields, arrow keys to navigate custom menus/dropdowns, Ctrl+K or Cmd+K for search. Supports Ctrl and Meta (Cmd) as independent modifiers. Uses standard KeyboardEvent.key values.',
+      'Press a keyboard key on the page. Dispatches trusted (isTrusted: true) keyboard events via Chrome DevTools Protocol Input.dispatchKeyEvent. Named keys (Enter, Escape, etc.) dispatch rawKeyDown + keyUp; printable characters dispatch keyDown (carrying the text) + keyUp, so each is typed once. Common use cases: Enter to submit forms, Escape to close modals/dialogs, Tab to move between fields, arrow keys to navigate custom menus/dropdowns, Ctrl+K or Cmd+K for search. Supports Ctrl and Meta (Cmd) as independent modifiers. Uses standard KeyboardEvent.key values.',
     summary: 'Press a keyboard key on the page',
     icon: 'command',
     group: 'Page Interaction',
@@ -527,7 +527,7 @@ export const BROWSER_TOOLS_CATALOG: readonly BrowserToolMeta[] = [
   {
     name: 'browser_type_text',
     description:
-      'Type text into an input field or textarea matching the CSS selector. Focuses the element, optionally clears existing content, sets the value, and dispatches input and change events to trigger any attached event listeners.',
+      "Type text into an input, textarea or contenteditable element matching the CSS selector. In one page script it focuses the element, selects the existing content when clear is true (otherwise puts the caret at the end), and inserts the text with document.execCommand('insertText'), the browser's own editing path, so React and other framework-controlled inputs see it. Where that is unavailable it uses the native value setter plus input and change events. Fails on a disabled, read-only or unfocusable element.",
     summary: 'Type text into an input field',
     icon: 'keyboard',
     group: 'Page Interaction',

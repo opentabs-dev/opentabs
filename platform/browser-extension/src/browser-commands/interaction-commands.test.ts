@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, type Mock, test, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Module mocks — set up before importing handler modules
@@ -18,6 +18,7 @@ vi.mock('../sanitize-error.js', () => ({
 }));
 
 vi.mock('../constants.js', () => ({
+  CDP_VERSION: '1.3',
   DEFAULT_WAIT_TIMEOUT_MS: 10000,
   POLL_INTERVAL_MS: 100,
   DEFAULT_QUERY_LIMIT: 100,
@@ -151,6 +152,63 @@ describe('handleBrowserTypeText', () => {
     expect(firstSentMessage()).toMatchObject({
       error: { code: -32602 },
     });
+  });
+});
+
+describe('handleBrowserTypeText — one page script', () => {
+  const debuggerApi = (
+    globalThis as unknown as { chrome: { debugger: { attach: Mock; detach: Mock; sendCommand: Mock } } }
+  ).chrome.debugger;
+
+  /** The args passed to the nth chrome.scripting.executeScript call. */
+  const scriptArgs = (n: number): unknown[] => (mockExecuteScript.mock.calls[n]?.[0] as { args: unknown[] }).args;
+
+  beforeEach(() => {
+    mockSendToServer.mockReset();
+    mockExecuteScript.mockReset();
+    debuggerApi.attach.mockReset().mockResolvedValue(undefined);
+    debuggerApi.detach.mockReset().mockResolvedValue(undefined);
+    debuggerApi.sendCommand.mockReset().mockResolvedValue(undefined);
+  });
+
+  test('focuses, selects and inserts in a single page script, without the debugger', async () => {
+    mockExecuteScript.mockResolvedValueOnce([{ result: { typed: true, tagName: 'input', value: 'hello' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#input', text: 'hello' }, 'req-15');
+
+    expect(mockExecuteScript).toHaveBeenCalledTimes(1);
+    expect(scriptArgs(0)).toEqual(['#input', 'hello', true]);
+    expect(debuggerApi.attach).not.toHaveBeenCalled();
+    expect(debuggerApi.sendCommand).not.toHaveBeenCalled();
+    expect(firstSentMessage()).toMatchObject({
+      id: 'req-15',
+      result: { typed: true, tagName: 'input', value: 'hello' },
+    });
+  });
+
+  test('passes clear=false to the page script', async () => {
+    mockExecuteScript.mockResolvedValueOnce([{ result: { typed: true, tagName: 'textarea', value: 'ab' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#notes', text: 'b', clear: false }, 'req-16');
+
+    expect(scriptArgs(0)).toEqual(['#notes', 'b', false]);
+    expect(firstSentMessage()).toMatchObject({ result: { value: 'ab' } });
+  });
+
+  test("reports the page script's refusal, such as a disabled field", async () => {
+    mockExecuteScript.mockResolvedValueOnce([{ result: { error: 'Element is disabled: #input' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#input', text: 'hello' }, 'req-17');
+
+    expect(firstSentMessage()).toMatchObject({ error: { message: 'Element is disabled: #input' } });
+  });
+
+  test('reports a missing element', async () => {
+    mockExecuteScript.mockResolvedValueOnce([{ result: { error: 'Element not found: #missing' } }]);
+
+    await handleBrowserTypeText({ tabId: 7, selector: '#missing', text: 'hello' }, 'req-18');
+
+    expect(firstSentMessage()).toMatchObject({ error: { message: 'Element not found: #missing' } });
   });
 });
 

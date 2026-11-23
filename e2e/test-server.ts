@@ -292,6 +292,18 @@ const INTERACTIVE_HTML = `<!DOCTYPE html>
   <!-- Input for Enter key testing (keydown listener detects Enter) -->
   <input id="form-input" type="text" placeholder="Press Enter" />
 
+  <!-- Controlled input that tracks its value the way React does (for browser_type_text) -->
+  <input id="controlled-input" type="text" placeholder="Controlled" />
+  <span id="controlled-state"></span>
+
+  <!-- browser_type_text edge cases: a disabled field, an email field (no caret positioning),
+       and a field whose focus handler moves focus to another field -->
+  <input id="disabled-input" type="text" disabled />
+  <input id="email-input" type="email" value="a@example.com" />
+  <input id="focus-thief" type="text" placeholder="Moves focus away" />
+  <input id="focus-target" type="text" placeholder="Takes focus from the thief" />
+  <input id="readonly-on-focus" type="email" value="a@example.com" />
+
   <!-- Hover target -->
   <div id="hover-target" style="padding:10px;border:1px solid #ccc;">Hover me</div>
 
@@ -323,6 +335,35 @@ const INTERACTIVE_HTML = `<!DOCTYPE html>
     document.getElementById('hover-target').addEventListener('mouseenter', function() {
       window.__hovered = true;
     });
+
+    document.getElementById('focus-thief').addEventListener('focus', function() {
+      document.getElementById('focus-target').focus();
+    });
+
+    // Keeps focus, but locks itself while focusing (an email input also has no caret positioning)
+    document.getElementById('readonly-on-focus').addEventListener('focus', function() {
+      this.readOnly = true;
+    });
+
+    // Like React's value tracker: an own 'value' setter remembers what a script last wrote, and an
+    // input event whose DOM value equals that is treated as no change. Only edits that bypass the
+    // setter (real typing, paste, the native prototype setter) update the state shown in the span.
+    (function() {
+      var input = document.getElementById('controlled-input');
+      var native = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      var tracked = '';
+      Object.defineProperty(input, 'value', {
+        configurable: true,
+        get: function() { return native.get.call(this); },
+        set: function(v) { tracked = String(v); native.set.call(this, v); }
+      });
+      input.addEventListener('input', function() {
+        var current = native.get.call(input);
+        if (current === tracked) return;
+        tracked = current;
+        document.getElementById('controlled-state').textContent = current;
+      });
+    })();
   </script>
 </body>
 </html>`;

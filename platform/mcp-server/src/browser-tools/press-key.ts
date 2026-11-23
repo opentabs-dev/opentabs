@@ -11,7 +11,7 @@ const pressKey = defineBrowserTool({
   description:
     'Press a keyboard key on the page. Dispatches trusted (isTrusted: true) keyboard events via Chrome DevTools ' +
     'Protocol Input.dispatchKeyEvent. Named keys (Enter, Escape, etc.) dispatch rawKeyDown + keyUp; printable ' +
-    'characters dispatch keyDown + char + keyUp. Common use cases: Enter to submit forms, Escape to close ' +
+    'characters dispatch keyDown (carrying the text) + keyUp, so each is typed once. Common use cases: Enter to submit forms, Escape to close ' +
     'modals/dialogs, Tab to move between fields, arrow keys to navigate custom menus/dropdowns, Ctrl+K or Cmd+K ' +
     'for search. Supports Ctrl and Meta (Cmd) as independent modifiers. Uses standard KeyboardEvent.key values.',
   summary: 'Press a keyboard key on the page',
